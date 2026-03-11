@@ -77,12 +77,7 @@ export default function InventoryPage() {
         quantityChange: delta,
         movementType: delta > 0 ? 'purchase' : 'sale',
       });
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === product.id ? { ...p, quantity: (p.quantity ?? 0) + delta } : p
-        )
-      );
-      setLowStock((prev) => prev.map((p) => (p.id === product.id ? { ...p, quantity: (p.quantity ?? 0) + delta } : p)));
+      await fetchProducts();
     } catch (err) {
       setError(err?.message || 'Error al actualizar');
       fetchProducts();
@@ -262,32 +257,55 @@ export default function InventoryPage() {
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
                     {p.sku || '-'}
                   </TableCell>
-                  <TableCell className={`font-semibold ${isLowStock(p) ? 'text-amber-600 bg-amber-50/50' : ''}`}>
-                    {p.quantity ?? 0} {p.unit || 'u'}
-                  </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    {p.min_stock ?? 0}
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-semibold min-w-[2rem] ${isLowStock(p) ? 'text-amber-600' : ''}`}>
+                        {p.quantity ?? 0} {p.unit || 'u'}
+                      </span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleQuickStock(p, 1)}
+                          disabled={quickUpdating === p.id}
+                          className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold text-sm disabled:opacity-50"
+                          title="+1 entrada"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickStock(p, -1)}
+                          disabled={quickUpdating === p.id || (p.quantity ?? 0) <= 0}
+                          className="w-8 h-8 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-bold text-sm disabled:opacity-50"
+                          title="-1 salida"
+                        >
+                          −
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleOpenAdjust(p)}
-                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                        title="Ajustar cantidad"
                       >
-                        Ajustar
+                        ±
                       </button>
+                    </div>
+                  </TableCell>
+                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>{p.min_stock ?? 0}</TableCell>
+                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
+                    <div className="flex gap-3">
                       <button
                         type="button"
                         onClick={() => handleOpenHistory(p)}
-                        className="text-sm text-gray-600 hover:text-gray-800 font-medium"
+                        className="text-sm text-gray-500 hover:text-gray-700"
                       >
                         Historial
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id, p.name)}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        className="text-sm text-gray-500 hover:text-red-600"
                       >
                         Eliminar
                       </button>
@@ -300,66 +318,57 @@ export default function InventoryPage() {
         </DataCard>
       )}
 
-      {/* Modal ajuste de stock */}
+      {/* Modal ajuste rápido — cantidad + Sumar/Restar */}
       {adjustModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !adjustSaving && setAdjustModal(null)}>
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4"
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-gray-900">Ajustar stock — {adjustModal.name}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{adjustModal.name}</h3>
             <p className="text-sm text-gray-500">
               Stock actual: <strong>{adjustModal.quantity ?? 0}</strong> {adjustModal.unit || 'u'}
             </p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad (positivo = entrada, negativo = salida)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
               <input
                 type="number"
+                min="1"
                 value={adjustQty}
-                onChange={(e) => setAdjustQty(parseInt(e.target.value, 10) || 0)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                onChange={(e) => setAdjustQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveAdjust(true);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-center text-lg"
+                autoFocus
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de movimiento</label>
-              <select
-                value={adjustType}
-                onChange={(e) => setAdjustType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-              >
-                {Object.entries(MOVEMENT_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nota (opcional)</label>
-              <input
-                type="text"
-                value={adjustNotes}
-                onChange={(e) => setAdjustNotes(e.target.value)}
-                placeholder="Ej: Recepción proveedor"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-2">
               <button
                 type="button"
                 disabled={adjustSaving}
-                onClick={handleSaveAdjust}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
+                onClick={() => handleSaveAdjust(true)}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium disabled:opacity-50"
               >
-                {adjustSaving ? 'Guardando...' : 'Guardar'}
+                Sumar
               </button>
               <button
                 type="button"
                 disabled={adjustSaving}
-                onClick={() => setAdjustModal(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+                onClick={() => handleSaveAdjust(false)}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50"
               >
-                Cancelar
+                Restar
               </button>
             </div>
+            <button
+              type="button"
+              disabled={adjustSaving}
+              onClick={() => setAdjustModal(null)}
+              className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
