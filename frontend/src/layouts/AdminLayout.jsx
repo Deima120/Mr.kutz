@@ -14,6 +14,7 @@ const adminNavItems = [
   { path: '/services', label: 'Servicios', icon: '✂️' },
   { path: '/barbers', label: 'Barberos', icon: '🧔' },
   { path: '/payments', label: 'Pagos', icon: '💳' },
+  { path: '/sales', label: 'Ventas', icon: '🛒' },
   { path: '/inventory', label: 'Inventario', icon: '📦' },
   { path: '/reports', label: 'Reportes', icon: '📈' },
   { path: '/settings', label: 'Configuración', icon: '⚙️' },
