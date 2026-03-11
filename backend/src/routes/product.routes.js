@@ -40,6 +40,7 @@ router.use(authorize('admin', 'barber'));
 
 router.get('/', productController.getAll);
 router.get('/low-stock', productController.getLowStock);
+router.get('/:id/movements', idParam, validate, productController.getMovements);
 router.get('/:id', idParam, validate, productController.getById);
 router.post('/', createValidation, validate, productController.create);
 router.put('/:id', [idParam, ...updateValidation], validate, productController.update);

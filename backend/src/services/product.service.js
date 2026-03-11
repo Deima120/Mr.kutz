@@ -4,21 +4,27 @@
 
 import pool from '../config/database.js';
 
-export const getAll = async ({ activeOnly = true, lowStockOnly = false } = {}) => {
+export const getAll = async ({ activeOnly = true, lowStockOnly = false, search = '' } = {}) => {
   let query = `
     SELECT p.id, p.name, p.description, p.sku, p.unit, p.min_stock, p.is_active, p.created_at,
-           COALESCE(i.quantity, 0) as quantity
+           COALESCE(i.quantity, 0) as quantity, i.last_updated as stock_updated_at
     FROM products p
     LEFT JOIN inventory i ON p.id = i.product_id
     WHERE 1=1
   `;
   const params = [];
+  let paramIndex = 1;
 
   if (activeOnly) {
     query += ' AND p.is_active = true';
   }
   if (lowStockOnly) {
     query += ' AND COALESCE(i.quantity, 0) <= p.min_stock';
+  }
+  if (search && search.trim()) {
+    query += ` AND (p.name ILIKE $${paramIndex} OR p.sku ILIKE $${paramIndex})`;
+    params.push(`%${search.trim()}%`);
+    paramIndex++;
   }
 
   query += ' ORDER BY p.name';
@@ -29,7 +35,7 @@ export const getAll = async ({ activeOnly = true, lowStockOnly = false } = {}) =
 
 export const getById = async (id) => {
   const result = await pool.query(
-    `SELECT p.*, COALESCE(i.quantity, 0) as quantity
+    `SELECT p.*, COALESCE(i.quantity, 0) as quantity, i.last_updated as stock_updated_at
      FROM products p
      LEFT JOIN inventory i ON p.id = i.product_id
      WHERE p.id = $1`,
@@ -133,4 +139,21 @@ export const updateStock = async (productId, quantityChange, movementType, notes
 export const remove = async (id) => {
   const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING id', [id]);
   return result.rowCount > 0;
+};
+
+/**
+ * Historial de movimientos de un producto
+ */
+export const getMovements = async (productId, limit = 50) => {
+  const result = await pool.query(
+    `SELECT m.id, m.product_id, m.quantity_change, m.movement_type, m.notes, m.created_at,
+            u.email as created_by_email
+     FROM inventory_movements m
+     LEFT JOIN users u ON m.created_by = u.id
+     WHERE m.product_id = $1
+     ORDER BY m.created_at DESC
+     LIMIT $2`,
+    [productId, limit]
+  );
+  return result.rows;
 };

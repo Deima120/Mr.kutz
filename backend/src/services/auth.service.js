@@ -121,7 +121,21 @@ export const login = async (email, password) => {
     throw error;
   }
 
-  const isValidPassword = await bcrypt.compare(password, dbUser.password_hash);
+  if (!dbUser.password_hash) {
+    const error = new Error('Invalid email or password');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  let isValidPassword = false;
+  try {
+    isValidPassword = await bcrypt.compare(password, dbUser.password_hash);
+  } catch (bcryptError) {
+    console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
+    const error = new Error('Invalid email or password');
+    error.statusCode = 401;
+    throw error;
+  }
 
   if (!isValidPassword) {
     const error = new Error('Invalid email or password');
@@ -154,19 +168,21 @@ export const getProfile = async (userId) => {
 
   if (dbUser.role_name === 'client') {
     const clientResult = await pool.query(
-      'SELECT first_name, last_name, phone FROM clients WHERE user_id = $1',
+      'SELECT id as client_id, first_name, last_name, phone FROM clients WHERE user_id = $1',
       [userId]
     );
     if (clientResult.rows[0]) {
-      profile = { ...profile, ...clientResult.rows[0] };
+      const { client_id, ...rest } = clientResult.rows[0];
+      profile = { ...profile, clientId: client_id, ...rest };
     }
   } else if (dbUser.role_name === 'barber') {
     const barberResult = await pool.query(
-      'SELECT first_name, last_name, phone, specialties FROM barbers WHERE user_id = $1',
+      'SELECT id as barber_id, first_name, last_name, phone, specialties FROM barbers WHERE user_id = $1',
       [userId]
     );
     if (barberResult.rows[0]) {
-      profile = { ...profile, ...barberResult.rows[0] };
+      const { barber_id, ...rest } = barberResult.rows[0];
+      profile = { ...profile, barberId: barber_id, ...rest };
     }
   }
 

@@ -1,12 +1,19 @@
 /**
  * Página de listado de clientes
+ * Admin: CRUD. Barber: solo consulta (ver datos).
  */
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import * as clientService from '../../services/clientService';
+import PageHeader from '../../components/admin/PageHeader';
+import DataCard from '../../components/admin/DataCard';
+import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 
 export default function ClientsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -48,103 +55,115 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Clientes</h2>
-        <Link
-          to="/clients/new"
-          className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-        >
-          + Nuevo cliente
-        </Link>
-      </div>
+      <PageHeader
+        title="Clientes"
+        subtitle={total > 0 ? `${total} cliente${total !== 1 ? 's' : ''} registrado${total !== 1 ? 's' : ''}` : 'Consulta de clientes'}
+        actions={
+          isAdmin ? (
+            <Link
+              to="/clients/new"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+            >
+              + Nuevo cliente
+            </Link>
+          ) : null
+        }
+      />
 
-      <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-        <form onSubmit={handleSearch} className="p-4 border-b border-gray-100 flex gap-2">
+      <DataCard>
+        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre, email o teléfono..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+            className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-sm transition-colors"
           >
             Buscar
           </button>
         </form>
 
         {error && (
-          <div className="mx-4 mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="p-12 text-center text-gray-500">Cargando...</div>
+          <div className="py-16 text-center text-gray-500">Cargando...</div>
         ) : clients.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="py-16 text-center text-gray-500">
             No hay clientes registrados.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 text-left text-sm text-gray-600">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Nombre</th>
-                  <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium">Teléfono</th>
-                  <th className="px-4 py-3 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+          <>
+            <Table>
+              <TableHead>
+                <TableHeader>Nombre</TableHeader>
+                <TableHeader>Email</TableHeader>
+                <TableHeader>Teléfono</TableHeader>
+                <TableHeader>Acciones</TableHeader>
+              </TableHead>
+              <TableBody>
                 {clients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                  <TableRow key={client.id}>
+                    <TableCell>
                       <Link
                         to={`/clients/${client.id}`}
                         className="font-medium text-primary-600 hover:text-primary-700"
                       >
                         {client.first_name} {client.last_name}
                       </Link>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{client.email || '-'}</td>
-                    <td className="px-4 py-3 text-gray-600">{client.phone || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                    </TableCell>
+                    <TableCell>{client.email || '-'}</TableCell>
+                    <TableCell>{client.phone || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-3">
                         <Link
-                          to={`/clients/${client.id}/edit`}
-                          className="text-sm text-primary-600 hover:text-primary-700"
+                          to={`/clients/${client.id}`}
+                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
-                          Editar
+                          Ver
                         </Link>
-                        <button
-                          onClick={() =>
-                            handleDelete(
-                              client.id,
-                              `${client.first_name} ${client.last_name}`
-                            )
-                          }
-                          className="text-sm text-red-600 hover:text-red-700"
-                        >
-                          Eliminar
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <Link
+                              to={`/clients/${client.id}/edit`}
+                              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                            >
+                              Editar
+                            </Link>
+                            <button
+                              onClick={() =>
+                                handleDelete(
+                                  client.id,
+                                  `${client.first_name} ${client.last_name}`
+                                )
+                              }
+                              className="text-sm text-red-600 hover:text-red-700 font-medium"
+                            >
+                              Eliminar
+                            </button>
+                          </>
+                        )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+            {total > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-500">
+                Total: {total} cliente{total !== 1 ? 's' : ''}
+              </div>
+            )}
+          </>
         )}
-
-        {total > 0 && (
-          <div className="px-4 py-2 bg-gray-50 text-sm text-gray-600">
-            Total: {total} cliente{total !== 1 ? 's' : ''}
-          </div>
-        )}
-      </div>
+      </DataCard>
     </div>
   );
 }

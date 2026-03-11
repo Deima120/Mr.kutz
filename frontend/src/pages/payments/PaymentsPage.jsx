@@ -5,7 +5,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as paymentService from '../../services/paymentService';
-import * as appointmentService from '../../services/appointmentService';
+import PageHeader from '../../components/admin/PageHeader';
+import StatsCard from '../../components/admin/StatsCard';
+import DataCard from '../../components/admin/DataCard';
+import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -57,104 +60,102 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Pagos y ventas</h2>
-        <Link
-          to="/payments/new"
-          className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium"
-        >
-          + Registrar pago
-        </Link>
-      </div>
+      <PageHeader
+        title="Pagos y ventas"
+        subtitle="Historial de transacciones"
+        actions={
+          <Link
+            to="/payments/new"
+            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+          >
+            + Registrar pago
+          </Link>
+        }
+      />
 
       <div className="flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Desde</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Hasta</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
           />
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="bg-primary-600 text-white rounded-xl p-6">
-          <p className="text-primary-100 text-sm">Total en el periodo</p>
-          <p className="text-2xl font-bold mt-1">{formatAmount(total.total)}</p>
-          <p className="text-primary-200 text-sm mt-1">{total.count} transacciones</p>
-        </div>
-      </div>
+      <StatsCard
+        label="Total en el periodo"
+        value={formatAmount(total.total)}
+        sublabel={`${total.count} transacciones`}
+        variant="primary"
+      />
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-gray-500">Cargando...</div>
+        <DataCard>
+          <div className="py-16 text-center text-gray-500">Cargando...</div>
+        </DataCard>
       ) : payments.length === 0 ? (
-        <div className="bg-white rounded-xl shadow border p-12 text-center text-gray-500">
-          No hay pagos en este periodo.
-        </div>
+        <DataCard>
+          <div className="py-16 text-center text-gray-500">No hay pagos en este periodo.</div>
+        </DataCard>
       ) : (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 text-left text-sm text-gray-600">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Fecha</th>
-                  <th className="px-4 py-3 font-medium">Cliente</th>
-                  <th className="px-4 py-3 font-medium">Servicio</th>
-                  <th className="px-4 py-3 font-medium">Método</th>
-                  <th className="px-4 py-3 font-medium text-right">Monto</th>
-                  <th className="px-4 py-3 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm">
-                      {formatDate(p.created_at)}
-                      {p.start_time && (
-                        <span className="text-gray-500 ml-1">
-                          {formatTime(p.start_time)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {p.client_first_name && p.client_last_name
-                        ? `${p.client_first_name} ${p.client_last_name}`
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{p.service_name || '-'}</td>
-                    <td className="px-4 py-3">{p.payment_method_name || '-'}</td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      {formatAmount(p.amount)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(p.id)}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataCard>
+          <Table>
+            <TableHead>
+              <TableHeader>Fecha</TableHeader>
+              <TableHeader>Cliente</TableHeader>
+              <TableHeader>Servicio</TableHeader>
+              <TableHeader>Método</TableHeader>
+              <TableHeader className="text-right">Monto</TableHeader>
+              <TableHeader></TableHeader>
+            </TableHead>
+            <TableBody>
+              {payments.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="text-sm">
+                    {formatDate(p.created_at)}
+                    {p.start_time && (
+                      <span className="text-gray-500 ml-1">{formatTime(p.start_time)}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {p.client_first_name && p.client_last_name
+                      ? `${p.client_first_name} ${p.client_last_name}`
+                      : '-'}
+                  </TableCell>
+                  <TableCell>{p.service_name || '-'}</TableCell>
+                  <TableCell>{p.payment_method_name || '-'}</TableCell>
+                  <TableCell className="text-right font-semibold text-gray-900">
+                    {formatAmount(p.amount)}
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      className="text-sm text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Eliminar
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataCard>
       )}
     </div>
   );

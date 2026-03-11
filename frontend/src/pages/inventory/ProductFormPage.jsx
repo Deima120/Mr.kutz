@@ -18,6 +18,7 @@ export default function ProductFormPage() {
     minStock: 0,
     isActive: true,
   });
+  const [productMeta, setProductMeta] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,7 +26,8 @@ export default function ProductFormPage() {
     if (isEdit) {
       productService
         .getProductById(id)
-        .then((p) => {
+        .then((res) => {
+          const p = res?.data ?? res;
           setFormData({
             name: p.name || '',
             description: p.description || '',
@@ -33,6 +35,10 @@ export default function ProductFormPage() {
             unit: p.unit || 'unit',
             minStock: p.min_stock ?? 0,
             isActive: p.is_active !== false,
+          });
+          setProductMeta({
+            quantity: p.quantity ?? 0,
+            stockUpdatedAt: p.stock_updated_at,
           });
         })
         .catch(() => setError('Producto no encontrado'));
@@ -154,17 +160,32 @@ export default function ProductFormPage() {
           />
         </div>
 
-        {isEdit && (
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              name="isActive"
-              type="checkbox"
-              checked={formData.isActive}
-              onChange={handleChange}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700">Activo</span>
-          </label>
+        {isEdit && productMeta && (
+          <>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm">
+              <p className="text-gray-600">
+                Stock actual: <strong>{productMeta.quantity}</strong> {formData.unit === 'unit' ? 'unidades' : formData.unit}
+                {productMeta.stockUpdatedAt && (
+                  <span className="text-gray-500 block mt-1">
+                    Última actualización: {new Date(productMeta.stockUpdatedAt).toLocaleString('es-ES')}
+                  </span>
+                )}
+              </p>
+              <p className="text-gray-500 text-xs mt-1">
+                Para cambiar el stock usa la página de inventario y el botón &quot;Ajustar&quot;.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                name="isActive"
+                type="checkbox"
+                checked={formData.isActive}
+                onChange={handleChange}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm text-gray-700">Activo</span>
+            </label>
+          </>
         )}
 
         <div className="flex gap-3 pt-4">

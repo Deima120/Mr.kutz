@@ -7,6 +7,9 @@ import { Link } from 'react-router-dom';
 import * as appointmentService from '../../services/appointmentService';
 import * as barberService from '../../services/barberService';
 import { useAuth } from '../../context/AuthContext';
+import PageHeader from '../../components/admin/PageHeader';
+import DataCard from '../../components/admin/DataCard';
+import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -28,14 +31,24 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const isAdmin = user?.role === 'admin';
+  const isBarber = user?.role === 'barber';
+  const isClient = user?.role === 'client';
+
   const fetchAppointments = async () => {
     setLoading(true);
     setError('');
     try {
       const params = { date: filterDate };
-      if (filterBarber) params.barberId = filterBarber;
+      if (isAdmin && filterBarber) params.barberId = filterBarber;
+      if (isBarber && user?.barberId) params.barberId = user.barberId;
+      if (isClient) {
+        delete params.date;
+        params.clientId = user?.clientId;
+      }
       const data = await appointmentService.getAppointments(params);
-      setAppointments(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      setAppointments(list);
     } catch (err) {
       setError(err?.message || 'Error al cargar citas');
       setAppointments([]);
@@ -45,14 +58,18 @@ export default function AppointmentsPage() {
   };
 
   useEffect(() => {
-    barberService.getBarbers().then((b) => {
-      setBarbers(Array.isArray(b) ? b : []);
-    });
-  }, []);
+    if (isAdmin) {
+      barberService.getBarbers().then((b) => {
+        setBarbers(Array.isArray(b) ? b : b?.data ?? []);
+      });
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
+    if (isBarber && !user?.barberId) return;
+    if (isClient && !user?.clientId) return;
     fetchAppointments();
-  }, [filterDate, filterBarber]);
+  }, [filterDate, filterBarber, user?.barberId, user?.clientId]);
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -67,117 +84,136 @@ export default function AppointmentsPage() {
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
+  const pageTitle = isClient ? 'Mis citas' : isBarber ? 'Mis citas' : 'Citas';
+  const pageSubtitle = isClient
+    ? 'Tus citas y reservas'
+    : isBarber
+    ? 'Tus citas por fecha'
+    : 'Gestión de citas por fecha';
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Citas</h2>
-        <Link
-          to="/appointments/new"
-          className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium"
-        >
-          + Nueva cita
-        </Link>
-      </div>
+      <PageHeader
+        title={pageTitle}
+        subtitle={pageSubtitle}
+        actions={
+          !isClient ? (
+            <Link
+              to="/appointments/new"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+            >
+              + Nueva cita
+            </Link>
+          ) : (
+            <Link
+              to="/appointments/new"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+            >
+              + Agendar cita
+            </Link>
+          )
+        }
+      />
 
-      <div className="flex flex-wrap gap-4 items-center">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Fecha</label>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Barbero</label>
-          <select
-            value={filterBarber}
-            onChange={(e) => setFilterBarber(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">Todos</option>
-            {barbers.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.first_name} {b.last_name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="flex flex-wrap gap-4 items-end">
+        {!isClient && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Fecha</label>
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+        )}
+        {isAdmin && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Barbero</label>
+            <select
+              value={filterBarber}
+              onChange={(e) => setFilterBarber(e.target.value)}
+              className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 min-w-[180px]"
+            >
+              <option value="">Todos</option>
+              {barbers.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.first_name} {b.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-gray-500">Cargando...</div>
+        <DataCard>
+          <div className="py-16 text-center text-gray-500">Cargando...</div>
+        </DataCard>
       ) : appointments.length === 0 ? (
-        <div className="bg-white rounded-xl shadow border p-12 text-center text-gray-500">
-          No hay citas para esta fecha.
-        </div>
+        <DataCard>
+          <div className="py-16 text-center text-gray-500">No hay citas para esta fecha.</div>
+        </DataCard>
       ) : (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 text-left text-sm text-gray-600">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Hora</th>
-                  <th className="px-4 py-3 font-medium">Cliente</th>
-                  <th className="px-4 py-3 font-medium">Barbero</th>
-                  <th className="px-4 py-3 font-medium">Servicio</th>
-                  <th className="px-4 py-3 font-medium">Estado</th>
-                  <th className="px-4 py-3 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {appointments.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">{formatTime(a.start_time)}</td>
-                    <td className="px-4 py-3">
-                      {a.client_first_name} {a.client_last_name}
-                    </td>
-                    <td className="px-4 py-3">
-                      {a.barber_first_name} {a.barber_last_name}
-                    </td>
-                    <td className="px-4 py-3">{a.service_name}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          a.status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : a.status === 'cancelled' || a.status === 'no_show'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-primary-100 text-primary-800'
-                        }`}
+        <DataCard>
+          <Table>
+            <TableHead>
+              <TableHeader>Hora</TableHeader>
+              <TableHeader>Cliente</TableHeader>
+              <TableHeader>Barbero</TableHeader>
+              <TableHeader>Servicio</TableHeader>
+              <TableHeader>Estado</TableHeader>
+              <TableHeader>Acciones</TableHeader>
+            </TableHead>
+            <TableBody>
+              {appointments.map((a) => (
+                <TableRow key={a.id}>
+                  <TableCell className="font-medium">{formatTime(a.start_time)}</TableCell>
+                  <TableCell>
+                    {a.client_first_name} {a.client_last_name}
+                  </TableCell>
+                  <TableCell>
+                    {a.barber_first_name} {a.barber_last_name}
+                  </TableCell>
+                  <TableCell>{a.service_name}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+                        a.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : a.status === 'cancelled' || a.status === 'no_show'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-primary-100 text-primary-800'
+                      }`}
+                    >
+                      {STATUS_LABELS[a.status] || a.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
+                      <select
+                        value={a.status}
+                        onChange={(e) => handleStatusChange(a.id, e.target.value)}
+                        className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500"
                       >
-                        {STATUS_LABELS[a.status] || a.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                        <select
-                          value={a.status}
-                          onChange={(e) =>
-                            handleStatusChange(a.id, e.target.value)
-                          }
-                          className="text-sm border border-gray-300 rounded px-2 py-1"
-                        >
-                          <option value="scheduled">Agendada</option>
-                          <option value="confirmed">Confirmada</option>
-                          <option value="in_progress">En progreso</option>
-                          <option value="completed">Completada</option>
-                          <option value="cancelled">Cancelada</option>
-                          <option value="no_show">No asistió</option>
-                        </select>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                        <option value="scheduled">Agendada</option>
+                        <option value="confirmed">Confirmada</option>
+                        <option value="in_progress">En progreso</option>
+                        <option value="completed">Completada</option>
+                        <option value="cancelled">Cancelada</option>
+                        <option value="no_show">No asistió</option>
+                      </select>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataCard>
       )}
     </div>
   );

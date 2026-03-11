@@ -20,7 +20,8 @@ export const auth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+    const decoded = jwt.verify(token, secret);
 
     // Obtener usuario con rol
     const result = await pool.query(
@@ -36,6 +37,16 @@ export const auth = async (req, res, next) => {
     }
 
     req.user = result.rows[0];
+
+    // Para barber: añadir barber_id; para client: añadir client_id (para forzar filtros en APIs)
+    if (req.user.role_name === 'barber') {
+      const barberRow = await pool.query('SELECT id FROM barbers WHERE user_id = $1', [decoded.userId]);
+      if (barberRow.rows[0]) req.user.barber_id = barberRow.rows[0].id;
+    } else if (req.user.role_name === 'client') {
+      const clientRow = await pool.query('SELECT id FROM clients WHERE user_id = $1', [decoded.userId]);
+      if (clientRow.rows[0]) req.user.client_id = clientRow.rows[0].id;
+    }
+
     next();
   } catch (error) {
     next(error);

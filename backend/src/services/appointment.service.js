@@ -4,12 +4,16 @@
 
 import pool from '../config/database.js';
 
-export const getAll = async ({ date, barberId, clientId, status, limit = 100, offset = 0 }) => {
+export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
   const params = [];
   let paramIndex = 1;
   let where = [];
 
-  if (date) {
+  if (dateFrom && dateTo) {
+    where.push(`a.appointment_date >= $${paramIndex} AND a.appointment_date <= $${paramIndex + 1}`);
+    params.push(dateFrom, dateTo);
+    paramIndex += 2;
+  } else if (date) {
     where.push(`a.appointment_date = $${paramIndex}`);
     params.push(date);
     paramIndex++;
@@ -31,6 +35,7 @@ export const getAll = async ({ date, barberId, clientId, status, limit = 100, of
   }
 
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const orderDir = dateFrom && dateTo ? 'ASC' : 'DESC';
   params.push(limit, offset);
 
   const result = await pool.query(
@@ -43,7 +48,7 @@ export const getAll = async ({ date, barberId, clientId, status, limit = 100, of
      JOIN barbers b ON a.barber_id = b.id
      JOIN services s ON a.service_id = s.id
      ${whereClause}
-     ORDER BY a.appointment_date DESC, a.start_time DESC
+     ORDER BY a.appointment_date ${orderDir}, a.start_time ${orderDir}
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
     params
   );

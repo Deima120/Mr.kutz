@@ -4,7 +4,8 @@
  */
 
 export const errorHandler = (err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Error:', err?.message || err);
+  if (err?.stack) console.error('Stack:', err.stack);
 
   // Error de validación (express-validator)
   if (err.name === 'ValidationError') {

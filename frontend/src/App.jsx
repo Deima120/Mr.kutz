@@ -22,13 +22,25 @@ import PaymentFormPage from './pages/payments/PaymentFormPage';
 import InventoryPage from './pages/inventory/InventoryPage';
 import ProductFormPage from './pages/inventory/ProductFormPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import AgendaPage from './pages/agenda/AgendaPage';
+import HistoryPage from './pages/history/HistoryPage';
+import ReportsPage from './pages/reports/ReportsPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
+
+function HomeOrRedirect() {
+  const { user, isAuthenticated } = useAuth();
+  if (isAuthenticated && (user?.role === 'admin' || user?.role === 'barber')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <HomePage />;
+}
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<MainLayout />}>
-        <Route index element={<HomePage />} />
+        <Route index element={<HomeOrRedirect />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route
@@ -42,7 +54,7 @@ function App() {
         <Route
           path="clients/new"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ClientFormPage />
             </ProtectedRoute>
           }
@@ -58,7 +70,7 @@ function App() {
         <Route
           path="clients/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ClientFormPage />
             </ProtectedRoute>
           }
@@ -66,7 +78,7 @@ function App() {
         <Route
           path="services"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ServicesPage />
             </ProtectedRoute>
           }
@@ -74,7 +86,7 @@ function App() {
         <Route
           path="services/new"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ServiceFormPage />
             </ProtectedRoute>
           }
@@ -82,7 +94,7 @@ function App() {
         <Route
           path="services/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ServiceFormPage />
             </ProtectedRoute>
           }
@@ -90,7 +102,7 @@ function App() {
         <Route
           path="barbers"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <BarbersPage />
             </ProtectedRoute>
           }
@@ -122,7 +134,7 @@ function App() {
         <Route
           path="appointments/new"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin', 'barber', 'client']}>
               <AppointmentFormPage />
             </ProtectedRoute>
           }
@@ -130,7 +142,7 @@ function App() {
         <Route
           path="payments"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <PaymentsPage />
             </ProtectedRoute>
           }
@@ -138,7 +150,7 @@ function App() {
         <Route
           path="payments/new"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <PaymentFormPage />
             </ProtectedRoute>
           }
@@ -146,7 +158,7 @@ function App() {
         <Route
           path="inventory"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <InventoryPage />
             </ProtectedRoute>
           }
@@ -154,7 +166,7 @@ function App() {
         <Route
           path="inventory/new"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ProductFormPage />
             </ProtectedRoute>
           }
@@ -162,7 +174,7 @@ function App() {
         <Route
           path="inventory/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'barber']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <ProductFormPage />
             </ProtectedRoute>
           }
@@ -172,6 +184,30 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'barber']}>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="agenda"
+          element={
+            <ProtectedRoute allowedRoles={['barber']}>
+              <AgendaPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="history"
+          element={
+            <ProtectedRoute allowedRoles={['barber']}>
+              <HistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="reports"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ReportsPage />
             </ProtectedRoute>
           }
         />

@@ -8,7 +8,8 @@ export const getAll = async (req, res, next) => {
   try {
     const activeOnly = req.query.active !== 'false';
     const lowStockOnly = req.query.lowStock === 'true';
-    const products = await productService.getAll({ activeOnly, lowStockOnly });
+    const search = req.query.search || '';
+    const products = await productService.getAll({ activeOnly, lowStockOnly, search });
     res.json({ success: true, data: products });
   } catch (error) {
     next(error);
@@ -80,6 +81,16 @@ export const updateStock = async (req, res, next) => {
       message: 'Stock updated successfully',
       data: product,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMovements = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const movements = await productService.getMovements(req.params.id, limit);
+    res.json({ success: true, data: movements });
   } catch (error) {
     next(error);
   }

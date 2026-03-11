@@ -52,10 +52,19 @@ export function AuthProvider({ children }) {
         const profile = await authService.getProfile();
         setUser(profile);
         localStorage.setItem(USER_KEY, JSON.stringify(profile));
-      } catch {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        setUser(null);
+      } catch (err) {
+        const msg = err?.message || String(err);
+        const isAuthError = msg?.includes('401') || msg?.includes('token') || msg?.includes('Invalid') || msg?.includes('Access denied');
+        if (isAuthError) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setUser(null);
+        } else {
+          try {
+            const parsed = JSON.parse(storedUser);
+            if (parsed?.id && parsed?.role) setUser(parsed);
+          } catch (_) {}
+        }
       } finally {
         setLoading(false);
       }

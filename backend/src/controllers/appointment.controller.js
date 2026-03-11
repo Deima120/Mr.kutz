@@ -6,9 +6,17 @@ import * as appointmentService from '../services/appointment.service.js';
 
 export const getAll = async (req, res, next) => {
   try {
-    const { date, barberId, clientId, status, limit, offset } = req.query;
+    let { date, dateFrom, dateTo, barberId, clientId, status, limit, offset } = req.query;
+    if (req.user.role_name === 'barber' && req.user.barber_id) {
+      barberId = String(req.user.barber_id);
+    }
+    if (req.user.role_name === 'client' && req.user.client_id) {
+      clientId = String(req.user.client_id);
+    }
     const appointments = await appointmentService.getAll({
       date,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
       barberId,
       clientId,
       status,
@@ -48,7 +56,11 @@ export const getAvailableSlots = async (req, res, next) => {
 
 export const create = async (req, res, next) => {
   try {
-    const appointment = await appointmentService.create(req.body);
+    const body = { ...req.body };
+    if (req.user.role_name === 'client' && req.user.client_id) {
+      body.clientId = req.user.client_id;
+    }
+    const appointment = await appointmentService.create(body);
     res.status(201).json({
       success: true,
       message: 'Appointment created successfully',
