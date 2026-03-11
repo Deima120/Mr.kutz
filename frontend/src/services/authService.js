@@ -12,7 +12,8 @@ const AUTH_BASE = '/auth';
  */
 export const register = async (data) => {
   const response = await api.post(`${AUTH_BASE}/register`, data);
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };
 
 /**
@@ -22,7 +23,8 @@ export const register = async (data) => {
  */
 export const login = async (email, password) => {
   const response = await api.post(`${AUTH_BASE}/login`, { email, password });
-  return response?.data ?? response;
+  const data = response?.data ?? response;
+  return data?.data ?? data;
 };
 
 /**
@@ -30,5 +32,6 @@ export const login = async (email, password) => {
  */
 export const getProfile = async () => {
   const response = await api.get(`${AUTH_BASE}/me`);
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };

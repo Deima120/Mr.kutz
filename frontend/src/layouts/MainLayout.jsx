@@ -5,10 +5,12 @@
 
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import AdminLayout from './AdminLayout';
 
 export default function MainLayout() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { businessName } = useSettings();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -29,7 +31,7 @@ export default function MainLayout() {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-              <span className="text-2xl font-bold tracking-tight text-white">Mr. Kutz</span>
+              <span className="text-2xl font-bold tracking-tight text-white">{businessName}</span>
               <span className="text-gray-400 text-sm hidden sm:inline">| Estilo y precisión</span>
             </Link>
 
@@ -87,7 +89,7 @@ export default function MainLayout() {
         <div className="container mx-auto px-4 py-10">
           <div className="grid gap-8 md:grid-cols-3 text-center md:text-left">
             <div>
-              <h3 className="text-white font-bold text-lg mb-2">Mr. Kutz</h3>
+              <h3 className="text-white font-bold text-lg mb-2">{businessName}</h3>
               <p className="text-sm">
                 Estilo y precisión en cada corte. Gestión de citas, servicios y experiencia de barbería en un solo lugar.
               </p>
@@ -106,7 +108,7 @@ export default function MainLayout() {
             </div>
           </div>
           <div className="border-t border-gray-700 mt-8 pt-6 text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} Mr. Kutz. Todos los derechos reservados.
+            © {new Date().getFullYear()} {businessName}. Todos los derechos reservados.
           </div>
         </div>
       </footer>

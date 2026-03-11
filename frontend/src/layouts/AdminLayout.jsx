@@ -5,6 +5,7 @@
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const adminNavItems = [
   { path: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -15,6 +16,7 @@ const adminNavItems = [
   { path: '/payments', label: 'Pagos', icon: '💳' },
   { path: '/inventory', label: 'Inventario', icon: '📦' },
   { path: '/reports', label: 'Reportes', icon: '📈' },
+  { path: '/settings', label: 'Configuración', icon: '⚙️' },
 ];
 
 const barberNavItems = [
@@ -27,6 +29,7 @@ const barberNavItems = [
 
 export default function AdminLayout({ children }) {
   const { user, logout } = useAuth();
+  const { businessName } = useSettings();
   const isAdmin = user?.role === 'admin';
   const navItems = isAdmin ? adminNavItems : barberNavItems;
   const navigate = useNavigate();
@@ -43,7 +46,7 @@ export default function AdminLayout({ children }) {
       <aside className="w-64 bg-barber-dark text-white flex flex-col fixed h-full">
         <div className="p-6 border-b border-gray-700">
           <Link to="/dashboard" className="block">
-            <h1 className="text-xl font-bold tracking-tight">Mr. Kutz</h1>
+            <h1 className="text-xl font-bold tracking-tight">{businessName}</h1>
             <p className="text-gray-400 text-xs mt-0.5">{isAdmin ? 'Panel de administración' : 'Panel del barbero'}</p>
           </Link>
         </div>
@@ -98,7 +101,7 @@ export default function AdminLayout({ children }) {
         <header className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-black">
-              {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || 'Mr. Kutz'}
+              {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
             </h2>
           </div>
         </header>

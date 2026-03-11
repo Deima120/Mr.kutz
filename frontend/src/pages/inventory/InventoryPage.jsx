@@ -42,8 +42,8 @@ export default function InventoryPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const params = { active: showInactive ? 'false' : undefined };
@@ -58,10 +58,12 @@ export default function InventoryPage() {
       setLowStock(Array.isArray(lowData) ? lowData : (lowData?.data ?? []));
     } catch (err) {
       setError(err?.message || 'Error al cargar inventario');
-      setProducts([]);
-      setLowStock([]);
+      if (!silent) {
+        setProducts([]);
+        setLowStock([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -77,7 +79,7 @@ export default function InventoryPage() {
         quantityChange: delta,
         movementType: delta > 0 ? 'purchase' : 'sale',
       });
-      await fetchProducts();
+      await fetchProducts(true);
     } catch (err) {
       setError(err?.message || 'Error al actualizar');
       fetchProducts();

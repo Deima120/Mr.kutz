@@ -1,11 +1,11 @@
 /**
- * Middleware de autenticación y autorización
+ * Middleware de autenticación y autorización (Prisma)
  * - auth: Verifica JWT
  * - authorize: Verifica roles permitidos
  */
 
 import jwt from 'jsonwebtoken';
-import pool from '../config/database.js';
+import prisma from '../config/database.js';
 
 /**
  * Verifica que el token JWT sea válido
@@ -14,7 +14,7 @@ import pool from '../config/database.js';
 export const auth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
     }
@@ -23,28 +23,33 @@ export const auth = async (req, res, next) => {
     const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production';
     const decoded = jwt.verify(token, secret);
 
-    // Obtener usuario con rol
-    const result = await pool.query(
-      `SELECT u.id, u.email, u.role_id, u.is_active, r.name as role_name 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.id 
-       WHERE u.id = $1`,
-      [decoded.userId]
-    );
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      include: { role: true },
+    });
 
-    if (result.rows.length === 0 || !result.rows[0].is_active) {
+    if (!user || !user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or inactive.' });
     }
 
-    req.user = result.rows[0];
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role_id: user.roleId,
+      is_active: user.isActive,
+      role_name: user.role?.name,
+    };
 
-    // Para barber: añadir barber_id; para client: añadir client_id (para forzar filtros en APIs)
-    if (req.user.role_name === 'barber') {
-      const barberRow = await pool.query('SELECT id FROM barbers WHERE user_id = $1', [decoded.userId]);
-      if (barberRow.rows[0]) req.user.barber_id = barberRow.rows[0].id;
-    } else if (req.user.role_name === 'client') {
-      const clientRow = await pool.query('SELECT id FROM clients WHERE user_id = $1', [decoded.userId]);
-      if (clientRow.rows[0]) req.user.client_id = clientRow.rows[0].id;
+    if (user.role?.name === 'barber') {
+      const barber = await prisma.barber.findUnique({
+        where: { userId: user.id },
+      });
+      if (barber) req.user.barber_id = barber.id;
+    } else if (user.role?.name === 'client') {
+      const client = await prisma.client.findUnique({
+        where: { userId: user.id },
+      });
+      if (client) req.user.client_id = client.id;
     }
 
     next();

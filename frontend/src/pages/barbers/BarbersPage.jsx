@@ -24,7 +24,7 @@ export default function BarbersPage() {
       const data = await barberService.getBarbers({
         active: showInactive ? 'false' : undefined,
       });
-      setBarbers(Array.isArray(data) ? data : data?.barbers || []);
+      setBarbers(Array.isArray(data) ? data : data?.data ?? data?.barbers ?? []);
     } catch (err) {
       setError(err?.message || 'Error al cargar barberos');
       setBarbers([]);
@@ -110,12 +110,20 @@ export default function BarbersPage() {
                   )}
                 </div>
                 {isAdmin && (
-                  <Link
-                    to={`/barbers/${b.id}/edit`}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium shrink-0"
-                  >
-                    Editar
-                  </Link>
+                  <div className="flex gap-2 shrink-0">
+                    <Link
+                      to={`/barbers/${b.id}/schedules`}
+                      className="text-sm text-gray-600 hover:text-gray-800 font-medium"
+                    >
+                      Horarios
+                    </Link>
+                    <Link
+                      to={`/barbers/${b.id}/edit`}
+                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      Editar
+                    </Link>
+                  </div>
                 )}
               </div>
             </DataCard>

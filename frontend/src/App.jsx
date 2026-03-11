@@ -15,6 +15,7 @@ import ServicesPage from './pages/services/ServicesPage';
 import ServiceFormPage from './pages/services/ServiceFormPage';
 import BarbersPage from './pages/barbers/BarbersPage';
 import BarberFormPage from './pages/barbers/BarberFormPage';
+import BarberSchedulesPage from './pages/barbers/BarberSchedulesPage';
 import AppointmentsPage from './pages/appointments/AppointmentsPage';
 import AppointmentFormPage from './pages/appointments/AppointmentFormPage';
 import PaymentsPage from './pages/payments/PaymentsPage';
@@ -25,6 +26,7 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import AgendaPage from './pages/agenda/AgendaPage';
 import HistoryPage from './pages/history/HistoryPage';
 import ReportsPage from './pages/reports/ReportsPage';
+import SettingsPage from './pages/settings/SettingsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
@@ -112,6 +114,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <BarberFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="barbers/:id/schedules"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <BarberSchedulesPage />
             </ProtectedRoute>
           }
         />
@@ -208,6 +218,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <ReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

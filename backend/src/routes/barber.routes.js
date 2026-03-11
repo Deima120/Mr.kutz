@@ -30,6 +30,28 @@ const updateValidation = [
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid barber ID');
 
+const schedulesValidation = [
+  body('schedules')
+    .isArray()
+    .withMessage('schedules must be an array'),
+  body('schedules.*.dayOfWeek')
+    .isInt({ min: 0, max: 6 })
+    .withMessage('dayOfWeek 0-6'),
+  body('schedules.*.startTime')
+    .optional()
+    .trim()
+    .matches(/^\d{1,2}:\d{2}$/)
+    .withMessage('startTime HH:MM'),
+  body('schedules.*.endTime')
+    .optional()
+    .trim()
+    .matches(/^\d{1,2}:\d{2}$/)
+    .withMessage('endTime HH:MM'),
+  body('schedules.*.isAvailable')
+    .optional()
+    .isBoolean(),
+];
+
 router.use(auth);
 
 router.get('/', authorize('admin', 'barber'), barberController.getAll);
@@ -38,6 +60,6 @@ router.get('/:id', authorize('admin', 'barber'), idParam, validate, barberContro
 
 router.post('/', authorize('admin'), createValidation, validate, barberController.create);
 router.put('/:id', authorize('admin'), [idParam, ...updateValidation], validate, barberController.update);
-router.put('/:id/schedules', authorize('admin'), [idParam], validate, barberController.updateSchedules);
+router.put('/:id/schedules', authorize('admin'), [idParam, ...schedulesValidation], validate, barberController.updateSchedules);
 
 export default router;

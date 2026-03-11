@@ -3,12 +3,14 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useSettings } from '../../context/SettingsContext';
 import * as dashboardService from '../../services/dashboardService';
 import PageHeader from '../../components/admin/PageHeader';
 import StatsCard from '../../components/admin/StatsCard';
 import DataCard from '../../components/admin/DataCard';
 
 export default function ReportsPage() {
+  const { businessName } = useSettings();
   const [stats, setStats] = useState(null);
   const [dateFrom, setDateFrom] = useState(
     new Date(new Date().setDate(1)).toISOString().slice(0, 10)
@@ -35,7 +37,7 @@ export default function ReportsPage() {
   const handleExportCSV = () => {
     if (!stats) return;
     const lines = [
-      'Reporte Mr. Kutz',
+      `Reporte ${businessName}`,
       `Periodo,${dateFrom},${dateTo}`,
       '',
       'Resumen',

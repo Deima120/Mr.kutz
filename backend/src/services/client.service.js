@@ -1,120 +1,132 @@
 /**
- * Client Service - Lógica de negocio de gestión de clientes
+ * Client Service - Gestión de clientes (Prisma)
  */
 
-import pool from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
-/**
- * Obtiene lista de clientes con paginación y búsqueda opcional
- */
 export const getAll = async ({ search, limit = 50, offset = 0 }) => {
-  const params = [];
-  let paramIndex = 1;
-  let whereClause = '';
+  const where = search?.trim()
+    ? {
+        OR: [
+          { firstName: { contains: search.trim(), mode: 'insensitive' } },
+          { lastName: { contains: search.trim(), mode: 'insensitive' } },
+          { email: { contains: search.trim(), mode: 'insensitive' } },
+          { phone: { contains: search.trim(), mode: 'insensitive' } },
+        ],
+      }
+    : {};
 
-  if (search?.trim()) {
-    const searchTerm = `%${search.trim()}%`;
-    whereClause = ` AND (c.first_name ILIKE $${paramIndex} OR c.last_name ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex} OR c.phone ILIKE $${paramIndex})`;
-    params.push(searchTerm);
-    paramIndex++;
-  }
+  const [clients, total] = await Promise.all([
+    prisma.client.findMany({
+      where,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      take: limit,
+      skip: offset,
+      select: {
+        id: true,
+        userId: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        email: true,
+        notes: true,
+        createdAt: true,
+      },
+    }),
+    prisma.client.count({ where }),
+  ]);
 
-  const countResult = await pool.query(
-    `SELECT COUNT(*)::int as total FROM clients c WHERE 1=1${whereClause}`,
-    params
-  );
-
-  params.push(limit, offset);
-  const result = await pool.query(
-    `SELECT c.id, c.user_id, c.first_name, c.last_name, c.phone, c.email, c.notes, c.created_at
-     FROM clients c WHERE 1=1${whereClause}
-     ORDER BY c.last_name, c.first_name
-     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
-  );
-
-  return {
-    clients: result.rows,
-    total: countResult.rows[0]?.total || 0,
-    limit,
-    offset,
-  };
+  const mapped = clients.map((c) => ({
+    id: c.id,
+    user_id: c.userId,
+    first_name: c.firstName,
+    last_name: c.lastName,
+    phone: c.phone,
+    email: c.email,
+    notes: c.notes,
+    created_at: c.createdAt,
+  }));
+  return { clients: mapped, total, limit, offset };
 };
 
-/**
- * Obtiene un cliente por ID
- */
+const toSnake = (c) =>
+  c
+    ? {
+        id: c.id,
+        user_id: c.userId,
+        first_name: c.firstName,
+        last_name: c.lastName,
+        phone: c.phone,
+        email: c.email,
+        notes: c.notes,
+        created_at: c.createdAt,
+        updated_at: c.updatedAt,
+      }
+    : null;
+
 export const getById = async (id) => {
-  const result = await pool.query(
-    `SELECT id, user_id, first_name, last_name, phone, email, notes, created_at, updated_at
-     FROM clients WHERE id = $1`,
-    [id]
-  );
-  return result.rows[0] || null;
+  const client = await prisma.client.findUnique({
+    where: { id: parseInt(id, 10) },
+  });
+  return toSnake(client);
 };
 
-/**
- * Crea un nuevo cliente
- */
 export const create = async (data) => {
-  const { firstName, lastName, phone, email, notes, userId } = data;
-
-  const result = await pool.query(
-    `INSERT INTO clients (first_name, last_name, phone, email, notes, user_id)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, user_id, first_name, last_name, phone, email, notes, created_at`,
-    [firstName, lastName || null, phone || null, email || null, notes || null, userId || null]
-  );
-
-  return result.rows[0];
+  const client = await prisma.client.create({
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone || null,
+      email: data.email || null,
+      notes: data.notes || null,
+      userId: data.userId ? parseInt(data.userId, 10) : null,
+    },
+  });
+  return toSnake(client);
 };
 
-/**
- * Actualiza un cliente
- */
 export const update = async (id, data) => {
-  const { firstName, lastName, phone, email, notes } = data;
-
-  const result = await pool.query(
-    `UPDATE clients SET
-       first_name = COALESCE($2, first_name),
-       last_name = COALESCE($3, last_name),
-       phone = COALESCE($4, phone),
-       email = COALESCE($5, email),
-       notes = COALESCE($6, notes),
-       updated_at = CURRENT_TIMESTAMP
-     WHERE id = $1
-     RETURNING id, user_id, first_name, last_name, phone, email, notes, created_at, updated_at`,
-    [id, firstName, lastName, phone, email, notes]
-  );
-
-  return result.rows[0] || null;
+  const client = await prisma.client.update({
+    where: { id: parseInt(id, 10) },
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      email: data.email,
+      notes: data.notes,
+    },
+  });
+  return toSnake(client);
 };
 
-/**
- * Elimina un cliente
- */
 export const remove = async (id) => {
-  const result = await pool.query('DELETE FROM clients WHERE id = $1 RETURNING id', [id]);
-  return result.rowCount > 0;
+  await prisma.client.delete({
+    where: { id: parseInt(id, 10) },
+  });
+  return true;
 };
 
-/**
- * Obtiene historial de servicios/citas de un cliente
- */
 export const getServiceHistory = async (clientId) => {
-  const result = await pool.query(
-    `SELECT a.id, a.appointment_date, a.start_time, a.end_time, a.status, a.notes,
-            s.name as service_name, s.price, s.duration_minutes,
-            b.first_name as barber_first_name, b.last_name as barber_last_name
-     FROM appointments a
-     JOIN services s ON a.service_id = s.id
-     JOIN barbers b ON a.barber_id = b.id
-     WHERE a.client_id = $1
-     ORDER BY a.appointment_date DESC, a.start_time DESC
-     LIMIT 100`,
-    [clientId]
-  );
-
-  return result.rows;
+  const appointments = await prisma.appointment.findMany({
+    where: { clientId: parseInt(clientId, 10) },
+    include: {
+      service: { select: { name: true, price: true, durationMinutes: true } },
+      barber: { select: { firstName: true, lastName: true } },
+    },
+    orderBy: [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
+    take: 100,
+  });
+  return appointments.map((a) => ({
+    id: a.id,
+    appointment_date: a.appointmentDate,
+    start_time: a.startTime,
+    end_time: a.endTime,
+    status: a.status,
+    notes: a.notes,
+    service_name: a.service.name,
+    price: a.service.price,
+    duration_minutes: a.service.durationMinutes,
+    barber_first_name: a.barber.firstName,
+    barber_last_name: a.barber.lastName,
+  }));
 };

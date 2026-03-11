@@ -1,142 +1,152 @@
 /**
- * Barber Service - Gestión de barberos
+ * Barber Service - Gestión de barberos (Prisma)
  */
 
 import bcrypt from 'bcryptjs';
-import pool from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 const SALT_ROUNDS = 10;
 
 export const getAll = async ({ activeOnly = true } = {}) => {
-  const result = await pool.query(
-    `SELECT b.id, b.user_id, b.first_name, b.last_name, b.phone, b.specialties, b.is_active, b.created_at,
-            u.email
-     FROM barbers b
-     JOIN users u ON b.user_id = u.id
-     ${activeOnly ? 'WHERE b.is_active = true' : ''}
-     ORDER BY b.last_name, b.first_name`
-  );
-  return result.rows;
+  const barbers = await prisma.barber.findMany({
+    where: activeOnly ? { isActive: true } : {},
+    include: { user: { select: { email: true } } },
+    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+  });
+  return barbers.map((b) => ({
+    id: b.id,
+    user_id: b.userId,
+    first_name: b.firstName,
+    last_name: b.lastName,
+    phone: b.phone,
+    specialties: b.specialties,
+    is_active: b.isActive,
+    created_at: b.createdAt,
+    email: b.user.email,
+  }));
 };
 
 export const getById = async (id) => {
-  const result = await pool.query(
-    `SELECT b.id, b.user_id, b.first_name, b.last_name, b.phone, b.specialties, b.is_active, b.created_at, b.updated_at,
-            u.email
-     FROM barbers b
-     JOIN users u ON b.user_id = u.id
-     WHERE b.id = $1`,
-    [id]
-  );
-  return result.rows[0] || null;
+  const barber = await prisma.barber.findUnique({
+    where: { id: parseInt(id, 10) },
+    include: { user: { select: { email: true } } },
+  });
+  if (!barber) return null;
+  return {
+    ...barber,
+    email: barber.user.email,
+  };
 };
 
 export const getSchedules = async (barberId) => {
-  const result = await pool.query(
-    `SELECT id, day_of_week, start_time, end_time, is_available
-     FROM barber_schedules
-     WHERE barber_id = $1
-     ORDER BY day_of_week`,
-    [barberId]
-  );
-  return result.rows;
+  const schedules = await prisma.barberSchedule.findMany({
+    where: { barberId: parseInt(barberId, 10) },
+    orderBy: { dayOfWeek: 'asc' },
+  });
+  return schedules.map((s) => ({
+    id: s.id,
+    day_of_week: s.dayOfWeek,
+    start_time: s.startTime,
+    end_time: s.endTime,
+    is_available: s.isAvailable,
+  }));
 };
 
 export const create = async (data) => {
   const { email, password, firstName, lastName, phone, specialties } = data;
-  const client = await pool.connect();
 
-  try {
-    const existing = await client.query('SELECT id FROM users WHERE email = $1', [
-      email.toLowerCase(),
-    ]);
-    if (existing.rows.length > 0) {
-      const err = new Error('Email already registered');
-      err.statusCode = 409;
-      throw err;
-    }
-
-    const roleResult = await client.query(
-      "SELECT id FROM roles WHERE name = 'barber'"
-    );
-    if (roleResult.rows.length === 0) {
-      const err = new Error('Barber role not found');
-      err.statusCode = 500;
-      throw err;
-    }
-
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-
-    await client.query('BEGIN');
-
-    const userResult = await client.query(
-      `INSERT INTO users (email, password_hash, role_id)
-       VALUES ($1, $2, $3)
-       RETURNING id, email`,
-      [email.toLowerCase(), passwordHash, roleResult.rows[0].id]
-    );
-    const user = userResult.rows[0];
-
-    const barberResult = await client.query(
-      `INSERT INTO barbers (user_id, first_name, last_name, phone, specialties)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, user_id, first_name, last_name, phone, specialties, is_active, created_at`,
-      [user.id, firstName, lastName, phone || null, specialties || []]
-    );
-
-    await client.query('COMMIT');
-
-    return {
-      ...barberResult.rows[0],
-      email: user.email,
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
+  const existing = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+  if (existing) {
+    const err = new Error('Email already registered');
+    err.statusCode = 409;
+    throw err;
   }
+
+  const role = await prisma.role.findUnique({
+    where: { name: 'barber' },
+  });
+  if (!role) {
+    const err = new Error('Barber role not found');
+    err.statusCode = 500;
+    throw err;
+  }
+
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email: email.toLowerCase(),
+        passwordHash,
+        roleId: role.id,
+      },
+    });
+    const barber = await tx.barber.create({
+      data: {
+        userId: user.id,
+        firstName,
+        lastName,
+        phone: phone || null,
+        specialties: specialties || [],
+      },
+    });
+    return { barber, user };
+  });
+
+  return {
+    id: result.barber.id,
+    user_id: result.barber.userId,
+    first_name: result.barber.firstName,
+    last_name: result.barber.lastName,
+    phone: result.barber.phone,
+    specialties: result.barber.specialties,
+    is_active: result.barber.isActive,
+    created_at: result.barber.createdAt,
+    email: result.user.email,
+  };
 };
 
 export const update = async (id, data) => {
-  const { firstName, lastName, phone, specialties, isActive } = data;
-  const result = await pool.query(
-    `UPDATE barbers SET
-       first_name = COALESCE($2, first_name),
-       last_name = COALESCE($3, last_name),
-       phone = COALESCE($4, phone),
-       specialties = COALESCE($5, specialties),
-       is_active = COALESCE($6, is_active),
-       updated_at = CURRENT_TIMESTAMP
-     WHERE id = $1
-     RETURNING id, user_id, first_name, last_name, phone, specialties, is_active, created_at, updated_at`,
-    [id, firstName, lastName, phone, specialties, isActive]
-  );
+  const barber = await prisma.barber.update({
+    where: { id: parseInt(id, 10) },
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      specialties: data.specialties,
+      isActive: data.isActive,
+    },
+    include: { user: { select: { email: true } } },
+  });
+  return {
+    ...barber,
+    email: barber.user.email,
+  };
+};
 
-  if (result.rows.length === 0) return null;
-
-  const barber = result.rows[0];
-  const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [
-    barber.user_id,
-  ]);
-  return { ...barber, email: userResult.rows[0]?.email };
+const toTimeDate = (s) => {
+  if (!s) return new Date('1970-01-01T09:00:00');
+  const str = typeof s === 'string' && s.length === 5 ? s + ':00' : String(s);
+  return new Date('1970-01-01T' + str);
 };
 
 export const updateSchedules = async (barberId, schedules) => {
-  const client = await pool.connect();
-  try {
-    await client.query('DELETE FROM barber_schedules WHERE barber_id = $1', [
-      barberId,
-    ]);
+  const bid = parseInt(barberId, 10);
+  await prisma.$transaction(async (tx) => {
+    await tx.barberSchedule.deleteMany({ where: { barberId: bid } });
     for (const s of schedules) {
-      await client.query(
-        `INSERT INTO barber_schedules (barber_id, day_of_week, start_time, end_time, is_available)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [barberId, s.dayOfWeek, s.startTime, s.endTime, s.isAvailable !== false]
-      );
+      await tx.barberSchedule.create({
+        data: {
+          barberId: bid,
+          dayOfWeek: s.dayOfWeek,
+          startTime: toTimeDate(s.startTime),
+          endTime: toTimeDate(s.endTime),
+          isAvailable: s.isAvailable !== false,
+        },
+      });
     }
-    return getSchedules(barberId);
-  } finally {
-    client.release();
-  }
+  });
+  return getSchedules(barberId);
 };

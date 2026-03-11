@@ -98,6 +98,12 @@ export default function LoginPage() {
               Regístrate
             </Link>
           </p>
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-xs font-medium text-gray-600 mb-2">Cuentas de prueba:</p>
+            <p className="text-xs text-gray-600">admin@mrkutz.com / password123</p>
+            <p className="text-xs text-gray-600">barber@mrkutz.com / password123</p>
+            <p className="text-xs text-gray-600">client@mrkutz.com / password123</p>
+          </div>
         </div>
       </div>
     </div>

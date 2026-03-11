@@ -1,110 +1,124 @@
 /**
- * Payment Service - Gestión de pagos
+ * Payment Service (Prisma)
  */
 
-import pool from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 export const getPaymentMethods = async () => {
-  const result = await pool.query(
-    'SELECT id, name, description FROM payment_methods WHERE is_active = true ORDER BY name'
-  );
-  return result.rows;
+  const methods = await prisma.paymentMethod.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, description: true },
+  });
+  return methods;
 };
 
 export const getAll = async ({ dateFrom, dateTo, appointmentId, limit = 100, offset = 0 }) => {
-  const params = [];
-  let paramIndex = 1;
-  let where = [];
+  const where = {};
+  if (dateFrom) where.createdAt = { ...where.createdAt, gte: new Date(dateFrom) };
+  if (dateTo) where.createdAt = { ...where.createdAt, lte: new Date(dateTo + 'T23:59:59.999Z') };
+  if (appointmentId) where.appointmentId = parseInt(appointmentId, 10);
 
-  if (dateFrom) {
-    where.push(`p.created_at::date >= $${paramIndex}`);
-    params.push(dateFrom);
-    paramIndex++;
-  }
-  if (dateTo) {
-    where.push(`p.created_at::date <= $${paramIndex}`);
-    params.push(dateTo);
-    paramIndex++;
-  }
-  if (appointmentId) {
-    where.push(`p.appointment_id = $${paramIndex}`);
-    params.push(appointmentId);
-    paramIndex++;
-  }
+  const payments = await prisma.payment.findMany({
+    where,
+    include: {
+      paymentMethod: { select: { name: true } },
+      appointment: {
+        select: {
+          appointmentDate: true,
+          startTime: true,
+          client: { select: { firstName: true, lastName: true } },
+          service: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    skip: offset,
+  });
 
-  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  params.push(limit, offset);
-
-  const result = await pool.query(
-    `SELECT p.id, p.appointment_id, p.amount, p.payment_method_id, p.reference, p.notes, p.created_at,
-            pm.name as payment_method_name,
-            a.appointment_date, a.start_time,
-            c.first_name as client_first_name, c.last_name as client_last_name,
-            s.name as service_name
-     FROM payments p
-     LEFT JOIN payment_methods pm ON p.payment_method_id = pm.id
-     LEFT JOIN appointments a ON p.appointment_id = a.id
-     LEFT JOIN clients c ON a.client_id = c.id
-     LEFT JOIN services s ON a.service_id = s.id
-     ${whereClause}
-     ORDER BY p.created_at DESC
-     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
-  );
-
-  return result.rows;
+  return payments.map((p) => ({
+    id: p.id,
+    appointment_id: p.appointmentId,
+    amount: p.amount,
+    payment_method_id: p.paymentMethodId,
+    reference: p.reference,
+    notes: p.notes,
+    created_at: p.createdAt,
+    payment_method_name: p.paymentMethod?.name,
+    appointment_date: p.appointment?.appointmentDate,
+    start_time: p.appointment?.startTime,
+    client_first_name: p.appointment?.client?.firstName,
+    client_last_name: p.appointment?.client?.lastName,
+    service_name: p.appointment?.service?.name,
+  }));
 };
 
 export const getTotalByDateRange = async (dateFrom, dateTo) => {
-  const params = [];
-  let where = ['1=1'];
-  if (dateFrom) {
-    params.push(dateFrom);
-    where.push(`created_at::date >= $${params.length}`);
-  }
-  if (dateTo) {
-    params.push(dateTo);
-    where.push(`created_at::date <= $${params.length}`);
-  }
+  const where = {};
+  if (dateFrom) where.createdAt = { ...where.createdAt, gte: new Date(dateFrom) };
+  if (dateTo) where.createdAt = { ...where.createdAt, lte: new Date(dateTo + 'T23:59:59.999Z') };
 
-  const result = await pool.query(
-    `SELECT COALESCE(SUM(amount), 0)::numeric as total, COUNT(*)::int as count
-     FROM payments
-     WHERE ${where.join(' AND ')}`,
-    params
-  );
-  return result.rows[0];
+  const result = await prisma.payment.aggregate({
+    where,
+    _sum: { amount: true },
+    _count: true,
+  });
+  return {
+    total: result._sum?.amount ?? 0,
+    count: result._count ?? 0,
+  };
 };
 
 export const getById = async (id) => {
-  const result = await pool.query(
-    `SELECT p.*, pm.name as payment_method_name,
-            a.appointment_date, a.start_time, a.client_id, a.service_id,
-            c.first_name as client_first_name, c.last_name as client_last_name,
-            s.name as service_name, s.price as service_price
-     FROM payments p
-     LEFT JOIN payment_methods pm ON p.payment_method_id = pm.id
-     LEFT JOIN appointments a ON p.appointment_id = a.id
-     LEFT JOIN clients c ON a.client_id = c.id
-     LEFT JOIN services s ON a.service_id = s.id
-     WHERE p.id = $1`,
-    [id]
-  );
-  return result.rows[0] || null;
+  const p = await prisma.payment.findUnique({
+    where: { id: parseInt(id, 10) },
+    include: {
+      paymentMethod: { select: { name: true } },
+      appointment: {
+        select: {
+          appointmentDate: true,
+          startTime: true,
+          clientId: true,
+          serviceId: true,
+          client: { select: { firstName: true, lastName: true } },
+          service: { select: { name: true, price: true } },
+        },
+      },
+    },
+  });
+  if (!p) return null;
+  return {
+    ...p,
+    payment_method_name: p.paymentMethod?.name,
+    appointment_date: p.appointment?.appointmentDate,
+    start_time: p.appointment?.startTime,
+    client_id: p.appointment?.clientId,
+    service_id: p.appointment?.serviceId,
+    client_first_name: p.appointment?.client?.firstName,
+    client_last_name: p.appointment?.client?.lastName,
+    service_name: p.appointment?.service?.name,
+    service_price: p.appointment?.service?.price,
+  };
 };
 
 export const create = async (data) => {
-  const { appointmentId, amount, paymentMethodId, reference, notes, createdBy } = data;
-  const result = await pool.query(
-    `INSERT INTO payments (appointment_id, amount, payment_method_id, reference, notes, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [appointmentId || null, amount, paymentMethodId, reference || null, notes || null, createdBy || null]
-  );
-  return result.rows[0];
+  const payment = await prisma.payment.create({
+    data: {
+      appointmentId: data.appointmentId ? parseInt(data.appointmentId, 10) : null,
+      amount: parseFloat(data.amount),
+      paymentMethodId: data.paymentMethodId ? parseInt(data.paymentMethodId, 10) : null,
+      reference: data.reference || null,
+      notes: data.notes || null,
+      createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
+    },
+  });
+  return payment;
 };
 
 export const remove = async (id) => {
-  const result = await pool.query('DELETE FROM payments WHERE id = $1 RETURNING id', [id]);
-  return result.rowCount > 0;
+  await prisma.payment.delete({
+    where: { id: parseInt(id, 10) },
+  });
+  return true;
 };

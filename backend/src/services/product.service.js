@@ -1,159 +1,167 @@
 /**
- * Product & Inventory Service
+ * Product & Inventory Service (Prisma)
  */
 
-import pool from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 export const getAll = async ({ activeOnly = true, lowStockOnly = false, search = '' } = {}) => {
-  let query = `
-    SELECT p.id, p.name, p.description, p.sku, p.unit, p.min_stock, p.is_active, p.created_at,
-           COALESCE(i.quantity, 0) as quantity, i.last_updated as stock_updated_at
-    FROM products p
-    LEFT JOIN inventory i ON p.id = i.product_id
-    WHERE 1=1
-  `;
-  const params = [];
-  let paramIndex = 1;
-
-  if (activeOnly) {
-    query += ' AND p.is_active = true';
+  const where = {};
+  if (activeOnly) where.isActive = true;
+  if (search?.trim()) {
+    where.OR = [
+      { name: { contains: search.trim(), mode: 'insensitive' } },
+      { sku: { contains: search.trim(), mode: 'insensitive' } },
+    ];
   }
+
+  const products = await prisma.product.findMany({
+    where,
+    include: {
+      inventory: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  let results = products.map((p) => ({
+    ...p,
+    quantity: p.inventory?.quantity ?? 0,
+    stock_updated_at: p.inventory?.lastUpdated ?? null,
+  }));
+
   if (lowStockOnly) {
-    query += ' AND COALESCE(i.quantity, 0) <= p.min_stock';
-  }
-  if (search && search.trim()) {
-    query += ` AND (p.name ILIKE $${paramIndex} OR p.sku ILIKE $${paramIndex})`;
-    params.push(`%${search.trim()}%`);
-    paramIndex++;
+    results = results.filter((p) => (p.inventory?.quantity ?? 0) <= (p.minStock ?? 0));
   }
 
-  query += ' ORDER BY p.name';
-
-  const result = await pool.query(query, params);
-  return result.rows;
+  return results;
 };
 
 export const getById = async (id) => {
-  const result = await pool.query(
-    `SELECT p.*, COALESCE(i.quantity, 0) as quantity, i.last_updated as stock_updated_at
-     FROM products p
-     LEFT JOIN inventory i ON p.id = i.product_id
-     WHERE p.id = $1`,
-    [id]
-  );
-  return result.rows[0] || null;
+  const product = await prisma.product.findUnique({
+    where: { id: parseInt(id, 10) },
+    include: { inventory: true },
+  });
+  if (!product) return null;
+  return {
+    ...product,
+    quantity: product.inventory?.quantity ?? 0,
+    stock_updated_at: product.inventory?.lastUpdated ?? null,
+  };
 };
 
 export const getLowStock = async () => {
-  const result = await pool.query(
-    `SELECT p.id, p.name, p.min_stock, COALESCE(i.quantity, 0) as quantity
-     FROM products p
-     LEFT JOIN inventory i ON p.id = i.product_id
-     WHERE p.is_active = true AND COALESCE(i.quantity, 0) <= p.min_stock
-     ORDER BY COALESCE(i.quantity, 0) ASC`
-  );
-  return result.rows;
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    include: { inventory: true },
+    orderBy: { name: 'asc' },
+  });
+  return products
+    .filter((p) => (p.inventory?.quantity ?? 0) <= (p.minStock ?? 0))
+    .sort((a, b) => (a.inventory?.quantity ?? 0) - (b.inventory?.quantity ?? 0))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      min_stock: p.minStock,
+      quantity: p.inventory?.quantity ?? 0,
+    }));
 };
 
 export const create = async (data) => {
   const { name, description, sku, unit, minStock } = data;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const productResult = await client.query(
-      `INSERT INTO products (name, description, sku, unit, min_stock)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [name, description || null, sku || null, unit || 'unit', minStock ?? 0]
-    );
-    const product = productResult.rows[0];
-    await client.query(
-      'INSERT INTO inventory (product_id, quantity) VALUES ($1, 0)',
-      [product.id]
-    );
-    await client.query('COMMIT');
-    return { ...product, quantity: 0 };
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const product = await tx.product.create({
+      data: {
+        name,
+        description: description || null,
+        sku: sku || null,
+        unit: unit || 'unit',
+        minStock: minStock ?? 0,
+      },
+    });
+    await tx.inventory.create({
+      data: { productId: product.id, quantity: 0 },
+    });
+    return product;
+  });
+
+  return { ...result, quantity: 0 };
 };
 
 export const update = async (id, data) => {
-  const { name, description, sku, unit, minStock, isActive } = data;
-  const result = await pool.query(
-    `UPDATE products SET
-       name = COALESCE($2, name),
-       description = COALESCE($3, description),
-       sku = COALESCE($4, sku),
-       unit = COALESCE($5, unit),
-       min_stock = COALESCE($6, min_stock),
-       is_active = COALESCE($7, is_active),
-       updated_at = CURRENT_TIMESTAMP
-     WHERE id = $1
-     RETURNING *`,
-    [id, name, description, sku, unit, minStock, isActive]
-  );
-  return result.rows[0] || null;
+  const product = await prisma.product.update({
+    where: { id: parseInt(id, 10) },
+    data: {
+      name: data.name,
+      description: data.description,
+      sku: data.sku,
+      unit: data.unit,
+      minStock: data.minStock,
+      isActive: data.isActive,
+    },
+  });
+  return product;
 };
 
 export const updateStock = async (productId, quantityChange, movementType, notes, createdBy) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const inv = await client.query(
-      'SELECT quantity FROM inventory WHERE product_id = $1',
-      [productId]
-    );
-    if (inv.rows.length === 0) {
-      await client.query('INSERT INTO inventory (product_id, quantity) VALUES ($1, 0)', [
-        productId,
-      ]);
+  const result = await prisma.$transaction(async (tx) => {
+    let inv = await tx.inventory.findUnique({
+      where: { productId: parseInt(productId, 10) },
+    });
+    if (!inv) {
+      await tx.inventory.create({
+        data: { productId: parseInt(productId, 10), quantity: 0 },
+      });
+      inv = { quantity: 0 };
     }
-    const newQty = await client.query(
-      `UPDATE inventory SET quantity = quantity + $2, last_updated = CURRENT_TIMESTAMP
-       WHERE product_id = $1
-       RETURNING quantity`,
-      [productId, quantityChange]
-    );
-    if (newQty.rows[0].quantity < 0) {
+
+    const updated = await tx.inventory.update({
+      where: { productId: parseInt(productId, 10) },
+      data: {
+        quantity: { increment: quantityChange },
+      },
+    });
+
+    if (updated.quantity < 0) {
       throw new Error('Stock cannot be negative');
     }
-    await client.query(
-      `INSERT INTO inventory_movements (product_id, quantity_change, movement_type, notes, created_by)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [productId, quantityChange, movementType || 'adjustment', notes || null, createdBy]
-    );
-    await client.query('COMMIT');
-    return getById(productId);
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+
+    await tx.inventoryMovement.create({
+      data: {
+        productId: parseInt(productId, 10),
+        quantityChange,
+        movementType: movementType || 'adjustment',
+        notes: notes || null,
+        createdBy: createdBy || null,
+      },
+    });
+
+    return updated;
+  });
+
+  return getById(productId);
 };
 
 export const remove = async (id) => {
-  const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING id', [id]);
-  return result.rowCount > 0;
+  await prisma.product.delete({
+    where: { id: parseInt(id, 10) },
+  });
+  return true;
 };
 
-/**
- * Historial de movimientos de un producto
- */
 export const getMovements = async (productId, limit = 50) => {
-  const result = await pool.query(
-    `SELECT m.id, m.product_id, m.quantity_change, m.movement_type, m.notes, m.created_at,
-            u.email as created_by_email
-     FROM inventory_movements m
-     LEFT JOIN users u ON m.created_by = u.id
-     WHERE m.product_id = $1
-     ORDER BY m.created_at DESC
-     LIMIT $2`,
-    [productId, limit]
-  );
-  return result.rows;
+  const movements = await prisma.inventoryMovement.findMany({
+    where: { productId: parseInt(productId, 10) },
+    include: { creator: { select: { email: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return movements.map((m) => ({
+    id: m.id,
+    product_id: m.productId,
+    quantity_change: m.quantityChange,
+    movement_type: m.movementType,
+    notes: m.notes,
+    created_at: m.createdAt,
+    created_by_email: m.creator?.email,
+  }));
 };

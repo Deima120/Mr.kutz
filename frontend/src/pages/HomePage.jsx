@@ -5,6 +5,7 @@
 
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const services = [
   { title: 'Corte', desc: 'Cortes clásicos y de tendencia con el estilo que buscas.', icon: '✂️' },
@@ -21,6 +22,7 @@ const testimonials = [
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
+  const { businessName } = useSettings();
   const canManage = user?.role === 'admin' || user?.role === 'barber';
 
   return (
@@ -31,7 +33,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-20 sm:py-28 relative">
           <div className="max-w-2xl">
             <p className="text-gray-400 font-medium tracking-wider uppercase text-sm mb-3">
-              Mr. Kutz
+              {businessName}
             </p>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-4">
               Estilo y precisión en cada corte
@@ -67,7 +69,7 @@ export default function HomePage() {
               Sobre nosotros
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              En Mr. Kutz combinamos tradición y tendencia para ofrecerte cortes y barbas de alta calidad. 
+              En {businessName} combinamos tradición y tendencia para ofrecerte cortes y barbas de alta calidad. 
               Nuestro equipo se asegura de que cada visita sea memorable en un ambiente acogedor. 
               Gestiona tus citas fácilmente y disfruta de un servicio pensado para ti.
             </p>
