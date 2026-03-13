@@ -8,27 +8,32 @@ const APPOINTMENTS_BASE = '/appointments';
 
 export const getAppointments = async (params = {}) => {
   const response = await api.get(APPOINTMENTS_BASE, { params });
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };
 
 export const getAppointmentById = async (id) => {
   const response = await api.get(`${APPOINTMENTS_BASE}/${id}`);
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };
 
 export const getAvailableSlots = async (barberId, date) => {
   const response = await api.get(`${APPOINTMENTS_BASE}/slots`, {
     params: { barberId, date },
   });
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };
 
 export const createAppointment = async (data) => {
   const response = await api.post(APPOINTMENTS_BASE, data);
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };
 
 export const updateAppointment = async (id, data) => {
   const response = await api.put(`${APPOINTMENTS_BASE}/${id}`, data);
-  return response?.data ?? response;
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };

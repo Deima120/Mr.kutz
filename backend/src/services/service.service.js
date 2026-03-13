@@ -4,19 +4,33 @@
 
 import prisma from '../lib/prisma.js';
 
+const toServiceDto = (s) =>
+  s
+    ? {
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        price: s.price,
+        duration_minutes: s.durationMinutes,
+        is_active: s.isActive,
+        created_at: s.createdAt,
+        updated_at: s.updatedAt,
+      }
+    : null;
+
 export const getAll = async ({ activeOnly = true } = {}) => {
   const services = await prisma.service.findMany({
     where: activeOnly ? { isActive: true } : {},
     orderBy: { name: 'asc' },
   });
-  return services;
+  return services.map(toServiceDto);
 };
 
 export const getById = async (id) => {
   const service = await prisma.service.findUnique({
     where: { id: parseInt(id, 10) },
   });
-  return service;
+  return toServiceDto(service);
 };
 
 export const create = async (data) => {
@@ -28,7 +42,7 @@ export const create = async (data) => {
       durationMinutes: parseInt(data.durationMinutes, 10),
     },
   });
-  return service;
+  return toServiceDto(service);
 };
 
 export const update = async (id, data) => {
@@ -42,7 +56,7 @@ export const update = async (id, data) => {
       isActive: data.isActive,
     },
   });
-  return service;
+  return toServiceDto(service);
 };
 
 export const remove = async (id) => {
