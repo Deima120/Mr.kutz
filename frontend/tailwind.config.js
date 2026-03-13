@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        serif: ['Cormorant Garamond', 'Georgia', 'serif'],
+        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         primary: {
           50: '#fafafa',
@@ -24,6 +28,11 @@ export default {
           dark: '#0a0a0a',
           charcoal: '#171717',
           muted: '#737373',
+        },
+        gold: {
+          DEFAULT: '#c9a962',
+          light: '#e5d4a1',
+          dark: '#9a7b3a',
         },
       },
     },

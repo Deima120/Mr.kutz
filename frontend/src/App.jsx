@@ -158,6 +158,14 @@ function App() {
           }
         />
         <Route
+          path="sales"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <PaymentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="payments/new"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
