@@ -55,7 +55,7 @@ function GalleryCard({ item, isActive }) {
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative w-full max-w-md mx-auto rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+      className="relative w-full max-w-md mx-auto rounded-2xl overflow-hidden shadow-card-hover border border-stone-200/80"
       style={{
         transform: transform || 'perspective(800px) rotateX(0) rotateY(0)',
         transition: transform ? 'transform 0.1s ease-out' : 'transform 0.4s ease-out',
@@ -79,12 +79,13 @@ function GalleryCard({ item, isActive }) {
 
 export default function GalleryCarousel3D() {
   return (
-    <section className="py-24 sm:py-32 bg-stone-50">
+    <section id="galeria" className="landing-section bg-stone-50 bg-section-pattern scroll-mt-20">
       <div className="container mx-auto px-6 sm:px-8">
-        <div className="text-center mb-14">
+        <div className="text-center mb-14 md:mb-16">
           <p className="section-label text-gold">Ambiente</p>
           <h2 className="section-heading mb-4">Nuestro espacio</h2>
-          <p className="text-stone-500 max-w-md mx-auto">
+          <div className="gold-line mx-auto mb-6" />
+          <p className="text-stone-500 max-w-lg mx-auto text-lg">
             Conoce el lugar donde la tradición y el estilo se encuentran.
           </p>
         </div>

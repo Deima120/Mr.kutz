@@ -1,5 +1,5 @@
 /**
- * Landing — Carruseles 3D, hero con imágenes, galería y testimonios
+ * Landing — Diseño profesional e innovador (inspirado en mejores barberías)
  */
 
 import { useState, useEffect } from 'react';
@@ -12,15 +12,36 @@ import TestimonialsCarousel from '../components/landing/TestimonialsCarousel';
 import * as serviceService from '../services/serviceService';
 
 const SERVICES_FALLBACK = [
-  { title: 'Corte', desc: 'Clásico y moderno. El estilo que buscas con la precisión que nos define.', num: '01' },
-  { title: 'Barba', desc: 'Perfilado, arreglo y cuidado profesional para tu barba.', num: '02' },
-  { title: 'Corte + Barba', desc: 'Combo completo. Sal siempre impecable.', num: '03' },
-  { title: 'Servicios especiales', desc: 'Diseños, tintura y tratamientos a tu medida.', num: '04' },
+  { name: 'Corte', description: 'Corte clásico con terminación profesional', price: 60000, durationMinutes: 35 },
+  { name: 'Barba', description: 'Arreglo y perfilado de barba', price: 35000, durationMinutes: 15 },
+  { name: 'Corte + Barba', description: 'Combo completo', price: 80000, durationMinutes: 60 },
+  { name: 'Barba Premium', description: 'Barba + marcación y cuidado especial', price: 45000, durationMinutes: 30 },
 ];
+
+const STATS = [
+  { value: 'Tradición', label: 'en cada corte' },
+  { value: 'Estilo', label: 'a tu medida' },
+  { value: 'Detalle', label: 'que nos define' },
+];
+
+function formatPrice(value) {
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  if (Number.isNaN(n)) return '—';
+  if (n >= 1000) return `$${Math.round(n).toLocaleString('es-CO')}`;
+  return `$${Math.round(n)}`;
+}
+
+function formatDuration(min) {
+  if (min == null) return '';
+  const m = Number(min);
+  if (m >= 60) return `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim();
+  return `${m} min`;
+}
 
 export default function HomePage() {
   const { user } = useAuth();
-  const { businessName } = useSettings();
+  const { businessName, address, contactPhone, openingHours } = useSettings();
   const canManage = user?.role === 'admin' || user?.role === 'barber';
 
   const [services, setServices] = useState(SERVICES_FALLBACK);
@@ -32,11 +53,12 @@ export default function HomePage() {
         const list = Array.isArray(data) ? data : (data?.data ?? data?.services) ?? [];
         if (list.length > 0) {
           setServices(
-            list.map((s, i) => ({
+            list.map((s) => ({
               id: s.id,
-              title: s.name ?? s.title ?? '',
-              desc: s.description ?? s.desc ?? '',
-              num: String(i + 1).padStart(2, '0'),
+              name: s.name ?? '',
+              description: s.description ?? '',
+              price: s.price,
+              durationMinutes: s.duration_minutes ?? s.durationMinutes ?? 0,
             }))
           );
         }
@@ -46,127 +68,191 @@ export default function HomePage() {
 
   return (
     <div className="font-sans">
-      {/* ——— HERO CON CARRUSEL DE IMÁGENES ——— */}
       <HeroCarousel />
 
       {/* ——— SOBRE NOSOTROS ——— */}
-      <section className="py-24 sm:py-32 bg-stone-50 scroll-mt-20">
+      <section className="landing-section bg-stone-50 bg-section-pattern scroll-mt-20">
         <div className="container mx-auto px-6 sm:px-8">
-          <div className="max-w-2xl mx-auto text-center">
-            <p className="section-label text-gold">Sobre nosotros</p>
-            <h2 className="section-heading mb-6">
+          <div className="max-w-4xl mx-auto">
+            <p className="section-label text-gold text-center">Sobre nosotros</p>
+            <h2 className="section-heading text-center mb-6">
               Tradición y tendencia
             </h2>
-            <div className="w-14 h-px bg-gold mx-auto mb-8" />
-            <p className="text-stone-600 leading-relaxed text-lg">
+            <div className="gold-line mx-auto mb-10" />
+            <p className="text-stone-600 leading-relaxed text-lg md:text-xl text-center max-w-2xl mx-auto">
               En {businessName} combinamos tradición y tendencia para ofrecerte cortes y barbas de alta calidad.
               Nuestro equipo se asegura de que cada visita sea memorable en un ambiente acogedor.
             </p>
+            <div className="grid grid-cols-3 gap-8 mt-16 pt-16 border-t border-stone-200/80">
+              {STATS.map((stat, i) => (
+                <div key={i} className="text-center">
+                  <p className="font-serif text-2xl md:text-3xl text-gold font-medium mb-1">{stat.value}</p>
+                  <p className="text-stone-500 text-sm uppercase tracking-wider">{stat.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ——— SERVICIOS ——— */}
-      <section id="servicios" className="py-24 sm:py-32 bg-white scroll-mt-20">
+      {/* ——— SERVICIOS (estilo barbería premium) ——— */}
+      <section id="servicios" className="landing-section bg-stone-950 text-white scroll-mt-20">
         <div className="container mx-auto px-6 sm:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-14 md:mb-16">
             <p className="section-label text-gold">Servicios</p>
-            <h2 className="section-heading mb-4">Lo que hacemos</h2>
-            <p className="text-stone-500 max-w-md mx-auto">
-              Cortes, barba y servicios especiales para que luzcas como quieres.
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">
+              Cortes, barba y más
+            </h2>
+            <div className="gold-line mx-auto mb-6" />
+            <p className="text-stone-400 max-w-xl mx-auto text-lg">
+              Precios y duración aproximada. Agenda en línea el servicio que prefieras.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-stone-200 rounded-lg overflow-hidden">
-            {services.map((s, i) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 max-w-6xl mx-auto">
+            {services.slice(0, 12).map((s, i) => (
               <div
-                key={s.id ?? s.num ?? i}
-                className="bg-white p-8 sm:p-10 hover:bg-stone-50/80 transition-all duration-300 group border border-stone-200 hover:border-gold/30 hover:shadow-card-hover"
+                key={s.id ?? i}
+                className="group relative bg-stone-900/80 border border-stone-800 rounded-xl p-6 hover:border-gold/40 hover:bg-stone-900 transition-all duration-300"
               >
-                <span className="block font-serif text-gold text-2xl mb-4 font-medium tabular-nums">
-                  {s.num}
-                </span>
-                <h3 className="font-serif text-xl text-stone-900 font-medium mb-2 group-hover:text-gold transition-colors duration-300">
-                  {s.title}
+                <div className="absolute top-0 left-0 w-1 h-0 bg-gold group-hover:h-full transition-all duration-500 ease-out rounded-l-xl" />
+                <h3 className="font-serif text-lg md:text-xl text-white font-medium mb-2 pr-6">
+                  {s.name}
                 </h3>
-                <p className="text-stone-500 text-sm leading-relaxed">{s.desc}</p>
+                {s.description && (
+                  <p className="text-stone-500 text-sm leading-snug mb-4 line-clamp-2">
+                    {s.description}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-gold font-semibold tabular-nums">
+                    {formatPrice(s.price)}
+                  </span>
+                  {s.durationMinutes > 0 && (
+                    <span className="text-stone-500 text-xs uppercase tracking-wider">
+                      {formatDuration(s.durationMinutes)}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
 
-          <div className="text-center mt-12">
+          <div className="text-center mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/appointments"
-              className="inline-flex items-center gap-2 text-stone-700 font-semibold text-sm tracking-wide hover:text-gold transition-colors duration-300 group"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-gold text-barber-dark font-semibold text-sm uppercase tracking-widest hover:bg-gold/90 transition-colors rounded-sm"
             >
-              Ver disponibilidad y agendar
-              <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+              Agendar cita
+              <span className="inline-block">→</span>
             </Link>
+            {services.length > 12 && (
+              <span className="text-stone-500 text-sm">
+                + {services.length - 12} servicios más en el agendador
+              </span>
+            )}
           </div>
         </div>
       </section>
 
-      {/* ——— GALERÍA 3D (carrusel con tilt) ——— */}
       <GalleryCarousel3D />
-
-      {/* ——— TESTIMONIOS (carrusel 3D) ——— */}
       <TestimonialsCarousel />
 
-      {/* ——— UBICACIÓN ——— */}
-      <section id="ubicacion" className="py-24 sm:py-32 bg-stone-50 scroll-mt-20">
+      {/* ——— UBICACIÓN Y HORARIO ——— */}
+      <section id="ubicacion" className="landing-section bg-stone-50 bg-section-pattern scroll-mt-20">
         <div className="container mx-auto px-6 sm:px-8">
           <div className="text-center mb-12">
-            <p className="section-label text-gold">Ubicación</p>
-            <h2 className="section-heading mb-4">Visítanos</h2>
-            <p className="text-stone-500 max-w-md mx-auto">
-              Próximamente: dirección y mapa.
-            </p>
+            <p className="section-label text-gold">Visítanos</p>
+            <h2 className="section-heading mb-4">Ubicación y horario</h2>
+            <div className="gold-line mx-auto mb-6" />
           </div>
-          <div className="max-w-3xl mx-auto aspect-video bg-stone-200 border border-stone-200 rounded-lg flex items-center justify-center">
-            <p className="font-serif text-stone-500">Mapa próximamente</p>
+          <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
+            <div className="landing-card p-8 md:p-10">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                  <span className="text-xl" aria-hidden>📍</span>
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-medium text-stone-900 mb-2">Dirección</h3>
+                  {address ? (
+                    <p className="text-stone-600 leading-relaxed">{address}</p>
+                  ) : (
+                    <p className="text-stone-400">Próximamente</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="landing-card p-8 md:p-10">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                  <span className="text-xl" aria-hidden>📞</span>
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-medium text-stone-900 mb-2">Teléfono</h3>
+                  {contactPhone ? (
+                    <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="text-stone-600 hover:text-gold transition-colors">
+                      {contactPhone}
+                    </a>
+                  ) : (
+                    <p className="text-stone-400">Próximamente</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
+          {openingHours && (
+            <div className="max-w-4xl mx-auto mt-6">
+              <div className="landing-card p-8 md:p-10 flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                  <span className="text-xl" aria-hidden>🕐</span>
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-medium text-stone-900 mb-2">Horario</h3>
+                  <p className="text-stone-600 leading-relaxed whitespace-pre-line">{openingHours}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ——— CTA FINAL ——— */}
-      <section className="py-24 sm:py-32 bg-barber-dark text-white">
-        <div className="container mx-auto px-6 sm:px-8 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-radial-gold opacity-50" />
-          <div className="relative z-10">
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-medium mb-4">
-              ¿Listo para tu próximo corte?
-            </h2>
-            <div className="w-14 h-px bg-gold mx-auto mb-6" />
-            <p className="text-stone-400 mb-10 max-w-md mx-auto text-lg">
-              Agenda en línea en segundos. Elige fecha, barbero y servicio.
-            </p>
-            <Link to="/appointments" className="btn-primary">
-              Agenda tu cita ahora
-              <span aria-hidden>→</span>
-            </Link>
-          </div>
+      <section className="landing-section bg-barber-dark text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-section-pattern opacity-30" />
+        <div className="absolute inset-0 bg-gradient-radial-gold opacity-40" />
+        <div className="container mx-auto px-6 sm:px-8 text-center relative z-10">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium mb-6 tracking-tight">
+            ¿Listo para tu próximo corte?
+          </h2>
+          <div className="gold-line mx-auto mb-8" />
+          <p className="text-stone-400 mb-12 max-w-lg mx-auto text-lg md:text-xl">
+            Agenda en línea en segundos. Elige fecha, barbero y servicio.
+          </p>
+          <Link to="/appointments" className="btn-primary">
+            Agenda tu cita ahora
+            <span className="inline-block ml-1" aria-hidden>→</span>
+          </Link>
         </div>
       </section>
 
-      {/* Acceso rápido staff (discreto) */}
       {canManage && (
-        <section className="py-6 bg-stone-100 border-t border-stone-200">
+        <section className="py-8 bg-stone-100 border-t border-stone-200">
           <div className="container mx-auto px-6 sm:px-8">
             <p className="text-stone-500 text-xs uppercase tracking-wider mb-3">Panel</p>
             <div className="flex flex-wrap gap-2">
-              <Link to="/dashboard" className="px-4 py-2 bg-barber-dark text-white text-sm font-medium rounded-lg hover:bg-barber-charcoal transition-colors">
+              <Link to="/dashboard" className="px-4 py-2.5 bg-barber-dark text-white text-sm font-medium rounded-xl hover:bg-barber-charcoal transition-colors">
                 Dashboard
               </Link>
-              <Link to="/appointments" className="px-4 py-2 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:border-gold hover:text-gold transition-colors">
+              <Link to="/appointments" className="px-4 py-2.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-xl hover:border-gold hover:text-gold transition-colors">
                 Citas
               </Link>
-              <Link to="/clients" className="px-4 py-2 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:border-gold hover:text-gold transition-colors">
+              <Link to="/clients" className="px-4 py-2.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-xl hover:border-gold hover:text-gold transition-colors">
                 Clientes
               </Link>
-              <Link to="/services" className="px-4 py-2 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:border-gold hover:text-gold transition-colors">
+              <Link to="/services" className="px-4 py-2.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-xl hover:border-gold hover:text-gold transition-colors">
                 Servicios
               </Link>
-              <Link to="/barbers" className="px-4 py-2 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:border-gold hover:text-gold transition-colors">
+              <Link to="/barbers" className="px-4 py-2.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-xl hover:border-gold hover:text-gold transition-colors">
                 Barberos
               </Link>
             </div>

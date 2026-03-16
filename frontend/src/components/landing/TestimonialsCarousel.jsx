@@ -33,19 +33,22 @@ function TestimonialCard({ item, isActive }) {
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setTilt('')}
-      className="relative bg-white p-8 sm:p-10 border border-stone-200 rounded-2xl shadow-card hover:shadow-card-hover hover:border-gold/20 transition-shadow duration-300"
+      className="relative bg-white p-8 sm:p-10 border border-stone-200/80 rounded-2xl shadow-card hover:shadow-card-hover hover:border-gold/30 transition-all duration-300"
       style={{
         transform: tilt || 'perspective(600px) rotateX(0) rotateY(0)',
         transition: tilt ? 'transform 0.1s ease-out' : 'transform 0.35s ease-out',
       }}
     >
-      <span className="absolute top-6 left-6 font-serif text-gold/30 text-4xl leading-none">"</span>
-      <p className="text-stone-600 italic leading-relaxed pl-6 mb-6 min-h-[4rem]">
+      <span className="absolute top-6 right-6 font-serif text-gold/20 text-5xl leading-none select-none">"</span>
+      <p className="text-stone-600 italic leading-relaxed pr-10 mb-8 min-h-[4rem] text-base md:text-lg">
         {item.text}
       </p>
-      <footer className="pl-6 border-l-2 border-gold">
-        <cite className="not-italic font-semibold text-stone-900">{item.name}</cite>
-        <span className="block text-stone-500 text-sm font-normal">{item.role}</span>
+      <footer className="flex items-center gap-4">
+        <span className="w-10 h-px bg-gold shrink-0" />
+        <div>
+          <cite className="not-italic font-semibold text-stone-900 block">{item.name}</cite>
+          <span className="text-stone-500 text-sm font-normal">{item.role}</span>
+        </div>
       </footer>
     </blockquote>
   );
@@ -79,11 +82,12 @@ export default function TestimonialsCarousel() {
 
   if (loading) {
     return (
-      <section id="testimonios" className="py-24 sm:py-32 bg-white scroll-mt-20">
+      <section id="testimonios" className="landing-section bg-white scroll-mt-20">
         <div className="container mx-auto px-6 sm:px-8">
           <div className="text-center mb-14">
             <p className="section-label text-gold">Testimonios</p>
             <h2 className="section-heading mb-4">Lo que dicen nuestros clientes</h2>
+            <div className="gold-line mx-auto mb-6" />
           </div>
           <div className="max-w-2xl mx-auto py-12 text-stone-500">Cargando...</div>
         </div>
@@ -92,11 +96,15 @@ export default function TestimonialsCarousel() {
   }
 
   return (
-    <section id="testimonios" className="py-24 sm:py-32 bg-white scroll-mt-20">
+    <section id="testimonios" className="landing-section bg-white scroll-mt-20">
       <div className="container mx-auto px-6 sm:px-8">
-        <div className="text-center mb-14">
+        <div className="text-center mb-14 md:mb-16">
           <p className="section-label text-gold">Testimonios</p>
           <h2 className="section-heading mb-4">Lo que dicen nuestros clientes</h2>
+          <div className="gold-line mx-auto mb-6" />
+          <p className="text-stone-500 max-w-lg mx-auto text-lg">
+            La opinión de quienes nos eligen.
+          </p>
         </div>
         <div className="max-w-2xl mx-auto">
           <Carousel3D

@@ -45,11 +45,22 @@ async function main() {
   }
   console.log('✅ Métodos de pago creados');
 
-  // 3. Business settings (singleton)
+  // 3. Business settings — MR KUTZ BARBERÍA (datos de perfil Plani)
   await prisma.businessSetting.upsert({
     where: { id: 1 },
-    update: {},
-    create: { id: 1, businessName: 'Mr. Kutz' },
+    update: {
+      businessName: 'Mr. Kutz Barbería',
+      address: 'Calle 36 D Sur #27 A-105, Loma del Escobero, Local 142 Piso 1',
+      contactPhone: '320 855 1041',
+      openingHours: 'Lunes a Sábado: 10:00 am - 8:00 pm. Domingo y Festivos: 11:00 am - 6:00 pm',
+    },
+    create: {
+      id: 1,
+      businessName: 'Mr. Kutz Barbería',
+      address: 'Calle 36 D Sur #27 A-105, Loma del Escobero, Local 142 Piso 1',
+      contactPhone: '320 855 1041',
+      openingHours: 'Lunes a Sábado: 10:00 am - 8:00 pm. Domingo y Festivos: 11:00 am - 6:00 pm',
+    },
   });
   console.log('✅ Configuración de negocio creada');
 
@@ -130,11 +141,43 @@ async function main() {
   });
   console.log('✅ Usuario client: client@mrkutz.com');
 
-  // 8. Servicios de ejemplo (si no existen)
+  // 8. Servicios MR KUTZ (catálogo profesional según perfil Plani)
   const services = [
-    { name: 'Corte', description: 'Corte clásico', price: 15000, durationMinutes: 30 },
-    { name: 'Barba', description: 'Arreglo de barba', price: 8000, durationMinutes: 20 },
-    { name: 'Corte + Barba', description: 'Combo completo', price: 20000, durationMinutes: 45 },
+    { name: 'Corte', description: 'Corte clásico con terminación profesional', price: 60000, durationMinutes: 35 },
+    { name: 'Barba', description: 'Arreglo y perfilado de barba', price: 35000, durationMinutes: 15 },
+    { name: 'Corte + Barba', description: 'Combo completo. Corte y barba en una sesión', price: 80000, durationMinutes: 60 },
+    { name: 'Corte + Barba Premium', description: 'Experiencia premium con acabados detallados', price: 85000, durationMinutes: 75 },
+    { name: 'Barba Premium', description: 'Barba + marcación y cuidado especial', price: 45000, durationMinutes: 30 },
+    { name: 'Barba + Marcación', description: 'Perfilado y marcación de barba', price: 45000, durationMinutes: 30 },
+    { name: 'Contorno De Barba', description: 'Definición y contorno de barba', price: 10000, durationMinutes: 5 },
+    { name: 'Corte Niño', description: 'Corte para los más pequeños', price: 55000, durationMinutes: 30 },
+    { name: 'Corte De Puntas', description: 'Recorte y mantenimiento de puntas', price: 20000, durationMinutes: 15 },
+    { name: 'Moldeo', description: 'Moldeo y fijación del cabello', price: 20000, durationMinutes: 15 },
+    { name: 'Moldeo Y Peinado', description: 'Moldeo y peinado profesional', price: 35000, durationMinutes: 10 },
+    { name: 'Lavado De Cabello', description: 'Lavado y cuidado del cabello', price: 25000, durationMinutes: 10 },
+    { name: 'Rayas O Tribal', description: 'Diseño en rayas o tribal', price: 25000, durationMinutes: 10 },
+    { name: 'Corte + Cejas', description: 'Corte con arreglo de cejas', price: 70000, durationMinutes: 45 },
+    { name: 'Corte + Barba + Cejas', description: 'Combo completo con cejas', price: 90000, durationMinutes: 60 },
+    { name: 'Barba + Cejas', description: 'Barba y arreglo de cejas', price: 48000, durationMinutes: 25 },
+    { name: 'Cejas Con Cera/Hilo', description: 'Diseño de cejas con cera o hilo', price: 35000, durationMinutes: 15 },
+    { name: 'Cejas Con Barbera', description: 'Arreglo de cejas con navaja', price: 18000, durationMinutes: 15 },
+    { name: 'Barba + Limpieza Facial', description: 'Barba y limpieza facial', price: 43000, durationMinutes: 30 },
+    { name: 'Depilación Nasal', description: 'Depilación de vello nasal', price: 23000, durationMinutes: 15 },
+    { name: 'Depilación Nasal/Oídos', description: 'Depilación nasal y de oídos', price: 33000, durationMinutes: 20 },
+    { name: 'Bozo En Cera', description: 'Depilación de bozo con cera', price: 20000, durationMinutes: 15 },
+    { name: 'Limpieza Facial', description: 'Limpieza facial profesional', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla De Puntos Negros', description: 'Tratamiento con mascarilla puntos negros', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla Velo', description: 'Mascarilla en velo', price: 21000, durationMinutes: 15 },
+    { name: 'Mascarilla Gold Mask', description: 'Mascarilla oro', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla Gris De Murano', description: 'Mascarilla Gris Murano', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla De Parches De Ojos', description: 'Parches para contorno de ojos', price: 21000, durationMinutes: 15 },
+    { name: 'Combo Mascarillas', description: 'Combo de mascarillas faciales', price: 55000, durationMinutes: 45 },
+    { name: 'Exfoliación Facial', description: 'Exfoliación facial', price: 20000, durationMinutes: 15 },
+    { name: 'Cubrimiento De Canas', description: 'Cubrimiento de canas', price: 80000, durationMinutes: 60 },
+    { name: 'Color Full', description: 'Coloración completa', price: 250000, durationMinutes: 300 },
+    { name: 'Aplicación De Matizante', description: 'Aplicación de matizante', price: 40000, durationMinutes: 35 },
+    { name: 'Pigmentación De Barba', description: 'Pigmentación de barba', price: 20000, durationMinutes: 15 },
+    { name: 'Alissado 5 Min', description: 'Alissado express', price: 55000, durationMinutes: 15 },
   ];
   for (const svc of services) {
     const existing = await prisma.service.findFirst({ where: { name: svc.name } });
@@ -142,7 +185,7 @@ async function main() {
       await prisma.service.create({ data: svc });
     }
   }
-  console.log('✅ Servicios de ejemplo verificados');
+  console.log('✅ Servicios MR KUTZ verificados');
 
   console.log('\n🎉 Seed completado. Usuarios de prueba:');
   console.log('   admin@mrkutz.com / password123');

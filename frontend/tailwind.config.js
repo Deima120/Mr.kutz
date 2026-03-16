@@ -36,24 +36,34 @@ export default {
           muted: 'rgba(201, 169, 98, 0.15)',
         },
       },
-      animation: {
-        'fade-in': 'fadeIn 0.6s ease-out forwards',
-        'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
-        'slide-in-right': 'slideInRight 0.4s ease-out',
-      },
       keyframes: {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
         fadeInUp: {
-          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '0%': { opacity: '0', transform: 'translateY(24px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         slideInRight: {
           '0%': { opacity: '0', transform: 'translateX(12px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        lineExpand: {
+          '0%': { transform: 'scaleX(0)', opacity: '0.8' },
+          '100%': { transform: 'scaleX(1)', opacity: '1' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.6s ease-out forwards',
+        'fade-in-up': 'fadeInUp 0.7s ease-out forwards',
+        'slide-in-right': 'slideInRight 0.4s ease-out',
+        'line-expand': 'lineExpand 0.8s ease-out forwards',
+        'float': 'float 4s ease-in-out infinite',
       },
       backgroundImage: {
         'gradient-radial-gold': 'radial-gradient(ellipse 80% 50% at 70% 20%, rgba(201,169,98,0.12) 0%, transparent 50%)',
