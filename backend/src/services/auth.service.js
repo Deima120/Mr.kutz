@@ -73,8 +73,9 @@ export const register = async (userData) => {
   });
 
   const token = generateToken(result.id);
+  const user = await getProfile(result.id);
   return {
-    user: formatUserResponse(result, { firstName, lastName, role }),
+    user: user || formatUserResponse(result, { firstName, lastName, role }),
     token,
   };
 };
@@ -120,8 +121,8 @@ export const login = async (email, password) => {
   }
 
   const token = generateToken(dbUser.id);
-  const user = formatUserResponse(dbUser);
-  return { user, token };
+  const user = await getProfile(dbUser.id);
+  return { user: user || formatUserResponse(dbUser), token };
 };
 
 // Solicitar recuperación de contraseña

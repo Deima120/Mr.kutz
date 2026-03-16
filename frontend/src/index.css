@@ -3,7 +3,41 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply scroll-smooth;
+  }
   body {
     @apply bg-stone-50 text-stone-900 antialiased font-sans;
+  }
+  ::selection {
+    @apply bg-gold/30 text-stone-900;
+  }
+  /* Focus visible para accesibilidad */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-gold;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-barber-dark font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-stone-100 hover:shadow-card-hover focus-visible:outline-gold;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-stone-600 text-white font-medium text-sm tracking-wide transition-all duration-300 hover:border-gold hover:text-gold focus-visible:outline-gold;
+  }
+  .section-heading {
+    @apply font-serif text-3xl sm:text-4xl md:text-5xl text-stone-900 font-medium tracking-tight;
+  }
+  .section-label {
+    @apply font-sans text-gold tracking-[0.25em] uppercase text-xs font-medium mb-4;
+  }
+}
+
+/* Reducir movimiento para quien lo prefiera */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -73,6 +73,18 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
+    if (req.user.role_name === 'client' && req.user.client_id) {
+      const existing = await appointmentService.getById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Appointment not found' });
+      }
+      if (Number(existing.clientId) !== Number(req.user.client_id)) {
+        return res.status(403).json({ success: false, message: 'You can only update your own appointments.' });
+      }
+      if (req.body.status && !['cancelled'].includes(req.body.status)) {
+        return res.status(403).json({ success: false, message: 'Clients can only cancel appointments.' });
+      }
+    }
     const appointment = await appointmentService.update(req.params.id, req.body);
     if (!appointment) {
       return res.status(404).json({ success: false, message: 'Appointment not found' });

@@ -4,7 +4,22 @@
 
 import prisma from '../lib/prisma.js';
 
-const toTimeStr = (d) => (d ? String(d).slice(11, 16) : '09:00');
+/** Convierte Date o string de tiempo a "HH:MM" (misma zona que al guardar horarios del barbero) */
+function toTimeStr(d) {
+  if (!d) return '09:00';
+  if (typeof d === 'string') {
+    const match = d.match(/^(\d{1,2}):(\d{2})/);
+    return match ? `${String(match[1]).padStart(2, '0')}:${match[2]}` : '09:00';
+  }
+  if (d instanceof Date) {
+    const h = d.getHours();
+    const m = d.getMinutes();
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  const s = String(d);
+  const match = s.match(/(\d{1,2}):(\d{2})/);
+  return match ? `${String(match[1]).padStart(2, '0')}:${match[2]}` : '09:00';
+}
 
 export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
   const where = {};
@@ -140,26 +155,36 @@ export const update = async (id, data) => {
 };
 
 export const getAvailableSlots = async (barberId, date) => {
-  const d = new Date(date + 'T12:00:00');
-  const dayOfWeek = d.getDay();
+  const bid = parseInt(barberId, 10);
+  let dateStr = String(date || '').trim();
+  const dateOnlyMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (dateOnlyMatch) dateStr = `${dateOnlyMatch[1]}-${dateOnlyMatch[2]}-${dateOnlyMatch[3]}`;
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return [];
+
+  const [y, m, day] = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1, day, 12, 0, 0));
+  const dayOfWeek = d.getUTCDay();
 
   const schedule = await prisma.barberSchedule.findFirst({
     where: {
-      barberId: parseInt(barberId, 10),
+      barberId: bid,
       dayOfWeek,
       isAvailable: true,
     },
   });
 
-  if (!schedule) return [];
+  let startTime = '09:00';
+  let endTime = '18:00';
+  if (schedule) {
+    startTime = toTimeStr(schedule.startTime);
+    endTime = toTimeStr(schedule.endTime);
+  }
 
-  const startTime = toTimeStr(schedule.startTime);
-  const endTime = toTimeStr(schedule.endTime);
-
+  const appointmentDateOnly = new Date(Date.UTC(y, m - 1, day));
   const busy = await prisma.appointment.findMany({
     where: {
-      barberId: parseInt(barberId, 10),
-      appointmentDate: new Date(date),
+      barberId: bid,
+      appointmentDate: appointmentDateOnly,
       status: { notIn: ['cancelled', 'no_show'] },
     },
     select: { startTime: true, endTime: true },

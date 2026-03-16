@@ -27,6 +27,8 @@ import AgendaPage from './pages/agenda/AgendaPage';
 import HistoryPage from './pages/history/HistoryPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import TestimonialsPage from './pages/testimonials/TestimonialsPage';
+import TestimonialFormPage from './pages/testimonials/TestimonialFormPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
@@ -234,6 +236,30 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="testimonials"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <TestimonialsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="testimonials/new"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <TestimonialFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="testimonials/:id/edit"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <TestimonialFormPage />
             </ProtectedRoute>
           }
         />

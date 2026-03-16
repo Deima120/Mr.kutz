@@ -10,10 +10,12 @@ import clientRoutes from './client.routes.js';
 import serviceRoutes from './service.routes.js';
 import barberRoutes from './barber.routes.js';
 import appointmentRoutes from './appointment.routes.js';
+import testimonialRoutes from './testimonial.routes.js';
 import paymentRoutes from './payment.routes.js';
 import productRoutes from './product.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import settingsRoutes from './settings.routes.js';
+import mobileRoutes from './mobile.routes.js';
 
 const router = express.Router();
 
@@ -28,10 +30,12 @@ router.get('/', (req, res) => {
       services: '/api/services',
       barbers: '/api/barbers',
       appointments: '/api/appointments',
+      testimonials: '/api/testimonials',
       payments: '/api/payments',
       products: '/api/products',
       dashboard: '/api/dashboard',
       settings: '/api/settings',
+      mobile: '/api/mobile',
     },
   });
 });
@@ -41,9 +45,11 @@ router.use('/clients', clientRoutes);
 router.use('/services', serviceRoutes);
 router.use('/barbers', barberRoutes);
 router.use('/appointments', appointmentRoutes);
+router.use('/testimonials', testimonialRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/products', productRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/mobile', mobileRoutes);
 
 export default router;

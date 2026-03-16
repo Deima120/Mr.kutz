@@ -4,8 +4,11 @@
  */
 
 export const errorHandler = (err, req, res, next) => {
-  console.error('Error:', err?.message || err);
-  if (err?.stack) console.error('Stack:', err.stack);
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+
+  console.error(`[${statusCode}] ${req.method} ${req.originalUrl}`, message);
+  if (statusCode === 500 && err?.stack) console.error(err.stack);
 
   // Error de validación (express-validator)
   if (err.name === 'ValidationError') {
@@ -31,10 +34,16 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Error por defecto
-  const statusCode = err.statusCode || 500;
+  // Prisma / DB errors (no exponer detalles internos al cliente)
+  if (err.code === 'P2025' || err.name === 'NotFoundError') {
+    return res.status(404).json({
+      success: false,
+      message: 'Recurso no encontrado',
+    });
+  }
+
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal server error',
+    message: statusCode === 500 ? 'Error interno del servidor' : message,
   });
 };
