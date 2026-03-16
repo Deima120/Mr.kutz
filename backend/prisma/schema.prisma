@@ -21,6 +21,8 @@ model User {
   passwordHash       String              @map("password_hash") @db.VarChar(255)
   roleId             Int                 @map("role_id")
   isActive           Boolean             @default(true) @map("is_active")
+  resetCode          String?             @map("reset_code") @db.VarChar(6)
+  resetCodeExpires   DateTime?           @map("reset_code_expires")
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
   barber             Barber?

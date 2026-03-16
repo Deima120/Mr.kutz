@@ -52,8 +52,33 @@ const loginValidation = [
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
+// Validaciones para forgot password
+const forgotPasswordValidation = [
+  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+];
+
+// Validaciones para verify code
+const verifyCodeValidation = [
+  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits'),
+];
+
+// Validaciones para reset password
+const resetPasswordValidation = [
+  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits'),
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
+    .matches(/\d/)
+    .withMessage('Password must contain at least one number'),
+];
+
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);
+router.post('/forgot-password', forgotPasswordValidation, validate, authController.forgotPassword);
+router.post('/verify-code', verifyCodeValidation, validate, authController.verifyResetCode);
+router.post('/reset-password', resetPasswordValidation, validate, authController.resetPassword);
 
 export default router;
