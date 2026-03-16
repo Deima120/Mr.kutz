@@ -14,6 +14,7 @@ import paymentRoutes from './payment.routes.js';
 import productRoutes from './product.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import settingsRoutes from './settings.routes.js';
+import mobileRoutes from './mobile.routes.js';
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.get('/', (req, res) => {
       products: '/api/products',
       dashboard: '/api/dashboard',
       settings: '/api/settings',
+      mobile: '/api/mobile',
     },
   });
 });
@@ -45,5 +47,6 @@ router.use('/payments', paymentRoutes);
 router.use('/products', productRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/mobile', mobileRoutes);
 
 export default router;
