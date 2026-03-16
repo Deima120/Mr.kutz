@@ -60,34 +60,39 @@ export const updateSettings = async (data) => {
   };
 };
 
+const DEFAULT_PUBLIC = {
+  business_name: 'Mr. Kutz',
+  logo_url: null,
+  opening_hours: null,
+  contact_email: null,
+  contact_phone: null,
+  address: null,
+};
+
 export const getPublicSettings = async () => {
-  const settings = await prisma.businessSetting.findFirst({
-    where: { id: 1 },
-    select: {
-      businessName: true,
-      logoUrl: true,
-      openingHours: true,
-      contactEmail: true,
-      contactPhone: true,
-      address: true,
-    },
-  });
-  if (!settings) {
+  try {
+    const settings = await prisma.businessSetting.findFirst({
+      where: { id: 1 },
+      select: {
+        businessName: true,
+        logoUrl: true,
+        openingHours: true,
+        contactEmail: true,
+        contactPhone: true,
+        address: true,
+      },
+    });
+    if (!settings) return DEFAULT_PUBLIC;
     return {
-      business_name: 'Mr. Kutz',
-      logo_url: null,
-      opening_hours: null,
-      contact_email: null,
-      contact_phone: null,
-      address: null,
+      business_name: settings.businessName,
+      logo_url: settings.logoUrl,
+      opening_hours: settings.openingHours,
+      contact_email: settings.contactEmail,
+      contact_phone: settings.contactPhone,
+      address: settings.address,
     };
+  } catch (e) {
+    console.error('[getPublicSettings]', e?.message || e);
+    return DEFAULT_PUBLIC;
   }
-  return {
-    business_name: settings.businessName,
-    logo_url: settings.logoUrl,
-    opening_hours: settings.openingHours,
-    contact_email: settings.contactEmail,
-    contact_phone: settings.contactPhone,
-    address: settings.address,
-  };
 };

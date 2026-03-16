@@ -105,14 +105,16 @@ export default function LoginPage() {
               </Link>
             </p>
 
-            <div className="mt-8 p-4 bg-stone-50 rounded-xl border border-stone-200">
-              <p className="text-xs font-semibold text-stone-600 mb-2 uppercase tracking-wider">
-                Cuentas de prueba
-              </p>
-              <p className="text-xs text-stone-500 font-mono">admin@mrkutz.com / password123</p>
-              <p className="text-xs text-stone-500 font-mono">barber@mrkutz.com / password123</p>
-              <p className="text-xs text-stone-500 font-mono">client@mrkutz.com / password123</p>
-            </div>
+            <details className="mt-8">
+              <summary className="text-xs font-semibold text-stone-500 uppercase tracking-wider cursor-pointer">
+                Cuentas de prueba (solo desarrollo)
+              </summary>
+              <div className="mt-3 p-4 bg-stone-50 rounded-xl border border-stone-200 text-left">
+                <p className="text-xs text-stone-500 font-mono break-all">admin@mrkutz.com / password123</p>
+                <p className="text-xs text-stone-500 font-mono break-all">barber@mrkutz.com / password123</p>
+                <p className="text-xs text-stone-500 font-mono break-all">client@mrkutz.com / password123</p>
+              </div>
+            </details>
           </div>
         </div>
       </div>

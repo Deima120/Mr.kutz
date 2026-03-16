@@ -1,6 +1,6 @@
 /**
  * Página de listado de clientes
- * Admin: CRUD. Barber: solo consulta (ver datos).
+ * Admin: CRUD. Barber: solo consulta (ver datos) con diseño premium.
  */
 
 import { useState, useEffect } from 'react';
@@ -14,6 +14,7 @@ import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '.
 export default function ClientsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const isBarber = user?.role === 'barber';
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -53,6 +54,87 @@ export default function ClientsPage() {
     }
   };
 
+  // ——— Vista barbero: solo lectura, diseño premium ———
+  if (isBarber) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="section-label text-gold">Consulta</p>
+          <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
+            Clientes
+          </h1>
+          <p className="text-stone-500">
+            {total > 0 ? `${total} cliente${total !== 1 ? 's' : ''} registrado${total !== 1 ? 's' : ''}. Solo consulta.` : 'Busca y consulta datos de clientes.'}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+          <div className="p-6 border-b border-stone-100">
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, email o teléfono..."
+                className="flex-1 px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm"
+              />
+              <button
+                type="submit"
+                className="px-5 py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+              >
+                Buscar
+              </button>
+            </form>
+          </div>
+
+          <div className="p-6">
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="py-16 text-center text-stone-500">Cargando clientes...</div>
+            ) : clients.length === 0 ? (
+              <p className="text-stone-500 py-8 text-center">No hay clientes que coincidan con la búsqueda.</p>
+            ) : (
+              <ul className="space-y-3">
+                {clients.map((client) => (
+                  <li key={client.id}>
+                    <Link
+                      to={`/clients/${client.id}`}
+                      className="block p-4 rounded-xl border border-stone-200 hover:border-gold/30 hover:shadow-card-hover transition-all bg-stone-50/50 hover:bg-white"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="font-serif font-medium text-stone-900">
+                            {client.first_name} {client.last_name}
+                          </p>
+                          <p className="text-stone-500 text-sm mt-0.5">{client.email || 'Sin email'}</p>
+                          {client.phone && (
+                            <p className="text-stone-500 text-sm">{client.phone}</p>
+                          )}
+                        </div>
+                        <span className="text-gold text-sm font-semibold">Ver detalle →</span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {total > 0 && clients.length > 0 && (
+              <p className="mt-4 pt-4 border-t border-stone-100 text-sm text-stone-500">
+                Total: {total} cliente{total !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ——— Vista admin ———
   return (
     <div className="space-y-6">
       <PageHeader
@@ -129,27 +211,23 @@ export default function ClientsPage() {
                         >
                           Ver
                         </Link>
-                        {isAdmin && (
-                          <>
-                            <Link
-                              to={`/clients/${client.id}/edit`}
-                              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                            >
-                              Editar
-                            </Link>
-                            <button
-                              onClick={() =>
-                                handleDelete(
-                                  client.id,
-                                  `${client.first_name} ${client.last_name}`
-                                )
-                              }
-                              className="text-sm text-red-600 hover:text-red-700 font-medium"
-                            >
-                              Eliminar
-                            </button>
-                          </>
-                        )}
+                        <Link
+                          to={`/clients/${client.id}/edit`}
+                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                          Editar
+                        </Link>
+                        <button
+                          onClick={() =>
+                            handleDelete(
+                              client.id,
+                              `${client.first_name} ${client.last_name}`
+                            )
+                          }
+                          className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Eliminar
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>

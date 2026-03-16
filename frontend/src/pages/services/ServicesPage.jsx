@@ -1,12 +1,10 @@
 /**
- * Listado de servicios
+ * Listado de servicios (admin)
  */
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as serviceService from '../../services/serviceService';
-import PageHeader from '../../components/admin/PageHeader';
-import DataCard from '../../components/admin/DataCard';
 
 export default function ServicesPage() {
   const [services, setServices] = useState([]);
@@ -45,71 +43,86 @@ export default function ServicesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Servicios"
-        subtitle="Catálogo de cortes y tratamientos"
-        actions={
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="section-label text-gold">Catálogo</p>
+          <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
+            Servicios
+          </h1>
+          <p className="text-stone-500">Cortes y tratamientos que ofreces. Los activos aparecen al agendar.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-stone-300 text-gold focus:ring-gold/40"
+            />
+            Mostrar inactivos
+          </label>
           <Link
             to="/services/new"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
           >
             + Nuevo servicio
           </Link>
-        }
-      />
-
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-          Mostrar inactivos
-        </label>
+        </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+          {error}
+        </div>
       )}
 
       {loading ? (
-        <DataCard>
-          <div className="py-16 text-center text-gray-500">Cargando...</div>
-        </DataCard>
+        <div className="py-16 text-center text-stone-500">Cargando...</div>
       ) : services.length === 0 ? (
-        <DataCard>
-          <div className="py-16 text-center text-gray-500">No hay servicios registrados.</div>
-        </DataCard>
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-12 text-center">
+          <p className="text-stone-500 mb-4">No hay servicios registrados.</p>
+          <Link
+            to="/services/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
+          >
+            + Crear primer servicio
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <DataCard key={s.id} className={!s.is_active ? 'opacity-60' : ''}>
-              <div className="flex justify-between items-start gap-4">
+            <article
+              key={s.id}
+              className={`bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden ${!s.is_active ? 'opacity-70' : ''}`}
+            >
+              <div className="p-5 sm:p-6 flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900">{s.name}</h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    {!s.is_active && (
+                      <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-stone-100 text-stone-600 border border-stone-200">
+                        Inactivo
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-serif text-lg font-medium text-stone-900">{s.name}</h3>
                   {s.description && (
-                    <p className="text-gray-500 text-sm mt-1 line-clamp-2">{s.description}</p>
+                    <p className="text-stone-500 text-sm mt-1 line-clamp-2">{s.description}</p>
                   )}
-                  <p className="mt-2 text-primary-600 font-semibold">
+                  <p className="mt-2 text-gold font-semibold">
                     ${parseFloat(s.price).toFixed(2)} · {s.duration_minutes} min
                   </p>
-                  {!s.is_active && (
-                    <span className="inline-block mt-2 px-2.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-md font-medium">
-                      Inactivo
-                    </span>
-                  )}
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
                   <Link
                     to={`/services/${s.id}/edit`}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
                   >
                     Editar
                   </Link>
                   <button
+                    type="button"
                     onClick={() => handleDelete(s.id, s.name)}
                     className="text-sm text-red-600 hover:text-red-700 font-medium text-left"
                   >
@@ -117,7 +130,7 @@ export default function ServicesPage() {
                   </button>
                 </div>
               </div>
-            </DataCard>
+            </article>
           ))}
         </div>
       )}

@@ -1,75 +1,53 @@
 /**
- * Landing — Diseño premium inspirado en las mejores barberías
- * Hero impactante, servicios, galería, testimonios, CTA
+ * Landing — Carruseles 3D, hero con imágenes, galería y testimonios
  */
 
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import HeroCarousel from '../components/landing/HeroCarousel';
+import GalleryCarousel3D from '../components/landing/GalleryCarousel3D';
+import TestimonialsCarousel from '../components/landing/TestimonialsCarousel';
+import * as serviceService from '../services/serviceService';
 
-const services = [
+const SERVICES_FALLBACK = [
   { title: 'Corte', desc: 'Clásico y moderno. El estilo que buscas con la precisión que nos define.', num: '01' },
   { title: 'Barba', desc: 'Perfilado, arreglo y cuidado profesional para tu barba.', num: '02' },
   { title: 'Corte + Barba', desc: 'Combo completo. Sal siempre impecable.', num: '03' },
   { title: 'Servicios especiales', desc: 'Diseños, tintura y tratamientos a tu medida.', num: '04' },
 ];
 
-const testimonials = [
-  { name: 'Andrés M.', text: 'El barbero entendió exactamente lo que quería. Ambiente acogedor y servicio impecable. Volveré.', role: 'Cliente' },
-  { name: 'Cristian G.', text: 'Muy contento con el arreglo de barba. Profesional y atento. Muy recomendado.', role: 'Cliente' },
-  { name: 'Adrián L.', text: 'Experiencia de lujo: buen trato y resultado excelente. Gracias por el servicio.', role: 'Cliente' },
-];
-
-const galleryPlaceholder = [
-  { label: 'Ambiente' },
-  { label: 'Detalle' },
-  { label: 'Estilo' },
-];
-
 export default function HomePage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const { businessName } = useSettings();
   const canManage = user?.role === 'admin' || user?.role === 'barber';
 
+  const [services, setServices] = useState(SERVICES_FALLBACK);
+
+  useEffect(() => {
+    serviceService
+      .getServices()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.data ?? data?.services) ?? [];
+        if (list.length > 0) {
+          setServices(
+            list.map((s, i) => ({
+              id: s.id,
+              title: s.name ?? s.title ?? '',
+              desc: s.description ?? s.desc ?? '',
+              num: String(i + 1).padStart(2, '0'),
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="font-sans">
-      {/* ——— HERO ——— */}
-      <section className="relative min-h-[90vh] flex items-center justify-center bg-barber-dark text-white overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-radial-gold" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,rgba(12,10,9,0.4)_100%)]" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-
-        <div className="container mx-auto px-6 sm:px-8 py-20 relative z-10">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="section-label text-gold mb-6 animate-fade-in opacity-0" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
-              {businessName}
-            </p>
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.08] tracking-tight mb-6 animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-              Estilo y precisión en cada corte
-            </h1>
-            <p className="text-stone-400 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed mb-10 animate-fade-in-up opacity-0" style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}>
-              Cortes clásicos, barba y servicios de barbería con la calidad que te mereces.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 animate-fade-in-up opacity-0" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
-              <Link to="/appointments" className="btn-primary group">
-                Agenda tu cita
-                <span className="group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
-              </Link>
-              {!isAuthenticated && (
-                <Link to="/register" className="btn-secondary">
-                  Regístrate
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Scroll hint */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-stone-500 animate-fade-in opacity-0" style={{ animationDelay: '0.8s', animationFillMode: 'forwards' }}>
-          <span className="text-xs uppercase tracking-widest">Descubre más</span>
-          <span className="block w-px h-10 bg-gradient-to-b from-stone-500 to-transparent" />
-        </div>
-      </section>
+      {/* ——— HERO CON CARRUSEL DE IMÁGENES ——— */}
+      <HeroCarousel />
 
       {/* ——— SOBRE NOSOTROS ——— */}
       <section className="py-24 sm:py-32 bg-stone-50 scroll-mt-20">
@@ -100,9 +78,9 @@ export default function HomePage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-stone-200 rounded-lg overflow-hidden">
-            {services.map((s) => (
+            {services.map((s, i) => (
               <div
-                key={s.title}
+                key={s.id ?? s.num ?? i}
                 className="bg-white p-8 sm:p-10 hover:bg-stone-50/80 transition-all duration-300 group border border-stone-200 hover:border-gold/30 hover:shadow-card-hover"
               >
                 <span className="block font-serif text-gold text-2xl mb-4 font-medium tabular-nums">
@@ -128,54 +106,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ——— GALERÍA / AMBIENTE ——— */}
-      <section className="py-24 sm:py-32 bg-stone-50">
-        <div className="container mx-auto px-6 sm:px-8">
-          <div className="text-center mb-12">
-            <p className="section-label text-gold">Ambiente</p>
-            <h2 className="section-heading mb-4">Nuestro espacio</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            {galleryPlaceholder.map((item) => (
-              <div
-                key={item.label}
-                className="aspect-[4/5] bg-stone-200 rounded-lg flex items-end p-6 sm:p-8 border border-stone-200 overflow-hidden group"
-              >
-                <div className="w-full h-full flex items-center justify-center text-stone-400 group-hover:text-stone-500 transition-colors">
-                  <span className="font-serif text-lg text-stone-500">{item.label}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ——— GALERÍA 3D (carrusel con tilt) ——— */}
+      <GalleryCarousel3D />
 
-      {/* ——— TESTIMONIOS ——— */}
-      <section id="testimonios" className="py-24 sm:py-32 bg-white scroll-mt-20">
-        <div className="container mx-auto px-6 sm:px-8">
-          <div className="text-center mb-16">
-            <p className="section-label text-gold">Testimonios</p>
-            <h2 className="section-heading mb-4">Lo que dicen nuestros clientes</h2>
-          </div>
-          <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-            {testimonials.map((t) => (
-              <blockquote
-                key={t.name}
-                className="relative bg-stone-50 p-8 border border-stone-200 rounded-lg hover:border-gold/20 hover:shadow-card transition-all duration-300"
-              >
-                <span className="absolute top-6 left-6 font-serif text-gold/30 text-4xl leading-none">"</span>
-                <p className="text-stone-600 italic leading-relaxed pl-6 mb-6 min-h-[4.5rem]">
-                  {t.text}
-                </p>
-                <footer className="pl-6 border-l-2 border-gold">
-                  <cite className="not-italic font-semibold text-stone-900">{t.name}</cite>
-                  {t.role && <span className="block text-stone-500 text-sm font-normal">{t.role}</span>}
-                </footer>
-              </blockquote>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ——— TESTIMONIOS (carrusel 3D) ——— */}
+      <TestimonialsCarousel />
 
       {/* ——— UBICACIÓN ——— */}
       <section id="ubicacion" className="py-24 sm:py-32 bg-stone-50 scroll-mt-20">

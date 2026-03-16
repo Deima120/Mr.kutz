@@ -15,7 +15,7 @@ const api = axios.create({
   },
 });
 
-// Interceptor: Adjuntar token en cada request
+// Interceptor: adjuntar token en cada request (login, barbers, services, appointments, etc.)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');

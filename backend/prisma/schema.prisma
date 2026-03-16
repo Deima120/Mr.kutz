@@ -175,3 +175,16 @@ model BusinessSetting {
 
   @@map("business_settings")
 }
+
+model Testimonial {
+  id         Int      @id @default(autoincrement())
+  authorName String   @map("author_name") @db.VarChar(100)
+  authorRole String?  @map("author_role") @db.VarChar(50)
+  content    String   @db.VarChar(1000)
+  isActive   Boolean  @default(true) @map("is_active")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("testimonials")
+}

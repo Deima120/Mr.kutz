@@ -13,6 +13,7 @@ const adminNavItems = [
   { path: '/clients', label: 'Clientes', icon: '👥' },
   { path: '/services', label: 'Servicios', icon: '✂️' },
   { path: '/barbers', label: 'Barberos', icon: '🧔' },
+  { path: '/testimonials', label: 'Testimonios', icon: '💬' },
   { path: '/payments', label: 'Pagos', icon: '💳' },
   { path: '/inventory', label: 'Inventario', icon: '📦' },
   { path: '/reports', label: 'Reportes', icon: '📈' },
