@@ -33,7 +33,15 @@ export const getById = async (id) => {
   });
   if (!barber) return null;
   return {
-    ...barber,
+    id: barber.id,
+    user_id: barber.userId,
+    first_name: barber.firstName,
+    last_name: barber.lastName,
+    phone: barber.phone,
+    specialties: barber.specialties,
+    is_active: barber.isActive,
+    created_at: barber.createdAt,
+    updated_at: barber.updatedAt,
     email: barber.user.email,
   };
 };
@@ -121,7 +129,15 @@ export const update = async (id, data) => {
     include: { user: { select: { email: true } } },
   });
   return {
-    ...barber,
+    id: barber.id,
+    user_id: barber.userId,
+    first_name: barber.firstName,
+    last_name: barber.lastName,
+    phone: barber.phone,
+    specialties: barber.specialties,
+    is_active: barber.isActive,
+    created_at: barber.createdAt,
+    updated_at: barber.updatedAt,
     email: barber.user.email,
   };
 };

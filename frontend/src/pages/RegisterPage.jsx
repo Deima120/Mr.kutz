@@ -1,18 +1,17 @@
 /**
- * Página de registro de nuevos usuarios
+ * Registro — Diseño alineado con la marca
  */
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const inputClass = "w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none";
+const labelClass = "block text-sm font-semibold text-stone-700 mb-1.5";
+
 export default function RegisterPage() {
   const { isAuthenticated, register } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true });
-  }, [isAuthenticated, navigate]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -24,6 +23,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) navigate('/', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -33,19 +35,15 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
-
     if (formData.password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
-
     setLoading(true);
-
     try {
       await register({
         email: formData.email,
@@ -57,137 +55,76 @@ export default function RegisterPage() {
       });
       navigate('/', { replace: true });
     } catch (err) {
-      const msg = err?.errors?.[0]?.message || err?.message || (typeof err === 'string' ? err : 'Error al registrarse');
-      setError(msg);
+      setError(err?.errors?.[0]?.message || err?.message || (typeof err === 'string' ? err : 'Error al registrarse'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center py-8">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Crear cuenta</h2>
-          <p className="text-gray-500 text-sm mb-6">
-            Regístrate para gestionar tus citas
-          </p>
+        <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
+          <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
+          <div className="p-8 sm:p-10">
+            <p className="text-gold tracking-[0.2em] uppercase text-xs font-semibold mb-2">Nueva cuenta</p>
+            <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium mb-2">Crear cuenta</h1>
+            <p className="text-stone-500 text-sm mb-8">Regístrate para gestionar tus citas</p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-                {error}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm" role="alert">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="firstName" className={labelClass}>Nombre</label>
+                  <input id="firstName" name="firstName" type="text" value={formData.firstName} onChange={handleChange} className={inputClass} required />
+                </div>
+                <div>
+                  <label htmlFor="lastName" className={labelClass}>Apellido</label>
+                  <input id="lastName" name="lastName" type="text" value={formData.lastName} onChange={handleChange} className={inputClass} required />
+                </div>
               </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                  required
-                />
+                <label htmlFor="email" className={labelClass}>Email</label>
+                <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} className={inputClass} placeholder="tu@email.com" required />
               </div>
+
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Apellido
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                  required
-                />
+                <label htmlFor="phone" className={labelClass}>Teléfono (opcional)</label>
+                <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} className={inputClass} />
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                placeholder="tu@email.com"
-                required
-              />
-            </div>
+              <div>
+                <label htmlFor="password" className={labelClass}>Contraseña</label>
+                <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} className={inputClass} placeholder="Mínimo 6 caracteres, 1 número" required minLength={6} />
+              </div>
 
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                Teléfono (opcional)
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-              />
-            </div>
+              <div>
+                <label htmlFor="confirmPassword" className={labelClass}>Confirmar contraseña</label>
+                <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} className={inputClass} required />
+              </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                placeholder="Mínimo 6 caracteres, 1 número"
-                required
-                minLength={6}
-              />
-            </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-barber-dark text-white font-semibold rounded-lg hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creando cuenta...' : 'Registrarme'}
+              </button>
+            </form>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirmar contraseña
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creando cuenta...' : 'Registrarme'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-gray-600 text-sm">
-            ¿Ya tienes cuenta?{' '}
-            <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-              Inicia sesión
-            </Link>
-          </p>
+            <p className="mt-8 text-center text-stone-600 text-sm">
+              ¿Ya tienes cuenta?{' '}
+              <Link to="/login" className="text-gold font-semibold hover:text-gold-dark transition-colors">
+                Inicia sesión
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

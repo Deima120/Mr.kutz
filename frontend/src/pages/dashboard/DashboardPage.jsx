@@ -65,88 +65,110 @@ function BarberDashboard() {
   const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Mi día"
-        subtitle={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-        actions={
+    <div className="space-y-8">
+      <div>
+        <p className="section-label text-gold">Panel del barbero</p>
+        <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
+          Mi día
+        </h1>
+        <p className="text-stone-500">
+          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+        <div className="mt-4">
           <Link
             to="/appointments"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium text-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
           >
             Ver todas mis citas
+            <span aria-hidden>→</span>
           </Link>
-        }
-      />
+        </div>
+      </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+          {error}
+        </div>
       )}
 
       {nextAppointment && (
-        <DataCard title="Siguiente cita">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-semibold text-gray-900">
-                {formatTime(nextAppointment.start_time)} — {nextAppointment.service_name}
-              </p>
-              <p className="text-gray-600 text-sm">
-                {nextAppointment.client_first_name} {nextAppointment.client_last_name}
-              </p>
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+          <div className="h-1 w-full bg-gold/80" aria-hidden />
+          <div className="p-6">
+            <h2 className="text-sm font-semibold text-gold uppercase tracking-wider mb-3">Siguiente cita</h2>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="font-serif text-xl text-stone-900 font-medium">
+                  {formatTime(nextAppointment.start_time)} — {nextAppointment.service_name}
+                </p>
+                <p className="text-stone-600 mt-0.5">
+                  {nextAppointment.client_first_name} {nextAppointment.client_last_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleMarkCompleted(nextAppointment.id)}
+                className="px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+              >
+                Marcar completada
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => handleMarkCompleted(nextAppointment.id)}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium"
-            >
-              Marcar completada
-            </button>
           </div>
-        </DataCard>
+        </div>
       )}
 
-      <DataCard title={`Citas de hoy (${appointments.length})`}>
-        {loading ? (
-          <div className="py-8 text-center text-gray-500">Cargando...</div>
-        ) : appointments.length === 0 ? (
-          <p className="text-gray-500 text-sm py-4">No tienes citas programadas para hoy.</p>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {appointments.map((a) => (
-              <li key={a.id} className="py-3 flex items-center justify-between gap-4">
-                <div>
-                  <span className="font-medium text-gray-900">{formatTime(a.start_time)}</span>
-                  <span className="text-gray-600 ml-2">
-                    {a.client_first_name} {a.client_last_name} — {a.service_name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                      a.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : ['cancelled', 'no_show'].includes(a.status)
-                        ? 'bg-gray-100 text-gray-600'
-                        : 'bg-primary-100 text-primary-800'
-                    }`}
-                  >
-                    {STATUS_LABELS[a.status] || a.status}
-                  </span>
-                  {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                    <button
-                      type="button"
-                      onClick={() => handleMarkCompleted(a.id)}
-                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+        <div className="px-6 py-4 border-b border-stone-100">
+          <h2 className="font-serif text-lg text-stone-900 font-medium">
+            Citas de hoy ({appointments.length})
+          </h2>
+        </div>
+        <div className="p-6">
+          {loading ? (
+            <div className="py-12 text-center text-stone-500">Cargando...</div>
+          ) : appointments.length === 0 ? (
+            <p className="text-stone-500 py-6">No tienes citas programadas para hoy.</p>
+          ) : (
+            <ul className="space-y-3">
+              {appointments.map((a) => (
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl bg-stone-50/80 border border-stone-100"
+                >
+                  <div>
+                    <span className="font-semibold text-stone-900">{formatTime(a.start_time)}</span>
+                    <span className="text-stone-600 ml-2">
+                      {a.client_first_name} {a.client_last_name} — {a.service_name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                        a.status === 'completed'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : ['cancelled', 'no_show'].includes(a.status)
+                          ? 'bg-stone-100 text-stone-600 border-stone-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
                     >
-                      Completada
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </DataCard>
+                      {STATUS_LABELS[a.status] || a.status}
+                    </span>
+                    {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkCompleted(a.id)}
+                        className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
+                      >
+                        Completada
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

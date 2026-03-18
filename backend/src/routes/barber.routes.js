@@ -54,9 +54,10 @@ const schedulesValidation = [
 
 router.use(auth);
 
-router.get('/', authorize('admin', 'barber'), barberController.getAll);
-router.get('/:id/schedules', authorize('admin', 'barber'), idParam, validate, barberController.getSchedules);
-router.get('/:id', authorize('admin', 'barber'), idParam, validate, barberController.getById);
+// Listar barberos: admin, barber y client (el cliente los necesita para agendar)
+router.get('/', authorize('admin', 'barber', 'client'), barberController.getAll);
+router.get('/:id/schedules', authorize('admin', 'barber', 'client'), idParam, validate, barberController.getSchedules);
+router.get('/:id', authorize('admin', 'barber', 'client'), idParam, validate, barberController.getById);
 
 router.post('/', authorize('admin'), createValidation, validate, barberController.create);
 router.put('/:id', authorize('admin'), [idParam, ...updateValidation], validate, barberController.update);

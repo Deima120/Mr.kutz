@@ -13,6 +13,7 @@ const adminNavItems = [
   { path: '/clients', label: 'Clientes', icon: '👥' },
   { path: '/services', label: 'Servicios', icon: '✂️' },
   { path: '/barbers', label: 'Barberos', icon: '🧔' },
+  { path: '/testimonials', label: 'Testimonios', icon: '💬' },
   { path: '/payments', label: 'Pagos', icon: '💳' },
   { path: '/inventory', label: 'Inventario', icon: '📦' },
   { path: '/reports', label: 'Reportes', icon: '📈' },
@@ -41,13 +42,17 @@ export default function AdminLayout({ children }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-100">
-      {/* Sidebar negro y gris */}
+    <div className="min-h-screen flex bg-stone-100">
+      {/* Sidebar — identidad de marca */}
       <aside className="w-64 bg-barber-dark text-white flex flex-col fixed h-full">
-        <div className="p-6 border-b border-gray-700">
-          <Link to="/dashboard" className="block">
-            <h1 className="text-xl font-bold tracking-tight">{businessName}</h1>
-            <p className="text-gray-400 text-xs mt-0.5">{isAdmin ? 'Panel de administración' : 'Panel del barbero'}</p>
+        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-gold/50 to-transparent" aria-hidden />
+        <div className="p-6 border-b border-stone-800">
+          <Link to="/dashboard" className="block group">
+            <span className="block w-5 h-px bg-gold group-hover:w-8 transition-all duration-300 mb-1" />
+            <h1 className="font-serif text-xl font-medium tracking-tight text-white group-hover:text-gold/90 transition-colors">
+              {businessName}
+            </h1>
+            <p className="text-stone-500 text-xs mt-0.5">{isAdmin ? 'Panel de administración' : 'Panel del barbero'}</p>
           </Link>
         </div>
 
@@ -62,8 +67,8 @@ export default function AdminLayout({ children }) {
                     to={item.path}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-white text-barber-dark'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        ? 'bg-white text-barber-dark shadow-sm'
+                        : 'text-stone-400 hover:bg-stone-800 hover:text-white'
                     }`}
                   >
                     <span className="text-lg">{item.icon}</span>
@@ -75,32 +80,25 @@ export default function AdminLayout({ children }) {
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-gray-700">
-          <div className="px-4 py-2 text-gray-400 text-xs">
+        <div className="p-4 border-t border-stone-800">
+          <div className="px-4 py-2 text-stone-500 text-xs truncate" title={user?.email}>
             {user?.firstName || user?.email}
           </div>
-          <div className="px-2 mt-2">
-            <Link
-              to="/"
-              className="block px-4 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-gray-700"
-            >
+          <div className="px-2 mt-2 space-y-0.5">
+            <Link to="/" className="block px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors">
               ← Inicio
             </Link>
-            <button
-              onClick={handleLogout}
-              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-gray-700"
-            >
+            <button type="button" onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors">
               Cerrar sesión
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Contenido principal */}
       <div className="flex-1 ml-64 min-h-screen flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10 shadow-sm">
+        <header className="bg-white border-b border-stone-200 px-8 py-4 sticky top-0 z-10 shadow-card">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-black">
+            <h2 className="font-serif text-lg font-medium text-stone-900">
               {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
             </h2>
           </div>

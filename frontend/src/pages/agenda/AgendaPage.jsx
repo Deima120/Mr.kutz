@@ -5,8 +5,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
-import PageHeader from '../../components/admin/PageHeader';
-import DataCard from '../../components/admin/DataCard';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const STATUS_LABELS = {
@@ -83,24 +81,26 @@ export default function AgendaPage() {
     const d = new Date(weekStart + 'T12:00:00');
     d.setDate(d.getDate() + i);
     const key = d.toISOString().slice(0, 10);
-    appointmentsByDay[key] = appointments.filter((a) => a.appointment_date === key);
+    appointmentsByDay[key] = appointments.filter((a) => (a.appointment_date || '').toString().slice(0, 10) === key);
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Mi agenda"
-        subtitle="Vista semanal de tus citas"
-        actions={
+    <div className="space-y-8">
+      <div>
+        <p className="section-label text-gold">Vista semanal</p>
+        <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-4">
+          Mi agenda
+        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={goPrevWeek}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
             >
-              ← Semana anterior
+              ← Anterior
             </button>
-            <span className="text-sm text-gray-600 min-w-[180px] text-center">
+            <span className="text-sm text-stone-600 min-w-[200px] text-center font-medium">
               {new Date(dateFrom + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
               {' – '}
               {new Date(dateTo + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -108,22 +108,22 @@ export default function AgendaPage() {
             <button
               type="button"
               onClick={goNextWeek}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
             >
-              Siguiente semana →
+              Siguiente →
             </button>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+          {error}
+        </div>
       )}
 
       {loading ? (
-        <DataCard>
-          <div className="py-16 text-center text-gray-500">Cargando agenda...</div>
-        </DataCard>
+        <div className="py-16 text-center text-stone-500">Cargando agenda...</div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
           {Object.entries(appointmentsByDay).map(([dayStr, list]) => {
@@ -131,44 +131,46 @@ export default function AgendaPage() {
             const dayName = DAY_NAMES[d.getDay()];
             const isToday = dayStr === new Date().toISOString().slice(0, 10);
             return (
-              <DataCard
+              <div
                 key={dayStr}
-                title={
-                  <span className={isToday ? 'font-semibold text-primary-600' : ''}>
-                    {dayName} {d.getDate()}
-                  </span>
-                }
+                className={`bg-white rounded-2xl border shadow-card overflow-hidden ${
+                  isToday ? 'border-gold/50 ring-1 ring-gold/20' : 'border-stone-200'
+                }`}
               >
-                {list.length === 0 ? (
-                  <p className="text-gray-500 text-sm">Sin citas</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {list
-                      .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
-                      .map((a) => (
-                        <li key={a.id} className="text-sm border-l-2 border-gray-200 pl-2 py-0.5">
-                          <span className="font-medium text-gray-900">{formatTime(a.start_time)}</span>
-                          <span className="text-gray-600">
-                            {' '}
-                            {a.client_first_name} {a.client_last_name}
-                          </span>
-                          <span className="block text-gray-500 truncate">{a.service_name}</span>
-                          <span
-                            className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-xs ${
-                              a.status === 'completed'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : ['cancelled', 'no_show'].includes(a.status)
-                                ? 'bg-gray-100 text-gray-600'
-                                : 'bg-primary-100 text-primary-800'
-                            }`}
-                          >
-                            {STATUS_LABELS[a.status] || a.status}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                )}
-              </DataCard>
+                <div className="px-4 py-3 border-b border-stone-100">
+                  <h3 className={`font-serif font-medium ${isToday ? 'text-gold' : 'text-stone-900'}`}>
+                    {dayName} {d.getDate()}
+                  </h3>
+                </div>
+                <div className="p-4 min-h-[120px]">
+                  {list.length === 0 ? (
+                    <p className="text-stone-400 text-sm">Sin citas</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {list
+                        .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
+                        .map((a) => (
+                          <li key={a.id} className="text-sm border-l-2 border-gold/40 pl-2 py-1">
+                            <span className="font-semibold text-stone-900">{formatTime(a.start_time)}</span>
+                            <span className="text-stone-600"> {a.client_first_name} {a.client_last_name}</span>
+                            <span className="block text-stone-500 truncate">{a.service_name}</span>
+                            <span
+                              className={`inline-block mt-0.5 px-1.5 py-0.5 rounded-lg text-xs font-medium ${
+                                a.status === 'completed'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : ['cancelled', 'no_show'].includes(a.status)
+                                  ? 'bg-stone-100 text-stone-600'
+                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {STATUS_LABELS[a.status] || a.status}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

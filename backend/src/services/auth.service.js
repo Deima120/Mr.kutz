@@ -73,8 +73,9 @@ export const register = async (userData) => {
   });
 
   const token = generateToken(result.id);
+  const user = await getProfile(result.id);
   return {
-    user: formatUserResponse(result, { firstName, lastName, role }),
+    user: user || formatUserResponse(result, { firstName, lastName, role }),
     token,
   };
 };
@@ -120,8 +121,88 @@ export const login = async (email, password) => {
   }
 
   const token = generateToken(dbUser.id);
-  const user = formatUserResponse(dbUser);
-  return { user, token };
+  const user = await getProfile(dbUser.id);
+  return { user: user || formatUserResponse(dbUser), token };
+};
+
+// Solicitar recuperación de contraseña
+export const forgotPassword = async (email) => {
+  const dbUser = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+
+  if (!dbUser) {
+    // Por seguridad, no revelamos si el email existe o no
+    return { message: 'If the email exists, you will receive instructions' };
+  }
+
+  // Generar código de recuperación (6 dígitos)
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const resetExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+
+  await prisma.user.update({
+    where: { id: dbUser.id },
+    data: {
+      resetCode,
+      resetCodeExpires: resetExpires,
+    },
+  });
+
+  // En producción, aquí se enviaría un email con el código
+  // Por ahora, lo retornamos para pruebas (en producción, eliminar esto)
+  console.log(`Reset code for ${email}: ${resetCode}`);
+
+  return { 
+    message: 'If the email exists, you will receive instructions',
+    // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
+    ...(process.env.NODE_ENV !== 'production' && { resetCode })
+  };
+};
+
+// Verificar código de recuperación
+export const verifyResetCode = async (email, code) => {
+  const dbUser = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+
+  if (!dbUser || !dbUser.resetCode || !dbUser.resetCodeExpires) {
+    const error = new Error('Invalid or expired code');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (dbUser.resetCode !== code) {
+    const error = new Error('Invalid code');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (new Date() > dbUser.resetCodeExpires) {
+    const error = new Error('Code has expired');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return { valid: true };
+};
+
+// Resetear contraseña con código
+export const resetPassword = async (email, code, newPassword) => {
+  // Verificar código primero
+  await verifyResetCode(email, code);
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  await prisma.user.update({
+    where: { email: email.toLowerCase() },
+    data: {
+      passwordHash,
+      resetCode: null,
+      resetCodeExpires: null,
+    },
+  });
+
+  return { message: 'Password updated successfully' };
 };
 
 export const getProfile = async (userId) => {

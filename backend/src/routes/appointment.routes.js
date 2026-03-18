@@ -11,7 +11,7 @@ import * as appointmentController from '../controllers/appointment.controller.js
 const router = express.Router();
 
 const createValidation = [
-  body('clientId').isInt({ min: 1 }).withMessage('Valid client required'),
+  body('clientId').optional().isInt({ min: 1 }).withMessage('Valid client required'),
   body('barberId').isInt({ min: 1 }).withMessage('Valid barber required'),
   body('serviceId').isInt({ min: 1 }).withMessage('Valid service required'),
   body('appointmentDate').isDate().withMessage('Valid date required'),

@@ -21,6 +21,8 @@ model User {
   passwordHash       String              @map("password_hash") @db.VarChar(255)
   roleId             Int                 @map("role_id")
   isActive           Boolean             @default(true) @map("is_active")
+  resetCode          String?             @map("reset_code") @db.VarChar(6)
+  resetCodeExpires   DateTime?           @map("reset_code_expires")
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
   barber             Barber?
@@ -174,4 +176,17 @@ model BusinessSetting {
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("business_settings")
+}
+
+model Testimonial {
+  id         Int      @id @default(autoincrement())
+  authorName String   @map("author_name") @db.VarChar(100)
+  authorRole String?  @map("author_role") @db.VarChar(50)
+  content    String   @db.VarChar(1000)
+  isActive   Boolean  @default(true) @map("is_active")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("testimonials")
 }

@@ -22,6 +22,13 @@ export function AuthProvider({ children }) {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
+    try {
+      const profile = await authService.getProfile();
+      if (profile?.id) {
+        setUser(profile);
+        localStorage.setItem(USER_KEY, JSON.stringify(profile));
+      }
+    } catch (_) {}
   };
 
   const logout = () => {
@@ -35,6 +42,13 @@ export function AuthProvider({ children }) {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
+    try {
+      const profile = await authService.getProfile();
+      if (profile?.id) {
+        setUser(profile);
+        localStorage.setItem(USER_KEY, JSON.stringify(profile));
+      }
+    } catch (_) {}
   };
 
   // Verificar token al montar y recuperar sesión

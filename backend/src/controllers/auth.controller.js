@@ -57,3 +57,56 @@ export const getProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * POST /api/auth/forgot-password
+ * Solicita recuperación de contraseña
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await authService.forgotPassword(email);
+    res.json({
+      success: true,
+      message: result.message,
+      // Solo en desarrollo
+      ...(result.resetCode && { resetCode: result.resetCode }),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/verify-code
+ * Verifica código de recuperación
+ */
+export const verifyResetCode = async (req, res, next) => {
+  try {
+    const { email, code } = req.body;
+    const result = await authService.verifyResetCode(email, code);
+    res.json({
+      success: true,
+      valid: result.valid,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Resetea contraseña con código
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    const result = await authService.resetPassword(email, code, newPassword);
+    res.json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

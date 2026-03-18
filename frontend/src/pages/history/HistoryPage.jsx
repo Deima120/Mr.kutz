@@ -5,9 +5,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
-import PageHeader from '../../components/admin/PageHeader';
-import DataCard from '../../components/admin/DataCard';
-import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -44,72 +41,85 @@ export default function HistoryPage() {
 
   const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
   const formatDate = (d) =>
-    d ? new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+    d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Historial de servicios"
-        subtitle="Citas que has completado"
-        actions={
-          <div className="flex gap-2 items-center">
+    <div className="space-y-8">
+      <div>
+        <p className="section-label text-gold">Historial</p>
+        <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-4">
+          Servicios completados
+        </h1>
+        <p className="text-stone-500 mb-4">Citas que has marcado como completadas en el periodo.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-stone-600 mb-1">Desde</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
             />
-            <span className="text-gray-400">—</span>
+          </div>
+          <span className="text-stone-400 pt-6">—</span>
+          <div>
+            <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
             />
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+          {error}
+        </div>
       )}
 
-      <DataCard>
-        {loading ? (
-          <div className="py-16 text-center text-gray-500">Cargando historial...</div>
-        ) : appointments.length === 0 ? (
-          <div className="py-16 text-center text-gray-500">No hay servicios completados en este periodo.</div>
-        ) : (
-          <>
-            <p className="text-sm text-gray-600 mb-4">
-              {appointments.length} servicio{appointments.length !== 1 ? 's' : ''} completado
-              {appointments.length !== 1 ? 's' : ''} en el periodo seleccionado.
-            </p>
-            <Table>
-              <TableHead>
-                <TableHeader>Fecha</TableHeader>
-                <TableHeader>Hora</TableHeader>
-                <TableHeader>Cliente</TableHeader>
-                <TableHeader>Servicio</TableHeader>
-                <TableHeader>Precio</TableHeader>
-              </TableHead>
-              <TableBody>
-                {appointments.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="text-gray-700">{formatDate(a.appointment_date)}</TableCell>
-                    <TableCell className="font-medium">{formatTime(a.start_time)}</TableCell>
-                    <TableCell>
-                      {a.client_first_name} {a.client_last_name}
-                    </TableCell>
-                    <TableCell>{a.service_name}</TableCell>
-                    <TableCell>${parseFloat(a.price || 0).toFixed(2)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </>
-        )}
-      </DataCard>
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+        <div className="p-6">
+          {loading ? (
+            <div className="py-16 text-center text-stone-500">Cargando historial...</div>
+          ) : appointments.length === 0 ? (
+            <p className="text-stone-500 py-8 text-center">No hay servicios completados en este periodo.</p>
+          ) : (
+            <>
+              <p className="text-sm text-stone-600 mb-6">
+                {appointments.length} servicio{appointments.length !== 1 ? 's' : ''} completado
+                {appointments.length !== 1 ? 's' : ''} en el periodo.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-left text-stone-500 font-semibold uppercase tracking-wider text-xs">
+                      <th className="pb-3 pr-4">Fecha</th>
+                      <th className="pb-3 pr-4">Hora</th>
+                      <th className="pb-3 pr-4">Cliente</th>
+                      <th className="pb-3 pr-4">Servicio</th>
+                      <th className="pb-3 text-right">Precio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.map((a) => (
+                      <tr key={a.id} className="border-b border-stone-100 hover:bg-stone-50/50">
+                        <td className="py-3 pr-4 text-stone-700">{formatDate(a.appointment_date)}</td>
+                        <td className="py-3 pr-4 font-medium text-stone-900">{formatTime(a.start_time)}</td>
+                        <td className="py-3 pr-4">{a.client_first_name} {a.client_last_name}</td>
+                        <td className="py-3 pr-4">{a.service_name}</td>
+                        <td className="py-3 text-right font-medium text-stone-900">${parseFloat(a.price || 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
