@@ -344,9 +344,11 @@ export default function AppointmentsPage() {
       <PageHeader
         title={pageTitle}
         subtitle={pageSubtitle}
-        label="Citas"
         actions={
-          <Link to="/appointments/new" className="btn-admin">
+          <Link
+            to="/appointments/new"
+            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+          >
             + Nueva cita
           </Link>
         }
@@ -354,12 +356,12 @@ export default function AppointmentsPage() {
 
       <div className="flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-xs font-semibold text-stone-600 mb-1">Fecha</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Fecha</label>
           <input
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="input-premium py-2.5 text-sm"
+            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
           />
         </div>
         {isAdmin && (

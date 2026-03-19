@@ -208,7 +208,7 @@ export default function ClientsPage() {
                         </Link>
                         <Link
                           to={`/clients/${client.id}/edit`}
-                          className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
+                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           Editar
                         </Link>

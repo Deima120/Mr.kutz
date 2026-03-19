@@ -172,7 +172,8 @@ export default function MainLayout() {
             </div>
             <div>
               <h3 className="text-white font-semibold text-xs uppercase tracking-widest mb-3">Horarios</h3>
-              <p className="text-sm whitespace-pre-line">{openingHours || FALLBACK_HOURS}</p>
+              <p className="text-sm">Lunes a Sábado: 9:00 – 20:00</p>
+              <p className="text-sm">Domingos: 10:00 – 14:00</p>
             </div>
             <div>
               <h3 className="text-white font-semibold text-xs uppercase tracking-widest mb-3">Contacto</h3>

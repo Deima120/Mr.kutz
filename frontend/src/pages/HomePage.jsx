@@ -7,7 +7,6 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import HeroCarousel from '../components/landing/HeroCarousel';
-import CortesGallery from '../components/landing/CortesGallery';
 import GalleryCarousel3D from '../components/landing/GalleryCarousel3D';
 import TestimonialsCarousel from '../components/landing/TestimonialsCarousel';
 import * as serviceService from '../services/serviceService';
@@ -96,25 +95,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ——— MODELO 3D INTERACTIVO ——— */}
-      <section id="experiencia" className="landing-section bg-stone-100 scroll-mt-20">
-        <div className="container mx-auto px-6 sm:px-8">
-          <div className="max-w-4xl mx-auto">
-            <p className="section-label text-gold text-center">Experiencia</p>
-            <h2 className="section-heading text-center mb-4">
-              Nuestros cortes
-            </h2>
-            <div className="gold-line mx-auto mb-6" />
-            <p className="text-stone-600 leading-relaxed text-center max-w-xl mx-auto mb-10">
-              Explora nuestros estilos más recientes. Arrastra para ver más.
-            </p>
-            <div className="max-w-3xl mx-auto">
-              <CortesGallery />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ——— SERVICIOS (estilo barbería premium) ——— */}
       <section id="servicios" className="landing-section bg-stone-950 text-white scroll-mt-20">
         <div className="container mx-auto px-6 sm:px-8">
@@ -127,6 +107,9 @@ export default function HomePage() {
             <p className="text-stone-400 max-w-xl mx-auto text-lg">
               Precios y duración aproximada. Agenda en línea el servicio que prefieras.
             </p>
+            <div className="max-w-3xl mx-auto">
+              <CortesGallery />
+            </div>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 max-w-6xl mx-auto">
@@ -233,20 +216,6 @@ export default function HomePage() {
               </div>
             </div>
           )}
-          <div className="max-w-4xl mx-auto mt-8">
-            <div className="rounded-xl overflow-hidden border border-stone-200 shadow-lg">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.7547818832513!2d-75.57277465356252!3d6.163586117476545!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e4683aac95815a1%3A0xb0618dd527586c70!2sCl.%2036d%20Sur%20%2327A-105%2C%20Quintas%20de%20La%20Serrania%2C%20Envigado%2C%20Antioquia!5e0!3m2!1ses!2sco!4v1773809053737!5m2!1ses!2sco"
-                width="100%"
-                height="450"
-                style={{ border: 0 }}
-                allowFullScreen=""
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación de Mr. Kutz"
-              />
-            </div>
-          </div>
         </div>
       </section>
       

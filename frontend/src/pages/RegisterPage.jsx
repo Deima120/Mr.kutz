@@ -62,9 +62,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-stone-50 bg-section-pattern">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="landing-card overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
           <div className="p-8 sm:p-10">
             <p className="text-gold tracking-[0.2em] uppercase text-xs font-semibold mb-2">Nueva cuenta</p>
