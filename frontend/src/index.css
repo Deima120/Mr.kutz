@@ -39,6 +39,15 @@
   .gold-line {
     @apply h-px w-12 sm:w-16 bg-gradient-to-r from-transparent via-gold to-transparent;
   }
+  .input-premium {
+    @apply w-full px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none;
+  }
+  .btn-admin {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm;
+  }
+  .btn-admin-outline {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 border border-stone-300 text-stone-700 font-medium rounded-xl hover:border-gold hover:text-gold transition-colors text-sm;
+  }
 }
 
 /* Patrón sutil para fondos de sección */

@@ -7,11 +7,13 @@ import { useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+
+const FALLBACK_HOURS = 'Lunes a Sábado: 9:00 – 20:00\nDomingos: 10:00 – 14:00';
 import AdminLayout from './AdminLayout';
 
 export default function MainLayout() {
   const { user, isAuthenticated, logout } = useAuth();
-  const { businessName } = useSettings();
+  const { businessName, openingHours } = useSettings();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -170,8 +172,7 @@ export default function MainLayout() {
             </div>
             <div>
               <h3 className="text-white font-semibold text-xs uppercase tracking-widest mb-3">Horarios</h3>
-              <p className="text-sm">Lunes a Sábado: 9:00 – 20:00</p>
-              <p className="text-sm">Domingos: 10:00 – 14:00</p>
+              <p className="text-sm whitespace-pre-line">{openingHours || FALLBACK_HOURS}</p>
             </div>
             <div>
               <h3 className="text-white font-semibold text-xs uppercase tracking-widest mb-3">Contacto</h3>

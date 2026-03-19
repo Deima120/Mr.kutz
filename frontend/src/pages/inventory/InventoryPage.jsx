@@ -145,12 +145,10 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <PageHeader
         title="Inventario"
+        label="Stock"
         subtitle="Productos y control de stock"
         actions={
-          <Link
-            to="/inventory/new"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
-          >
+          <Link to="/inventory/new" className="btn-admin">
             + Nuevo producto
           </Link>
         }
@@ -193,40 +191,40 @@ export default function InventoryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre o SKU..."
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="input-premium py-2.5 text-sm"
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
           <input
             type="checkbox"
             checked={showInactive}
             onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="rounded border-stone-300 text-gold focus:ring-gold/40"
           />
           Mostrar inactivos
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
           <input
             type="checkbox"
             checked={showLowStockOnly}
             onChange={(e) => setShowLowStockOnly(e.target.checked)}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="rounded border-stone-300 text-gold focus:ring-gold/40"
           />
           Solo stock bajo
         </label>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">{error}</div>
       )}
 
       {loading ? (
         <DataCard>
-          <div className="py-16 text-center text-gray-500">Cargando inventario...</div>
+          <div className="py-16 text-center text-stone-500">Cargando inventario...</div>
         </DataCard>
       ) : products.length === 0 ? (
         <DataCard>
-          <div className="py-16 text-center text-gray-500">
+          <div className="py-16 text-center text-stone-500">
             {searchDebounced || showLowStockOnly
               ? 'No hay productos que coincidan con los filtros.'
               : 'No hay productos registrados.'}
@@ -248,12 +246,12 @@ export default function InventoryPage() {
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
                     <Link
                       to={`/inventory/${p.id}/edit`}
-                      className="font-medium text-primary-600 hover:text-primary-700"
+                      className="font-medium text-barber-dark hover:text-gold transition-colors"
                     >
                       {p.name}
                     </Link>
                     {!p.is_active && (
-                      <span className="ml-2 text-xs text-gray-500">(inactivo)</span>
+                      <span className="ml-2 text-xs text-stone-500">(inactivo)</span>
                     )}
                   </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
@@ -284,12 +282,12 @@ export default function InventoryPage() {
                           −
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenAdjust(p)}
-                        className="text-xs text-gray-500 hover:text-gray-700"
-                        title="Ajustar cantidad"
-                      >
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAdjust(p)}
+                          className="text-xs text-stone-500 hover:text-stone-700"
+                          title="Ajustar cantidad"
+                        >
                         ±
                       </button>
                     </div>
@@ -300,14 +298,14 @@ export default function InventoryPage() {
                       <button
                         type="button"
                         onClick={() => handleOpenHistory(p)}
-                        className="text-sm text-gray-500 hover:text-gray-700"
+                        className="text-sm font-medium text-barber-dark hover:text-gold transition-colors"
                       >
                         Historial
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id, p.name)}
-                        className="text-sm text-gray-500 hover:text-red-600"
+                        className="text-sm font-medium text-red-600 hover:text-red-700"
                       >
                         Eliminar
                       </button>
@@ -324,15 +322,15 @@ export default function InventoryPage() {
       {adjustModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !adjustSaving && setAdjustModal(null)}>
           <div
-            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4"
+            className="landing-card max-w-sm w-full p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-gray-900">{adjustModal.name}</h3>
-            <p className="text-sm text-gray-500">
-              Stock actual: <strong>{adjustModal.quantity ?? 0}</strong> {adjustModal.unit || 'u'}
+            <h3 className="font-serif text-lg font-medium text-stone-900">{adjustModal.name}</h3>
+            <p className="text-sm text-stone-500">
+              Stock actual: <strong className="text-gold">{adjustModal.quantity ?? 0}</strong> {adjustModal.unit || 'u'}
             </p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-1">Cantidad</label>
               <input
                 type="number"
                 min="1"
@@ -341,7 +339,7 @@ export default function InventoryPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSaveAdjust(true);
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-center text-lg"
+                className="input-premium text-center text-lg"
                 autoFocus
               />
             </div>
@@ -350,7 +348,7 @@ export default function InventoryPage() {
                 type="button"
                 disabled={adjustSaving}
                 onClick={() => handleSaveAdjust(true)}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium disabled:opacity-50"
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold disabled:opacity-50 transition-colors"
               >
                 Sumar
               </button>
@@ -358,7 +356,7 @@ export default function InventoryPage() {
                 type="button"
                 disabled={adjustSaving}
                 onClick={() => handleSaveAdjust(false)}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50"
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold disabled:opacity-50 transition-colors"
               >
                 Restar
               </button>
@@ -367,7 +365,7 @@ export default function InventoryPage() {
               type="button"
               disabled={adjustSaving}
               onClick={() => setAdjustModal(null)}
-              className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm"
+              className="w-full py-2 text-stone-500 hover:text-stone-700 text-sm font-medium"
             >
               Cancelar
             </button>
@@ -379,30 +377,30 @@ export default function InventoryPage() {
       {historyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setHistoryModal(null)}>
           <div
-            className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col"
+            className="landing-card max-w-lg w-full max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Historial — {historyModal.name}</h3>
-              <p className="text-sm text-gray-500">Últimos movimientos de stock</p>
+            <div className="p-6 border-b border-stone-200/80">
+              <h3 className="font-serif text-lg font-medium text-stone-900">Historial — {historyModal.name}</h3>
+              <p className="text-sm text-stone-500">Últimos movimientos de stock</p>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
               {movementsLoading ? (
-                <div className="py-8 text-center text-gray-500">Cargando...</div>
+                <div className="py-8 text-center text-stone-500">Cargando...</div>
               ) : movements.length === 0 ? (
-                <p className="text-gray-500 text-sm">Sin movimientos registrados.</p>
+                <p className="text-stone-500 text-sm">Sin movimientos registrados.</p>
               ) : (
                 <ul className="space-y-2">
                   {movements.map((m) => (
-                    <li key={m.id} className="flex justify-between items-start text-sm border-b border-gray-100 pb-2">
+                    <li key={m.id} className="flex justify-between items-start text-sm border-b border-stone-100 pb-2">
                       <div>
-                        <span className={`font-medium ${m.quantity_change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <span className={`font-semibold ${m.quantity_change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                           {m.quantity_change >= 0 ? '+' : ''}{m.quantity_change}
                         </span>
-                        <span className="text-gray-500 ml-2">{MOVEMENT_LABELS[m.movement_type] || m.movement_type}</span>
-                        {m.notes && <p className="text-gray-500 text-xs mt-0.5">{m.notes}</p>}
+                        <span className="text-stone-500 ml-2">{MOVEMENT_LABELS[m.movement_type] || m.movement_type}</span>
+                        {m.notes && <p className="text-stone-500 text-xs mt-0.5">{m.notes}</p>}
                       </div>
-                      <span className="text-gray-400 text-xs">
+                      <span className="text-stone-400 text-xs">
                         {m.created_at ? new Date(m.created_at).toLocaleString('es-ES') : ''}
                       </span>
                     </li>
@@ -410,11 +408,11 @@ export default function InventoryPage() {
                 </ul>
               )}
             </div>
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-stone-200/80">
               <button
                 type="button"
                 onClick={() => setHistoryModal(null)}
-                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+                className="w-full px-4 py-2.5 btn-admin-outline"
               >
                 Cerrar
               </button>

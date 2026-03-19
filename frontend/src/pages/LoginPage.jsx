@@ -33,9 +33,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-stone-50 bg-section-pattern">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
+        <div className="landing-card overflow-hidden">
           {/* Banda dorada lateral — identidad visual */}
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
 

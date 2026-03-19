@@ -1,21 +1,23 @@
 /**
- * Tarjeta de estadística para dashboard
+ * Tarjeta de estadística — diseño premium (gold, stone)
  */
 
 export default function StatsCard({ label, value, sublabel, variant = 'default', href }) {
   const variants = {
-    default: 'bg-white border-gray-200 text-gray-800',
-    primary: 'bg-primary-600 border-primary-600 text-white',
+    default: 'bg-white border-stone-200/80 text-stone-900 shadow-card hover:shadow-card-hover hover:border-gold/20',
+    primary: 'bg-barber-dark border-barber-dark text-white shadow-card',
   };
 
   const content = (
-    <div className={`rounded-xl border p-6 shadow-sm ${variants[variant] || variants.default}`}>
-      <p className={`text-sm font-medium ${variant === 'primary' ? 'text-primary-100' : 'text-gray-500'}`}>
+    <div className={`rounded-2xl border p-6 transition-all duration-300 ${variants[variant] || variants.default}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wider ${variant === 'primary' ? 'text-gold' : 'text-stone-500'}`}>
         {label}
       </p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
+      <p className={`font-serif text-2xl md:text-3xl font-medium mt-2 ${variant === 'primary' ? 'text-white' : 'text-stone-900'}`}>
+        {value}
+      </p>
       {sublabel && (
-        <p className={`text-sm mt-1 ${variant === 'primary' ? 'text-primary-200' : 'text-gray-500'}`}>
+        <p className={`text-sm mt-1 ${variant === 'primary' ? 'text-stone-400' : 'text-stone-500'}`}>
           {sublabel}
         </p>
       )}

@@ -1,5 +1,5 @@
 /**
- * Tabla administrativa estilizada
+ * Tabla administrativa — diseño premium (stone, gold accents)
  */
 
 export default function Table({ children }) {
@@ -15,7 +15,7 @@ export default function Table({ children }) {
 export function TableHead({ children }) {
   return (
     <thead>
-      <tr className="border-b border-gray-200 bg-gray-50/80">
+      <tr className="border-b border-stone-200 bg-stone-50/80">
         {children}
       </tr>
     </thead>
@@ -24,19 +24,19 @@ export function TableHead({ children }) {
 
 export function TableHeader({ children, className = '' }) {
   return (
-    <th className={`px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${className}`}>
+    <th className={`px-6 py-3.5 text-left text-xs font-semibold text-stone-600 uppercase tracking-wider ${className}`}>
       {children}
     </th>
   );
 }
 
 export function TableBody({ children }) {
-  return <tbody className="divide-y divide-gray-100">{children}</tbody>;
+  return <tbody className="divide-y divide-stone-100">{children}</tbody>;
 }
 
 export function TableRow({ children, hover = true }) {
   return (
-    <tr className={hover ? 'hover:bg-gray-50/80 transition-colors' : ''}>
+    <tr className={hover ? 'hover:bg-stone-50/80 transition-colors' : ''}>
       {children}
     </tr>
   );
@@ -44,7 +44,7 @@ export function TableRow({ children, hover = true }) {
 
 export function TableCell({ children, className = '' }) {
   return (
-    <td className={`px-6 py-4 text-gray-700 ${className}`}>
+    <td className={`px-6 py-4 text-stone-700 ${className}`}>
       {children}
     </td>
   );

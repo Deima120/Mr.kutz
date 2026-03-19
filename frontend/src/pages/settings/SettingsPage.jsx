@@ -66,7 +66,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="py-16 text-center text-gray-500">Cargando configuración...</div>
+        <div className="py-16 text-center text-stone-500">Cargando configuración...</div>
       </div>
     );
   }
@@ -75,74 +75,75 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Configuración"
+        label="Negocio"
         subtitle="Datos y apariencia de la barbería"
       />
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">{error}</div>
       )}
 
       <form onSubmit={handleSubmit}>
         <DataCard title="Datos del negocio">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la barbería</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-1">Nombre de la barbería</label>
               <input
                 name="business_name"
                 value={formData.business_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input-premium py-2.5"
                 placeholder="Mr. Kutz"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL del logo (opcional)</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-1">URL del logo (opcional)</label>
               <input
                 name="logo_url"
                 value={formData.logo_url}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input-premium py-2.5"
                 placeholder="https://..."
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email de contacto</label>
+                <label className="block text-sm font-semibold text-stone-700 mb-1">Email de contacto</label>
                 <input
                   type="email"
                   name="contact_email"
                   value={formData.contact_email}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="input-premium py-2.5"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <label className="block text-sm font-semibold text-stone-700 mb-1">Teléfono</label>
                 <input
                   name="contact_phone"
                   value={formData.contact_phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="input-premium py-2.5"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-1">Dirección</label>
               <input
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input-premium py-2.5"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Horarios (texto libre)</label>
+              <label className="block text-sm font-semibold text-stone-700 mb-1">Horarios (texto libre)</label>
               <textarea
                 name="opening_hours"
                 value={formData.opening_hours}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                className="input-premium py-2.5 resize-none"
                 placeholder="Lun–Vie: 9:00–20:00&#10;Sáb: 9:00–14:00"
               />
             </div>
@@ -150,7 +151,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
+                className="btn-admin disabled:opacity-50"
               >
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
