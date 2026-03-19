@@ -66,105 +66,99 @@ export default function ClientFormPage() {
 
   return (
     <div className="max-w-xl">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+      <p className="section-label text-gold mb-1">Clientes</p>
+      <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-6">
         {isEdit ? 'Editar cliente' : 'Nuevo cliente'}
-      </h2>
+      </h1>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow border border-gray-100 p-6 space-y-4">
-        {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-            {error}
+      <form onSubmit={handleSubmit} className="landing-card overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
+        <div className="p-6 sm:p-8 space-y-5">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="firstName" className="block text-sm font-semibold text-stone-700 mb-1.5">Nombre *</label>
+              <input
+                id="firstName"
+                name="firstName"
+                type="text"
+                value={formData.firstName}
+                onChange={handleChange}
+                className="input-premium py-2.5"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-semibold text-stone-700 mb-1.5">Apellido *</label>
+              <input
+                id="lastName"
+                name="lastName"
+                type="text"
+                value={formData.lastName}
+                onChange={handleChange}
+                className="input-premium py-2.5"
+                required
+              />
+            </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre *
-            </label>
+            <label htmlFor="email" className="block text-sm font-semibold text-stone-700 mb-1.5">Email</label>
             <input
-              id="firstName"
-              name="firstName"
-              type="text"
-              value={formData.firstName}
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-              required
+              className="input-premium py-2.5"
             />
           </div>
+
           <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-              Apellido *
-            </label>
+            <label htmlFor="phone" className="block text-sm font-semibold text-stone-700 mb-1.5">Teléfono</label>
             <input
-              id="lastName"
-              name="lastName"
-              type="text"
-              value={formData.lastName}
+              id="phone"
+              name="phone"
+              type="tel"
+              value={formData.phone}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-              required
+              className="input-premium py-2.5"
             />
           </div>
-        </div>
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-          />
-        </div>
+          <div>
+            <label htmlFor="notes" className="block text-sm font-semibold text-stone-700 mb-1.5">Notas</label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows={3}
+              className="input-premium py-2.5 resize-none"
+            />
+          </div>
 
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-            Teléfono
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-            Notas
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            value={formData.notes}
-            onChange={handleChange}
-            rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
-          />
-        </div>
-
-        <div className="flex gap-3 pt-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
-          >
-            {loading ? 'Guardando...' : 'Guardar'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
-          >
-            Cancelar
-          </button>
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-admin disabled:opacity-50"
+            >
+              {loading ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="btn-admin-outline"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       </form>
     </div>

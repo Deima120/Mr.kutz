@@ -139,13 +139,11 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Clientes"
+        label="Consulta"
         subtitle={total > 0 ? `${total} cliente${total !== 1 ? 's' : ''} registrado${total !== 1 ? 's' : ''}` : 'Consulta de clientes'}
         actions={
           isAdmin ? (
-            <Link
-              to="/clients/new"
-              className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors shadow-sm"
-            >
+            <Link to="/clients/new" className="btn-admin">
               + Nuevo cliente
             </Link>
           ) : null
@@ -153,32 +151,29 @@ export default function ClientsPage() {
       />
 
       <DataCard>
-        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+        <form onSubmit={handleSearch} className="mb-4 flex gap-3">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre, email o teléfono..."
-            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
+            className="input-premium flex-1 py-2.5 text-sm"
           />
-          <button
-            type="submit"
-            className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-sm transition-colors"
-          >
+          <button type="submit" className="btn-admin">
             Buscar
           </button>
         </form>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="py-16 text-center text-gray-500">Cargando...</div>
+          <div className="py-16 text-center text-stone-500">Cargando...</div>
         ) : clients.length === 0 ? (
-          <div className="py-16 text-center text-gray-500">
+          <div className="py-16 text-center text-stone-500">
             No hay clientes registrados.
           </div>
         ) : (
@@ -196,7 +191,7 @@ export default function ClientsPage() {
                     <TableCell>
                       <Link
                         to={`/clients/${client.id}`}
-                        className="font-medium text-primary-600 hover:text-primary-700"
+                        className="font-medium text-barber-dark hover:text-gold transition-colors"
                       >
                         {client.first_name} {client.last_name}
                       </Link>
@@ -207,7 +202,7 @@ export default function ClientsPage() {
                       <div className="flex gap-3">
                         <Link
                           to={`/clients/${client.id}`}
-                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
                         >
                           Ver
                         </Link>
@@ -235,7 +230,7 @@ export default function ClientsPage() {
               </TableBody>
             </Table>
             {total > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-500">
+              <div className="mt-4 pt-4 border-t border-stone-100 text-sm text-stone-500">
                 Total: {total} cliente{total !== 1 ? 's' : ''}
               </div>
             )}

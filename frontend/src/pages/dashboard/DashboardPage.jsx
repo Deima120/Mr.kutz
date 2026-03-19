@@ -200,7 +200,7 @@ function AdminDashboard() {
   if (loading || !stats) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-gray-500">
+        <div className="text-stone-500">
           {loading ? 'Cargando estadísticas...' : 'Error al cargar estadísticas'}
         </div>
       </div>
@@ -213,6 +213,7 @@ function AdminDashboard() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
+        label="Panel"
         subtitle="Resumen de ventas, citas y métricas"
         actions={
           <div className="flex gap-2 items-center">
@@ -220,14 +221,14 @@ function AdminDashboard() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input-premium py-2.5 text-sm"
             />
-            <span className="text-gray-400">—</span>
+            <span className="text-stone-400">—</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input-premium py-2.5 text-sm"
             />
           </div>
         }
@@ -266,13 +267,13 @@ function AdminDashboard() {
             <ul className="space-y-3">
               {stats.topServices.map((s, i) => (
                 <li key={i} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700">{s.name}</span>
-                  <span className="font-semibold text-primary-600">{s.count} citas</span>
+                  <span className="text-stone-700">{s.name}</span>
+                  <span className="font-semibold text-gold">{s.count} citas</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 text-sm">Sin datos en el periodo</p>
+            <p className="text-stone-500 text-sm">Sin datos en el periodo</p>
           )}
         </DataCard>
         <DataCard title="Barberos más activos">
@@ -280,15 +281,15 @@ function AdminDashboard() {
             <ul className="space-y-3">
               {stats.topBarbers.map((b, i) => (
                 <li key={i} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700">
+                  <span className="text-stone-700">
                     {b.first_name} {b.last_name}
                   </span>
-                  <span className="font-semibold text-primary-600">{b.count} citas</span>
+                  <span className="font-semibold text-gold">{b.count} citas</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 text-sm">Sin datos en el periodo</p>
+            <p className="text-stone-500 text-sm">Sin datos en el periodo</p>
           )}
         </DataCard>
       </div>
