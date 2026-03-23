@@ -15,6 +15,7 @@ const adminNavItems = [
   { path: '/barbers', label: 'Barberos', icon: '🧔' },
   { path: '/testimonials', label: 'Testimonios', icon: '💬' },
   { path: '/payments', label: 'Pagos', icon: '💳' },
+  { path: '/purchases', label: 'Compras', icon: '🧾' },
   { path: '/inventory', label: 'Inventario', icon: '📦' },
   { path: '/reports', label: 'Reportes', icon: '📈' },
   { path: '/settings', label: 'Configuración', icon: '⚙️' },

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as productService from '../../services/productService';
+import * as productCategoryService from '../../services/productCategoryService';
 
 export default function ProductFormPage() {
   const { id } = useParams();
@@ -16,9 +17,11 @@ export default function ProductFormPage() {
     sku: '',
     unit: 'unit',
     minStock: 0,
+    categoryId: '',
     isActive: true,
   });
   const [productMeta, setProductMeta] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,6 +37,7 @@ export default function ProductFormPage() {
             sku: p.sku || '',
             unit: p.unit || 'unit',
             minStock: p.min_stock ?? 0,
+            categoryId: p.category_id ?? '',
             isActive: p.is_active !== false,
           });
           setProductMeta({
@@ -43,6 +47,10 @@ export default function ProductFormPage() {
         })
         .catch(() => setError('Producto no encontrado'));
     }
+    productCategoryService
+      .getCategories()
+      .then((rows) => setCategories(Array.isArray(rows) ? rows : (rows?.data ?? [])))
+      .catch(() => setCategories([]));
   }, [id, isEdit]);
 
   const handleChange = (e) => {
@@ -65,6 +73,7 @@ export default function ProductFormPage() {
         sku: formData.sku || undefined,
         unit: formData.unit || 'unit',
         minStock: formData.minStock,
+        categoryId: formData.categoryId ? Number(formData.categoryId) : null,
       };
       if (isEdit) payload.isActive = formData.isActive;
 
@@ -149,6 +158,23 @@ export default function ProductFormPage() {
               <option value="pz">pz</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="label-premium">Categoría</label>
+          <select
+            name="categoryId"
+            value={formData.categoryId}
+            onChange={handleChange}
+            className="input-premium"
+          >
+            <option value="">Sin categoría</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

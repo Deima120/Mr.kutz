@@ -10,6 +10,7 @@ import * as clientService from '../../services/clientService';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 export default function ClientsPage() {
   const { user } = useAuth();
@@ -143,9 +144,26 @@ export default function ClientsPage() {
         subtitle={total > 0 ? `${total} cliente${total !== 1 ? 's' : ''} registrado${total !== 1 ? 's' : ''}` : 'Consulta de clientes'}
         actions={
           isAdmin ? (
-            <Link to="/clients/new" className="btn-admin">
-              + Nuevo cliente
-            </Link>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => downloadCSV('clientes.csv', clients.map((c) => ({
+                  id: c.id,
+                  nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+                  email: c.email || '',
+                  telefono: c.phone || '',
+                })))}
+                className="btn-admin-outline"
+              >
+                Exportar CSV
+              </button>
+              <button type="button" onClick={printAsPDF} className="btn-admin-outline">
+                Exportar PDF
+              </button>
+              <Link to="/clients/new" className="btn-admin">
+                + Nuevo cliente
+              </Link>
+            </div>
           ) : null
         }
       />

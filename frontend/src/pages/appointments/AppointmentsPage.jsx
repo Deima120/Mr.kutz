@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -345,12 +346,32 @@ export default function AppointmentsPage() {
         title={pageTitle}
         subtitle={pageSubtitle}
         actions={
-          <Link
-            to="/appointments/new"
-            className="btn-admin w-full sm:w-auto"
-          >
-            + Nueva cita
-          </Link>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => downloadCSV('citas.csv', appointments.map((a) => ({
+                id: a.id,
+                fecha: a.appointment_date,
+                hora: formatTime(a.start_time),
+                cliente: `${a.client_first_name || ''} ${a.client_last_name || ''}`.trim(),
+                barbero: `${a.barber_first_name || ''} ${a.barber_last_name || ''}`.trim(),
+                servicio: a.service_name || '',
+                estado: a.status,
+              })))}
+              className="btn-admin-outline w-full sm:w-auto"
+            >
+              Exportar CSV
+            </button>
+            <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto">
+              Exportar PDF
+            </button>
+            <Link
+              to="/appointments/new"
+              className="btn-admin w-full sm:w-auto"
+            >
+              + Nueva cita
+            </Link>
+          </div>
         }
       />
 

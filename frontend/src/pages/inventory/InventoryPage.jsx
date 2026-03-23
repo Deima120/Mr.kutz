@@ -9,6 +9,7 @@ import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 import StatsCard from '../../components/admin/StatsCard';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 const MOVEMENT_LABELS = {
   purchase: 'Compra',
@@ -24,6 +25,7 @@ export default function InventoryPage() {
   const [searchDebounced, setSearchDebounced] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -148,9 +150,32 @@ export default function InventoryPage() {
         label="Stock"
         subtitle="Control de stock, alertas y movimientos"
         actions={
-          <Link to="/inventory/new" className="btn-admin w-full sm:w-auto">
-            + Nuevo producto
-          </Link>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => downloadCSV('inventario.csv', products.map((p) => ({
+                id: p.id,
+                nombre: p.name,
+                categoria: p.category_name || '',
+                sku: p.sku || '',
+                stock: p.quantity ?? 0,
+                min_stock: p.min_stock ?? 0,
+                activo: p.is_active ? 'Sí' : 'No',
+              })))}
+              className="btn-admin-outline w-full sm:w-auto"
+            >
+              Exportar CSV
+            </button>
+            <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto">
+              Exportar PDF
+            </button>
+            <Link to="/inventory/categories" className="btn-admin-outline w-full sm:w-auto">
+              Categorías
+            </Link>
+            <Link to="/inventory/new" className="btn-admin w-full sm:w-auto">
+              + Nuevo producto
+            </Link>
+          </div>
         }
       />
 
@@ -194,6 +219,16 @@ export default function InventoryPage() {
             className="input-premium py-2.5 text-sm"
           />
         </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="input-premium py-2.5 text-sm min-w-[180px]"
+        >
+          <option value="">Todas las categorías</option>
+          {[...new Set(products.map((p) => p.category_name).filter(Boolean))].map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
         <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2.5">
           <input
             type="checkbox"
@@ -235,6 +270,7 @@ export default function InventoryPage() {
           <Table>
             <TableHead>
               <TableHeader>Producto</TableHeader>
+              <TableHeader>Categoría</TableHeader>
               <TableHeader>SKU</TableHeader>
               <TableHeader>Stock</TableHeader>
               <TableHeader>Mínimo</TableHeader>
@@ -242,6 +278,7 @@ export default function InventoryPage() {
             </TableHead>
             <TableBody>
               {products.map((p) => (
+                (categoryFilter && p.category_name !== categoryFilter) ? null : (
                 <TableRow key={p.id}>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
                     <Link
@@ -253,6 +290,9 @@ export default function InventoryPage() {
                     {!p.is_active && (
                       <span className="ml-2 text-xs text-stone-500">(inactivo)</span>
                     )}
+                  </TableCell>
+                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
+                    {p.category_name || '-'}
                   </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
                     {p.sku || '-'}
@@ -312,6 +352,7 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                 </TableRow>
+                )
               ))}
             </TableBody>
           </Table>

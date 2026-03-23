@@ -16,6 +16,7 @@ const createValidation = [
   body('sku').optional().trim().isLength({ max: 50 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
+  body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
 ];
 
 const updateValidation = [
@@ -24,6 +25,7 @@ const updateValidation = [
   body('sku').optional().trim().isLength({ max: 50 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
+  body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
   body('isActive').optional().isBoolean(),
 ];
 

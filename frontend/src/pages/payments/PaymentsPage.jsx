@@ -9,6 +9,7 @@ import PageHeader from '../../components/admin/PageHeader';
 import StatsCard from '../../components/admin/StatsCard';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -65,9 +66,28 @@ export default function PaymentsPage() {
         label="Finanzas"
         subtitle="Historial de transacciones"
         actions={
-          <Link to="/payments/new" className="btn-admin">
-            + Registrar pago
-          </Link>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => downloadCSV('pagos.csv', payments.map((p) => ({
+                id: p.id,
+                fecha: p.created_at,
+                cliente: `${p.client_first_name || ''} ${p.client_last_name || ''}`.trim(),
+                servicio: p.service_name || '',
+                metodo: p.payment_method_name || '',
+                monto: p.amount,
+              })))}
+              className="btn-admin-outline"
+            >
+              Exportar CSV
+            </button>
+            <button type="button" onClick={printAsPDF} className="btn-admin-outline">
+              Exportar PDF
+            </button>
+            <Link to="/payments/new" className="btn-admin">
+              + Registrar pago
+            </Link>
+          </div>
         }
       />
 

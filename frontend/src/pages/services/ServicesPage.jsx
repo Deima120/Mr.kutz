@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as serviceService from '../../services/serviceService';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 export default function ServicesPage() {
   const [services, setServices] = useState([]);
@@ -62,6 +63,23 @@ export default function ServicesPage() {
             />
             Mostrar inactivos
           </label>
+          <button
+            type="button"
+            onClick={() => downloadCSV('servicios.csv', services.map((s) => ({
+              id: s.id,
+              nombre: s.name,
+              descripcion: s.description || '',
+              precio: s.price,
+              duracion_minutos: s.duration_minutes,
+              activo: s.is_active ? 'Sí' : 'No',
+            })))}
+            className="btn-admin-outline"
+          >
+            Exportar CSV
+          </button>
+          <button type="button" onClick={printAsPDF} className="btn-admin-outline">
+            Exportar PDF
+          </button>
           <Link
             to="/services/new"
             className="btn-admin"

@@ -29,28 +29,38 @@ function TestimonialCard({ item, isActive }) {
   };
 
   return (
-    <blockquote
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => setTilt('')}
-      className="relative bg-white p-8 sm:p-10 border border-stone-200/80 rounded-2xl shadow-card hover:shadow-card-hover hover:border-gold/30 transition-all duration-300"
-      style={{
-        transform: tilt || 'perspective(600px) rotateX(0) rotateY(0)',
-        transition: tilt ? 'transform 0.1s ease-out' : 'transform 0.35s ease-out',
-      }}
+    <div
+      className={`relative rounded-[1.35rem] p-[1px] bg-gradient-to-br from-gold/70 via-stone-200 to-gold/30 transition-all duration-500 ${
+        isActive ? 'shadow-[0_24px_60px_rgba(0,0,0,0.18)]' : 'shadow-[0_14px_36px_rgba(0,0,0,0.12)]'
+      }`}
     >
-      <span className="absolute top-6 right-6 font-serif text-gold/20 text-5xl leading-none select-none">"</span>
-      <p className="text-stone-600 italic leading-relaxed pr-10 mb-8 min-h-[4rem] text-base md:text-lg">
-        {item.text}
-      </p>
-      <footer className="flex items-center gap-4">
-        <span className="w-10 h-px bg-gold shrink-0" />
-        <div>
-          <cite className="not-italic font-semibold text-stone-900 block">{item.name}</cite>
-          <span className="text-stone-500 text-sm font-normal">{item.role}</span>
-        </div>
-      </footer>
-    </blockquote>
+      <blockquote
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setTilt('')}
+        className="relative rounded-[1.3rem] bg-white/90 backdrop-blur-sm p-8 sm:p-10 border border-white/80 transition-all duration-300"
+        style={{
+          transform: tilt || `perspective(600px) rotateX(0) rotateY(0) scale(${isActive ? 1 : 0.985})`,
+          transition: tilt ? 'transform 0.1s ease-out' : 'transform 0.35s ease-out',
+        }}
+      >
+        <div className="absolute inset-0 rounded-[1.3rem] bg-gradient-to-br from-gold/10 via-transparent to-transparent pointer-events-none" />
+        <span className="absolute top-5 right-6 font-serif text-gold/20 text-6xl leading-none select-none">"</span>
+        <p className="text-stone-600 italic leading-relaxed pr-10 mb-8 min-h-[4rem] text-base md:text-lg relative z-10">
+          {item.text}
+        </p>
+        <footer className="relative z-10 flex items-center gap-4">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 text-gold text-sm font-semibold tracking-wide">
+            {(item.name || 'C').trim().charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <cite className="not-italic font-semibold text-stone-900 block truncate">{item.name}</cite>
+            <span className="text-stone-500 text-sm font-normal">{item.role}</span>
+          </div>
+          <span className="w-10 h-px bg-gold/70 shrink-0 ml-auto" />
+        </footer>
+      </blockquote>
+    </div>
   );
 }
 
@@ -82,29 +92,33 @@ export default function TestimonialsCarousel() {
 
   if (loading) {
     return (
-      <section id="testimonios" className="landing-section bg-barber-dark text-white relative overflow-hidden scroll-mt-20">
-        <div className="absolute inset-0 bg-gradient-radial-gold opacity-30" />
+      <section id="testimonios" className="landing-section bg-stone-100 relative overflow-hidden scroll-mt-20">
+        <div className="absolute inset-0 bg-section-pattern opacity-50" />
+        <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-gold/10 blur-3xl" />
+        <div className="absolute -bottom-20 -right-16 w-64 h-64 rounded-full bg-stone-400/10 blur-3xl" />
         <div className="container mx-auto px-6 sm:px-8 relative z-10">
           <div className="text-center mb-14">
             <p className="section-label text-gold">Testimonios</p>
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white font-medium tracking-tight mb-4">Lo que dicen nuestros clientes</h2>
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-stone-900 font-medium tracking-tight mb-4">Lo que dicen nuestros clientes</h2>
             <div className="gold-line mx-auto mb-6" />
           </div>
-          <div className="max-w-2xl mx-auto py-12 text-stone-400">Cargando...</div>
+          <div className="max-w-2xl mx-auto py-12 text-stone-500">Cargando...</div>
         </div>
       </section>
     );
   }
 
   return (
-    <section id="testimonios" className="landing-section bg-barber-dark text-white relative overflow-hidden scroll-mt-20">
-      <div className="absolute inset-0 bg-gradient-radial-gold opacity-30" />
+    <section id="testimonios" className="landing-section bg-stone-100 relative overflow-hidden scroll-mt-20">
+      <div className="absolute inset-0 bg-section-pattern opacity-50" />
+      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-gold/10 blur-3xl" />
+      <div className="absolute -bottom-20 -right-16 w-64 h-64 rounded-full bg-stone-400/10 blur-3xl" />
       <div className="container mx-auto px-6 sm:px-8 relative z-10">
         <div className="text-center mb-14 md:mb-16">
           <p className="section-label text-gold">Testimonios</p>
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white font-medium tracking-tight mb-4">Lo que dicen nuestros clientes</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-stone-900 font-medium tracking-tight mb-4">Lo que dicen nuestros clientes</h2>
           <div className="gold-line mx-auto mb-6" />
-          <p className="text-stone-400 max-w-lg mx-auto text-lg">
+          <p className="text-stone-500 max-w-lg mx-auto text-lg">
             La opinión de quienes nos eligen.
           </p>
         </div>
