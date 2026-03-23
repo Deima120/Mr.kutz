@@ -4,7 +4,7 @@
 
 export default function Table({ children }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-stone-200/80">
       <table className="w-full text-sm">
         {children}
       </table>
@@ -15,7 +15,7 @@ export default function Table({ children }) {
 export function TableHead({ children }) {
   return (
     <thead>
-      <tr className="border-b border-stone-200 bg-stone-50/80">
+      <tr className="border-b border-stone-200 bg-stone-50">
         {children}
       </tr>
     </thead>
@@ -31,7 +31,7 @@ export function TableHeader({ children, className = '' }) {
 }
 
 export function TableBody({ children }) {
-  return <tbody className="divide-y divide-stone-100">{children}</tbody>;
+  return <tbody className="divide-y divide-stone-100 bg-white">{children}</tbody>;
 }
 
 export function TableRow({ children, hover = true }) {

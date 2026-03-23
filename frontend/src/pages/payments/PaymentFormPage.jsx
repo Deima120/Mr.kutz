@@ -81,17 +81,22 @@ export default function PaymentFormPage() {
   };
 
   return (
-    <div className="max-w-xl">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-        Registrar pago
-      </h2>
+    <div className="max-w-xl page-shell">
+      <div>
+        <p className="section-label text-gold mb-1">Finanzas</p>
+        <h2 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
+          Registrar pago
+        </h2>
+      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-xl shadow border p-6 space-y-4"
+        className="panel-card overflow-hidden"
       >
+        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
+        <div className="p-6 sm:p-8 space-y-5">
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+          <div className="alert-error">
             {error}
           </div>
         )}
@@ -101,21 +106,21 @@ export default function PaymentFormPage() {
             type="checkbox"
             checked={linkToAppointment}
             onChange={(e) => setLinkToAppointment(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-stone-300"
           />
-          <span className="text-sm text-gray-700">Vincular a cita completada</span>
+          <span className="text-sm text-stone-700">Vincular a cita completada</span>
         </label>
 
         {linkToAppointment && completedAppointments.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label-premium">
               Cita
             </label>
             <select
               name="appointmentId"
               value={formData.appointmentId}
               onChange={handleAppointmentSelect}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="input-premium"
             >
               <option value="">Seleccionar cita...</option>
               {completedAppointments.map((a) => (
@@ -129,7 +134,7 @@ export default function PaymentFormPage() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Monto ($) *
           </label>
           <input
@@ -139,20 +144,20 @@ export default function PaymentFormPage() {
             min="0"
             value={formData.amount}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Método de pago *
           </label>
           <select
             name="paymentMethodId"
             value={formData.paymentMethodId}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
             required
           >
             <option value="">Seleccionar...</option>
@@ -165,7 +170,7 @@ export default function PaymentFormPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Referencia
           </label>
           <input
@@ -173,12 +178,12 @@ export default function PaymentFormPage() {
             value={formData.reference}
             onChange={handleChange}
             placeholder="Nº operación, folio..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Notas
           </label>
           <textarea
@@ -186,7 +191,7 @@ export default function PaymentFormPage() {
             value={formData.notes}
             onChange={handleChange}
             rows={2}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none resize-none"
+            className="input-premium resize-none"
           />
         </div>
 
@@ -194,17 +199,18 @@ export default function PaymentFormPage() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
+            className="btn-admin disabled:opacity-50"
           >
             {loading ? 'Registrando...' : 'Registrar pago'}
           </button>
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+            className="btn-admin-outline"
           >
             Cancelar
           </button>
+        </div>
         </div>
       </form>
     </div>

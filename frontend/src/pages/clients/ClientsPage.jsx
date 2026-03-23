@@ -136,7 +136,7 @@ export default function ClientsPage() {
 
   // ——— Vista admin ———
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Clientes"
         label="Consulta"
@@ -165,7 +165,7 @@ export default function ClientsPage() {
         </form>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+          <div className="mb-4 alert-error" role="alert">
             {error}
           </div>
         )}
@@ -208,7 +208,7 @@ export default function ClientsPage() {
                         </Link>
                         <Link
                           to={`/clients/${client.id}/edit`}
-                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          className="text-sm text-stone-700 hover:text-gold font-medium"
                         >
                           Editar
                         </Link>

@@ -85,7 +85,7 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="page-shell">
       <div>
         <p className="section-label text-gold">Vista semanal</p>
         <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-4">
@@ -96,7 +96,7 @@ export default function AgendaPage() {
             <button
               type="button"
               onClick={goPrevWeek}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
+              className="btn-outline"
             >
               ← Anterior
             </button>
@@ -108,7 +108,7 @@ export default function AgendaPage() {
             <button
               type="button"
               onClick={goNextWeek}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
+              className="btn-outline"
             >
               Siguiente →
             </button>
@@ -117,7 +117,7 @@ export default function AgendaPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+        <div className="alert-error" role="alert">
           {error}
         </div>
       )}

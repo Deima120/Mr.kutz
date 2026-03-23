@@ -6,8 +6,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const inputClass = "w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none";
-const labelClass = "block text-sm font-semibold text-stone-700 mb-1.5";
+const inputClass = "input-premium";
+const labelClass = "label-premium";
 
 export default function RegisterPage() {
   const { isAuthenticated, register } = useAuth();
@@ -64,7 +64,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
+        <div className="panel-card overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
           <div className="p-8 sm:p-10">
             <p className="text-gold tracking-[0.2em] uppercase text-xs font-semibold mb-2">Nueva cuenta</p>
@@ -73,7 +73,7 @@ export default function RegisterPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm" role="alert">
+                <div className="alert-error" role="alert">
                   {error}
                 </div>
               )}
@@ -112,7 +112,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-barber-dark text-white font-semibold rounded-lg hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full btn-dark py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creando cuenta...' : 'Registrarme'}
               </button>

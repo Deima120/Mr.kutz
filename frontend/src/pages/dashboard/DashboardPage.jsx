@@ -65,7 +65,7 @@ function BarberDashboard() {
   const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
 
   return (
-    <div className="space-y-8">
+    <div className="page-shell">
       <div>
         <p className="section-label text-gold">Panel del barbero</p>
         <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
@@ -77,7 +77,7 @@ function BarberDashboard() {
         <div className="mt-4">
           <Link
             to="/appointments"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+            className="btn-dark"
           >
             Ver todas mis citas
             <span aria-hidden>→</span>
@@ -86,13 +86,13 @@ function BarberDashboard() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+        <div className="alert-error" role="alert">
           {error}
         </div>
       )}
 
       {nextAppointment && (
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+        <div className="panel-card overflow-hidden">
           <div className="h-1 w-full bg-gold/80" aria-hidden />
           <div className="p-6">
             <h2 className="text-sm font-semibold text-gold uppercase tracking-wider mb-3">Siguiente cita</h2>
@@ -108,7 +108,7 @@ function BarberDashboard() {
               <button
                 type="button"
                 onClick={() => handleMarkCompleted(nextAppointment.id)}
-                className="px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+                className="btn-dark"
               >
                 Marcar completada
               </button>
@@ -117,7 +117,7 @@ function BarberDashboard() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+      <div className="panel-card overflow-hidden">
         <div className="px-6 py-4 border-b border-stone-100">
           <h2 className="font-serif text-lg text-stone-900 font-medium">
             Citas de hoy ({appointments.length})
@@ -207,23 +207,23 @@ function AdminDashboard() {
     );
   }
 
-  const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
+  const formatAmount = (n) => `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Dashboard"
         label="Panel"
-        subtitle="Resumen de ventas, citas y métricas"
+        subtitle="Resumen ejecutivo de ventas, citas y operación"
         actions={
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               className="input-premium py-2.5 text-sm"
             />
-            <span className="text-stone-400">—</span>
+            <span className="text-stone-400 hidden sm:inline">—</span>
             <input
               type="date"
               value={dateTo}

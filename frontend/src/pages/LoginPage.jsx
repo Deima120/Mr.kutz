@@ -35,7 +35,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
+        <div className="panel-card overflow-hidden">
           {/* Banda dorada lateral — identidad visual */}
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
 
@@ -52,13 +52,13 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm" role="alert">
+                <div className="alert-error" role="alert">
                   {error}
                 </div>
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-stone-700 mb-1.5">
+                <label htmlFor="email" className="label-premium">
                   Email
                 </label>
                 <input
@@ -66,7 +66,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none"
+                  className="input-premium"
                   placeholder="tu@email.com"
                   required
                   autoComplete="email"
@@ -74,7 +74,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-stone-700 mb-1.5">
+                <label htmlFor="password" className="label-premium">
                   Contraseña
                 </label>
                 <input
@@ -82,7 +82,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none"
+                  className="input-premium"
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
@@ -92,7 +92,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-barber-dark text-white font-semibold rounded-lg hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full btn-dark py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>

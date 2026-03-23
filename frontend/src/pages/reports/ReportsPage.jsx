@@ -76,10 +76,10 @@ export default function ReportsPage() {
     );
   }
 
-  const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
+  const formatAmount = (n) => `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="page-shell print:space-y-4">
       <PageHeader
         title="Reportes"
         label="Análisis"
@@ -92,7 +92,7 @@ export default function ReportsPage() {
               onChange={(e) => setDateFrom(e.target.value)}
               className="input-premium py-2.5 text-sm"
             />
-            <span className="text-stone-400">—</span>
+            <span className="text-stone-400 hidden sm:inline">—</span>
             <input
               type="date"
               value={dateTo}
@@ -102,14 +102,14 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={handleExportCSV}
-              className="btn-admin"
+              className="btn-admin flex-1 sm:flex-none"
             >
               Exportar CSV
             </button>
             <button
               type="button"
               onClick={handlePrint}
-              className="btn-admin-outline"
+              className="btn-admin-outline flex-1 sm:flex-none"
             >
               Imprimir
             </button>

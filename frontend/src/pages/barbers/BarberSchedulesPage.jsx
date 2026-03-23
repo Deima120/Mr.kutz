@@ -107,14 +107,14 @@ export default function BarberSchedulesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Horarios"
         subtitle={`${barber.first_name} ${barber.last_name}`}
         actions={
           <Link
             to="/barbers"
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-stone-500 hover:text-stone-700"
           >
             ← Volver a barberos
           </Link>
@@ -122,12 +122,12 @@ export default function BarberSchedulesPage() {
       />
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="alert-error">{error}</div>
       )}
 
       <form onSubmit={handleSubmit}>
         <DataCard>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-stone-600 mb-4">
             Define los horarios de atención de cada día. Deja desmarcado &quot;Disponible&quot; para días sin servicio.
           </p>
           <div className="space-y-4">
@@ -136,7 +136,7 @@ export default function BarberSchedulesPage() {
               return (
                 <div
                   key={s.dayOfWeek}
-                  className="flex flex-wrap items-center gap-4 py-3 border-b border-gray-100 last:border-0"
+                  className="flex flex-wrap items-center gap-4 py-3 border-b border-stone-100 last:border-0"
                 >
                   <label className="flex items-center gap-2 w-32 cursor-pointer">
                     <input
@@ -145,9 +145,9 @@ export default function BarberSchedulesPage() {
                       onChange={(e) =>
                         handleChange(s.dayOfWeek, 'isAvailable', e.target.checked)
                       }
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-stone-300 text-gold focus:ring-gold/40"
                     />
-                    <span className="font-medium text-gray-800">{day?.label}</span>
+                    <span className="font-medium text-stone-800">{day?.label}</span>
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -157,9 +157,9 @@ export default function BarberSchedulesPage() {
                         handleChange(s.dayOfWeek, 'startTime', e.target.value)
                       }
                       disabled={!s.isAvailable}
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                      className="input-premium py-2 disabled:bg-stone-100 disabled:text-stone-400"
                     />
-                    <span className="text-gray-400">—</span>
+                    <span className="text-stone-400">—</span>
                     <input
                       type="time"
                       value={s.endTime}
@@ -167,7 +167,7 @@ export default function BarberSchedulesPage() {
                         handleChange(s.dayOfWeek, 'endTime', e.target.value)
                       }
                       disabled={!s.isAvailable}
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                      className="input-premium py-2 disabled:bg-stone-100 disabled:text-stone-400"
                     />
                   </div>
                 </div>
@@ -178,13 +178,13 @@ export default function BarberSchedulesPage() {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
+              className="btn-admin disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar horarios'}
             </button>
             <Link
               to="/barbers"
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+              className="btn-admin-outline"
             >
               Cancelar
             </Link>

@@ -9,6 +9,7 @@ import { useSettings } from '../context/SettingsContext';
 import HeroCarousel from '../components/landing/HeroCarousel';
 import GalleryCarousel3D from '../components/landing/GalleryCarousel3D';
 import TestimonialsCarousel from '../components/landing/TestimonialsCarousel';
+import CortesGallery from '../components/landing/CortesGallery';
 import * as serviceService from '../services/serviceService';
 
 const SERVICES_FALLBACK = [
@@ -41,8 +42,12 @@ function formatDuration(min) {
 
 export default function HomePage() {
   const { user } = useAuth();
-  const { businessName, address, contactPhone, openingHours } = useSettings();
+  const { businessName, address, openingHours } = useSettings();
   const canManage = user?.role === 'admin' || user?.role === 'barber';
+  const fixedAddress = 'Calle 36 d sur #27 a-105 loma del escobero Local 142 piso 1';
+  const locationAddress = fixedAddress || address || '';
+  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(locationAddress)}&output=embed`;
+  const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationAddress)}`;
 
   const [services, setServices] = useState(SERVICES_FALLBACK);
 
@@ -71,23 +76,24 @@ export default function HomePage() {
       <HeroCarousel />
 
       {/* ——— SOBRE NOSOTROS ——— */}
-      <section className="landing-section bg-stone-50 bg-section-pattern scroll-mt-20">
-        <div className="container mx-auto px-6 sm:px-8">
+      <section className="landing-section bg-barber-dark text-white relative overflow-hidden scroll-mt-20">
+        <div className="absolute inset-0 bg-gradient-radial-gold opacity-35" />
+        <div className="container mx-auto px-6 sm:px-8 relative z-10">
           <div className="max-w-4xl mx-auto">
             <p className="section-label text-gold text-center">Sobre nosotros</p>
-            <h2 className="section-heading text-center mb-6">
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.1] text-center mb-6">
               Tradición y tendencia
             </h2>
             <div className="gold-line mx-auto mb-10" />
-            <p className="text-stone-600 leading-relaxed text-lg md:text-xl text-center max-w-2xl mx-auto">
+            <p className="text-stone-300 leading-relaxed text-lg md:text-xl text-center max-w-2xl mx-auto">
               En {businessName} combinamos tradición y tendencia para ofrecerte cortes y barbas de alta calidad.
               Nuestro equipo se asegura de que cada visita sea memorable en un ambiente acogedor.
             </p>
-            <div className="grid grid-cols-3 gap-8 mt-16 pt-16 border-t border-stone-200/80">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-16 pt-12 border-t border-white/10">
               {STATS.map((stat, i) => (
                 <div key={i} className="text-center">
                   <p className="font-serif text-2xl md:text-3xl text-gold font-medium mb-1">{stat.value}</p>
-                  <p className="text-stone-500 text-sm uppercase tracking-wider">{stat.label}</p>
+                  <p className="text-stone-400 text-sm uppercase tracking-wider">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -162,60 +168,40 @@ export default function HomePage() {
       <TestimonialsCarousel />
 
       {/* ——— UBICACIÓN Y HORARIO ——— */}
-      <section id="ubicacion" className="landing-section bg-stone-50 bg-section-pattern scroll-mt-20">
-        <div className="container mx-auto px-6 sm:px-8">
+      <section id="ubicacion" className="landing-section bg-white relative overflow-hidden scroll-mt-20">
+        <div className="absolute inset-0 bg-section-pattern opacity-70" />
+        <div className="container mx-auto px-6 sm:px-8 relative z-10">
           <div className="text-center mb-12">
             <p className="section-label text-gold">Visítanos</p>
             <h2 className="section-heading mb-4">Ubicación y horario</h2>
             <div className="gold-line mx-auto mb-6" />
           </div>
-          <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
-            <div className="landing-card p-8 md:p-10">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
-                  <span className="text-xl" aria-hidden>📍</span>
-                </div>
-                <div>
-                  <h3 className="font-serif text-lg font-medium text-stone-900 mb-2">Dirección</h3>
-                  {address ? (
-                    <p className="text-stone-600 leading-relaxed">{address}</p>
-                  ) : (
-                    <p className="text-stone-400">Próximamente</p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="landing-card p-8 md:p-10">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
-                  <span className="text-xl" aria-hidden>📞</span>
-                </div>
-                <div>
-                  <h3 className="font-serif text-lg font-medium text-stone-900 mb-2">Teléfono</h3>
-                  {contactPhone ? (
-                    <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="text-stone-600 hover:text-gold transition-colors">
-                      {contactPhone}
-                    </a>
-                  ) : (
-                    <p className="text-stone-400">Próximamente</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          {openingHours && (
+          {locationAddress && (
             <div className="max-w-4xl mx-auto mt-6">
-              <div className="landing-card p-8 md:p-10 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
-                  <span className="text-xl" aria-hidden>🕐</span>
+              <div className="landing-card overflow-hidden">
+                <div className="aspect-[16/8] w-full bg-stone-100">
+                  <iframe
+                    title="Mapa de ubicación Mr. Kutz"
+                    src={mapSrc}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
                 </div>
-                <div>
-                  <h3 className="font-serif text-lg font-medium text-stone-900 mb-2">Horario</h3>
-                  <p className="text-stone-600 leading-relaxed whitespace-pre-line">{openingHours}</p>
+                <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200">
+                  <p className="text-sm text-stone-600">Ubicación: {locationAddress}</p>
+                  <a
+                    href={mapLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-outline py-2"
+                  >
+                    Abrir en Google Maps
+                  </a>
                 </div>
               </div>
             </div>
-          )}
+          )}   
         </div>
       </section>
       

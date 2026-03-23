@@ -44,7 +44,7 @@ export default function HistoryPage() {
     d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
   return (
-    <div className="space-y-8">
+    <div className="page-shell">
       <div>
         <p className="section-label text-gold">Historial</p>
         <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-4">
@@ -58,7 +58,7 @@ export default function HistoryPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
+              className="input-premium py-2.5 text-sm"
             />
           </div>
           <span className="text-stone-400 pt-6">—</span>
@@ -68,19 +68,19 @@ export default function HistoryPage() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
+              className="input-premium py-2.5 text-sm"
             />
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+        <div className="alert-error" role="alert">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+      <div className="panel-card overflow-hidden">
         <div className="p-6">
           {loading ? (
             <div className="py-16 text-center text-stone-500">Cargando historial...</div>

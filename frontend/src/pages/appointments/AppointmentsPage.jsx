@@ -122,8 +122,8 @@ export default function AppointmentsPage() {
   const pageSubtitle = isClient
     ? 'Tus citas y reservas'
     : isBarber
-    ? 'Tus citas por fecha'
-    : 'Gestión de citas por fecha';
+    ? 'Tu agenda operativa por fecha'
+    : 'Gestión operativa de citas por fecha';
 
   // ——— Vista cliente: diseño premium y sencillo ———
   if (isClient) {
@@ -340,14 +340,14 @@ export default function AppointmentsPage() {
 
   // ——— Vista admin ———
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title={pageTitle}
         subtitle={pageSubtitle}
         actions={
           <Link
             to="/appointments/new"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+            className="btn-admin w-full sm:w-auto"
           >
             + Nueva cita
           </Link>
@@ -361,7 +361,7 @@ export default function AppointmentsPage() {
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+            className="input-premium py-2.5 text-sm"
           />
         </div>
         {isAdmin && (
@@ -384,7 +384,7 @@ export default function AppointmentsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">{error}</div>
+        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {loading ? (

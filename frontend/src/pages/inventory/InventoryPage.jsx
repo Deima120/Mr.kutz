@@ -142,13 +142,13 @@ export default function InventoryPage() {
   const totalUnits = products.reduce((sum, p) => sum + (p.quantity ?? 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Inventario"
         label="Stock"
-        subtitle="Productos y control de stock"
+        subtitle="Control de stock, alertas y movimientos"
         actions={
-          <Link to="/inventory/new" className="btn-admin">
+          <Link to="/inventory/new" className="btn-admin w-full sm:w-auto">
             + Nuevo producto
           </Link>
         }
@@ -184,7 +184,7 @@ export default function InventoryPage() {
       )}
 
       {/* Filtros y búsqueda */}
-      <div className="flex flex-wrap gap-4 items-center">
+      <div className="flex flex-wrap gap-3 md:gap-4 items-center">
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
@@ -194,7 +194,7 @@ export default function InventoryPage() {
             className="input-premium py-2.5 text-sm"
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2.5">
           <input
             type="checkbox"
             checked={showInactive}
@@ -203,7 +203,7 @@ export default function InventoryPage() {
           />
           Mostrar inactivos
         </label>
-        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2.5">
           <input
             type="checkbox"
             checked={showLowStockOnly}
@@ -215,7 +215,7 @@ export default function InventoryPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">{error}</div>
+        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {loading ? (

@@ -79,8 +79,9 @@ function GalleryCard({ item, isActive }) {
 
 export default function GalleryCarousel3D() {
   return (
-    <section id="galeria" className="landing-section bg-stone-50 bg-section-pattern scroll-mt-20">
-      <div className="container mx-auto px-6 sm:px-8">
+    <section id="galeria" className="landing-section bg-stone-100 relative overflow-hidden scroll-mt-20">
+      <div className="absolute inset-0 bg-section-pattern opacity-70" />
+      <div className="container mx-auto px-6 sm:px-8 relative z-10">
         <div className="text-center mb-14 md:mb-16">
           <p className="section-label text-gold">Ambiente</p>
           <h2 className="section-heading mb-4">Nuestro espacio</h2>

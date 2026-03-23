@@ -82,27 +82,29 @@ export default function TestimonialsCarousel() {
 
   if (loading) {
     return (
-      <section id="testimonios" className="landing-section bg-white scroll-mt-20">
-        <div className="container mx-auto px-6 sm:px-8">
+      <section id="testimonios" className="landing-section bg-barber-dark text-white relative overflow-hidden scroll-mt-20">
+        <div className="absolute inset-0 bg-gradient-radial-gold opacity-30" />
+        <div className="container mx-auto px-6 sm:px-8 relative z-10">
           <div className="text-center mb-14">
             <p className="section-label text-gold">Testimonios</p>
-            <h2 className="section-heading mb-4">Lo que dicen nuestros clientes</h2>
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white font-medium tracking-tight mb-4">Lo que dicen nuestros clientes</h2>
             <div className="gold-line mx-auto mb-6" />
           </div>
-          <div className="max-w-2xl mx-auto py-12 text-stone-500">Cargando...</div>
+          <div className="max-w-2xl mx-auto py-12 text-stone-400">Cargando...</div>
         </div>
       </section>
     );
   }
 
   return (
-    <section id="testimonios" className="landing-section bg-white scroll-mt-20">
-      <div className="container mx-auto px-6 sm:px-8">
+    <section id="testimonios" className="landing-section bg-barber-dark text-white relative overflow-hidden scroll-mt-20">
+      <div className="absolute inset-0 bg-gradient-radial-gold opacity-30" />
+      <div className="container mx-auto px-6 sm:px-8 relative z-10">
         <div className="text-center mb-14 md:mb-16">
           <p className="section-label text-gold">Testimonios</p>
-          <h2 className="section-heading mb-4">Lo que dicen nuestros clientes</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white font-medium tracking-tight mb-4">Lo que dicen nuestros clientes</h2>
           <div className="gold-line mx-auto mb-6" />
-          <p className="text-stone-500 max-w-lg mx-auto text-lg">
+          <p className="text-stone-400 max-w-lg mx-auto text-lg">
             La opinión de quienes nos eligen.
           </p>
         </div>

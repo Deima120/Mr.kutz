@@ -59,7 +59,7 @@ export default function PaymentsPage() {
   const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Pagos y ventas"
         label="Finanzas"
@@ -100,7 +100,7 @@ export default function PaymentsPage() {
       />
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">{error}</div>
+        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {loading ? (

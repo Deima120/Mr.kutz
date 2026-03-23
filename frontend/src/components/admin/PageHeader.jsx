@@ -4,7 +4,7 @@
 
 export default function PageHeader({ title, actions, subtitle, label }) {
   return (
-    <div className="mb-8">
+    <div className="mb-8 panel-card p-5 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           {label && (

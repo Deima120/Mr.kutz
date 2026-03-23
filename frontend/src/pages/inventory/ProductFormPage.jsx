@@ -82,59 +82,64 @@ export default function ProductFormPage() {
   };
 
   return (
-    <div className="max-w-xl">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-        {isEdit ? 'Editar producto' : 'Nuevo producto'}
-      </h2>
+    <div className="max-w-xl page-shell">
+      <div>
+        <p className="section-label text-gold mb-1">Inventario</p>
+        <h2 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
+          {isEdit ? 'Editar producto' : 'Nuevo producto'}
+        </h2>
+      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-xl shadow border p-6 space-y-4"
+        className="panel-card overflow-hidden"
       >
+        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
+        <div className="p-6 sm:p-8 space-y-5">
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+          <div className="alert-error">{error}</div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+          <label className="label-premium">Nombre *</label>
           <input
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+          <label className="label-premium">Descripción</label>
           <textarea
             name="description"
             value={formData.description}
             onChange={handleChange}
             rows={2}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none resize-none"
+            className="input-premium resize-none"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+            <label className="label-premium">SKU</label>
             <input
               name="sku"
               value={formData.sku}
               onChange={handleChange}
               placeholder="Código único"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="input-premium"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Unidad</label>
+            <label className="label-premium">Unidad</label>
             <select
               name="unit"
               value={formData.unit}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="input-premium"
             >
               <option value="unit">Unidad</option>
               <option value="ml">ml</option>
@@ -147,7 +152,7 @@ export default function ProductFormPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Stock mínimo (alerta)
           </label>
           <input
@@ -156,22 +161,22 @@ export default function ProductFormPage() {
             min="0"
             value={formData.minStock}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
           />
         </div>
 
         {isEdit && productMeta && (
           <>
-            <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm">
-              <p className="text-gray-600">
+            <div className="rounded-lg bg-stone-50 border border-stone-200 p-3 text-sm">
+              <p className="text-stone-600">
                 Stock actual: <strong>{productMeta.quantity}</strong> {formData.unit === 'unit' ? 'unidades' : formData.unit}
                 {productMeta.stockUpdatedAt && (
-                  <span className="text-gray-500 block mt-1">
+                  <span className="text-stone-500 block mt-1">
                     Última actualización: {new Date(productMeta.stockUpdatedAt).toLocaleString('es-ES')}
                   </span>
                 )}
               </p>
-              <p className="text-gray-500 text-xs mt-1">
+              <p className="text-stone-500 text-xs mt-1">
                 Para cambiar el stock usa la página de inventario y el botón &quot;Ajustar&quot;.
               </p>
             </div>
@@ -181,9 +186,9 @@ export default function ProductFormPage() {
                 type="checkbox"
                 checked={formData.isActive}
                 onChange={handleChange}
-                className="rounded border-gray-300"
+                className="rounded border-stone-300"
               />
-              <span className="text-sm text-gray-700">Activo</span>
+              <span className="text-sm text-stone-700">Activo</span>
             </label>
           </>
         )}
@@ -192,17 +197,18 @@ export default function ProductFormPage() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
+            className="btn-admin disabled:opacity-50"
           >
             {loading ? 'Guardando...' : 'Guardar'}
           </button>
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+            className="btn-admin-outline"
           >
             Cancelar
           </button>
+        </div>
         </div>
       </form>
     </div>

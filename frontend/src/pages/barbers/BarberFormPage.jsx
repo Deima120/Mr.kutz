@@ -93,50 +93,55 @@ export default function BarberFormPage() {
   };
 
   return (
-    <div className="max-w-xl">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-        {isEdit ? 'Editar barbero' : 'Nuevo barbero'}
-      </h2>
+    <div className="max-w-xl page-shell">
+      <div>
+        <p className="section-label text-gold mb-1">Equipo</p>
+        <h2 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
+          {isEdit ? 'Editar barbero' : 'Nuevo barbero'}
+        </h2>
+      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-xl shadow border p-6 space-y-4"
+        className="panel-card overflow-hidden"
       >
+        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
+        <div className="p-6 sm:p-8 space-y-5">
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+          <div className="alert-error">
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label-premium">
               Nombre *
             </label>
             <input
               name="firstName"
               value={formData.firstName}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="input-premium"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label-premium">
               Apellido *
             </label>
             <input
               name="lastName"
               value={formData.lastName}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="input-premium"
               required
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Email *
           </label>
           <input
@@ -144,18 +149,18 @@ export default function BarberFormPage() {
             type="email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
             required
             disabled={isEdit}
           />
           {isEdit && (
-            <p className="text-xs text-gray-500 mt-1">El email no se puede cambiar</p>
+            <p className="text-xs text-stone-500 mt-1">El email no se puede cambiar</p>
           )}
         </div>
 
         {!isEdit && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label-premium">
               Contraseña *
             </label>
             <input
@@ -163,7 +168,7 @@ export default function BarberFormPage() {
               type="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="input-premium"
               placeholder="Mínimo 6 caracteres"
               required={!isEdit}
             />
@@ -171,7 +176,7 @@ export default function BarberFormPage() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Teléfono
           </label>
           <input
@@ -179,12 +184,12 @@ export default function BarberFormPage() {
             type="tel"
             value={formData.phone}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="label-premium">
             Especialidades (separadas por coma)
           </label>
           <input
@@ -192,7 +197,7 @@ export default function BarberFormPage() {
             value={formData.specialties}
             onChange={handleChange}
             placeholder="Ej: Corte clásico, Barba, Degradado"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            className="input-premium"
           />
         </div>
 
@@ -203,9 +208,9 @@ export default function BarberFormPage() {
               type="checkbox"
               checked={formData.isActive}
               onChange={handleChange}
-              className="rounded border-gray-300"
+              className="rounded border-stone-300"
             />
-            <span className="text-sm text-gray-700">Activo</span>
+            <span className="text-sm text-stone-700">Activo</span>
           </label>
         )}
 
@@ -213,17 +218,18 @@ export default function BarberFormPage() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
+            className="btn-admin disabled:opacity-50"
           >
             {loading ? 'Guardando...' : 'Guardar'}
           </button>
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+            className="btn-admin-outline"
           >
             Cancelar
           </button>
+        </div>
         </div>
       </form>
     </div>

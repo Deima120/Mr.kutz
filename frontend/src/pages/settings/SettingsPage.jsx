@@ -72,7 +72,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Configuración"
         label="Negocio"
@@ -80,14 +80,14 @@ export default function SettingsPage() {
       />
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">{error}</div>
+        <div className="alert-error" role="alert">{error}</div>
       )}
 
       <form onSubmit={handleSubmit}>
         <DataCard title="Datos del negocio">
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-1">Nombre de la barbería</label>
+              <label className="label-premium">Nombre de la barbería</label>
               <input
                 name="business_name"
                 value={formData.business_name}
@@ -97,7 +97,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-1">URL del logo (opcional)</label>
+              <label className="label-premium">URL del logo (opcional)</label>
               <input
                 name="logo_url"
                 value={formData.logo_url}
@@ -108,7 +108,7 @@ export default function SettingsPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-semibold text-stone-700 mb-1">Email de contacto</label>
+                <label className="label-premium">Email de contacto</label>
                 <input
                   type="email"
                   name="contact_email"
@@ -118,7 +118,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-stone-700 mb-1">Teléfono</label>
+                <label className="label-premium">Teléfono</label>
                 <input
                   name="contact_phone"
                   value={formData.contact_phone}
@@ -128,7 +128,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-1">Dirección</label>
+              <label className="label-premium">Dirección</label>
               <input
                 name="address"
                 value={formData.address}
@@ -137,7 +137,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-1">Horarios (texto libre)</label>
+              <label className="label-premium">Horarios (texto libre)</label>
               <textarea
                 name="opening_hours"
                 value={formData.opening_hours}
@@ -151,7 +151,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="btn-admin disabled:opacity-50"
+                className="btn-admin w-full sm:w-auto disabled:opacity-50"
               >
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>

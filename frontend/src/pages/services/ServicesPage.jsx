@@ -43,7 +43,7 @@ export default function ServicesPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="page-shell">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="section-label text-gold">Catálogo</p>
@@ -64,7 +64,7 @@ export default function ServicesPage() {
           </label>
           <Link
             to="/services/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+            className="btn-admin"
           >
             + Nuevo servicio
           </Link>
@@ -72,7 +72,7 @@ export default function ServicesPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+        <div className="alert-error" role="alert">
           {error}
         </div>
       )}
@@ -80,7 +80,7 @@ export default function ServicesPage() {
       {loading ? (
         <div className="py-16 text-center text-stone-500">Cargando...</div>
       ) : services.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-12 text-center">
+        <div className="empty-state">
           <p className="text-stone-500 mb-4">No hay servicios registrados.</p>
           <Link
             to="/services/new"
