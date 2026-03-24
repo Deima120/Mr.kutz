@@ -59,7 +59,7 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="email" className="label-premium">
-                  Email
+                  Correo electrónico
                 </label>
                 <input
                   id="email"

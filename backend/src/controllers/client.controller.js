@@ -33,7 +33,7 @@ export const getById = async (req, res, next) => {
   try {
     const client = await clientService.getById(req.params.id);
     if (!client) {
-      return res.status(404).json({ success: false, message: 'Client not found' });
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado.' });
     }
     res.json({
       success: true,
@@ -57,7 +57,7 @@ export const create = async (req, res, next) => {
     });
     res.status(201).json({
       success: true,
-      message: 'Client created successfully',
+      message: 'Cliente creado correctamente.',
       data: client,
     });
   } catch (error) {
@@ -73,11 +73,11 @@ export const update = async (req, res, next) => {
   try {
     const client = await clientService.update(req.params.id, req.body);
     if (!client) {
-      return res.status(404).json({ success: false, message: 'Client not found' });
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado.' });
     }
     res.json({
       success: true,
-      message: 'Client updated successfully',
+      message: 'Cliente actualizado correctamente.',
       data: client,
     });
   } catch (error) {
@@ -93,11 +93,11 @@ export const remove = async (req, res, next) => {
   try {
     const deleted = await clientService.remove(req.params.id);
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Client not found' });
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado.' });
     }
     res.json({
       success: true,
-      message: 'Client deleted successfully',
+      message: 'Cliente eliminado correctamente.',
     });
   } catch (error) {
     next(error);

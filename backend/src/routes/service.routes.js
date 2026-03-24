@@ -12,10 +12,10 @@ import * as serviceController from '../controllers/service.controller.js';
 const router = express.Router();
 
 const createValidation = [
-  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 150 }),
+  body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
   body('description').optional().trim(),
-  body('price').isFloat({ min: 0 }).withMessage('Price must be >= 0'),
-  body('durationMinutes').isInt({ min: 1 }).withMessage('Duration must be >= 1'),
+  body('price').isFloat({ min: 0 }).withMessage('El precio debe ser mayor o igual a 0.'),
+  body('durationMinutes').isInt({ min: 1 }).withMessage('La duración debe ser de al menos 1 minuto.'),
 ];
 
 const updateValidation = [
@@ -26,7 +26,7 @@ const updateValidation = [
   body('isActive').optional().isBoolean(),
 ];
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid service ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de servicio no válido.');
 
 router.get('/', serviceController.getAll);
 router.get('/:id', idParam, validate, serviceController.getById);

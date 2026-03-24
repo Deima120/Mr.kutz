@@ -19,8 +19,8 @@ const router = express.Router();
 // ====== AUTH MÓVIL ======
 
 const loginValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required'),
+  body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+  body('password').notEmpty().withMessage('La contraseña es obligatoria.'),
 ];
 
 router.post('/auth/login', loginValidation, validate, authController.login);
@@ -34,8 +34,8 @@ router.use('/client', auth, authorize('client'));
 router.get(
   '/client/availability',
   [
-    query('barberId').isInt({ min: 1 }).withMessage('Valid barberId is required'),
-    query('date').isISO8601().withMessage('Valid date (YYYY-MM-DD) is required'),
+    query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
+    query('date').isISO8601().withMessage('Indica una fecha válida (AAAA-MM-DD).'),
   ],
   validate,
   appointmentController.getAvailableSlots,
@@ -48,14 +48,14 @@ router.get('/client/appointments', appointmentController.getAll);
 router.post(
   '/client/appointments',
   [
-    body('barberId').isInt({ min: 1 }).withMessage('Valid barber required'),
-    body('serviceId').isInt({ min: 1 }).withMessage('Valid service required'),
-    body('appointmentDate').isISO8601().withMessage('Valid date required'),
+    body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
+    body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
+    body('appointmentDate').isISO8601().withMessage('Indica una fecha válida.'),
     body('startTime')
       .optional()
       .trim()
       .matches(/^\d{1,2}:\d{2}$/)
-      .withMessage('Time format must be HH:MM'),
+      .withMessage('La hora debe tener formato HH:MM.'),
     body('notes').optional().trim(),
   ],
   validate,

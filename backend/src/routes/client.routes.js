@@ -15,19 +15,19 @@ const clientValidation = [
   body('firstName')
     .trim()
     .notEmpty()
-    .withMessage('First name is required')
+    .withMessage('El nombre es obligatorio.')
     .isLength({ max: 100 }),
   body('lastName')
     .trim()
     .notEmpty()
-    .withMessage('Last name is required')
+    .withMessage('El apellido es obligatorio.')
     .isLength({ max: 100 }),
   body('phone').optional().trim().isLength({ max: 20 }),
-  body('email').optional().trim().isEmail().withMessage('Invalid email'),
+  body('email').optional().trim().isEmail().withMessage('Correo electrónico no válido.'),
   body('notes').optional().trim(),
 ];
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid client ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');
 
 router.use(auth);
 router.use(authorize('admin', 'barber'));

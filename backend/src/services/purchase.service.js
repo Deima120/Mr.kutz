@@ -42,7 +42,7 @@ export const getById = async (id) => {
 
 export const create = async (data, userId) => {
   const items = Array.isArray(data.items) ? data.items : [];
-  if (items.length === 0) throw new Error('Purchase requires at least one item');
+  if (items.length === 0) throw new Error('La compra debe incluir al menos un artículo.');
 
   const result = await prisma.$transaction(async (tx) => {
     const normalized = [];
@@ -51,7 +51,7 @@ export const create = async (data, userId) => {
       const quantity = parseInt(it.quantity, 10);
       const unitCost = Number(it.unitCost);
       if (!productId || quantity <= 0 || Number.isNaN(unitCost) || unitCost < 0) {
-        throw new Error('Invalid purchase item');
+        throw new Error('Artículo de compra no válido.');
       }
       normalized.push({
         productId,

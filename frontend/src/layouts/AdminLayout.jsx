@@ -96,8 +96,8 @@ export default function AdminLayout({ children }) {
         </div>
       </aside>
 
-      <div className="flex-1 ml-64 min-h-screen flex flex-col">
-        <header className="bg-white/95 backdrop-blur border-b border-stone-200 px-8 py-4 sticky top-0 z-10 shadow-card">
+      <div className="flex-1 ml-64 h-screen min-h-0 flex flex-col overflow-hidden">
+        <header className="shrink-0 bg-white/95 backdrop-blur border-b border-stone-200 px-8 py-4 z-10 shadow-card">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl font-medium text-stone-900">
               {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
@@ -105,7 +105,7 @@ export default function AdminLayout({ children }) {
           </div>
         </header>
 
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex flex-1 flex-col min-h-0 overflow-y-auto p-6 md:p-8">
           {children}
         </main>
       </div>

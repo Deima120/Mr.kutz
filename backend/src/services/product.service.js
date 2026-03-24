@@ -127,7 +127,7 @@ export const updateStock = async (productId, quantityChange, movementType, notes
     });
 
     if (updated.quantity < 0) {
-      throw new Error('Stock cannot be negative');
+      throw new Error('El stock no puede ser negativo.');
     }
 
     await tx.inventoryMovement.create({

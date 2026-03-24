@@ -12,9 +12,9 @@ import * as testimonialController from '../controllers/testimonial.controller.js
 const router = express.Router();
 
 const createValidation = [
-  body('authorName').trim().notEmpty().withMessage('Author name required').isLength({ max: 100 }),
+  body('authorName').trim().notEmpty().withMessage('El nombre del autor es obligatorio.').isLength({ max: 100 }),
   body('authorRole').optional().trim().isLength({ max: 50 }),
-  body('content').trim().notEmpty().withMessage('Content required').isLength({ max: 1000 }),
+  body('content').trim().notEmpty().withMessage('El contenido es obligatorio.').isLength({ max: 1000 }),
   body('isActive').optional().isBoolean(),
   body('sortOrder').optional().isInt({ min: 0 }),
 ];
@@ -27,7 +27,7 @@ const updateValidation = [
   body('sortOrder').optional().isInt({ min: 0 }),
 ];
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid testimonial ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de testimonio no válido.');
 
 router.get('/', testimonialController.getAll);
 

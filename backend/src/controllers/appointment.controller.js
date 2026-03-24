@@ -33,7 +33,7 @@ export const getById = async (req, res, next) => {
   try {
     const appointment = await appointmentService.getById(req.params.id);
     if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
+      return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
     res.json({ success: true, data: appointment });
   } catch (error) {
@@ -45,7 +45,7 @@ export const getAvailableSlots = async (req, res, next) => {
   try {
     const { barberId, date } = req.query;
     if (!barberId || !date) {
-      return res.status(400).json({ success: false, message: 'barberId and date required' });
+      return res.status(400).json({ success: false, message: 'Se requieren barbero y fecha.' });
     }
     const slots = await appointmentService.getAvailableSlots(barberId, date);
     res.json({ success: true, data: slots });
@@ -63,7 +63,7 @@ export const create = async (req, res, next) => {
     const appointment = await appointmentService.create(body);
     res.status(201).json({
       success: true,
-      message: 'Appointment created successfully',
+      message: 'Cita creada correctamente.',
       data: appointment,
     });
   } catch (error) {
@@ -76,22 +76,22 @@ export const update = async (req, res, next) => {
     if (req.user.role_name === 'client' && req.user.client_id) {
       const existing = await appointmentService.getById(req.params.id);
       if (!existing) {
-        return res.status(404).json({ success: false, message: 'Appointment not found' });
+        return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
       }
       if (Number(existing.clientId) !== Number(req.user.client_id)) {
-        return res.status(403).json({ success: false, message: 'You can only update your own appointments.' });
+        return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propias citas.' });
       }
       if (req.body.status && !['cancelled'].includes(req.body.status)) {
-        return res.status(403).json({ success: false, message: 'Clients can only cancel appointments.' });
+        return res.status(403).json({ success: false, message: 'Como cliente solo puedes cancelar citas.' });
       }
     }
     const appointment = await appointmentService.update(req.params.id, req.body);
     if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
+      return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
     res.json({
       success: true,
-      message: 'Appointment updated successfully',
+      message: 'Cita actualizada correctamente.',
       data: appointment,
     });
   } catch (error) {

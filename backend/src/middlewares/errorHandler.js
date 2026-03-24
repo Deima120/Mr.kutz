@@ -6,7 +6,7 @@
 
 export const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || err.status || 500;
-  let message = err.message || 'Internal server error';
+  let message = err.message || 'Error interno del servidor.';
 
   // Log interno (nunca exponer stack al cliente)
   console.error(`[${statusCode}] ${req.method} ${req.originalUrl}`, message);

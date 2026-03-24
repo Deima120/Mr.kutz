@@ -199,7 +199,7 @@ export default function ClientsPage() {
             <Table>
               <TableHead>
                 <TableHeader>Nombre</TableHeader>
-                <TableHeader>Email</TableHeader>
+                <TableHeader>Correo</TableHeader>
                 <TableHeader>Teléfono</TableHeader>
                 <TableHeader>Acciones</TableHeader>
               </TableHead>

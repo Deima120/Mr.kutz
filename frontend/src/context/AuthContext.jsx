@@ -68,7 +68,8 @@ export function AuthProvider({ children }) {
         localStorage.setItem(USER_KEY, JSON.stringify(profile));
       } catch (err) {
         const msg = err?.message || String(err);
-        const isAuthError = msg?.includes('401') || msg?.includes('token') || msg?.includes('Invalid') || msg?.includes('Access denied');
+        const isAuthError =
+          /401|token|Token|inválid|Inválid|denegad|sesión|Sesión|autenticación/i.test(msg || '');
         if (isAuthError) {
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(USER_KEY);
@@ -106,7 +107,7 @@ export function AuthProvider({ children }) {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth debe usarse dentro de AuthProvider');
   }
   return context;
 };

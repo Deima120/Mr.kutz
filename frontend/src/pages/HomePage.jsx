@@ -334,7 +334,7 @@ export default function HomePage() {
           {filteredServices.length === 0 && (
             <div className="max-w-2xl mx-auto text-center mt-8 rounded-xl border border-stone-800 bg-stone-900/60 p-6">
               <p className="text-stone-300">
-                No hay servicios en esta categoria por ahora. Prueba con otra opcion.
+                No hay servicios en esta categoría por ahora. Prueba con otra opción.
               </p>
             </div>
           )}

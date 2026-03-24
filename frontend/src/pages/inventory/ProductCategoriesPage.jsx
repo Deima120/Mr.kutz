@@ -93,13 +93,16 @@ export default function ProductCategoriesPage() {
 
       {error && <div className="alert-error">{error}</div>}
 
-      <DataCard>
-        <form className="grid md:grid-cols-3 gap-3" onSubmit={create}>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="input-premium" placeholder="Nombre" required />
-          <input value={description} onChange={(e) => setDescription(e.target.value)} className="input-premium" placeholder="Descripción" />
-          <button type="submit" className="btn-admin">+ Crear categoría</button>
-        </form>
-      </DataCard>
+      <div className="relative rounded-[1.35rem] p-[1.5px] bg-gradient-to-br from-gold/55 via-stone-100/60 to-gold/30 shadow-[0_16px_44px_rgba(0,0,0,0.1)] mb-6">
+        <div className="rounded-[1.28rem] bg-white/90 backdrop-blur-md border border-white/90 p-4 sm:p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold mb-3">Nueva categoría</p>
+          <form className="grid md:grid-cols-3 gap-3" onSubmit={create}>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="input-premium" placeholder="Nombre" required />
+            <input value={description} onChange={(e) => setDescription(e.target.value)} className="input-premium" placeholder="Descripción" />
+            <button type="submit" className="btn-admin">+ Crear categoría</button>
+          </form>
+        </div>
+      </div>
 
       <DataCard>
         {loading ? (

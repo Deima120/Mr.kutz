@@ -25,7 +25,7 @@ const router = express.Router();
 router.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'MR. KUTZ API v1.0',
+    message: 'API Mr. Kutz v1.0',
     endpoints: {
       auth: '/api/auth',
       clients: '/api/clients',

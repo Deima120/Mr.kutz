@@ -13,7 +13,7 @@ export const getAll = async (req, res, next) => {
 export const getById = async (req, res, next) => {
   try {
     const item = await categoryService.getById(req.params.id);
-    if (!item) return res.status(404).json({ success: false, message: 'Category not found' });
+    if (!item) return res.status(404).json({ success: false, message: 'Categoría no encontrada.' });
     res.json({ success: true, data: item });
   } catch (error) {
     next(error);
@@ -23,7 +23,7 @@ export const getById = async (req, res, next) => {
 export const create = async (req, res, next) => {
   try {
     const item = await categoryService.create(req.body);
-    res.status(201).json({ success: true, message: 'Category created successfully', data: item });
+    res.status(201).json({ success: true, message: 'Categoría creada correctamente.', data: item });
   } catch (error) {
     next(error);
   }
@@ -32,7 +32,7 @@ export const create = async (req, res, next) => {
 export const update = async (req, res, next) => {
   try {
     const item = await categoryService.update(req.params.id, req.body);
-    res.json({ success: true, message: 'Category updated successfully', data: item });
+    res.json({ success: true, message: 'Categoría actualizada correctamente.', data: item });
   } catch (error) {
     next(error);
   }
@@ -41,7 +41,7 @@ export const update = async (req, res, next) => {
 export const remove = async (req, res, next) => {
   try {
     await categoryService.remove(req.params.id);
-    res.json({ success: true, message: 'Category deleted successfully' });
+    res.json({ success: true, message: 'Categoría eliminada correctamente.' });
   } catch (error) {
     next(error);
   }

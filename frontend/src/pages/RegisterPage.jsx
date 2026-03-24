@@ -90,7 +90,7 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label htmlFor="email" className={labelClass}>Email</label>
+                <label htmlFor="email" className={labelClass}>Correo electrónico</label>
                 <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} className={inputClass} placeholder="tu@email.com" required />
               </div>
 

@@ -127,7 +127,7 @@ export default function TestimonialsCarousel() {
             items={displayItems}
             autoPlayMs={6000}
             showDots
-            showArrows
+            showArrows={false}
             ariaLabel="Testimonios"
             renderSlide={(item, isActive) => <TestimonialCard item={item} isActive={isActive} />}
           />

@@ -17,25 +17,25 @@ const router = express.Router();
 const registerValidation = [
   body('email')
     .isEmail()
-    .withMessage('Valid email is required')
+    .withMessage('Indica un correo electrónico válido.')
     .normalizeEmail(),
   body('password')
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters')
+    .withMessage('La contraseña debe tener al menos 6 caracteres.')
     .matches(/\d/)
-    .withMessage('Password must contain at least one number'),
+    .withMessage('La contraseña debe incluir al menos un número.'),
   body('firstName')
     .trim()
     .notEmpty()
-    .withMessage('First name is required')
+    .withMessage('El nombre es obligatorio.')
     .isLength({ max: 100 })
-    .withMessage('First name too long'),
+    .withMessage('El nombre es demasiado largo.'),
   body('lastName')
     .trim()
     .notEmpty()
-    .withMessage('Last name is required')
+    .withMessage('El apellido es obligatorio.')
     .isLength({ max: 100 })
-    .withMessage('Last name too long'),
+    .withMessage('El apellido es demasiado largo.'),
   body('phone')
     .optional()
     .trim()
@@ -43,35 +43,35 @@ const registerValidation = [
   body('role')
     .optional()
     .isIn(['admin', 'barber', 'client'])
-    .withMessage('Invalid role'),
+    .withMessage('El rol no es válido.'),
 ];
 
 // Validaciones para login
 const loginValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required'),
+  body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+  body('password').notEmpty().withMessage('La contraseña es obligatoria.'),
 ];
 
 // Validaciones para forgot password
 const forgotPasswordValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
 ];
 
 // Validaciones para verify code
 const verifyCodeValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('code').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits'),
+  body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.'),
 ];
 
 // Validaciones para reset password
 const resetPasswordValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('code').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits'),
+  body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.'),
   body('newPassword')
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters')
+    .withMessage('La contraseña debe tener al menos 6 caracteres.')
     .matches(/\d/)
-    .withMessage('Password must contain at least one number'),
+    .withMessage('La contraseña debe incluir al menos un número.'),
 ];
 
 router.post('/register', registerValidation, validate, authController.register);

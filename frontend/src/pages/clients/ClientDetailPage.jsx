@@ -93,7 +93,7 @@ export default function ClientDetailPage() {
           <h3 className="font-medium text-gray-800 mb-4">Información</h3>
           <dl className="space-y-2 text-sm">
             <div>
-              <dt className="text-gray-500">Email</dt>
+              <dt className="text-gray-500">Correo electrónico</dt>
               <dd>{client.email || '-'}</dd>
             </div>
             <div>

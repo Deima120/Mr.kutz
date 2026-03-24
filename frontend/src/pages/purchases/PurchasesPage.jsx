@@ -120,8 +120,10 @@ export default function PurchasesPage() {
       {error && <div className="alert-error">{error}</div>}
 
       {showForm && (
-        <DataCard>
-          <form className="space-y-4" onSubmit={submit}>
+        <div className="relative rounded-[1.35rem] p-[1.5px] bg-gradient-to-br from-gold/55 via-stone-100/60 to-gold/30 shadow-[0_16px_44px_rgba(0,0,0,0.1)] mb-6">
+          <div className="rounded-[1.28rem] bg-white/90 backdrop-blur-md border border-white/90 p-4 sm:p-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold mb-4">Registrar compra</p>
+            <form className="space-y-4" onSubmit={submit}>
             <div className="grid md:grid-cols-3 gap-3">
               <input
                 value={form.supplierName}
@@ -195,8 +197,9 @@ export default function PurchasesPage() {
             <button type="submit" disabled={saving} className="btn-admin">
               {saving ? 'Guardando...' : 'Registrar compra'}
             </button>
-          </form>
-        </DataCard>
+            </form>
+          </div>
+        </div>
       )}
 
       <DataCard>

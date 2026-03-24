@@ -6,10 +6,10 @@ import * as categoryController from '../controllers/product-category.controller.
 
 const router = express.Router();
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid category ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de categoría no válido.');
 
 const createValidation = [
-  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
+  body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 100 }),
   body('description').optional().trim(),
   body('isActive').optional().isBoolean(),
 ];

@@ -18,7 +18,7 @@ export const getById = async (req, res, next) => {
   try {
     const barber = await barberService.getById(req.params.id);
     if (!barber) {
-      return res.status(404).json({ success: false, message: 'Barber not found' });
+      return res.status(404).json({ success: false, message: 'Barbero no encontrado.' });
     }
     res.json({ success: true, data: barber });
   } catch (error) {
@@ -40,7 +40,7 @@ export const create = async (req, res, next) => {
     const barber = await barberService.create(req.body);
     res.status(201).json({
       success: true,
-      message: 'Barber created successfully',
+      message: 'Barbero creado correctamente.',
       data: barber,
     });
   } catch (error) {
@@ -52,11 +52,11 @@ export const update = async (req, res, next) => {
   try {
     const barber = await barberService.update(req.params.id, req.body);
     if (!barber) {
-      return res.status(404).json({ success: false, message: 'Barber not found' });
+      return res.status(404).json({ success: false, message: 'Barbero no encontrado.' });
     }
     res.json({
       success: true,
-      message: 'Barber updated successfully',
+      message: 'Barbero actualizado correctamente.',
       data: barber,
     });
   } catch (error) {
@@ -72,7 +72,7 @@ export const updateSchedules = async (req, res, next) => {
     );
     res.json({
       success: true,
-      message: 'Schedules updated',
+      message: 'Horarios actualizados.',
       data: schedules,
     });
   } catch (error) {

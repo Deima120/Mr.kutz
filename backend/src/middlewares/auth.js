@@ -16,7 +16,7 @@ export const auth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+      return res.status(401).json({ success: false, message: 'Acceso denegado. No se envió un token.' });
     }
 
     const token = authHeader.split(' ')[1];
@@ -29,7 +29,7 @@ export const auth = async (req, res, next) => {
     });
 
     if (!user || !user.isActive) {
-      return res.status(401).json({ success: false, message: 'User not found or inactive.' });
+      return res.status(401).json({ success: false, message: 'Usuario no encontrado o inactivo.' });
     }
 
     req.user = {
@@ -65,11 +65,11 @@ export const auth = async (req, res, next) => {
 export const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ success: false, message: 'Authentication required.' });
+      return res.status(401).json({ success: false, message: 'Debes iniciar sesión.' });
     }
 
     if (!allowedRoles.includes(req.user.role_name)) {
-      return res.status(403).json({ success: false, message: 'Insufficient permissions.' });
+      return res.status(403).json({ success: false, message: 'No tienes permisos suficientes.' });
     }
 
     next();

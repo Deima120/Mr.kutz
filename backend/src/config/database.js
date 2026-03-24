@@ -8,9 +8,9 @@ import prisma from '../lib/prisma.js';
 export const connectDatabase = async () => {
   try {
     await prisma.$connect();
-    console.log('✅ Database connected successfully');
+    console.log('✅ Base de datos conectada');
   } catch (error) {
-    console.error('❌ Database connection error:', error?.message || error);
+    console.error('❌ Error de conexión a la base de datos:', error?.message || error);
     throw error;
   }
 };

@@ -17,7 +17,7 @@ export const register = async (userData) => {
   });
 
   if (existingUser) {
-    const error = new Error('Email already registered');
+    const error = new Error('Este correo electrónico ya está registrado.');
     error.statusCode = 409;
     throw error;
   }
@@ -27,7 +27,7 @@ export const register = async (userData) => {
   });
 
   if (!roleRecord) {
-    const error = new Error('Invalid role');
+    const error = new Error('El rol no es válido.');
     error.statusCode = 400;
     throw error;
   }
@@ -87,19 +87,19 @@ export const login = async (email, password) => {
   });
 
   if (!dbUser) {
-    const error = new Error('Invalid email or password');
+    const error = new Error('El correo electrónico o la contraseña no son correctos.');
     error.statusCode = 401;
     throw error;
   }
 
   if (!dbUser.isActive) {
-    const error = new Error('Account is inactive');
+    const error = new Error('Tu cuenta está desactivada. Contacta al administrador.');
     error.statusCode = 401;
     throw error;
   }
 
   if (!dbUser.passwordHash) {
-    const error = new Error('Invalid email or password');
+    const error = new Error('El correo electrónico o la contraseña no son correctos.');
     error.statusCode = 401;
     throw error;
   }
@@ -109,13 +109,13 @@ export const login = async (email, password) => {
     isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
   } catch (bcryptError) {
     console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
-    const error = new Error('Invalid email or password');
+    const error = new Error('El correo electrónico o la contraseña no son correctos.');
     error.statusCode = 401;
     throw error;
   }
 
   if (!isValidPassword) {
-    const error = new Error('Invalid email or password');
+    const error = new Error('La contraseña es incorrecta.');
     error.statusCode = 401;
     throw error;
   }
@@ -133,7 +133,7 @@ export const forgotPassword = async (email) => {
 
   if (!dbUser) {
     // Por seguridad, no revelamos si el email existe o no
-    return { message: 'If the email exists, you will receive instructions' };
+    return { message: 'Si el correo existe, recibirás instrucciones en breve.' };
   }
 
   // Generar código de recuperación (6 dígitos)
@@ -153,7 +153,7 @@ export const forgotPassword = async (email) => {
   console.log(`Reset code for ${email}: ${resetCode}`);
 
   return { 
-    message: 'If the email exists, you will receive instructions',
+    message: 'Si el correo existe, recibirás instrucciones en breve.',
     // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
     ...(process.env.NODE_ENV !== 'production' && { resetCode })
   };
@@ -166,19 +166,19 @@ export const verifyResetCode = async (email, code) => {
   });
 
   if (!dbUser || !dbUser.resetCode || !dbUser.resetCodeExpires) {
-    const error = new Error('Invalid or expired code');
+    const error = new Error('El código no es válido o ha caducado.');
     error.statusCode = 400;
     throw error;
   }
 
   if (dbUser.resetCode !== code) {
-    const error = new Error('Invalid code');
+    const error = new Error('El código no es correcto.');
     error.statusCode = 400;
     throw error;
   }
 
   if (new Date() > dbUser.resetCodeExpires) {
-    const error = new Error('Code has expired');
+    const error = new Error('El código ha caducado.');
     error.statusCode = 400;
     throw error;
   }
@@ -202,7 +202,7 @@ export const resetPassword = async (email, code, newPassword) => {
     },
   });
 
-  return { message: 'Password updated successfully' };
+  return { message: 'Contraseña actualizada correctamente.' };
 };
 
 export const getProfile = async (userId) => {

@@ -36,7 +36,7 @@ export default function HeroCarousel() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-barber-dark" aria-label="Hero">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-barber-dark" aria-label="Portada principal">
       {/* Imagen de fondo con transición suave */}
       <div className="absolute inset-0">
         {HERO_SLIDES.map((slide, i) => (
