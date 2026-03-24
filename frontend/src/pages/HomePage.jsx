@@ -1,6 +1,4 @@
-/**
- * Landing — Diseño profesional e innovador (inspirado en mejores barberías)
- */
+
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
