@@ -21,6 +21,7 @@ export default function ServiceFormPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    categoryName: 'General',
     price: '',
     durationMinutes: '',
     isActive: true,
@@ -36,6 +37,7 @@ export default function ServiceFormPage() {
           setFormData({
             name: s.name || '',
             description: s.description || '',
+            categoryName: s.category_name || 'General',
             price: s.price?.toString() || '',
             durationMinutes: s.duration_minutes?.toString() || '',
             isActive: s.is_active !== false,
@@ -61,6 +63,7 @@ export default function ServiceFormPage() {
     try {
       const payload = {
         name: formData.name,
+        categoryName: formData.categoryName,
         description: formData.description || undefined,
         price: parseFloat(formData.price),
         durationMinutes: parseInt(formData.durationMinutes, 10),
@@ -121,6 +124,20 @@ export default function ServiceFormPage() {
               Nombre *
             </label>
             <input id="svc-name" name="name" value={formData.name} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS} required />
+          </div>
+          <div className="group">
+            <label htmlFor="svc-cat" className={ADMIN_FORM_LABEL_CLASS}>
+              Categoría *
+            </label>
+            <input
+              id="svc-cat"
+              name="categoryName"
+              value={formData.categoryName}
+              onChange={handleChange}
+              className={ADMIN_FORM_FIELD_CLASS}
+              required
+              placeholder="Ej. Cortes, Tratamientos..."
+            />
           </div>
           <div className="group">
             <label htmlFor="svc-desc" className={ADMIN_FORM_LABEL_CLASS}>
