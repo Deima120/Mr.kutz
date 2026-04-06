@@ -35,3 +35,22 @@ export const getProfile = async () => {
   const res = response?.data ?? response;
   return res?.data ?? res;
 };
+
+export const forgotPassword = async (email) => {
+  const response = await api.post(`${AUTH_BASE}/forgot-password`, { email });
+  return response?.data ?? response;
+};
+
+export const verifyResetCode = async (email, code) => {
+  const response = await api.post(`${AUTH_BASE}/verify-code`, { email, code });
+  return response?.data ?? response;
+};
+
+export const resetPassword = async (email, code, newPassword) => {
+  const response = await api.post(`${AUTH_BASE}/reset-password`, {
+    email,
+    code,
+    newPassword,
+  });
+  return response?.data ?? response;
+};

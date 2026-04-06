@@ -34,11 +34,15 @@ function normalizeError(error) {
   const status = error.response?.status;
   const data = error.response?.data;
 
-  if (status === 401) {
+  // No cerrar sesión por un login/registro fallido (401 en /auth/login o /auth/register)
+  const reqUrl = error.config?.url || '';
+  const isFailedAuthAttempt =
+    reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register');
+  if (status === 401 && !isFailedAuthAttempt) {
     localStorage.removeItem('token');
     try { localStorage.removeItem('user'); } catch (_) {}
     const path = window.location.pathname;
-    if (!path.includes('/login') && !path.includes('/register')) {
+    if (!path.includes('/login') && !path.includes('/register') && !path.includes('/forgot-password')) {
       window.location.href = '/login';
     }
   }

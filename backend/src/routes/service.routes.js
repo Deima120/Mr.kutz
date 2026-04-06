@@ -31,6 +31,7 @@ const updateValidation = [
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de servicio no válido.');
 
 router.get('/', serviceController.getAll);
+router.get('/categories', serviceController.listPublicCategories);
 router.get('/:id', idParam, validate, serviceController.getById);
 
 router.use(auth);

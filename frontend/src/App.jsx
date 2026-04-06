@@ -7,6 +7,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useAuth } from './context/AuthContext';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -36,6 +37,7 @@ const TestimonialsPage = lazy(() => import('./pages/testimonials/TestimonialsPag
 const TestimonialFormPage = lazy(() => import('./pages/testimonials/TestimonialFormPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const PurchasesPage = lazy(() => import('./pages/purchases/PurchasesPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 
 function HomeOrRedirect() {
   const { user, isAuthenticated } = useAuth();
@@ -56,11 +58,13 @@ function RouteFallback() {
 function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
-      <Routes>
+      <ErrorBoundary>
+        <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<HomeOrRedirect />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route
             path="clients"
             element={
@@ -303,7 +307,8 @@ function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
-      </Routes>
+        </Routes>
+      </ErrorBoundary>
     </Suspense>
   );
 }

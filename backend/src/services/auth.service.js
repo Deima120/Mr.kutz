@@ -5,6 +5,8 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
+import { sendPasswordResetCode } from '../lib/mailer.js';
+import * as settingsService from './settings.service.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -87,20 +89,27 @@ export const login = async (email, password) => {
   });
 
   if (!dbUser) {
-    const error = new Error('El correo electrónico o la contraseña no son correctos.');
+    const error = new Error(
+      'No existe una cuenta con este correo electrónico. Verifica que esté bien escrito o regístrate si aún no tienes cuenta.'
+    );
     error.statusCode = 401;
+    error.reason = 'USER_NOT_FOUND';
     throw error;
   }
 
   if (!dbUser.isActive) {
     const error = new Error('Tu cuenta está desactivada. Contacta al administrador.');
     error.statusCode = 401;
+    error.reason = 'ACCOUNT_DISABLED';
     throw error;
   }
 
   if (!dbUser.passwordHash) {
-    const error = new Error('El correo electrónico o la contraseña no son correctos.');
+    const error = new Error(
+      'Esta cuenta no puede iniciar sesión de forma habitual. Contacta al administrador.'
+    );
     error.statusCode = 401;
+    error.reason = 'NO_PASSWORD';
     throw error;
   }
 
@@ -109,14 +118,18 @@ export const login = async (email, password) => {
     isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
   } catch (bcryptError) {
     console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
-    const error = new Error('El correo electrónico o la contraseña no son correctos.');
+    const error = new Error('No pudimos verificar la contraseña. Intenta de nuevo.');
     error.statusCode = 401;
+    error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 
   if (!isValidPassword) {
-    const error = new Error('La contraseña es incorrecta.');
+    const error = new Error(
+      'La contraseña no es correcta. Comprueba mayúsculas y números, o usa «¿Olvidaste tu contraseña?» si la olvidaste.'
+    );
     error.statusCode = 401;
+    error.reason = 'INVALID_PASSWORD';
     throw error;
   }
 
@@ -148,14 +161,30 @@ export const forgotPassword = async (email) => {
     },
   });
 
-  // En producción, aquí se enviaría un email con el código
-  // Por ahora, lo retornamos para pruebas (en producción, eliminar esto)
-  console.log(`Reset code for ${email}: ${resetCode}`);
+  let mailResult = { sent: false };
+  try {
+    const settings = await settingsService.getSettings();
+    const businessName = settings?.business_name || 'Mr. Kutz';
+    mailResult = await sendPasswordResetCode({
+      to: dbUser.email,
+      code: resetCode,
+      businessName,
+    });
+  } catch (e) {
+    console.error('[auth] Error al enviar correo de recuperación:', e?.message || e);
+    mailResult = { sent: false, reason: 'error' };
+  }
 
-  return { 
+  if (!mailResult.sent) {
+    console.warn(
+      `[auth] Recuperación: correo no enviado (${mailResult.reason || 'desconocido'}) para ${email}. Código solo en logs del servidor (no se expone al cliente).`
+    );
+    console.log(`[auth] Código de recuperación (${email}): ${resetCode}`);
+  }
+
+  // Nunca devolvemos resetCode en la API: el código solo debe llegar por correo (o ver logs del backend si falla el envío).
+  return {
     message: 'Si el correo existe, recibirás instrucciones en breve.',
-    // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
-    ...(process.env.NODE_ENV !== 'production' && { resetCode })
   };
 };
 

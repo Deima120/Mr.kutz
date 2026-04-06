@@ -19,6 +19,15 @@ const toServiceDto = (s) =>
       }
     : null;
 
+/** Categorías activas para la web pública (sin auth). */
+export const listPublicCategories = async () => {
+  return prisma.serviceCategory.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  });
+};
+
 export const getAll = async ({ activeOnly = true } = {}) => {
   const services = await prisma.service.findMany({
     where: activeOnly ? { isActive: true } : {},

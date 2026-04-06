@@ -1,21 +1,28 @@
 /**
- * Configuración de cortes — modelo 3D GLTF o galería de imágenes
+ * Galería de cortes — imágenes en public/cortes o URLs (Unsplash, etc.)
  *
- * MODELO 3D (GLTF/GLB) — recomendado:
- * 1. Convierte tu MAX/3DS a GLB (ver GLTF-README.md)
- * 2. Coloca el .glb en frontend/public/modelos/
- * 3. Define modelPath abajo (ej: '/modelos/corte.glb')
+ * 1. Opción local: copia PNG/JPG a public/cortes/ y usa src: '/cortes/archivo.jpg'
+ * 2. Ejecuta npm run list-cortes para listar archivos y pegarlos en CORTES
  *
- * GALERÍA DE IMÁGENES:
- * 1. Copia PNG a public/cortes/
- * 2. Ejecuta: npm run list-cortes
- * 3. Pega la salida en CORTES
+ * MODEL_PATH ya no se usa en la landing (antes cargaba un GLTF en un recuadro).
  */
 
-// Ruta al modelo 3D GLB/GLTF (null = usar galería de imágenes)
-export const MODEL_PATH = '/modelos/scene.gltf';
+export const MODEL_PATH = null;
 
 export const CORTES = [
-  // Ejemplo - reemplaza con tus imágenes:
-  // { src: '/cortes/corte1.png', nombre: 'Fade' },
+  {
+    src: 'https://images.unsplash.com/photo-1622287162726-aa62de38d194?w=1200&q=85',
+    nombre: 'Manos que marcan estilo',
+    descripcion: 'Cada detalle importa en el espejo.',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1200&q=85',
+    nombre: 'Corte con precisión',
+    descripcion: 'Técnica y pulcritud en cada pasada.',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200&q=85',
+    nombre: 'Experiencia de barbería',
+    descripcion: 'Tradición y ambiente cuidado.',
+  },
 ];

@@ -16,6 +16,12 @@ export const getServices = async (params = {}) => {
   return extract(response);
 };
 
+/** Categorías de servicios (público, sin token). */
+export const getServiceCategories = async () => {
+  const response = await api.get(`${SERVICES_BASE}/categories`);
+  return extract(response);
+};
+
 export const getServiceById = async (id) => {
   const response = await api.get(`${SERVICES_BASE}/${id}`);
   return extract(response);

@@ -3,15 +3,18 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const recovered = location.state?.recovered;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [errorReason, setErrorReason] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -21,12 +24,22 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErrorReason(null);
     setLoading(true);
     try {
       await login(email, password);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err?.message || (typeof err === 'string' ? err : 'Error al iniciar sesión'));
+      const validationMsg =
+        Array.isArray(err?.errors) && err.errors.length > 0
+          ? err.errors.find((e) => e.field === 'email')?.message || err.errors[0]?.message
+          : null;
+      setError(
+        validationMsg ||
+          err?.message ||
+          (typeof err === 'string' ? err : 'Error al iniciar sesión')
+      );
+      setErrorReason(err?.reason || null);
     } finally {
       setLoading(false);
     }
@@ -51,9 +64,32 @@ export default function LoginPage() {
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {recovered && (
+                <div
+                  className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+                  role="status"
+                >
+                  Contraseña actualizada. Ya puedes iniciar sesión con la nueva clave.
+                </div>
+              )}
               {error && (
-                <div className="alert-error" role="alert">
-                  {error}
+                <div className="alert-error space-y-2" role="alert">
+                  <p>{error}</p>
+                  {errorReason === 'USER_NOT_FOUND' && (
+                    <p className="text-sm font-normal opacity-95 border-t border-red-200/60 pt-2 mt-2">
+                      ¿Primera vez aquí?{' '}
+                      <Link to="/register" className="font-semibold underline underline-offset-2 hover:no-underline">
+                        Crear cuenta
+                      </Link>
+                    </p>
+                  )}
+                  {errorReason === 'INVALID_PASSWORD' && (
+                    <p className="text-sm font-normal opacity-95 border-t border-red-200/60 pt-2 mt-2">
+                      <Link to="/forgot-password" className="font-semibold underline underline-offset-2 hover:no-underline">
+                        Recuperar contraseña
+                      </Link>
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -87,6 +123,15 @@ export default function LoginPage() {
                   required
                   autoComplete="current-password"
                 />
+              </div>
+
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-gold font-medium hover:text-gold-dark transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
               </div>
 
               <button
