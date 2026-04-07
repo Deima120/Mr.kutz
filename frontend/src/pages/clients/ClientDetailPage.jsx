@@ -67,8 +67,26 @@ export default function ClientDetailPage() {
 
   const formatTime = (timeStr) => {
     if (!timeStr) return '';
-    const [h, m] = String(timeStr).slice(0, 5).split(':');
-    return `${h}:${m}`;
+    if (timeStr instanceof Date) {
+      const hh = String(timeStr.getHours()).padStart(2, '0');
+      const mm = String(timeStr.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    const s = String(timeStr);
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime()) && s.includes('T')) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    const iso = s.match(/T(\d{1,2}):(\d{2})/);
+    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
+    const any = s.match(/(\d{1,2}):(\d{2})/);
+    if (any) {
+      const hh = String(any[1]).padStart(2, '0');
+      return `${hh}:${any[2]}`;
+    }
+    return s.slice(0, 5);
   };
 
   return (

@@ -69,8 +69,6 @@ export const forgotPassword = async (req, res, next) => {
     res.json({
       success: true,
       message: result.message,
-      // Solo en desarrollo
-      ...(result.resetCode && { resetCode: result.resetCode }),
     });
   } catch (error) {
     next(error);

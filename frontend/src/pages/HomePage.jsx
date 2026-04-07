@@ -113,6 +113,8 @@ export default function HomePage() {
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationAddress)}`;
 
   const [services, setServices] = useState(SERVICES_FALLBACK);
+  const [categoryTabs, setCategoryTabs] = useState(SERVICE_CATEGORIES);
+  const [useApiCategories, setUseApiCategories] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [isFilterTransitioning, setIsFilterTransitioning] = useState(false);
   const [shouldLoadCortesGallery, setShouldLoadCortesGallery] = useState(false);
@@ -131,8 +133,26 @@ export default function HomePage() {
               description: s.description ?? '',
               price: s.price,
               durationMinutes: s.duration_minutes ?? s.durationMinutes ?? 0,
+              categoryName: s.category_name ?? s.categoryName ?? 'General',
             }))
           );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    serviceService
+      .getServiceCategories()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        if (list.length > 0) {
+          setUseApiCategories(true);
+          setCategoryTabs([
+            { id: 'all', label: 'Todos' },
+            ...list.map((c) => ({ id: String(c.id), label: c.name, name: c.name })),
+          ]);
+          setActiveCategory('all');
         }
       })
       .catch(() => {});
@@ -162,14 +182,25 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [shouldLoadCortesGallery]);
 
-  const servicesWithCategory = services.map((s) => ({
-    ...s,
-    category: inferServiceCategory(s),
-  }));
+  const servicesWithCategory = services.map((s) => {
+    const inferred = inferServiceCategory(s);
+    const categoryName = s.categoryName ?? 'General';
+    return {
+      ...s,
+      category: inferred,
+      categoryName,
+    };
+  });
 
-  const filteredServices = servicesWithCategory.filter((s) => (
-    activeCategory === 'all' ? true : s.category === activeCategory
-  ));
+  const filteredServices = servicesWithCategory.filter((s) => {
+    if (activeCategory === 'all') return true;
+    if (useApiCategories) {
+      const tab = categoryTabs.find((t) => t.id === activeCategory);
+      if (!tab?.name) return true;
+      return String(s.categoryName || 'General').toLowerCase() === String(tab.name).toLowerCase();
+    }
+    return s.category === activeCategory;
+  });
 
   const isClient = user?.role === 'client';
 
@@ -267,7 +298,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-8 md:mb-10">
-            {SERVICE_CATEGORIES.map((cat) => {
+            {categoryTabs.map((cat) => {
               const isActive = activeCategory === cat.id;
               return (
                 <button
@@ -305,7 +336,9 @@ export default function HomePage() {
                   <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded bg-stone-800 border border-stone-700 text-gold">
                     <CategoryIcon name={CATEGORY_META[s.category]?.icon} />
                   </span>
-                  <span>{CATEGORY_META[s.category]?.label ?? 'Servicio'}</span>
+                  <span>
+                    {useApiCategories ? (s.categoryName || 'General') : (CATEGORY_META[s.category]?.label ?? 'Servicio')}
+                  </span>
                 </div>
                 <h3 className="font-serif text-lg md:text-xl text-white font-medium mb-2 pr-6">
                   {s.name}

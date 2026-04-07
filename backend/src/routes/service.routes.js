@@ -13,6 +13,7 @@ const router = express.Router();
 
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
+  body('categoryName').optional({ nullable: true }).trim().isLength({ max: 100 }),
   body('description').optional().trim(),
   body('price').isFloat({ min: 0 }).withMessage('El precio debe ser mayor o igual a 0.'),
   body('durationMinutes').isInt({ min: 1 }).withMessage('La duración debe ser de al menos 1 minuto.'),
@@ -20,6 +21,7 @@ const createValidation = [
 
 const updateValidation = [
   body('name').optional().trim().isLength({ max: 150 }),
+  body('categoryName').optional().trim().isLength({ max: 100 }),
   body('description').optional().trim(),
   body('price').optional().isFloat({ min: 0 }),
   body('durationMinutes').optional().isInt({ min: 1 }),
@@ -29,6 +31,7 @@ const updateValidation = [
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de servicio no válido.');
 
 router.get('/', serviceController.getAll);
+router.get('/categories', serviceController.listPublicCategories);
 router.get('/:id', idParam, validate, serviceController.getById);
 
 router.use(auth);

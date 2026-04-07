@@ -5,7 +5,8 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
-import { sendPasswordResetCode } from './email.service.js';
+import { sendPasswordResetCode } from '../lib/mailer.js';
+import * as settingsService from './settings.service.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -88,20 +89,27 @@ export const login = async (email, password) => {
   });
 
   if (!dbUser) {
-    const error = new Error('El correo electrónico o la contraseña no son correctos.');
+    const error = new Error(
+      'No existe una cuenta con este correo electrónico. Verifica que esté bien escrito o regístrate si aún no tienes cuenta.'
+    );
     error.statusCode = 401;
+    error.reason = 'USER_NOT_FOUND';
     throw error;
   }
 
   if (!dbUser.isActive) {
     const error = new Error('Tu cuenta está desactivada. Contacta al administrador.');
     error.statusCode = 401;
+    error.reason = 'ACCOUNT_DISABLED';
     throw error;
   }
 
   if (!dbUser.passwordHash) {
-    const error = new Error('El correo electrónico o la contraseña no son correctos.');
+    const error = new Error(
+      'Esta cuenta no puede iniciar sesión de forma habitual. Contacta al administrador.'
+    );
     error.statusCode = 401;
+    error.reason = 'NO_PASSWORD';
     throw error;
   }
 
@@ -110,14 +118,18 @@ export const login = async (email, password) => {
     isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
   } catch (bcryptError) {
     console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
-    const error = new Error('El correo electrónico o la contraseña no son correctos.');
+    const error = new Error('No pudimos verificar la contraseña. Intenta de nuevo.');
     error.statusCode = 401;
+    error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 
   if (!isValidPassword) {
-    const error = new Error('La contraseña es incorrecta.');
+    const error = new Error(
+      'La contraseña no es correcta. Comprueba mayúsculas y números, o usa «¿Olvidaste tu contraseña?» si la olvidaste.'
+    );
     error.statusCode = 401;
+    error.reason = 'INVALID_PASSWORD';
     throw error;
   }
 
@@ -149,19 +161,12 @@ export const forgotPassword = async (email) => {
     },
   });
 
-  // Enviar email con el código
-  console.log(`Enviando código ${resetCode} a ${email}...`);
-  const emailResult = await sendPasswordResetCode(email.toLowerCase(), resetCode);
-  
-  if (emailResult.success) {
-    console.log(`✅ Código enviado exitosamente a ${email}`);
-  } else {
-    console.error(`❌ Error enviando código a ${email}:`, emailResult.error);
-  }
+  // En producción, aquí se enviaría un email con el código
+  // Por ahora, lo retornamos para pruebas (en producción, eliminar esto)
+  console.log(`Reset code for ${email}: ${resetCode}`);
 
   return { 
     message: 'Si el correo existe, recibirás instrucciones en breve.',
-    emailSent: emailResult.success,
     // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
     ...(process.env.NODE_ENV !== 'production' && { resetCode })
   };

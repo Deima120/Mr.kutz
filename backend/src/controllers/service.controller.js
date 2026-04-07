@@ -4,6 +4,15 @@
 
 import * as serviceService from '../services/service.service.js';
 
+export const listPublicCategories = async (req, res, next) => {
+  try {
+    const data = await serviceService.listPublicCategories();
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getAll = async (req, res, next) => {
   try {
     const activeOnly = req.query.active === undefined || req.query.active !== 'false';
