@@ -170,8 +170,12 @@ async function sendViaSmtp({ to, code, businessName }) {
     });
     return { sent: true };
   } catch (err) {
-    console.error('[mailer] SMTP:', err?.message || err);
-    return { sent: false, reason: 'send_failed' };
+    const detail = err?.response ?? err?.message ?? String(err);
+    console.error('[mailer] SMTP error:', detail);
+    if (err?.responseCode) {
+      console.error('[mailer] SMTP código:', err.responseCode, err.code || '');
+    }
+    return { sent: false, reason: 'send_failed', smtpError: detail };
   }
 }
 
@@ -194,7 +198,13 @@ export async function sendPasswordResetCode({ to, code, businessName = 'Mr. Kutz
     );
     const smtp = await sendViaSmtp({ to, code, businessName });
     if (smtp.sent) return smtp;
-    console.warn('[mailer] SMTP falló; intentando Resend…');
+    console.error(
+      '[mailer] Gmail/SMTP no envió el correo. Revisa SMTP_USER, SMTP_PASS (contraseña de aplicación, 16 caracteres sin espacios) y 2FA en Google.'
+    );
+    if (smtp.smtpError) console.error('[mailer] Detalle SMTP:', smtp.smtpError);
+    console.warn(
+      '[mailer] Intentando Resend… (con onboarding@resend.dev solo llega a tu correo de cuenta Resend, no a otros @gmail).'
+    );
     return sendViaResend({ to, code, businessName });
   }
 
