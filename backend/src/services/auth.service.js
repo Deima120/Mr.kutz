@@ -5,6 +5,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
+import { sendPasswordResetCode } from './email.service.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -148,12 +149,19 @@ export const forgotPassword = async (email) => {
     },
   });
 
-  // En producción, aquí se enviaría un email con el código
-  // Por ahora, lo retornamos para pruebas (en producción, eliminar esto)
-  console.log(`Reset code for ${email}: ${resetCode}`);
+  // Enviar email con el código
+  console.log(`Enviando código ${resetCode} a ${email}...`);
+  const emailResult = await sendPasswordResetCode(email.toLowerCase(), resetCode);
+  
+  if (emailResult.success) {
+    console.log(`✅ Código enviado exitosamente a ${email}`);
+  } else {
+    console.error(`❌ Error enviando código a ${email}:`, emailResult.error);
+  }
 
   return { 
     message: 'Si el correo existe, recibirás instrucciones en breve.',
+    emailSent: emailResult.success,
     // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
     ...(process.env.NODE_ENV !== 'production' && { resetCode })
   };
