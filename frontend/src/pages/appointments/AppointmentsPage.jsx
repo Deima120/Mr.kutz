@@ -30,6 +30,77 @@ const STATUS_STYLE = {
   no_show: 'bg-red-50 text-red-700 border-red-200',
 };
 
+function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async () => {
+    if (stars < 1) {
+      setErr('Elige una puntuación de 1 a 5.');
+      return;
+    }
+    setSending(true);
+    setErr('');
+    try {
+      await appointmentService.submitAppointmentRating(appointmentId, { rating: stars, comment });
+      onSuccess?.();
+    } catch (e) {
+      setErr(e?.message || 'No se pudo guardar la valoración');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-stone-100">
+      <p className="text-sm font-medium text-stone-800 mb-2">¿Cómo fue tu visita?</p>
+      <div className="flex gap-1 mb-3" role="group" aria-label="Puntuación de 1 a 5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => {
+              setStars(n);
+              setErr('');
+            }}
+            className={`text-2xl leading-none px-1 rounded transition-colors ${
+              n <= stars ? 'text-amber-500' : 'text-stone-200 hover:text-stone-300'
+            }`}
+            aria-pressed={n <= stars}
+            aria-label={`${n} estrellas`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      <label className="block text-xs font-semibold text-stone-600 mb-1">Comentario (opcional)</label>
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        rows={2}
+        maxLength={2000}
+        className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
+        placeholder="Cuéntanos tu experiencia…"
+      />
+      {err && (
+        <p className="text-red-600 text-xs mt-2" role="alert">
+          {err}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={submit}
+        disabled={sending}
+        className="mt-3 w-full sm:w-auto px-5 py-2.5 bg-gold/90 text-barber-dark font-semibold rounded-xl hover:bg-gold disabled:opacity-60 text-sm"
+      >
+        {sending ? 'Enviando…' : 'Enviar valoración'}
+      </button>
+    </div>
+  );
+}
+
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const location = useLocation();
@@ -202,6 +273,21 @@ export default function AppointmentsPage() {
                         <p className="text-stone-600 text-sm mt-1">
                           {formatTime(a.start_time)} · {a.barber_first_name} {a.barber_last_name}
                         </p>
+                        {a.status === 'completed' && a.clientRating == null && (
+                          <ClientAppointmentRatingForm appointmentId={a.id} onSuccess={fetchAppointments} />
+                        )}
+                        {a.status === 'completed' && a.clientRating != null && (
+                          <div className="mt-4 pt-4 border-t border-stone-100">
+                            <p className="text-sm text-stone-600">
+                              Tu valoración:{' '}
+                              <span className="text-amber-500">{'★'.repeat(a.clientRating)}</span>
+                              <span className="text-stone-300">{'☆'.repeat(5 - a.clientRating)}</span>
+                            </p>
+                            {a.clientRatingComment ? (
+                              <p className="text-sm text-stone-500 mt-1 italic">"{a.clientRatingComment}"</p>
+                            ) : null}
+                          </div>
+                        )}
                         {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             {cancelConfirmId === a.id ? (
@@ -310,6 +396,12 @@ export default function AppointmentsPage() {
                       </p>
                       <p className="text-stone-600 text-sm mt-0.5">
                         {a.client_first_name} {a.client_last_name}
+                        {a.status === 'completed' && a.clientRating != null && (
+                          <span className="ml-2 text-amber-600 font-medium" title="Valoración del cliente">
+                            {'★'.repeat(a.clientRating)}
+                            <span className="text-stone-300">{'☆'.repeat(5 - a.clientRating)}</span>
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">

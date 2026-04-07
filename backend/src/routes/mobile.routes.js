@@ -8,7 +8,7 @@
  */
 
 import express from 'express';
-import { body, query } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import * as authController from '../controllers/auth.controller.js';
@@ -60,6 +60,18 @@ router.post(
   ],
   validate,
   appointmentController.create,
+);
+
+// Valorar cita completada (mismo contrato que POST /api/appointments/:id/rating)
+router.post(
+  '/client/appointments/:id/rating',
+  [
+    param('id').isInt({ min: 1 }).withMessage('Valid appointment id required'),
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be 1-5'),
+    body('comment').optional().trim().isLength({ max: 2000 }),
+  ],
+  validate,
+  appointmentController.submitClientRating,
 );
 
 export default router;

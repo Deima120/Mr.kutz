@@ -10,6 +10,7 @@ import * as appointmentService from '../../services/appointmentService';
 import PageHeader from '../../components/admin/PageHeader';
 import StatsCard from '../../components/admin/StatsCard';
 import DataCard from '../../components/admin/DataCard';
+import AppointmentRatingsPanel from '../../components/admin/AppointmentRatingsPanel';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -25,6 +26,10 @@ function BarberDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ratingSummary, setRatingSummary] = useState(null);
+  const [ratingLoading, setRatingLoading] = useState(true);
+  const [ratingError, setRatingError] = useState('');
+  const [ratingPeriod, setRatingPeriod] = useState('30');
   const today = new Date().toISOString().slice(0, 10);
 
   const fetchAppointments = async () => {
@@ -48,6 +53,31 @@ function BarberDashboard() {
   useEffect(() => {
     if (user?.barberId) fetchAppointments();
   }, [user?.barberId, today]);
+
+  const fetchRatingSummary = async () => {
+    setRatingLoading(true);
+    setRatingError('');
+    try {
+      const params = {};
+      if (ratingPeriod && ratingPeriod !== 'all') {
+        const d = parseInt(ratingPeriod, 10);
+        if (Number.isFinite(d) && d > 0) params.days = d;
+      } else {
+        params.days = 'all';
+      }
+      const data = await appointmentService.getAppointmentRatingSummary(params);
+      setRatingSummary(data && typeof data === 'object' ? data : null);
+    } catch (err) {
+      setRatingError(err?.message || 'Error al cargar valoraciones');
+      setRatingSummary(null);
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.barberId) fetchRatingSummary();
+  }, [user?.barberId, ratingPeriod]);
 
   const handleMarkCompleted = async (id) => {
     try {
@@ -90,6 +120,36 @@ function BarberDashboard() {
           {error}
         </div>
       )}
+
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+        <div className="px-6 py-4 border-b border-stone-100 flex flex-wrap items-center justify-between gap-4">
+          <h2 className="font-serif text-lg text-stone-900 font-medium">Tus valoraciones</h2>
+          <div>
+            <label className="sr-only" htmlFor="barber-rating-period">
+              Periodo de valoraciones
+            </label>
+            <select
+              id="barber-rating-period"
+              value={ratingPeriod}
+              onChange={(e) => setRatingPeriod(e.target.value)}
+              className="px-4 py-2 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
+            >
+              <option value="30">Últimos 30 días</option>
+              <option value="all">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div className="p-6">
+          <AppointmentRatingsPanel
+            summary={ratingSummary}
+            loading={ratingLoading}
+            error={ratingError}
+            compact
+            recentLimit={6}
+            emptyHint="Cuando los clientes valoren citas completadas, verás aquí el promedio, la distribución y los comentarios."
+          />
+        </div>
+      </div>
 
       {nextAppointment && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">

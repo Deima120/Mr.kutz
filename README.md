@@ -70,6 +70,8 @@ Mr.kutz/
 
 Se usa **PostgreSQL** con **Prisma** como ORM. El esquema se define en `backend/prisma/schema.prisma`.
 
+Tras actualizar el esquema, desde `backend` ejecutar `npx prisma migrate deploy` (o `migrate dev` en local) y `npx prisma generate`.
+
 ### Modelos principales
 
 | Modelo | Descripción |
@@ -80,7 +82,7 @@ Se usa **PostgreSQL** con **Prisma** como ORM. El esquema se define en `backend/
 | **Barber** | Datos del barbero (nombre, teléfono, especialidades, activo). Vinculado a User. |
 | **BarberSchedule** | Horarios por barbero y día de la semana (0–6), hora inicio/fin. |
 | **Service** | Catálogo de servicios (nombre, descripción, precio, duración, activo). |
-| **Appointment** | Citas (cliente, barbero, servicio, fecha, hora inicio/fin, estado, notas). |
+| **Appointment** | Citas (cliente, barbero, servicio, fecha, hora inicio/fin, estado, notas, valoración opcional del cliente `clientRating` / comentario / fecha). |
 | **Payment** | Pagos (monto, método, referencia, opcionalmente vinculado a cita). |
 | **PaymentMethod** | Métodos de pago (efectivo, tarjeta, transferencia, etc.). |
 | **Product** | Productos del inventario (nombre, SKU, unidad, stock mínimo). |
@@ -203,11 +205,17 @@ Todas requieren **auth** y **admin**, **barber** o **client**. Los clientes solo
 |--------|------|-------------|
 | GET | `/` | Lista citas (filtradas por rol: cliente = propias, barbero = suyas, admin = todas). |
 | GET | `/slots` | Slots disponibles: query `barberId`, `date` (YYYY-MM-DD). |
-| GET | `/:id` | Cita por ID. |
+| GET | `/rating-summary` | **Admin y barber.** Resumen de valoraciones de citas `completed` con `clientRating`. Query opcional: `barberId` (admin; el barbero solo ve el suyo), `days` (ej. `30`) o `all` sin límite de fechas. |
+| GET | `/:id` | Cita por ID (comprobación de pertenencia por rol). |
 | POST | `/` | Crear cita (`clientId` opcional si es cliente; se usa el del token). |
+| POST | `/:id/rating` | **Solo client.** Body JSON: `{ "rating": 1-5, "comment"?: string }`. La cita debe estar `completed`, ser del cliente del token y no tener ya valoración. |
 | PUT | `/:id` | Actualizar cita (client solo puede poner status `cancelled`). |
 
+En listados y detalle de citas, cada ítem incluye (cuando aplica) en **camelCase**: `clientRating` (entero 1–5 o `null`), `clientRatingComment` (`null` o string), `clientRatedAt` (ISO 8601 o `null`). Son la única fuente de verdad compartida con la app móvil.
+
 #### Testimonios (`/api/testimonials`)
+
+Textos opcionales para la **landing** (carrusel), independientes de las valoraciones de citas anteriores.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
@@ -268,8 +276,11 @@ Para futura app móvil o cliente alternativo.
 | POST | `/auth/login` | No | Login (mismo contrato que `/api/auth/login`). |
 | GET | `/auth/me` | Sí | Perfil. |
 | GET | `/client/availability` | Client | Query `barberId`, `date` → slots disponibles. |
-| GET | `/client/appointments` | Client | Citas del cliente. |
+| GET | `/client/appointments` | Client | Citas del cliente (mismos campos `clientRating` / `clientRatingComment` / `clientRatedAt` que en `/api/appointments`). |
 | POST | `/client/appointments` | Client | Crear cita (barberId, serviceId, appointmentDate, startTime?, notes?). |
+| POST | `/client/appointments/:id/rating` | Client | Igual que `POST /api/appointments/:id/rating` (valoración única por cita completada). |
+
+**Resumen agregado para barbero (y admin en panel web):** `GET /api/appointments/rating-summary` con token **barber** o **admin** (mismo contrato descrito arriba). La app móvil del barbero puede usar ese endpoint con base `https://<host>/api` (no hace falta prefijo `/mobile`).
 
 ---
 
