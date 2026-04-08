@@ -161,30 +161,14 @@ export const forgotPassword = async (email) => {
     },
   });
 
-  let mailResult = { sent: false };
-  try {
-    const settings = await settingsService.getSettings();
-    const businessName = settings?.business_name || 'Mr. Kutz';
-    mailResult = await sendPasswordResetCode({
-      to: dbUser.email,
-      code: resetCode,
-      businessName,
-    });
-  } catch (e) {
-    console.error('[auth] Error al enviar correo de recuperación:', e?.message || e);
-    mailResult = { sent: false, reason: 'error' };
-  }
+  // En producción, aquí se enviaría un email con el código
+  // Por ahora, lo retornamos para pruebas (en producción, eliminar esto)
+  console.log(`Reset code for ${email}: ${resetCode}`);
 
-  if (!mailResult.sent) {
-    console.warn(
-      `[auth] Recuperación: correo no enviado (${mailResult.reason || 'desconocido'}) para ${email}. Código solo en logs del servidor (no se expone al cliente).`
-    );
-    console.log(`[auth] Código de recuperación (${email}): ${resetCode}`);
-  }
-
-  // Nunca devolvemos resetCode en la API: el código solo debe llegar por correo (o ver logs del backend si falla el envío).
-  return {
+  return { 
     message: 'Si el correo existe, recibirás instrucciones en breve.',
+    // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
+    ...(process.env.NODE_ENV !== 'production' && { resetCode })
   };
 };
 
