@@ -15,6 +15,7 @@ Sistema de gestión integral para barbería: reserva de citas, clientes, barbero
 - [Autenticación y roles](#autenticación-y-roles)
 - [API para Flutter](#api-para-flutter)
 - [Configuración e instalación](#configuración-e-instalación)
+- [Primera vez (nuevo desarrollador)](#primera-vez-nuevo-desarrollador)
 - [Usuarios de prueba](#usuarios-de-prueba)
 - [Comandos útiles](#comandos-útiles)
 - [Despliegue (producción)](#despliegue-producción)
@@ -481,6 +482,42 @@ Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con 
 ---
 
 ## Configuración e instalación
+
+### Primera vez (nuevo desarrollador)
+
+Objetivo: tener **API en el puerto 5000** y **web en http://localhost:5173** con datos de prueba.
+
+1. **Clonar** el repositorio (o recibir el zip y descomprimirlo).
+2. Instalar **Node.js 18 o superior** ([nodejs.org](https://nodejs.org)).
+3. **Base de datos PostgreSQL**  
+   - Opción A: cuenta gratuita en [Neon](https://neon.tech), crear un proyecto y copiar la URL **Pooled** como `DATABASE_URL`.  
+   - Opción B: PostgreSQL local y crear una base vacía.  
+   - *Equipo:* podéis compartir una misma BD de desarrollo (mismas credenciales en `.env`) o que cada uno tenga la suya en Neon.
+4. **Backend**
+   - `cd backend`
+   - `npm install`
+   - Copiar variables: desde `backend/.env.example` crea `backend/.env` (en Windows: copia el archivo y renómbralo a `.env`).
+   - Edita `backend/.env`: **`DATABASE_URL`** (tu Postgres) y **`JWT_SECRET`** (cualquier cadena larga aleatoria en local).
+   - Aplicar esquema a la BD (elige **una** ruta):
+     - **Recomendado si el repo ya trae migraciones y la BD está vacía:**  
+       `npx prisma migrate deploy`  
+       luego `npx prisma generate`
+     - **Si `migrate deploy` devuelve P3005** (*database schema is not empty*):  
+       `npx prisma db push`  
+       luego `npx prisma generate`  
+       (ver [Migraciones vs. desarrollo rápido](#migraciones-vs-desarrollo-rápido)).
+   - Cargar datos iniciales: `npm run db:seed`
+   - Arrancar API: `npm run dev`
+5. **Frontend** (otra terminal)
+   - `cd frontend`
+   - `npm install`
+   - No hace falta `.env` en local si usas el proxy de Vite (las peticiones van a `/api` → backend en 5000).
+   - `npm run dev` → abre **http://localhost:5173**
+6. **Probar:** inicia sesión con un usuario de [Usuarios de prueba](#usuarios-de-prueba) (p. ej. `admin@mrkutz.com` / `password123`).
+
+**Comprobar API:** con el backend levantado, en el navegador o con curl: `http://localhost:5000/health` debe responder `ok`.
+
+En **PowerShell** no uses `&&` encadenando; ejecuta cada comando por línea o usa `;` entre comandos.
 
 ### Requisitos
 
