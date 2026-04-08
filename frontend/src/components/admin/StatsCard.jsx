@@ -10,7 +10,7 @@ export default function StatsCard({ label, value, sublabel, variant = 'default',
 
   const content = (
     <div className={`rounded-2xl border p-6 transition-all duration-300 ${variants[variant] || variants.default}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wider ${variant === 'primary' ? 'text-gold' : 'text-stone-500'}`}>
+      <p className={`text-xs font-semibold tracking-wider ${variant === 'primary' ? 'text-gold' : 'text-stone-500'}`}>
         {label}
       </p>
       <p className={`font-serif text-2xl md:text-3xl font-medium mt-2 ${variant === 'primary' ? 'text-white' : 'text-stone-900'}`}>

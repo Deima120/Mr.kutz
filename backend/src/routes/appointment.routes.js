@@ -11,19 +11,29 @@ import * as appointmentController from '../controllers/appointment.controller.js
 const router = express.Router();
 
 const createValidation = [
-  body('clientId').optional().isInt({ min: 1 }).withMessage('Indica un cliente válido.'),
+  body('clientId')
+    .optional({ checkFalsy: true })
+    .isInt({ min: 1 })
+    .withMessage('Indica un cliente válido.'),
   body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
   body('appointmentDate').isDate().withMessage('Indica una fecha válida.'),
-  body('startTime').optional().trim().matches(/^\d{1,2}:\d{2}$/).withMessage('La hora debe tener formato HH:MM.'),
-  body('notes').optional().trim(),
+  body('startTime')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^\d{1,2}:\d{2}$/)
+    .withMessage('La hora debe tener formato HH:MM.'),
+  body('notes').optional({ checkFalsy: true }).trim(),
 ];
 
 const updateValidation = [
-  body('appointmentDate').optional().isDate(),
-  body('startTime').optional().matches(/^\d{1,2}:\d{2}$/),
-  body('status').optional().isIn(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']),
-  body('notes').optional().trim(),
+  body('appointmentDate').optional({ checkFalsy: true }).isDate(),
+  body('startTime')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^\d{1,2}:\d{2}$/),
+  body('status').optional({ checkFalsy: true }).isIn(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']),
+  body('notes').optional({ checkFalsy: true }).trim(),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cita no válido.');

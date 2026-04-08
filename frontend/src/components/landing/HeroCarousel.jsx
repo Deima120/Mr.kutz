@@ -115,8 +115,8 @@ export default function HeroCarousel() {
             />
           ))}
         </div>
-        <span className="text-xs uppercase tracking-widest text-stone-500">Descubre más</span>
-        <span className="block w-px h-8 bg-gradient-to-b from-stone-500 to-transparent" />
+        <span className="text-[10px] tracking-[0.35em] text-stone-500">Scroll</span>
+        <span className="block w-px h-10 bg-gradient-to-b from-stone-500 to-transparent animate-float" />
       </div>
     </section>
   );

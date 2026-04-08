@@ -71,7 +71,7 @@ function GalleryCard({ item, isActive }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/30 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-gold/90 mb-2">Mr. Kutz Experience</p>
+            <p className="text-[10px] tracking-[0.25em] text-gold/90 mb-2">Experiencia Mr. Kutz</p>
             <h3 className="font-serif text-xl font-medium">{item.title}</h3>
             <p className="text-sm text-stone-200">{item.caption}</p>
           </div>

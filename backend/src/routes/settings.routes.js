@@ -16,7 +16,7 @@ const updateValidation = [
   body('logo_url').optional().trim().isLength({ max: 500 }),
   body('primary_color').optional().trim().isLength({ max: 20 }),
   body('secondary_color').optional().trim().isLength({ max: 20 }),
-  body('contact_email').optional().trim().isEmail(),
+  body('contact_email').optional({ checkFalsy: true }).trim().isEmail(),
   body('contact_phone').optional().trim().isLength({ max: 50 }),
   body('address').optional().trim(),
   body('opening_hours').optional().trim(),

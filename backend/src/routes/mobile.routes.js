@@ -52,11 +52,11 @@ router.post(
     body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
     body('appointmentDate').isISO8601().withMessage('Indica una fecha válida.'),
     body('startTime')
-      .optional()
+      .optional({ checkFalsy: true })
       .trim()
       .matches(/^\d{1,2}:\d{2}$/)
       .withMessage('La hora debe tener formato HH:MM.'),
-    body('notes').optional().trim(),
+    body('notes').optional({ checkFalsy: true }).trim(),
   ],
   validate,
   appointmentController.create,

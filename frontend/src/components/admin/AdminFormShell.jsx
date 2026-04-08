@@ -12,7 +12,7 @@ export const ADMIN_FORM_FIELD_CLASS =
   'focus:bg-white focus:border-gold/50 focus:ring-2 focus:ring-gold/25 focus:shadow-[0_0_0_1px_rgba(201,169,98,0.15)] outline-none';
 
 export const ADMIN_FORM_LABEL_CLASS =
-  'block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5 group-focus-within:text-gold-dark transition-colors';
+  'block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5 group-focus-within:text-gold-dark transition-colors';
 
 /** Cabecera interior de la tarjeta (debajo de la línea dorada). */
 export function AdminFormCardHeader({ eyebrow, title }) {
@@ -20,12 +20,12 @@ export function AdminFormCardHeader({ eyebrow, title }) {
     <header className="shrink-0 flex flex-wrap items-start justify-between gap-3">
       <div>
         {eyebrow && (
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold mb-1">{eyebrow}</p>
+          <p className="text-[10px] font-semibold tracking-[0.28em] text-gold mb-1">{eyebrow}</p>
         )}
         <h1 className="font-serif text-xl sm:text-2xl xl:text-[1.65rem] text-stone-900 font-medium tracking-tight">{title}</h1>
       </div>
       <div className="shrink-0 rounded-xl bg-barber-dark px-3 py-2 text-center shadow-lg border border-stone-700/60">
-        <p className="text-[8px] uppercase tracking-widest text-stone-500">Mr.</p>
+        <p className="text-[8px] tracking-widest text-stone-500">Mr.</p>
         <p className="font-serif text-sm text-gold leading-none">Kutz</p>
       </div>
     </header>
@@ -106,7 +106,7 @@ export default function AdminFormShell({
         <div className="flex flex-wrap items-center gap-3 mb-4 shrink-0">
           <Link
             to={backTo}
-            className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
+            className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
           >
             <span className="transition-transform group-hover:-translate-x-0.5" aria-hidden>
               ←
@@ -115,7 +115,7 @@ export default function AdminFormShell({
           </Link>
           <span className="h-px flex-1 min-w-[3rem] bg-gradient-to-r from-gold/55 to-stone-300/40 rounded-full" />
           {modeBadge && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-gold">{modeBadge}</span>
+            <span className="text-[10px] font-bold tracking-[0.28em] text-gold">{modeBadge}</span>
           )}
         </div>
 
@@ -137,7 +137,7 @@ export default function AdminFormShell({
                 <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                 <div className="relative flex-1 flex flex-col">
-                  <p className="text-[10px] uppercase tracking-[0.35em] text-gold/90 font-semibold">
+                  <p className="text-[10px] tracking-[0.35em] text-gold/90 font-semibold">
                     {aside.kicker ?? 'Experiencia'}
                   </p>
                   <h2 className="font-serif text-xl sm:text-2xl text-white font-medium mt-3 mb-5 leading-snug">
@@ -157,7 +157,7 @@ export default function AdminFormShell({
                   {(aside.statusLabel || aside.statusValue) && (
                     <div className="mt-6 pt-5 border-t border-stone-700/80">
                       {aside.statusLabel && (
-                        <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-2">{aside.statusLabel}</p>
+                        <p className="text-[10px] tracking-widest text-stone-500 mb-2">{aside.statusLabel}</p>
                       )}
                       {aside.statusValue && <p className="font-medium text-white">{aside.statusValue}</p>}
                     </div>

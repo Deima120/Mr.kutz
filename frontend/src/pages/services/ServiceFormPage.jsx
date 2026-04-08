@@ -3,16 +3,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as serviceService from '../../services/serviceService';
-import AdminFormShell, {
-  AdminFormCardHeader,
-  ADMIN_FORM_FIELD_CLASS,
-  ADMIN_FORM_LABEL_CLASS,
-  AdminFormFooterActions,
-  AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
-} from '../../components/admin/AdminFormShell';
 
 export default function ServiceFormPage() {
   const { id } = useParams();
@@ -142,6 +134,6 @@ export default function ServiceFormPage() {
           </div>
         </div>
       </form>
-    </AdminFormShell>
+    </div>
   );
 }

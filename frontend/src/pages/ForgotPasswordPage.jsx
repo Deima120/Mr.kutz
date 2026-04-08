@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
 
           <div className="p-8 sm:p-10">
-            <p className="text-gold tracking-[0.2em] uppercase text-xs font-semibold mb-2">Recuperar acceso</p>
+            <p className="text-gold tracking-[0.2em] text-xs font-semibold mb-2">Recuperar acceso</p>
             <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium mb-2">
               {step === 1 ? '¿Olvidaste tu contraseña?' : 'Nueva contraseña'}
             </h1>

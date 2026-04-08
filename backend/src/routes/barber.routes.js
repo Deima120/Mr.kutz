@@ -16,16 +16,16 @@ const createValidation = [
   body('password').isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres.'),
   body('firstName').trim().notEmpty().isLength({ max: 100 }),
   body('lastName').trim().notEmpty().isLength({ max: 100 }),
-  body('phone').optional().trim().isLength({ max: 20 }),
-  body('specialties').optional().isArray(),
+  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  body('specialties').optional({ checkFalsy: true }).isArray(),
 ];
 
 const updateValidation = [
-  body('firstName').optional().trim().isLength({ max: 100 }),
-  body('lastName').optional().trim().isLength({ max: 100 }),
-  body('phone').optional().trim().isLength({ max: 20 }),
-  body('specialties').optional().isArray(),
-  body('isActive').optional().isBoolean(),
+  body('firstName').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
+  body('lastName').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
+  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  body('specialties').optional({ checkFalsy: true }).isArray(),
+  body('isActive').optional({ checkFalsy: true }).isBoolean(),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de barbero no válido.');
@@ -38,17 +38,17 @@ const schedulesValidation = [
     .isInt({ min: 0, max: 6 })
     .withMessage('El día de la semana debe ser un número entre 0 y 6.'),
   body('schedules.*.startTime')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora de inicio debe tener formato HH:MM.'),
   body('schedules.*.endTime')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora de fin debe tener formato HH:MM.'),
   body('schedules.*.isAvailable')
-    .optional()
+    .optional({ checkFalsy: true })
     .isBoolean(),
 ];
 

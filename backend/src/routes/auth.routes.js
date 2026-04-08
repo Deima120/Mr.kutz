@@ -36,12 +36,9 @@ const registerValidation = [
     .withMessage('El apellido es obligatorio.')
     .isLength({ max: 100 })
     .withMessage('El apellido es demasiado largo.'),
-  body('phone')
-    .optional()
-    .trim()
-    .isLength({ max: 20 }),
+  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
   body('role')
-    .optional()
+    .optional({ checkFalsy: true })
     .isIn(['admin', 'barber', 'client'])
     .withMessage('El rol no es válido.'),
 ];

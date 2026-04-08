@@ -57,7 +57,7 @@ function buildResetContent(code, businessName) {
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: Georgia, 'Times New Roman', serif; color: #1c1917; line-height: 1.6; max-width: 520px; margin: 0 auto; padding: 24px;">
-  <p style="font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #a8893d; margin-bottom: 8px;">${escapeHtml(businessName)}</p>
+  <p style="font-size: 12px; letter-spacing: 0.06em; color: #a8893d; margin-bottom: 8px;">${escapeHtml(businessName)}</p>
   <h1 style="font-size: 22px; font-weight: 500; margin: 0 0 16px;">Restablecer contraseña</h1>
   <p>Usa este código en la página de recuperación:</p>
   <p style="font-size: 28px; font-weight: 600; letter-spacing: 0.25em; font-family: ui-monospace, monospace; color: #1c1917; background: #f5f5f4; padding: 16px 20px; border-radius: 12px; border: 1px solid #e7e5e4; text-align: center;">${escapeHtml(code)}</p>

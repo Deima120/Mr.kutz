@@ -95,7 +95,7 @@ export function TodayAppointmentsRing({ total, completed, pending }) {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
           <span className="font-serif text-2xl font-semibold text-stone-900">{t}</span>
-          <span className="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">citas hoy</span>
+          <span className="text-[10px] tracking-wider text-stone-500 font-semibold">Citas hoy</span>
         </div>
       </div>
       <ul className="flex-1 space-y-2 text-sm w-full max-w-xs">

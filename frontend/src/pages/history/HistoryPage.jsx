@@ -64,7 +64,6 @@ export default function HistoryPage() {
   };
   const formatDate = (d) =>
     d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
-    d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
   return (
     <div className="space-y-8">
@@ -87,10 +86,6 @@ export default function HistoryPage() {
           <span className="text-stone-400 pt-6">—</span>
           <div>
             <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
-          </div>
-          <span className="text-stone-400 pt-6">—</span>
-          <div>
-            <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
             <input
               type="date"
               value={dateTo}
@@ -98,8 +93,6 @@ export default function HistoryPage() {
               className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
             />
           </div>
-        </div>
-      </div>
         </div>
       </div>
 
@@ -124,7 +117,7 @@ export default function HistoryPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-stone-200 text-left text-stone-500 font-semibold uppercase tracking-wider text-xs">
+                    <tr className="border-b border-stone-200 text-left text-stone-500 font-semibold tracking-wider text-xs">
                       <th className="pb-3 pr-4">Fecha</th>
                       <th className="pb-3 pr-4">Hora</th>
                       <th className="pb-3 pr-4">Cliente</th>

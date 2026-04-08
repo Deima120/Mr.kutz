@@ -1,11 +1,9 @@
 /**
  * Listado y calendario de citas
  * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
- * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as appointmentService from '../../services/appointmentService';
 import * as barberService from '../../services/barberService';
@@ -108,8 +106,6 @@ export default function AppointmentsPage() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const location = useLocation();
-  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [filterDate, setFilterDate] = useState(
@@ -118,8 +114,6 @@ export default function AppointmentsPage() {
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(null);
-  const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
@@ -171,23 +165,11 @@ export default function AppointmentsPage() {
     }
   }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
 
-  // Mensaje de éxito al llegar desde "Agendar cita" (state) o al cancelar
-  useEffect(() => {
-    if (isClient && location.state?.appointmentCreated) {
-      setSuccessMessage('Cita agendada correctamente.');
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
-
   const handleStatusChange = async (id, newStatus) => {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
       setCancelConfirmId(null);
-      setCancelConfirmId(null);
       fetchAppointments();
-      if (isClient && newStatus === 'cancelled') {
-        setSuccessMessage('Cita cancelada correctamente.');
-      }
       if (isClient && newStatus === 'cancelled') {
         setSuccessMessage('Cita cancelada correctamente.');
       }

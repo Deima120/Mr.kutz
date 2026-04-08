@@ -26,7 +26,7 @@ export default class ErrorBoundary extends Component {
       return (
         <div className="min-h-[60vh] flex items-center justify-center px-4 py-16">
           <div className="max-w-md w-full panel-card p-8 text-center">
-            <p className="text-gold text-xs font-semibold tracking-widest uppercase mb-2">Algo salió mal</p>
+            <p className="text-gold text-xs font-semibold tracking-widest mb-2">Algo salió mal</p>
             <h1 className="font-serif text-2xl text-stone-900 mb-3">No pudimos mostrar esta vista</h1>
             <p className="text-stone-600 text-sm mb-6">
               Recarga la página o vuelve al inicio. Si el problema continúa, contacta al administrador.

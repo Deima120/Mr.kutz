@@ -24,7 +24,7 @@ export function TableHead({ children }) {
 
 export function TableHeader({ children, className = '' }) {
   return (
-    <th className={`px-6 py-3.5 text-left text-xs font-semibold text-stone-600 uppercase tracking-wider ${className}`}>
+    <th className={`px-6 py-3.5 text-left text-xs font-semibold text-stone-600 tracking-wider ${className}`}>
       {children}
     </th>
   );

@@ -80,7 +80,6 @@ export default function ServicesPage() {
             + Nuevo servicio
           </Link>
         </div>
-        </div>
       </div>
 
       {error && (

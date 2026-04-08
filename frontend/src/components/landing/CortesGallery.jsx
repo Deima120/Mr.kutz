@@ -59,7 +59,7 @@ export default function CortesGallery() {
                 aria-hidden
               />
               <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-left text-white">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold">En la silla</p>
+                <p className="mb-2 text-[10px] font-semibold tracking-[0.35em] text-gold">En la silla</p>
                 <h3 className="font-serif text-2xl font-medium sm:text-3xl md:text-4xl leading-tight">{current.nombre}</h3>
                 {current.descripcion && (
                   <p className="mt-2 max-w-md text-sm text-stone-300 sm:text-base">{current.descripcion}</p>
@@ -76,7 +76,7 @@ export default function CortesGallery() {
 
         {/* Columna texto + miniaturas */}
         <div className="flex flex-col justify-center lg:col-span-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-gold">Arte y oficio</p>
+          <p className="text-[11px] font-semibold tracking-[0.3em] text-gold">Arte y oficio</p>
           <h4 className="mt-3 font-serif text-2xl font-medium text-white sm:text-3xl leading-snug">
             Donde el corte deja de ser rutina
           </h4>

@@ -33,26 +33,26 @@ export default function ProfilePage() {
                   {initial}
                 </span>
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-stone-500">Cliente</p>
+                  <p className="text-xs tracking-widest text-stone-500">Cliente</p>
                   <p className="font-serif text-2xl text-stone-900 font-medium">{fullName}</p>
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-1">Correo</p>
+                  <p className="text-xs tracking-wider text-stone-500 mb-1">Correo</p>
                   <p className="text-stone-800">{user?.email || '—'}</p>
                 </div>
                 <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-1">Teléfono</p>
+                  <p className="text-xs tracking-wider text-stone-500 mb-1">Teléfono</p>
                   <p className="text-stone-800">{user?.phone || '—'}</p>
                 </div>
                 <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-1">Rol</p>
+                  <p className="text-xs tracking-wider text-stone-500 mb-1">Rol</p>
                   <p className="text-stone-800 capitalize">{user?.role || '—'}</p>
                 </div>
                 <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-1">Miembro desde</p>
+                  <p className="text-xs tracking-wider text-stone-500 mb-1">Miembro desde</p>
                   <p className="text-stone-800">{safeDate(user?.createdAt)}</p>
                 </div>
               </div>

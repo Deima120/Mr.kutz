@@ -22,9 +22,16 @@ const clientValidation = [
     .notEmpty()
     .withMessage('El apellido es obligatorio.')
     .isLength({ max: 100 }),
-  body('phone').optional().trim().isLength({ max: 20 }),
-  body('email').optional().trim().isEmail().withMessage('Correo electrónico no válido.'),
-  body('notes').optional().trim(),
+  body('phone')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 20 }),
+  body('email')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isEmail()
+    .withMessage('Correo electrónico no válido.'),
+  body('notes').optional({ checkFalsy: true }).trim(),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');

@@ -13,9 +13,9 @@ const router = express.Router();
 const createValidation = [
   body('amount').isFloat({ min: 0 }).withMessage('El monto debe ser mayor o igual a 0.'),
   body('paymentMethodId').isInt({ min: 1 }).withMessage('Indica un método de pago válido.'),
-  body('appointmentId').optional().isInt({ min: 1 }),
-  body('reference').optional().trim().isLength({ max: 100 }),
-  body('notes').optional().trim(),
+  body('appointmentId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('reference').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
+  body('notes').optional({ checkFalsy: true }).trim(),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de pago no válido.');

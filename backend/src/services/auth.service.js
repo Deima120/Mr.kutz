@@ -200,7 +200,7 @@ export const verifyResetCode = async (email, code) => {
     throw error;
   }
 
-  if (dbUser.resetCode !== code) {
+  if (dbUser.resetCode !== String(code).trim()) {
     const error = new Error('El código no es correcto.');
     error.statusCode = 400;
     throw error;
