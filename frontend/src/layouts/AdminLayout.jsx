@@ -43,9 +43,9 @@ export default function AdminLayout({ children }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-stone-100">
+    <div className="min-h-screen flex bg-stone-100 overflow-x-hidden max-w-[100vw]">
       {/* Sidebar — identidad de marca */}
-      <aside className="w-64 bg-barber-dark text-white flex flex-col fixed h-full shadow-2xl">
+      <aside className="w-64 shrink-0 bg-barber-dark text-white flex flex-col fixed h-full shadow-2xl z-30">
         <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-gold/50 to-transparent" aria-hidden />
         <div className="p-6 border-b border-stone-800">
           <Link to="/dashboard" className="block group">
@@ -96,8 +96,8 @@ export default function AdminLayout({ children }) {
         </div>
       </aside>
 
-      <div className="flex-1 ml-64 h-screen min-h-0 flex flex-col overflow-hidden">
-        <header className="shrink-0 bg-white/95 backdrop-blur border-b border-stone-200 px-8 py-4 z-10 shadow-card">
+      <div className="flex-1 ml-64 min-w-0 w-0 max-w-full h-screen min-h-0 flex flex-col overflow-hidden">
+        <header className="shrink-0 bg-white/95 backdrop-blur border-b border-stone-200 px-4 sm:px-6 md:px-8 py-3 md:py-4 z-10 shadow-card min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl font-medium text-stone-900">
               {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
@@ -105,7 +105,7 @@ export default function AdminLayout({ children }) {
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col min-h-0 overflow-y-auto p-6 md:p-8">
+        <main className="flex flex-1 flex-col min-h-0 min-w-0 max-w-full overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
           {children}
         </main>
       </div>

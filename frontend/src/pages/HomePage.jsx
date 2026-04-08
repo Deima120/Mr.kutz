@@ -29,16 +29,22 @@ const STATS = [
 const SERVICE_CATEGORIES = [
   { id: 'all', label: 'Todos' },
   { id: 'cortes', label: 'Cortes' },
-  { id: 'depilaciones', label: 'Depilaciones' },
-  { id: 'limpieza-facial', label: 'Limpieza facial' },
-  { id: 'tinturas', label: 'Tinturas' },
+  { id: 'barba', label: 'Barba' },
+  { id: 'combos', label: 'Combos' },
+  { id: 'cejas', label: 'Cejas' },
+  { id: 'depilaciones', label: 'Depilación' },
+  { id: 'facial', label: 'Facial' },
+  { id: 'coloracion', label: 'Coloración' },
 ];
 
 const CATEGORY_META = {
   cortes: { label: 'Cortes', icon: 'scissors', accent: 'from-gold/25 to-transparent' },
-  depilaciones: { label: 'Depilaciones', icon: 'spark', accent: 'from-sky-400/20 to-transparent' },
-  'limpieza-facial': { label: 'Limpieza facial', icon: 'drop', accent: 'from-emerald-400/20 to-transparent' },
-  tinturas: { label: 'Tinturas', icon: 'palette', accent: 'from-violet-400/20 to-transparent' },
+  barba: { label: 'Barba', icon: 'beard', accent: 'from-amber-400/20 to-transparent' },
+  combos: { label: 'Combos', icon: 'layers', accent: 'from-orange-400/15 to-transparent' },
+  cejas: { label: 'Cejas', icon: 'eye', accent: 'from-stone-400/20 to-transparent' },
+  depilaciones: { label: 'Depilación', icon: 'spark', accent: 'from-sky-400/20 to-transparent' },
+  facial: { label: 'Facial', icon: 'drop', accent: 'from-emerald-400/20 to-transparent' },
+  coloracion: { label: 'Coloración', icon: 'palette', accent: 'from-violet-400/20 to-transparent' },
 };
 
 function CategoryIcon({ name }) {
@@ -49,6 +55,29 @@ function CategoryIcon({ name }) {
         <circle cx="6.5" cy="6.5" r="2.5" />
         <circle cx="6.5" cy="17.5" r="2.5" />
         <path d="M20 4L8.4 11.2M20 20L8.4 12.8" />
+      </svg>
+    );
+  }
+  if (name === 'beard') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={baseClass} aria-hidden>
+        <path d="M8 10c0 4 2 8 4 8s4-4 4-8V8a4 4 0 0 0-8 0v2z" />
+        <path d="M9 14h6" />
+      </svg>
+    );
+  }
+  if (name === 'layers') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={baseClass} aria-hidden>
+        <path d="M12 4L4 8l8 4 8-4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />
+      </svg>
+    );
+  }
+  if (name === 'eye') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={baseClass} aria-hidden>
+        <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
+        <circle cx="12" cy="12" r="2.5" />
       </svg>
     );
   }
@@ -73,17 +102,37 @@ function CategoryIcon({ name }) {
   );
 }
 
+/** Normaliza nombre de categoría del API (sin tildes, minúsculas). */
+function normalizeCategoryKey(str) {
+  return String(str || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+/** Mapea categoría de Prisma / seed a id de filtro en la landing. */
 function inferServiceCategory(service = {}) {
-  const apiCat = (service.categoryName || service.category || '').toLowerCase();
-  if (/(tint|tintur|color|decolor)/.test(apiCat)) return 'tinturas';
-  if (/(depil)/.test(apiCat)) return 'depilaciones';
-  if (/(facial|limpieza)/.test(apiCat)) return 'limpieza-facial';
-  if (/(corte|barba|combo|general)/.test(apiCat)) return 'cortes';
+  const fromApi = normalizeCategoryKey(service.categoryName || service.category || '');
+  const byName = {
+    cortes: 'cortes',
+    barba: 'barba',
+    combos: 'combos',
+    cejas: 'cejas',
+    depilacion: 'depilaciones',
+    facial: 'facial',
+    coloracion: 'coloracion',
+    general: 'cortes',
+  };
+  if (fromApi && byName[fromApi]) return byName[fromApi];
 
   const text = `${service?.name ?? ''} ${service?.description ?? ''}`.toLowerCase();
-  if (/(tint|color|decolor)/.test(text)) return 'tinturas';
-  if (/(depil|ceja|nariz|oreja|hilo|cera)/.test(text)) return 'depilaciones';
-  if (/(facial|limpieza|mascar|exfoli|piel)/.test(text)) return 'limpieza-facial';
+  if (/(color full|matizante|canas|pigmentacion|tint)/.test(text)) return 'coloracion';
+  if (/(mascarilla|exfoli|limpieza facial)/.test(text) && !/barba/.test(text)) return 'facial';
+  if (/(depil|nasal|bozo|oidos)/.test(text)) return 'depilaciones';
+  if (/(ceja|cera\/hilo|barbera)/.test(text)) return 'cejas';
+  if (/\+/.test(service?.name || '') || /combo/i.test(service?.name || '')) return 'combos';
+  if (/(barba|contorno|marcacion)/.test(text) && !/corte/.test(text)) return 'barba';
   return 'cortes';
 }
 
