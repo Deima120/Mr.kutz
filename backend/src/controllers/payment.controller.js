@@ -67,13 +67,13 @@ export const create = async (req, res, next) => {
   }
 };
 
-export const remove = async (req, res, next) => {
+export const voidPayment = async (req, res, next) => {
   try {
-    const deleted = await paymentService.remove(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Pago no encontrado.' });
-    }
-    res.json({ success: true, message: 'Pago eliminado correctamente.' });
+    const row = await paymentService.voidPayment(req.params.id, {
+      voidReason: req.body?.voidReason,
+      voidedBy: req.user?.id,
+    });
+    res.json({ success: true, message: 'Pago anulado correctamente.', data: row });
   } catch (error) {
     next(error);
   }

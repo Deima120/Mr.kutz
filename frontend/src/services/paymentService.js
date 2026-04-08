@@ -36,7 +36,8 @@ export const createPayment = async (data) => {
   return extract(response);
 };
 
-export const deletePayment = async (id) => {
-  const response = await api.delete(`${PAYMENTS_BASE}/${id}`);
-  return response;
+/** Anula un pago (conserva registro; devuelve stock si era venta de producto). */
+export const voidPayment = async (id, body = {}) => {
+  const response = await api.post(`${PAYMENTS_BASE}/${id}/void`, body);
+  return extract(response);
 };

@@ -4,6 +4,20 @@
 
 import prisma from '../lib/prisma.js';
 
+/** SKU único automático (prefijo MK + sufijo alfanumérico). */
+async function generateUniqueSku(tx) {
+  const prefix = 'MK';
+  for (let i = 0; i < 40; i += 1) {
+    const part = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`.replace(/[^a-z0-9]/gi, '').toUpperCase();
+    const sku = `${prefix}-${part.slice(0, 12)}`;
+    const exists = await tx.product.findUnique({ where: { sku } });
+    if (!exists) return sku;
+  }
+  const err = new Error('No se pudo generar un SKU único. Intenta de nuevo.');
+  err.statusCode = 500;
+  throw err;
+}
+
 export const getAll = async ({ activeOnly = true, lowStockOnly = false, search = '' } = {}) => {
   const where = {};
   if (activeOnly) where.isActive = true;
@@ -28,6 +42,7 @@ export const getAll = async ({ activeOnly = true, lowStockOnly = false, search =
     quantity: p.inventory?.quantity ?? 0,
     stock_updated_at: p.inventory?.lastUpdated ?? null,
     category_name: p.category?.name ?? null,
+    retail_price: p.retailPrice,
   }));
 
   if (lowStockOnly) {
@@ -48,6 +63,7 @@ export const getById = async (id) => {
     quantity: product.inventory?.quantity ?? 0,
     stock_updated_at: product.inventory?.lastUpdated ?? null,
     category_name: product.category?.name ?? null,
+    retail_price: product.retailPrice,
   };
 };
 
@@ -69,17 +85,22 @@ export const getLowStock = async () => {
 };
 
 export const create = async (data) => {
-  const { name, description, sku, unit, minStock, categoryId } = data;
+  const { name, description, unit, minStock, categoryId, retailPrice } = data;
 
   const result = await prisma.$transaction(async (tx) => {
+    const sku = await generateUniqueSku(tx);
     const product = await tx.product.create({
       data: {
         name,
         description: description || null,
-        sku: sku || null,
+        sku,
         unit: unit || 'unit',
         minStock: minStock ?? 0,
         categoryId: categoryId ? parseInt(categoryId, 10) : null,
+        retailPrice:
+          retailPrice != null && retailPrice !== '' && !Number.isNaN(Number(retailPrice))
+            ? Number(retailPrice)
+            : null,
       },
     });
     await tx.inventory.create({
@@ -88,27 +109,35 @@ export const create = async (data) => {
     return product;
   });
 
-  return { ...result, quantity: 0 };
+  return getById(result.id);
 };
 
 export const update = async (id, data) => {
+  const patch = {};
+  if (data.name !== undefined) patch.name = data.name;
+  if (data.description !== undefined) patch.description = data.description;
+  if (data.unit !== undefined) patch.unit = data.unit;
+  if (data.minStock !== undefined) patch.minStock = data.minStock;
+  if (data.isActive !== undefined) patch.isActive = data.isActive;
+  if (data.categoryId !== undefined) {
+    patch.categoryId = data.categoryId ? parseInt(data.categoryId, 10) : null;
+  }
+  if (data.retailPrice !== undefined) {
+    patch.retailPrice =
+      data.retailPrice != null && data.retailPrice !== '' && !Number.isNaN(Number(data.retailPrice))
+        ? Number(data.retailPrice)
+        : null;
+  }
+
   const product = await prisma.product.update({
     where: { id: parseInt(id, 10) },
-    data: {
-      name: data.name,
-      description: data.description,
-      sku: data.sku,
-      unit: data.unit,
-      minStock: data.minStock,
-      isActive: data.isActive,
-      categoryId: data.categoryId ? parseInt(data.categoryId, 10) : null,
-    },
+    data: patch,
   });
-  return product;
+  return getById(product.id);
 };
 
 export const updateStock = async (productId, quantityChange, movementType, notes, createdBy) => {
-  const result = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     let inv = await tx.inventory.findUnique({
       where: { productId: parseInt(productId, 10) },
     });
@@ -139,18 +168,9 @@ export const updateStock = async (productId, quantityChange, movementType, notes
         createdBy: createdBy || null,
       },
     });
-
-    return updated;
   });
 
   return getById(productId);
-};
-
-export const remove = async (id) => {
-  await prisma.product.delete({
-    where: { id: parseInt(id, 10) },
-  });
-  return true;
 };
 
 export const getMovements = async (productId, limit = 50) => {

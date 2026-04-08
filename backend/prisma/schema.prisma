@@ -135,17 +135,23 @@ model PaymentMethod {
 }
 
 model Payment {
-  id              Int            @id @default(autoincrement())
-  appointmentId   Int?           @map("appointment_id")
-  amount          Decimal        @db.Decimal(10, 2)
-  paymentMethodId Int?           @map("payment_method_id")
-  reference       String?        @db.VarChar(100)
-  notes           String?
-  createdBy       Int?           @map("created_by")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  appointment     Appointment?   @relation(fields: [appointmentId], references: [id])
-  creator         User?          @relation("PaymentsCreated", fields: [createdBy], references: [id])
-  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  id               Int            @id @default(autoincrement())
+  appointmentId    Int?           @map("appointment_id")
+  productId        Int?           @map("product_id")
+  productQuantity  Int?           @map("product_quantity")
+  amount           Decimal        @db.Decimal(10, 2)
+  paymentMethodId  Int?           @map("payment_method_id")
+  reference        String?        @db.VarChar(100)
+  notes            String?
+  createdBy        Int?           @map("created_by")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  voidedAt         DateTime?      @map("voided_at")
+  voidReason       String?        @map("void_reason") @db.VarChar(500)
+  voidedBy         Int?           @map("voided_by")
+  appointment      Appointment?   @relation(fields: [appointmentId], references: [id])
+  product          Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  creator          User?          @relation("PaymentsCreated", fields: [createdBy], references: [id])
+  paymentMethod    PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
 }
 
 model Product {
@@ -154,6 +160,7 @@ model Product {
   name               String              @db.VarChar(150)
   description        String?
   sku                String?             @unique @db.VarChar(50)
+  retailPrice        Decimal?            @map("retail_price") @db.Decimal(10, 2)
   unit               String              @default("unit") @db.VarChar(20)
   minStock           Int                 @default(0) @map("min_stock")
   isActive           Boolean             @default(true) @map("is_active")
@@ -163,6 +170,7 @@ model Product {
   inventory          Inventory?
   inventoryMovements InventoryMovement[]
   purchaseItems      PurchaseItem[]
+  payments           Payment[]
 }
 
 model Inventory {

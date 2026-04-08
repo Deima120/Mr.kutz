@@ -22,12 +22,13 @@ export default function ProductFormPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    sku: '',
     unit: 'unit',
     minStock: 0,
     categoryId: '',
     isActive: true,
+    retailPrice: '',
   });
+  const [productSku, setProductSku] = useState('');
   const [productMeta, setProductMeta] = useState(null);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -39,14 +40,16 @@ export default function ProductFormPage() {
         .getProductById(id)
         .then((res) => {
           const p = res?.data ?? res;
+          setProductSku(p.sku || '');
           setFormData({
             name: p.name || '',
             description: p.description || '',
-            sku: p.sku || '',
             unit: p.unit || 'unit',
             minStock: p.min_stock ?? 0,
             categoryId: p.category_id ?? '',
             isActive: p.is_active !== false,
+            retailPrice:
+              p.retail_price != null && p.retail_price !== '' ? String(p.retail_price) : '',
           });
           setProductMeta({
             quantity: p.quantity ?? 0,
@@ -63,6 +66,11 @@ export default function ProductFormPage() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (name === 'retailPrice') {
+      setFormData((prev) => ({ ...prev, retailPrice: value }));
+      setError('');
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : type === 'number' ? parseInt(value, 10) || 0 : value,
@@ -78,10 +86,13 @@ export default function ProductFormPage() {
       const payload = {
         name: formData.name,
         description: formData.description || undefined,
-        sku: formData.sku || undefined,
         unit: formData.unit || 'unit',
         minStock: formData.minStock,
         categoryId: formData.categoryId ? Number(formData.categoryId) : null,
+        retailPrice:
+          formData.retailPrice === '' || formData.retailPrice == null
+            ? null
+            : Number(formData.retailPrice),
       };
       if (isEdit) payload.isActive = formData.isActive;
 
@@ -107,9 +118,9 @@ export default function ProductFormPage() {
         kicker: 'Stock',
         title: 'Inventario ordenado',
         bullets: [
-          'SKU y categoría facilitan informes y compras.',
+          'El SKU se genera al crear el producto; el precio de venta ayuda en cobros desde inventario.',
           'El stock mínimo dispara alertas en el listado principal.',
-          'Los movimientos de cantidad se hacen desde inventario con «Ajustar».',
+          'Los movimientos de cantidad se hacen desde inventario con «Ajustar»; las ventas en caja descuentan stock.',
         ],
         statusLabel: 'Estado',
         statusValue: isEdit ? 'Modo edición' : 'Alta nueva',
@@ -145,10 +156,21 @@ export default function ProductFormPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>SKU</label>
-              <input name="sku" value={formData.sku} onChange={handleChange} placeholder="Código único" className={ADMIN_FORM_FIELD_CLASS} />
-            </div>
+            {isEdit ? (
+              <div className="group">
+                <label className={ADMIN_FORM_LABEL_CLASS}>SKU</label>
+                <input
+                  readOnly
+                  value={productSku}
+                  className={`${ADMIN_FORM_FIELD_CLASS} bg-stone-50 text-stone-600`}
+                />
+              </div>
+            ) : (
+              <div className="group sm:col-span-2 xl:col-span-1">
+                <label className={ADMIN_FORM_LABEL_CLASS}>SKU</label>
+                <p className="text-sm text-stone-500 py-2">Se asignará automáticamente al guardar.</p>
+              </div>
+            )}
             <div className="group">
               <label className={ADMIN_FORM_LABEL_CLASS}>Unidad</label>
               <select name="unit" value={formData.unit} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS}>
@@ -171,6 +193,20 @@ export default function ProductFormPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="group max-w-xs">
+            <label className={ADMIN_FORM_LABEL_CLASS}>Precio de venta ($)</label>
+            <input
+              name="retailPrice"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.retailPrice}
+              onChange={handleChange}
+              placeholder="Opcional"
+              className={ADMIN_FORM_FIELD_CLASS}
+            />
           </div>
 
           <div className="group max-w-xs">

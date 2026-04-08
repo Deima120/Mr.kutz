@@ -1,11 +1,12 @@
 /**
- * Formulario para registrar pago
+ * Formulario para registrar pago (cita completada o venta de inventario)
  */
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as paymentService from '../../services/paymentService';
 import * as appointmentService from '../../services/appointmentService';
+import * as productService from '../../services/productService';
 import AdminFormShell, {
   AdminFormCardHeader,
   ADMIN_FORM_FIELD_CLASS,
@@ -17,6 +18,10 @@ import AdminFormShell, {
 
 export default function PaymentFormPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const prefillProductId = searchParams.get('productId');
+  const prefillAppointmentId = prefillProductId ? null : searchParams.get('appointmentId');
+
   const [methods, setMethods] = useState([]);
   const [completedAppointments, setCompletedAppointments] = useState([]);
   const [formData, setFormData] = useState({
@@ -30,6 +35,12 @@ export default function PaymentFormPage() {
   const [error, setError] = useState('');
   const [linkToAppointment, setLinkToAppointment] = useState(true);
 
+  const [saleProduct, setSaleProduct] = useState(null);
+  const [productQty, setProductQty] = useState('1');
+  const [productLoadError, setProductLoadError] = useState('');
+  const [appointmentFromUrl, setAppointmentFromUrl] = useState(null);
+  const [appointmentPrefillError, setAppointmentPrefillError] = useState('');
+
   useEffect(() => {
     paymentService.getPaymentMethods().then((m) => {
       setMethods(Array.isArray(m) ? m : []);
@@ -37,9 +48,95 @@ export default function PaymentFormPage() {
   }, []);
 
   useEffect(() => {
+    if (!prefillProductId) {
+      setSaleProduct(null);
+      setProductLoadError('');
+      return;
+    }
+    setAppointmentFromUrl(null);
+    setAppointmentPrefillError('');
+    const pid = parseInt(prefillProductId, 10);
+    if (!Number.isFinite(pid) || pid < 1) {
+      setProductLoadError('Producto no válido.');
+      setSaleProduct(null);
+      return;
+    }
+    setLinkToAppointment(false);
+    setProductLoadError('');
+    productService
+      .getProductById(pid)
+      .then((res) => {
+        const p = res?.data ?? res;
+        setSaleProduct(p);
+      })
+      .catch(() => {
+        setSaleProduct(null);
+        setProductLoadError('No se pudo cargar el producto.');
+      });
+  }, [prefillProductId]);
+
+  useEffect(() => {
+    if (prefillProductId) return;
+    if (!prefillAppointmentId) {
+      setAppointmentFromUrl(null);
+      setAppointmentPrefillError('');
+      return;
+    }
+    const aid = parseInt(prefillAppointmentId, 10);
+    if (!Number.isFinite(aid) || aid < 1) {
+      setAppointmentPrefillError('Cita no válida.');
+      setAppointmentFromUrl(null);
+      return;
+    }
+    setAppointmentPrefillError('');
+    setLinkToAppointment(true);
+    appointmentService
+      .getAppointmentById(aid)
+      .then((row) => {
+        const a = row?.data ?? row;
+        if (!a) {
+          setAppointmentPrefillError('Cita no encontrada.');
+          setAppointmentFromUrl(null);
+          return;
+        }
+        if (a.status !== 'completed') {
+          setAppointmentPrefillError(
+            'La cita debe estar en estado completada para registrar el cobro. Vuelve a citas y márcala como completada primero.'
+          );
+          setAppointmentFromUrl(null);
+          return;
+        }
+        setAppointmentFromUrl(a);
+        const price = a.price ?? a.service_price;
+        setFormData((prev) => ({
+          ...prev,
+          appointmentId: String(a.id),
+          amount:
+            price != null && price !== '' && !Number.isNaN(Number(price))
+              ? String(Number(price))
+              : prev.amount,
+        }));
+      })
+      .catch(() => {
+        setAppointmentPrefillError('No se pudo cargar la cita.');
+        setAppointmentFromUrl(null);
+      });
+  }, [prefillAppointmentId, prefillProductId]);
+
+  useEffect(() => {
+    if (!saleProduct) return;
+    const unit = Number(saleProduct.retail_price);
+    const q = Math.max(1, parseInt(productQty, 10) || 1);
+    if (Number.isFinite(unit) && unit > 0) {
+      setFormData((prev) => ({ ...prev, amount: (unit * q).toFixed(2) }));
+    }
+  }, [saleProduct, productQty]);
+
+  useEffect(() => {
+    if (saleProduct) return;
     if (linkToAppointment) {
       appointmentService
-        .getAppointments({ status: 'completed', limit: 50 })
+        .getAppointments({ status: 'completed', limit: 100 })
         .then((data) => {
           const list = Array.isArray(data) ? data : [];
           setCompletedAppointments(list);
@@ -49,15 +146,25 @@ export default function PaymentFormPage() {
       setCompletedAppointments([]);
       setFormData((prev) => ({ ...prev, appointmentId: '' }));
     }
-  }, [linkToAppointment]);
+  }, [linkToAppointment, saleProduct]);
+
+  const appointmentSelectRows = useMemo(() => {
+    const rows = [...completedAppointments];
+    if (appointmentFromUrl && !rows.some((x) => x.id === appointmentFromUrl.id)) {
+      rows.unshift(appointmentFromUrl);
+    }
+    return rows;
+  }, [completedAppointments, appointmentFromUrl]);
 
   const handleAppointmentSelect = (e) => {
     const idSel = e.target.value;
-    const apt = completedAppointments.find((a) => a.id === parseInt(idSel, 10));
+    const apt = appointmentSelectRows.find((a) => a.id === parseInt(idSel, 10));
+    const p = apt?.price ?? apt?.service_price;
     setFormData((prev) => ({
       ...prev,
       appointmentId: idSel || '',
-      amount: apt?.price ? String(apt.price) : prev.amount,
+      amount:
+        idSel && p != null && p !== '' && !Number.isNaN(Number(p)) ? String(Number(p)) : prev.amount,
     }));
   };
 
@@ -71,13 +178,21 @@ export default function PaymentFormPage() {
     setLoading(true);
     setError('');
     try {
-      await paymentService.createPayment({
+      const payload = {
         amount: parseFloat(formData.amount),
         paymentMethodId: parseInt(formData.paymentMethodId, 10),
-        appointmentId: formData.appointmentId ? parseInt(formData.appointmentId, 10) : undefined,
         reference: formData.reference || undefined,
         notes: formData.notes || undefined,
-      });
+      };
+      if (saleProduct) {
+        const q = Math.max(1, parseInt(productQty, 10) || 1);
+        payload.productId = saleProduct.id;
+        payload.productQuantity = q;
+      } else if (linkToAppointment && formData.appointmentId) {
+        payload.appointmentId = parseInt(formData.appointmentId, 10);
+      }
+
+      await paymentService.createPayment(payload);
       navigate('/payments', { replace: true });
     } catch (err) {
       setError(err?.message || 'Error al registrar pago');
@@ -86,44 +201,126 @@ export default function PaymentFormPage() {
     }
   };
 
+  const inventoryAside = saleProduct
+    ? {
+        kicker: 'Caja',
+        title: 'Venta de producto',
+        bullets: [
+          'Al registrar el pago se descuenta el stock y queda el movimiento en inventario.',
+          'Ajusta cantidad y monto si aplicas descuento o precio distinto al de venta.',
+          'Para cobrar un servicio ya agendado, abre Registrar pago desde el menú y vincula la cita completada.',
+        ],
+        statusLabel: 'Origen',
+        statusValue: 'Inventario',
+      }
+    : {
+        kicker: 'Finanzas',
+        title: appointmentFromUrl ? 'Cobro tras servicio' : 'Pagos alineados con citas',
+        bullets: appointmentFromUrl
+          ? [
+              'El monto se rellenó con el precio del servicio; ajústalo si aplicas descuento.',
+              'Elige el método de pago y confirma para dejar el ingreso registrado.',
+              'También puedes registrar pagos desde el menú Pagos sin pasar por citas.',
+            ]
+          : [
+              'Vincular a una cita completada ayuda a cuadrar ingresos con el servicio.',
+              'El método de pago queda registrado para reportes y auditoría.',
+              'Referencia y notas son opcionales pero útiles en conciliación.',
+            ],
+        statusLabel: 'Flujo',
+        statusValue: appointmentFromUrl ? 'Servicio completado' : 'Caja / cobro',
+      };
+
+  const maxQty = saleProduct != null ? Math.max(0, Number(saleProduct.quantity) || 0) : undefined;
+
   return (
     <AdminFormShell
       backTo="/payments"
       backLabel="Pagos"
       modeBadge="Registro"
-      aside={{
-        kicker: 'Finanzas',
-        title: 'Pagos alineados con citas',
-        bullets: [
-          'Vincular a una cita completada ayuda a cuadrar ingresos con el servicio.',
-          'El método de pago queda registrado para reportes y auditoría.',
-          'Referencia y notas son opcionales pero útiles en conciliación.',
-        ],
-        statusLabel: 'Flujo',
-        statusValue: 'Caja / cobro',
-      }}
+      aside={inventoryAside}
     >
       <form
         onSubmit={handleSubmit}
         className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
       >
         <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
           <AdminFormCardHeader eyebrow="Pago" title="Registrar pago" />
 
-          {error && <div className="alert-error text-sm py-2.5 shrink-0">{error}</div>}
+          {error && <div className="alert-error text-xs py-2 shrink-0">{error}</div>}
+          {productLoadError && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
+              {productLoadError}
+            </div>
+          )}
+          {appointmentPrefillError && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
+              {appointmentPrefillError}
+            </div>
+          )}
+          {appointmentFromUrl && !saleProduct && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-xs py-2 px-2.5 shrink-0">
+              Cobro sugerido para la cita que acabas de completar:{' '}
+              <span className="font-semibold">
+                {appointmentFromUrl.client_first_name} {appointmentFromUrl.client_last_name} —{' '}
+                {appointmentFromUrl.service_name}
+              </span>
+              . Confirma método de pago y monto.
+            </div>
+          )}
 
-          <label className="flex items-center gap-2 cursor-pointer shrink-0">
+          {saleProduct && (
+            <div className="rounded-xl border border-stone-200 bg-stone-50/90 p-4 space-y-3 shrink-0">
+              <p className="text-sm font-semibold text-stone-800">Venta desde inventario</p>
+              <p className="text-sm text-stone-600">
+                <span className="font-medium text-stone-900">{saleProduct.name}</span>
+                {saleProduct.sku ? (
+                  <span className="text-stone-500"> · SKU {saleProduct.sku}</span>
+                ) : null}
+              </p>
+              <p className="text-[11px] text-stone-500">
+                Stock disponible: <strong className="text-stone-700">{saleProduct.quantity ?? 0}</strong>
+                {saleProduct.retail_price != null && Number(saleProduct.retail_price) > 0 ? (
+                  <> · Precio unitario: ${Number(saleProduct.retail_price).toFixed(2)}</>
+                ) : (
+                  <> · Sin precio de venta en ficha: indica el monto manualmente</>
+                )}
+              </p>
+              <div className="group max-w-[12rem]">
+                <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad *</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={maxQty !== undefined && maxQty > 0 ? maxQty : undefined}
+                  value={productQty}
+                  onChange={(e) => {
+                    setProductQty(e.target.value);
+                    setError('');
+                  }}
+                  className={ADMIN_FORM_FIELD_CLASS}
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          <label
+            className={`flex items-center gap-2 shrink-0 ${saleProduct ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+          >
             <input
               type="checkbox"
-              checked={linkToAppointment}
+              checked={linkToAppointment && !saleProduct}
+              disabled={!!saleProduct}
               onChange={(e) => setLinkToAppointment(e.target.checked)}
               className="rounded border-stone-300 text-gold focus:ring-gold/40"
             />
-            <span className="text-sm text-stone-700">Vincular a cita completada</span>
+            <span className="text-sm text-stone-700">
+              {saleProduct ? 'Venta de inventario (sin cita)' : 'Vincular a cita completada'}
+            </span>
           </label>
 
-          {linkToAppointment && completedAppointments.length > 0 && (
+          {!saleProduct && linkToAppointment && appointmentSelectRows.length > 0 && (
             <div className="group">
               <label className={ADMIN_FORM_LABEL_CLASS}>Cita</label>
               <select
@@ -133,7 +330,7 @@ export default function PaymentFormPage() {
                 className={ADMIN_FORM_FIELD_CLASS}
               >
                 <option value="">Seleccionar cita…</option>
-                {completedAppointments.map((a) => (
+                {appointmentSelectRows.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.client_first_name} {a.client_last_name} — {a.service_name} — $
                     {a.price ?? a.service_price ?? 0} — {String(a.appointment_date).slice(0, 10)}{' '}
@@ -164,7 +361,7 @@ export default function PaymentFormPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             <div className="group">
               <label className={ADMIN_FORM_LABEL_CLASS}>Monto ($) *</label>
               <input
@@ -215,12 +412,14 @@ export default function PaymentFormPage() {
               value={formData.notes}
               onChange={handleChange}
               rows={2}
-              className={`${ADMIN_FORM_FIELD_CLASS} resize-none min-h-[3.25rem]`}
+              className={`${ADMIN_FORM_FIELD_CLASS} resize-none min-h-[2.75rem] text-sm`}
             />
           </div>
 
           <AdminFormFooterActions className="mt-auto">
-            <AdminFormPrimaryButton disabled={loading}>{loading ? 'Registrando…' : 'Registrar pago'}</AdminFormPrimaryButton>
+            <AdminFormPrimaryButton disabled={loading}>
+              {loading ? 'Registrando…' : 'Registrar pago'}
+            </AdminFormPrimaryButton>
             <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
         </div>

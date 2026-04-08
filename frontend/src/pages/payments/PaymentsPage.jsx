@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as paymentService from '../../services/paymentService';
 import PageHeader from '../../components/admin/PageHeader';
-import StatsCard from '../../components/admin/StatsCard';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 import { downloadCSV, printAsPDF } from '../../utils/export';
@@ -44,13 +43,24 @@ export default function PaymentsPage() {
     fetchPayments();
   }, [dateFrom, dateTo]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este pago?')) return;
+  const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
+
+  const handleVoid = async (p) => {
+    if (
+      !window.confirm(
+        `¿Anular este pago de ${formatAmount(p.amount)}? El registro se conservará como anulado y no sumará en totales. Si era venta de producto, el stock volverá al inventario.`
+      )
+    ) {
+      return;
+    }
+    const voidReason = window.prompt('Motivo de anulación (opcional):', '') ?? '';
     try {
-      await paymentService.deletePayment(id);
-      fetchPayments();
+      await paymentService.voidPayment(p.id, {
+        voidReason: voidReason.trim() || undefined,
+      });
+      await fetchPayments();
     } catch (err) {
-      setError(err?.message || 'Error al eliminar');
+      setError(err?.message || 'Error al anular el pago');
     }
   };
 
@@ -79,120 +89,184 @@ export default function PaymentsPage() {
     }
     return s.slice(0, 5);
   };
-  const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
+
+  const btnToolbar = 'btn-admin-outline text-xs py-2 px-3';
 
   return (
     <div className="page-shell">
       <PageHeader
+        compact
         title="Pagos y ventas"
         label="Finanzas"
         subtitle="Historial de transacciones"
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
-              onClick={() => downloadCSV('pagos.csv', payments.map((p) => ({
-                id: p.id,
-                fecha: p.created_at,
-                cliente: `${p.client_first_name || ''} ${p.client_last_name || ''}`.trim(),
-                servicio: p.service_name || '',
-                metodo: p.payment_method_name || '',
-                monto: p.amount,
-              })))}
-              className="btn-admin-outline"
+              onClick={() =>
+                downloadCSV(
+                  'pagos.csv',
+                  payments.map((p) => ({
+                    id: p.id,
+                    fecha: p.created_at,
+                    estado: p.voided_at ? 'Anulado' : 'Vigente',
+                    motivo_anulacion: p.void_reason || '',
+                    cliente: `${p.client_first_name || ''} ${p.client_last_name || ''}`.trim(),
+                    concepto: p.product_name
+                      ? `Venta: ${p.product_name}`
+                      : p.service_name || '',
+                    producto: p.product_name || '',
+                    sku: p.product_sku || '',
+                    cantidad_producto: p.product_quantity ?? '',
+                    metodo: p.payment_method_name || '',
+                    monto: p.amount,
+                  }))
+                )
+              }
+              className={btnToolbar}
             >
-              Exportar CSV
+              CSV
             </button>
-            <button type="button" onClick={printAsPDF} className="btn-admin-outline">
-              Exportar PDF
+            <button type="button" onClick={printAsPDF} className={btnToolbar}>
+              PDF
             </button>
-            <Link to="/payments/new" className="btn-admin">
-              + Registrar pago
+            <Link to="/payments/new" className="btn-admin text-xs py-2 px-3">
+              Registrar pago
             </Link>
           </div>
         }
       />
 
-      <div className="flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-semibold text-stone-600 mb-1">Desde</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="input-premium py-2.5 text-sm"
-          />
+      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-stone-200/90 bg-stone-50/60 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-0.5 block text-[10px] font-semibold text-stone-500">Desde</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input-premium py-2 text-xs"
+            />
+          </div>
+          <div>
+            <label className="mb-0.5 block text-[10px] font-semibold text-stone-500">Hasta</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input-premium py-2 text-xs"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="input-premium py-2.5 text-sm"
-          />
+        <div className="flex items-baseline gap-2 border-t border-stone-200/80 pt-3 sm:border-t-0 sm:pt-0">
+          <span className="text-[10px] font-semibold text-stone-500">Total periodo</span>
+          <span className="font-serif text-lg font-medium text-gold tabular-nums">{formatAmount(total.total)}</span>
+          <span className="text-[11px] text-stone-500">
+            · {total.count} vigente{total.count === 1 ? '' : 's'}
+          </span>
         </div>
       </div>
 
-      <StatsCard
-        label="Total en el periodo"
-        value={formatAmount(total.total)}
-        sublabel={`${total.count} transacciones`}
-        variant="primary"
-      />
-
       {error && (
-        <div className="alert-error" role="alert">{error}</div>
+        <div className="alert-error mb-3 text-sm py-2" role="alert">
+          {error}
+        </div>
       )}
 
       {loading ? (
-        <DataCard>
-          <div className="py-16 text-center text-stone-500">Cargando...</div>
+        <DataCard compact>
+          <div className="py-10 text-center text-sm text-stone-500">Cargando…</div>
         </DataCard>
       ) : payments.length === 0 ? (
-        <DataCard>
-          <div className="py-16 text-center text-stone-500">No hay pagos en este periodo.</div>
+        <DataCard compact>
+          <div className="py-10 text-center text-sm text-stone-500">No hay pagos en este periodo.</div>
         </DataCard>
       ) : (
-        <DataCard>
+        <DataCard compact>
           <Table>
             <TableHead>
-              <TableHeader>Fecha</TableHeader>
-              <TableHeader>Cliente</TableHeader>
-              <TableHeader>Servicio</TableHeader>
-              <TableHeader>Método</TableHeader>
-              <TableHeader className="text-right">Monto</TableHeader>
-              <TableHeader></TableHeader>
+              <TableHeader compact>Fecha</TableHeader>
+              <TableHeader compact>Estado</TableHeader>
+              <TableHeader compact>Cliente</TableHeader>
+              <TableHeader compact>Concepto</TableHeader>
+              <TableHeader compact>Método</TableHeader>
+              <TableHeader compact className="text-right">
+                Monto
+              </TableHeader>
+              <TableHeader compact className="w-16" />
             </TableHead>
             <TableBody>
-              {payments.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="text-sm">
-                    {formatDate(p.created_at)}
-                    {p.start_time && (
-                      <span className="text-stone-500 ml-1">{formatTime(p.start_time)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {p.client_first_name && p.client_last_name
-                      ? `${p.client_first_name} ${p.client_last_name}`
-                      : '-'}
-                  </TableCell>
-                  <TableCell>{p.service_name || '-'}</TableCell>
-                  <TableCell>{p.payment_method_name || '-'}</TableCell>
-                  <TableCell className="text-right font-semibold text-gold">
-                    {formatAmount(p.amount)}
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      className="text-sm font-medium text-red-600 hover:text-red-700"
+              {payments.map((p) => {
+                const isVoided = Boolean(p.voided_at);
+                return (
+                  <TableRow key={p.id} className={isVoided ? 'opacity-70 bg-stone-50/90' : ''}>
+                    <TableCell compact className="text-xs">
+                      <span className="whitespace-nowrap">{formatDate(p.created_at)}</span>
+                      {p.start_time ? (
+                        <span className="text-stone-500 ml-1">{formatTime(p.start_time)}</span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell compact className="text-xs">
+                      {isVoided ? (
+                        <span className="inline-flex flex-col gap-0.5">
+                          <span className="inline-flex w-fit rounded border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
+                            Anulado
+                          </span>
+                          {p.void_reason ? (
+                            <span className="max-w-[10rem] text-[10px] leading-snug text-stone-500">
+                              {p.void_reason}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                          Vigente
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell compact className="text-xs max-w-[9rem] truncate">
+                      {p.client_first_name && p.client_last_name
+                        ? `${p.client_first_name} ${p.client_last_name}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell compact className="text-xs max-w-[14rem]">
+                      {p.product_name ? (
+                        <span className="line-clamp-2">
+                          Venta: {p.product_name}
+                          {p.product_sku ? ` · ${p.product_sku}` : ''}
+                          {p.product_quantity != null ? ` × ${p.product_quantity}` : ''}
+                        </span>
+                      ) : (
+                        <span className="line-clamp-2">{p.service_name || '—'}</span>
+                      )}
+                    </TableCell>
+                    <TableCell compact className="text-xs">
+                      {p.payment_method_name || '—'}
+                    </TableCell>
+                    <TableCell
+                      compact
+                      className={`text-right text-xs font-semibold tabular-nums ${
+                        isVoided ? 'text-stone-500 line-through' : 'text-gold'
+                      }`}
                     >
-                      Eliminar
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      {formatAmount(p.amount)}
+                    </TableCell>
+                    <TableCell compact className="text-right">
+                      {!isVoided ? (
+                        <button
+                          type="button"
+                          onClick={() => handleVoid(p)}
+                          className="text-[11px] font-medium text-amber-800 hover:text-amber-900"
+                        >
+                          Anular
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-stone-400">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </DataCard>

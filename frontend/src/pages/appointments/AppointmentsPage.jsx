@@ -181,6 +181,10 @@ export default function AppointmentsPage() {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
       setCancelConfirmId(null);
+      if ((isAdmin || isBarber) && newStatus === 'completed') {
+        navigate(`/payments/new?appointmentId=${id}`);
+        return;
+      }
       fetchAppointments();
       if (isClient && newStatus === 'cancelled') {
         setSuccessMessage('Cita cancelada correctamente.');

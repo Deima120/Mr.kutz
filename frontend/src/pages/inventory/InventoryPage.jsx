@@ -1,9 +1,9 @@
 /**
- * Inventario mejorado: resumen, búsqueda, ajuste con modal, historial de movimientos
+ * Inventario: listado, edición (sin eliminar), venta → pagos con descuento de stock
  */
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import * as productService from '../../services/productService';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
@@ -15,10 +15,11 @@ const MOVEMENT_LABELS = {
   purchase: 'Compra',
   sale: 'Venta',
   adjustment: 'Ajuste',
-  damage: 'Daño/Pérdida',
+  damage: 'Daño o pérdida',
 };
 
 export default function InventoryPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [search, setSearch] = useState('');
@@ -73,13 +74,16 @@ export default function InventoryPage() {
     fetchProducts();
   }, [showInactive, showLowStockOnly, searchDebounced]);
 
+  /** Entrada rápida (+1): movimiento tipo compra */
   const handleQuickStock = async (product, delta) => {
+    if (delta <= 0) return;
     setQuickUpdating(product.id);
     setError('');
     try {
       await productService.updateStock(product.id, {
         quantityChange: delta,
-        movementType: delta > 0 ? 'purchase' : 'sale',
+        movementType: 'purchase',
+        notes: 'Entrada rápida desde inventario',
       });
       await fetchProducts(true);
     } catch (err) {
@@ -103,7 +107,8 @@ export default function InventoryPage() {
     try {
       await productService.updateStock(adjustModal.id, {
         quantityChange: qty,
-        movementType: qty > 0 ? 'purchase' : 'sale',
+        movementType: qty > 0 ? 'purchase' : 'adjustment',
+        notes: qty > 0 ? 'Ajuste de entrada' : 'Ajuste de salida',
       });
       setAdjustModal(null);
       fetchProducts();
@@ -128,16 +133,8 @@ export default function InventoryPage() {
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`¿Eliminar producto "${name}"?`)) return;
-    try {
-      await productService.deleteProduct(id);
-      fetchProducts();
-      if (adjustModal?.id === id) setAdjustModal(null);
-      if (historyModal?.id === id) setHistoryModal(null);
-    } catch (err) {
-      setError(err?.message || 'Error al eliminar');
-    }
+  const goToSell = (product) => {
+    navigate(`/payments/new?productId=${product.id}`);
   };
 
   const isLowStock = (p) => (p.quantity ?? 0) <= (p.min_stock ?? 0);
@@ -148,20 +145,26 @@ export default function InventoryPage() {
       <PageHeader
         title="Inventario"
         label="Stock"
-        subtitle="Control de stock, alertas y movimientos"
+        subtitle="Productos, alertas, movimientos y venta en caja (pagos)"
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => downloadCSV('inventario.csv', products.map((p) => ({
-                id: p.id,
-                nombre: p.name,
-                categoria: p.category_name || '',
-                sku: p.sku || '',
-                stock: p.quantity ?? 0,
-                min_stock: p.min_stock ?? 0,
-                activo: p.is_active ? 'Sí' : 'No',
-              })))}
+              onClick={() =>
+                downloadCSV(
+                  'inventario.csv',
+                  products.map((p) => ({
+                    id: p.id,
+                    nombre: p.name,
+                    categoria: p.category_name || '',
+                    sku: p.sku || '',
+                    stock: p.quantity ?? 0,
+                    min_stock: p.min_stock ?? 0,
+                    precio_venta: p.retail_price ?? '',
+                    activo: p.is_active ? 'Sí' : 'No',
+                  }))
+                )
+              }
               className="btn-admin-outline w-full sm:w-auto"
             >
               Exportar CSV
@@ -169,11 +172,14 @@ export default function InventoryPage() {
             <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto">
               Exportar PDF
             </button>
+            <Link to="/purchases" className="btn-admin-outline w-full sm:w-auto">
+              Compras (abastecimiento)
+            </Link>
             <Link to="/inventory/categories" className="btn-admin-outline w-full sm:w-auto">
               Categorías
             </Link>
             <Link to="/inventory/new" className="btn-admin w-full sm:w-auto">
-              + Nuevo producto
+              Nuevo producto
             </Link>
           </div>
         }
@@ -193,12 +199,12 @@ export default function InventoryPage() {
       {lowStock.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <h3 className="font-medium text-amber-800 mb-2">
-            ⚠️ {lowStock.length} producto(s) con stock bajo o agotado
+            {lowStock.length} producto(s) con stock bajo o agotado
           </h3>
           <ul className="text-sm text-amber-700 space-y-1">
             {lowStock.map((p) => (
               <li key={p.id}>
-                <Link to={`/inventory/${p.id}/edit`} className="hover:underline">
+                <Link to={`/inventory/${p.id}/edit`} className="hover:underline font-medium">
                   {p.name}
                 </Link>
                 : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo {p.min_stock})
@@ -215,7 +221,7 @@ export default function InventoryPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o SKU..."
+            placeholder="Buscar por nombre o SKU…"
             className="input-premium py-2.5 text-sm"
           />
         </div>
@@ -272,6 +278,7 @@ export default function InventoryPage() {
               <TableHeader>Producto</TableHeader>
               <TableHeader>Categoría</TableHeader>
               <TableHeader>SKU</TableHeader>
+              <TableHeader>P. venta</TableHeader>
               <TableHeader>Stock</TableHeader>
               <TableHeader>Mínimo</TableHeader>
               <TableHeader>Acciones</TableHeader>
@@ -298,6 +305,11 @@ export default function InventoryPage() {
                     {p.sku || '-'}
                   </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
+                    {p.retail_price != null && Number(p.retail_price) > 0
+                      ? `$${Number(p.retail_price).toFixed(2)}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
                     <div className="flex items-center gap-2">
                       <span className={`font-semibold min-w-[2rem] ${isLowStock(p) ? 'text-amber-600' : ''}`}>
                         {p.quantity ?? 0} {p.unit || 'u'}
@@ -312,42 +324,34 @@ export default function InventoryPage() {
                         >
                           +
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickStock(p, -1)}
-                          disabled={quickUpdating === p.id || (p.quantity ?? 0) <= 0}
-                          className="w-8 h-8 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-bold text-sm disabled:opacity-50"
-                          title="-1 salida"
-                        >
-                          −
-                        </button>
                       </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAdjust(p)}
-                          className="text-xs text-stone-500 hover:text-stone-700"
-                          title="Ajustar cantidad"
-                        >
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAdjust(p)}
+                        className="text-xs text-stone-500 hover:text-stone-700"
+                        title="Ajustar cantidad"
+                      >
                         ±
                       </button>
                     </div>
                   </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>{p.min_stock ?? 0}</TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <button
+                        type="button"
+                        onClick={() => goToSell(p)}
+                        disabled={(p.quantity ?? 0) <= 0}
+                        className="text-sm font-medium text-gold hover:text-gold-dark transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        Vender
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleOpenHistory(p)}
                         className="text-sm font-medium text-barber-dark hover:text-gold transition-colors"
                       >
                         Historial
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p.id, p.name)}
-                        className="text-sm font-medium text-red-600 hover:text-red-700"
-                      >
-                        Eliminar
                       </button>
                     </div>
                   </TableCell>

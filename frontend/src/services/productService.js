@@ -41,11 +41,6 @@ export const updateStock = async (id, data) => {
   return extract(response);
 };
 
-export const deleteProduct = async (id) => {
-  const response = await api.delete(`${PRODUCTS_BASE}/${id}`);
-  return response;
-};
-
 export const getProductMovements = async (id, limit = 50) => {
   const response = await api.get(`${PRODUCTS_BASE}/${id}/movements`, { params: { limit } });
   return extract(response);
