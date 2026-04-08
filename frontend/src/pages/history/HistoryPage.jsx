@@ -64,9 +64,10 @@ export default function HistoryPage() {
   };
   const formatDate = (d) =>
     d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+    d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
   return (
-    <div className="page-shell">
+    <div className="space-y-8">
       <div>
         <p className="section-label text-gold">Historial</p>
         <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-4">
@@ -80,8 +81,12 @@ export default function HistoryPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="input-premium py-2.5 text-sm"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
             />
+          </div>
+          <span className="text-stone-400 pt-6">—</span>
+          <div>
+            <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
           </div>
           <span className="text-stone-400 pt-6">—</span>
           <div>
@@ -90,19 +95,21 @@ export default function HistoryPage() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="input-premium py-2.5 text-sm"
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
             />
           </div>
         </div>
       </div>
+        </div>
+      </div>
 
       {error && (
-        <div className="alert-error" role="alert">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
           {error}
         </div>
       )}
 
-      <div className="panel-card overflow-hidden">
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
         <div className="p-6">
           {loading ? (
             <div className="py-16 text-center text-stone-500">Cargando historial...</div>

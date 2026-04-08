@@ -1,9 +1,11 @@
 /**
  * Listado y calendario de citas
  * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
+ * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
  */
 
 import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as appointmentService from '../../services/appointmentService';
 import * as barberService from '../../services/barberService';
@@ -31,8 +33,81 @@ const STATUS_STYLE = {
   no_show: 'bg-red-50 text-red-700 border-red-200',
 };
 
+function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async () => {
+    if (stars < 1) {
+      setErr('Elige una puntuación de 1 a 5.');
+      return;
+    }
+    setSending(true);
+    setErr('');
+    try {
+      await appointmentService.submitAppointmentRating(appointmentId, { rating: stars, comment });
+      onSuccess?.();
+    } catch (e) {
+      setErr(e?.message || 'No se pudo guardar la valoración');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-stone-100">
+      <p className="text-sm font-medium text-stone-800 mb-2">¿Cómo fue tu visita?</p>
+      <div className="flex gap-1 mb-3" role="group" aria-label="Puntuación de 1 a 5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => {
+              setStars(n);
+              setErr('');
+            }}
+            className={`text-2xl leading-none px-1 rounded transition-colors ${
+              n <= stars ? 'text-amber-500' : 'text-stone-200 hover:text-stone-300'
+            }`}
+            aria-pressed={n <= stars}
+            aria-label={`${n} estrellas`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      <label className="block text-xs font-semibold text-stone-600 mb-1">Comentario (opcional)</label>
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        rows={2}
+        maxLength={2000}
+        className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
+        placeholder="Cuéntanos tu experiencia…"
+      />
+      {err && (
+        <p className="text-red-600 text-xs mt-2" role="alert">
+          {err}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={submit}
+        disabled={sending}
+        className="mt-3 w-full sm:w-auto px-5 py-2.5 bg-gold/90 text-barber-dark font-semibold rounded-xl hover:bg-gold disabled:opacity-60 text-sm"
+      >
+        {sending ? 'Enviando…' : 'Enviar valoración'}
+      </button>
+    </div>
+  );
+}
+
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const location = useLocation();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
@@ -43,6 +118,8 @@ export default function AppointmentsPage() {
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
@@ -94,11 +171,23 @@ export default function AppointmentsPage() {
     }
   }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
 
+  // Mensaje de éxito al llegar desde "Agendar cita" (state) o al cancelar
+  useEffect(() => {
+    if (isClient && location.state?.appointmentCreated) {
+      setSuccessMessage('Cita agendada correctamente.');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
+
   const handleStatusChange = async (id, newStatus) => {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
       setCancelConfirmId(null);
+      setCancelConfirmId(null);
       fetchAppointments();
+      if (isClient && newStatus === 'cancelled') {
+        setSuccessMessage('Cita cancelada correctamente.');
+      }
       if (isClient && newStatus === 'cancelled') {
         setSuccessMessage('Cita cancelada correctamente.');
       }
@@ -115,29 +204,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  const formatTime = (t) => {
-    if (!t) return '';
-    if (t instanceof Date) {
-      const hh = String(t.getHours()).padStart(2, '0');
-      const mm = String(t.getMinutes()).padStart(2, '0');
-      return `${hh}:${mm}`;
-    }
-    const s = String(t);
-    const d = new Date(s);
-    if (!Number.isNaN(d.getTime()) && s.includes('T')) {
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      return `${hh}:${mm}`;
-    }
-    const iso = s.match(/T(\d{1,2}):(\d{2})/);
-    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
-    const any = s.match(/(\d{1,2}):(\d{2})/);
-    if (any) {
-      const hh = String(any[1]).padStart(2, '0');
-      return `${hh}:${any[2]}`;
-    }
-    return s.slice(0, 5);
-  };
+  const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
@@ -145,8 +212,8 @@ export default function AppointmentsPage() {
   const pageSubtitle = isClient
     ? 'Tus citas y reservas'
     : isBarber
-    ? 'Tu agenda operativa por fecha'
-    : 'Gestión operativa de citas por fecha';
+    ? 'Tus citas por fecha'
+    : 'Gestión de citas por fecha';
 
   // ——— Vista cliente: diseño premium y sencillo ———
   if (isClient) {
@@ -225,6 +292,21 @@ export default function AppointmentsPage() {
                         <p className="text-stone-600 text-sm mt-1">
                           {formatTime(a.start_time)} · {a.barber_first_name} {a.barber_last_name}
                         </p>
+                        {a.status === 'completed' && a.clientRating == null && (
+                          <ClientAppointmentRatingForm appointmentId={a.id} onSuccess={fetchAppointments} />
+                        )}
+                        {a.status === 'completed' && a.clientRating != null && (
+                          <div className="mt-4 pt-4 border-t border-stone-100">
+                            <p className="text-sm text-stone-600">
+                              Tu valoración:{' '}
+                              <span className="text-amber-500">{'★'.repeat(a.clientRating)}</span>
+                              <span className="text-stone-300">{'☆'.repeat(5 - a.clientRating)}</span>
+                            </p>
+                            {a.clientRatingComment ? (
+                              <p className="text-sm text-stone-500 mt-1 italic">"{a.clientRatingComment}"</p>
+                            ) : null}
+                          </div>
+                        )}
                         {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             {cancelConfirmId === a.id ? (
@@ -333,6 +415,12 @@ export default function AppointmentsPage() {
                       </p>
                       <p className="text-stone-600 text-sm mt-0.5">
                         {a.client_first_name} {a.client_last_name}
+                        {a.status === 'completed' && a.clientRating != null && (
+                          <span className="ml-2 text-amber-600 font-medium" title="Valoración del cliente">
+                            {'★'.repeat(a.clientRating)}
+                            <span className="text-stone-300">{'☆'.repeat(5 - a.clientRating)}</span>
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -368,32 +456,12 @@ export default function AppointmentsPage() {
         title={pageTitle}
         subtitle={pageSubtitle}
         actions={
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => downloadCSV('citas.csv', appointments.map((a) => ({
-                id: a.id,
-                fecha: a.appointment_date,
-                hora: formatTime(a.start_time),
-                cliente: `${a.client_first_name || ''} ${a.client_last_name || ''}`.trim(),
-                barbero: `${a.barber_first_name || ''} ${a.barber_last_name || ''}`.trim(),
-                servicio: a.service_name || '',
-                estado: a.status,
-              })))}
-              className="btn-admin-outline w-full sm:w-auto"
-            >
-              Exportar CSV
-            </button>
-            <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto">
-              Exportar PDF
-            </button>
-            <Link
-              to="/appointments/new"
-              className="btn-admin w-full sm:w-auto"
-            >
-              + Nueva cita
-            </Link>
-          </div>
+          <Link
+            to="/appointments/new"
+            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+          >
+            + Nueva cita
+          </Link>
         }
       />
 
@@ -404,7 +472,7 @@ export default function AppointmentsPage() {
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="input-premium py-2.5 text-sm"
+            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
           />
         </div>
         {isAdmin && (

@@ -70,6 +70,8 @@ Mr.kutz/
 
 Se usa **PostgreSQL** con **Prisma** como ORM. El esquema se define en `backend/prisma/schema.prisma`.
 
+Tras actualizar el esquema, desde `backend` ejecutar `npx prisma migrate deploy` (o `migrate dev` en local) y `npx prisma generate`.
+
 ### Modelos principales
 
 | Modelo | Descripción |
@@ -80,7 +82,7 @@ Se usa **PostgreSQL** con **Prisma** como ORM. El esquema se define en `backend/
 | **Barber** | Datos del barbero (nombre, teléfono, especialidades, activo). Vinculado a User. |
 | **BarberSchedule** | Horarios por barbero y día de la semana (0–6), hora inicio/fin. |
 | **Service** | Catálogo de servicios (nombre, descripción, precio, duración, activo). |
-| **Appointment** | Citas (cliente, barbero, servicio, fecha, hora inicio/fin, estado, notas). |
+| **Appointment** | Citas (cliente, barbero, servicio, fecha, hora inicio/fin, estado, notas, valoración opcional del cliente `clientRating` / comentario / fecha). |
 | **Payment** | Pagos (monto, método, referencia, opcionalmente vinculado a cita). |
 | **PaymentMethod** | Métodos de pago (efectivo, tarjeta, transferencia, etc.). |
 | **Product** | Productos del inventario (nombre, SKU, unidad, stock mínimo). |
@@ -203,11 +205,17 @@ Todas requieren **auth** y **admin**, **barber** o **client**. Los clientes solo
 |--------|------|-------------|
 | GET | `/` | Lista citas (filtradas por rol: cliente = propias, barbero = suyas, admin = todas). |
 | GET | `/slots` | Slots disponibles: query `barberId`, `date` (YYYY-MM-DD). |
-| GET | `/:id` | Cita por ID. |
+| GET | `/rating-summary` | **Admin y barber.** Resumen de valoraciones de citas `completed` con `clientRating`. Query opcional: `barberId` (admin; el barbero solo ve el suyo), `days` (ej. `30`) o `all` sin límite de fechas. |
+| GET | `/:id` | Cita por ID (comprobación de pertenencia por rol). |
 | POST | `/` | Crear cita (`clientId` opcional si es cliente; se usa el del token). |
+| POST | `/:id/rating` | **Solo client.** Body JSON: `{ "rating": 1-5, "comment"?: string }`. La cita debe estar `completed`, ser del cliente del token y no tener ya valoración. |
 | PUT | `/:id` | Actualizar cita (client solo puede poner status `cancelled`). |
 
+En listados y detalle de citas, cada ítem incluye (cuando aplica) en **camelCase**: `clientRating` (entero 1–5 o `null`), `clientRatingComment` (`null` o string), `clientRatedAt` (ISO 8601 o `null`). Son la única fuente de verdad compartida con la app móvil.
+
 #### Testimonios (`/api/testimonials`)
+
+Textos opcionales para la **landing** (carrusel), independientes de las valoraciones de citas anteriores.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
@@ -268,8 +276,11 @@ Para futura app móvil o cliente alternativo.
 | POST | `/auth/login` | No | Login (mismo contrato que `/api/auth/login`). |
 | GET | `/auth/me` | Sí | Perfil. |
 | GET | `/client/availability` | Client | Query `barberId`, `date` → slots disponibles. |
-| GET | `/client/appointments` | Client | Citas del cliente. |
+| GET | `/client/appointments` | Client | Citas del cliente (mismos campos `clientRating` / `clientRatingComment` / `clientRatedAt` que en `/api/appointments`). |
 | POST | `/client/appointments` | Client | Crear cita (barberId, serviceId, appointmentDate, startTime?, notes?). |
+| POST | `/client/appointments/:id/rating` | Client | Igual que `POST /api/appointments/:id/rating` (valoración única por cita completada). |
+
+**Resumen agregado para barbero (y admin en panel web):** `GET /api/appointments/rating-summary` con token **barber** o **admin** (mismo contrato descrito arriba). La app móvil del barbero puede usar ese endpoint con base `https://<host>/api` (no hace falta prefijo `/mobile`).
 
 ---
 
@@ -419,13 +430,65 @@ Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con 
 ## Configuración e instalación
 
 ### Requisitos
+### Cliente: citas y disponibilidad
+
+Para una app de **cliente** (rol `client`), usa estos endpoints (todos con `Authorization: Bearer <token>`):
+
+| Método | Ruta | Query / Body | Descripción |
+|--------|------|--------------|-------------|
+| GET | `/api/mobile/client/availability` | `barberId`, `date` (YYYY-MM-DD) | Slots disponibles para ese barbero y fecha. |
+| GET | `/api/mobile/client/appointments` | — | Lista de citas del cliente autenticado. |
+| POST | `/api/mobile/client/appointments` | Body: `barberId`, `serviceId`, `appointmentDate` (ISO), `startTime?` (HH:MM), `notes?` | Crear una nueva cita (el `clientId` se toma del token). |
+
+### Datos públicos (sin token)
+
+Para pantallas de selección (barberos, servicios, configuración del negocio):
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/barbers` | Lista de barberos (requiere token de cualquier rol: admin, barber o **client**). |
+| GET | `/api/barbers/:id/schedules` | Horarios del barbero (mismo requisito de token). |
+| GET | `/api/services` | Lista de servicios activos (**público**, no requiere token). |
+| GET | `/api/settings/public` | Nombre del negocio y datos públicos (**público**). |
+| GET | `/api/testimonials` | Testimonios activos para mostrar en la app (**público**). |
+
+En Flutter puedes usar **GET /api/services** y **GET /api/settings/public** sin estar logueado; para barberos y horarios el backend exige un usuario autenticado (p. ej. cliente ya logueado).
+
+### Resumen para Flutter
+
+1. **Login**: `POST /api/mobile/auth/login` → guardar `token` y opcionalmente `user`.
+2. **Perfil**: `GET /api/mobile/auth/me` con el token para obtener `clientId` y datos actualizados.
+3. **Pantalla de reserva**:  
+   - `GET /api/services` (público) para lista de servicios.  
+   - `GET /api/barbers` con token para lista de barberos.  
+   - `GET /api/mobile/client/availability?barberId=&date=` con token para slots.  
+   - `POST /api/mobile/client/appointments` con token para crear la cita.
+4. **Mis citas**: `GET /api/mobile/client/appointments` con token.
+5. **Configuración / branding**: `GET /api/settings/public` sin token.
+
+Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con código HTTP 4xx; en 401 hay que borrar el token y redirigir a login.
+
+---
+
+## Configuración e instalación
+
+### Requisitos
 
 - Node.js 18+
+- PostgreSQL (por ejemplo [Neon](https://neon.tech) o instalación local)
 - PostgreSQL (por ejemplo [Neon](https://neon.tech) o instalación local)
 
 ### Backend
 
 1. `cd backend`
+2. `npm install`
+3. Crear `.env` en `backend/` con al menos:
+   - `DATABASE_URL` – URL de conexión PostgreSQL (ej. `postgresql://user:pass@host:5432/dbname?sslmode=require`)
+   - `JWT_SECRET` – secreto para firmar tokens (en producción usar valor seguro)
+   - `PORT` – opcional, por defecto 5000
+   - `FRONTEND_URL` – opcional, origen CORS (por defecto `http://localhost:5173`)
+4. `npm run db:push` – sincroniza el schema con la BD
+5. `npm run db:seed` – crea roles, usuarios de prueba, métodos de pago, configuración y servicios de ejemplo
 2. `npm install`
 3. Crear `.env` en `backend/` con al menos:
    - `DATABASE_URL` – URL de conexión PostgreSQL (ej. `postgresql://user:pass@host:5432/dbname?sslmode=require`)
@@ -445,6 +508,12 @@ Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con 
 Para uso normal en desarrollo, levantar backend (puerto 5000) y frontend (5173); el proxy de Vite enviará las peticiones `/api` al backend.
 
 ---
+3. Opcional: crear `.env` o `.env.local` con `VITE_API_URL=http://localhost:5000/api` si no usas el proxy (en dev el proxy de Vite redirige `/api` a `http://localhost:5000`).
+4. `npm run dev` – inicia el frontend en `http://localhost:5173`
+
+Para uso normal en desarrollo, levantar backend (puerto 5000) y frontend (5173); el proxy de Vite enviará las peticiones `/api` al backend.
+
+---
 
 ## Usuarios de prueba
 
@@ -457,14 +526,29 @@ Tras ejecutar `npm run db:seed` en `backend/`:
 | client@mrkutz.com | password123 | Cliente |
 
 ---
+Tras ejecutar `npm run db:seed` en `backend/`:
 
+| Email | Contraseña | Rol |
+|-------|------------|-----|
+| admin@mrkutz.com | password123 | Admin |
+| barber@mrkutz.com | password123 | Barbero |
+| client@mrkutz.com | password123 | Cliente |
+
+---
+
+## Comandos útiles
 ## Comandos útiles
 
 **Backend**
 
 - `npm run dev` – servidor con hot reload (--watch)
 - `npm run start` – servidor producción
+**Backend**
+
+- `npm run dev` – servidor con hot reload (--watch)
+- `npm run start` – servidor producción
 - `npm run db:generate` – regenerar cliente Prisma
+- `npm run db:push` – aplicar schema a la BD (sin migraciones)
 - `npm run db:push` – aplicar schema a la BD (sin migraciones)
 - `npm run db:seed` – ejecutar seed
 - `npm run db:studio` – abrir Prisma Studio
@@ -472,7 +556,15 @@ Tras ejecutar `npm run db:seed` en `backend/`:
 **Frontend**
 
 - `npm run dev` – desarrollo (puerto 5173, proxy a backend)
+**Frontend**
+
+- `npm run dev` – desarrollo (puerto 5173, proxy a backend)
 - `npm run build` – build de producción
+- `npm run preview` – previsualizar build
+
+---
+
+Este README describe el estado actual del proyecto: APIs, backend, frontend y base de datos, con nivel de detalle suficiente para desarrollar, mantener o desplegar Mr. Kutz.
 - `npm run preview` – previsualizar build
 
 ---

@@ -18,7 +18,7 @@ export const getById = async (req, res, next) => {
   try {
     const t = await testimonialService.getById(req.params.id);
     if (!t) {
-      return res.status(404).json({ success: false, message: 'Testimonio no encontrado.' });
+      return res.status(404).json({ success: false, message: 'Testimonial not found' });
     }
     res.json({ success: true, data: t });
   } catch (error) {

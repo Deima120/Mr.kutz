@@ -1,23 +1,19 @@
 /**
  * Formulario para crear nueva cita
  * Vista cliente: diseño premium y pasos claros. Admin/Barber: formulario estándar.
+ * Vista cliente: diseño premium y pasos claros. Admin/Barber: formulario estándar.
  */
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import AdminFormShell, {
-  AdminFormCardHeader,
-  ADMIN_FORM_FIELD_CLASS,
-  ADMIN_FORM_LABEL_CLASS,
-  AdminFormFooterActions,
-  AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
-} from '../../components/admin/AdminFormShell';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
 import * as clientService from '../../services/clientService';
 import * as barberService from '../../services/barberService';
 import * as serviceService from '../../services/serviceService';
+
+const inputClass = 'w-full px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none';
+const labelClass = 'block text-sm font-semibold text-stone-700 mb-1.5';
 
 const inputClass = 'w-full px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none';
 const labelClass = 'block text-sm font-semibold text-stone-700 mb-1.5';
@@ -43,6 +39,8 @@ export default function AppointmentFormPage() {
   const [error, setError] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   useEffect(() => {
     const promises = [
@@ -50,6 +48,24 @@ export default function AppointmentFormPage() {
       serviceService.getServices(),
     ];
     if (!isClient) promises.unshift(clientService.getClients());
+    Promise.all(promises)
+      .then((results) => {
+        if (!isClient) {
+          const [c, b, s] = results;
+          setClients(c?.clients || c || []);
+          setBarbers(Array.isArray(b) ? b : []);
+          setServices(Array.isArray(s) ? s : []);
+        } else {
+          const [b, s] = results;
+          setBarbers(Array.isArray(b) ? b : []);
+          setServices(Array.isArray(s) ? s : []);
+        }
+      })
+      .catch(() => {
+        setBarbers([]);
+        setServices([]);
+      })
+      .finally(() => setDataLoaded(true));
     Promise.all(promises)
       .then((results) => {
         if (!isClient) {
@@ -78,15 +94,20 @@ export default function AppointmentFormPage() {
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, startTime: '' }));
+    setFormData((prev) => ({ ...prev, startTime: '' }));
     if (formData.barberId && formData.appointmentDate) {
+      setSlotsLoading(true);
       setSlotsLoading(true);
       appointmentService
         .getAvailableSlots(formData.barberId, formData.appointmentDate)
         .then((slots) => setSlots(Array.isArray(slots) ? slots : []))
         .catch(() => setSlots([]))
         .finally(() => setSlotsLoading(false));
+        .catch(() => setSlots([]))
+        .finally(() => setSlotsLoading(false));
     } else {
       setSlots([]);
+      setSlotsLoading(false);
       setSlotsLoading(false);
     }
   }, [formData.barberId, formData.appointmentDate]);
@@ -111,6 +132,7 @@ export default function AppointmentFormPage() {
       if (!isClient) payload.clientId = parseInt(formData.clientId, 10);
       else if (user?.clientId) payload.clientId = user.clientId;
       await appointmentService.createAppointment(payload);
+      navigate('/appointments', { replace: true, state: { appointmentCreated: true } });
       navigate('/appointments', { replace: true, state: { appointmentCreated: true } });
     } catch (err) {
       setError(err?.message || 'Error al crear cita');
@@ -276,122 +298,78 @@ export default function AppointmentFormPage() {
 
   // ——— Vista admin / barber ———
   return (
-    <AdminFormShell
-      backTo="/appointments"
-      backLabel="Citas"
-      modeBadge="Agenda"
-      aside={{
-        kicker: 'Operación',
-        title: 'Reservas sin fricción',
-        bullets: [
-          'Los huecos de hora dependen del barbero y del horario configurado.',
-          'Cliente y servicio definen precio y duración en el sistema.',
-          'Si no hay horarios, revisa agenda del barbero o el día elegido.',
-        ],
-        statusLabel: 'Vista',
-        statusValue: 'Admin / barbero',
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
-      >
-        <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
-          <AdminFormCardHeader eyebrow="Cita" title="Nueva cita" />
-
+    <div className="space-y-8">
+      <div>
+        <p className="section-label text-gold">Citas</p>
+        <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
+          Nueva cita
+        </h1>
+        <p className="text-stone-500 mt-1">Asigna cliente, barbero, servicio, fecha y hora.</p>
+      </div>
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden max-w-xl">
+        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
+        <div className="p-6 sm:p-8 space-y-5">
           {error && (
-            <div className="alert-error text-sm py-2.5 shrink-0" role="alert">
+            <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm" role="alert">
               {error}
             </div>
           )}
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4">
-            <div className="group xl:col-span-1">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Cliente *</label>
-              <select name="clientId" value={formData.clientId} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS} required>
-                <option value="">Seleccionar cliente…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.first_name} {c.last_name} {c.email ? `(${c.email})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="group xl:col-span-1">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Barbero *</label>
-              <select name="barberId" value={formData.barberId} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS} required>
-                <option value="">Seleccionar barbero…</option>
-                {barbers.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.first_name} {b.last_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="group xl:col-span-1">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Servicio *</label>
-              <select name="serviceId" value={formData.serviceId} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS} required>
-                <option value="">Seleccionar servicio…</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — ${s.price} ({s.duration_minutes} min)
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className={labelClass}>Cliente *</label>
+            <select name="clientId" value={formData.clientId} onChange={handleChange} className={inputClass} required>
+              <option value="">Seleccionar cliente...</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.first_name} {c.last_name} {c.email ? `(${c.email})` : ''}</option>
+              ))}
+            </select>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Fecha *</label>
-              <input
-                name="appointmentDate"
-                type="date"
-                value={formData.appointmentDate}
-                onChange={handleChange}
-                min={new Date().toISOString().slice(0, 10)}
-                className={ADMIN_FORM_FIELD_CLASS}
-                required
-              />
+          <div>
+            <label className={labelClass}>Barbero *</label>
+            <select name="barberId" value={formData.barberId} onChange={handleChange} className={inputClass} required>
+              <option value="">Seleccionar barbero...</option>
+              {barbers.map((b) => (
+                <option key={b.id} value={b.id}>{b.first_name} {b.last_name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Servicio *</label>
+            <select name="serviceId" value={formData.serviceId} onChange={handleChange} className={inputClass} required>
+              <option value="">Seleccionar servicio...</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} — ${s.price} ({s.duration_minutes} min)</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Fecha *</label>
+              <input name="appointmentDate" type="date" value={formData.appointmentDate} onChange={handleChange} min={new Date().toISOString().slice(0, 10)} className={inputClass} required />
             </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Hora *</label>
-              <select
-                name="startTime"
-                value={formData.startTime}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
-                required
-                disabled={slotsLoading}
-              >
+            <div>
+              <label className={labelClass}>Hora *</label>
+              <select name="startTime" value={formData.startTime} onChange={handleChange} className={inputClass} required disabled={slotsLoading}>
                 <option value="">
-                  {slotsLoading ? 'Cargando…' : formData.barberId && formData.appointmentDate && slots.length === 0 ? 'Sin horarios' : 'Seleccionar…'}
+                  {slotsLoading ? 'Cargando...' : formData.barberId && formData.appointmentDate && slots.length === 0 ? 'Sin horarios' : 'Seleccionar...'}
                 </option>
                 {slots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
-                  </option>
+                  <option key={slot} value={slot}>{slot}</option>
                 ))}
               </select>
             </div>
           </div>
-
-          <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Notas</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={2}
-              className={`${ADMIN_FORM_FIELD_CLASS} resize-none min-h-[3.25rem]`}
-            />
+          <div>
+            <label className={labelClass}>Notas</label>
+            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className={inputClass + ' resize-none'} />
           </div>
-
-          <AdminFormFooterActions className="mt-auto">
-            <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
-            <AdminFormPrimaryButton disabled={loading}>{loading ? 'Creando…' : 'Crear cita'}</AdminFormPrimaryButton>
-          </AdminFormFooterActions>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => navigate(-1)} className="px-6 py-3 border border-stone-300 text-stone-700 font-semibold rounded-xl hover:bg-stone-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={loading} className="px-6 py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50">
+              {loading ? 'Creando...' : 'Crear cita'}
+            </button>
+          </div>
         </div>
       </form>
     </AdminFormShell>

@@ -65,6 +65,9 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
     service_name: a.service.name,
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
+    clientRating: a.clientRating,
+    clientRatingComment: a.clientRatingComment,
+    clientRatedAt: a.clientRatedAt,
   }));
 };
 
@@ -89,6 +92,135 @@ export const getById = async (id) => {
     service_name: a.service.name,
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
+    clientRating: a.clientRating,
+    clientRatingComment: a.clientRatingComment,
+    clientRatedAt: a.clientRatedAt,
+  };
+};
+
+/**
+ * Valoración única por cita: solo cliente dueño, cita completada.
+ */
+export const submitClientRating = async (appointmentId, clientId, { rating, comment }) => {
+  const id = parseInt(appointmentId, 10);
+  const cid = parseInt(clientId, 10);
+  const appt = await prisma.appointment.findUnique({
+    where: { id },
+  });
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (appt.clientId !== cid) {
+    const err = new Error('You can only rate your own appointments.');
+    err.statusCode = 403;
+    throw err;
+  }
+  if (appt.status !== 'completed') {
+    const err = new Error('Only completed appointments can be rated.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (appt.clientRating != null) {
+    const err = new Error('This appointment has already been rated.');
+    err.statusCode = 409;
+    throw err;
+  }
+  const r = Number(rating);
+  if (!Number.isInteger(r) || r < 1 || r > 5) {
+    const err = new Error('Rating must be an integer between 1 and 5.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  let commentVal = null;
+  if (comment != null && String(comment).trim()) {
+    commentVal = String(comment).trim().slice(0, 2000);
+  }
+
+  await prisma.appointment.update({
+    where: { id },
+    data: {
+      clientRating: r,
+      clientRatingComment: commentVal,
+      clientRatedAt: new Date(),
+    },
+  });
+  return getById(id);
+};
+
+/**
+ * Resumen agregado de valoraciones (barbero concreto o global si barberId es null).
+ * @param {{ barberId: number | null, days: number | null }} opts — days null = sin límite temporal
+ */
+export const getRatingSummary = async ({ barberId = null, days = null } = {}) => {
+  const where = {
+    status: 'completed',
+    clientRating: { not: null },
+  };
+  if (barberId != null && !Number.isNaN(barberId)) {
+    where.barberId = parseInt(barberId, 10);
+  }
+  if (days != null && days > 0) {
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - days);
+    since.setUTCHours(0, 0, 0, 0);
+    where.clientRatedAt = { gte: since };
+  }
+
+  const [rowsForDist, agg, recentRows] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      select: { clientRating: true },
+    }),
+    prisma.appointment.aggregate({
+      where,
+      _avg: { clientRating: true },
+    }),
+    prisma.appointment.findMany({
+      where,
+      orderBy: { clientRatedAt: 'desc' },
+      take: 50,
+      include: {
+        client: { select: { firstName: true, lastName: true } },
+        service: { select: { name: true } },
+        barber: { select: { firstName: true, lastName: true } },
+      },
+    }),
+  ]);
+
+  const count = rowsForDist.length;
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  for (const row of rowsForDist) {
+    const n = row.clientRating;
+    if (n >= 1 && n <= 5) distribution[n] += 1;
+  }
+
+  const average =
+    count > 0 && agg._avg.clientRating != null
+      ? Math.round(Number(agg._avg.clientRating) * 100) / 100
+      : null;
+
+  const recent = recentRows.map((ap) => ({
+    appointmentId: ap.id,
+    clientName:
+      [ap.client.firstName, ap.client.lastName].filter(Boolean).join(' ').trim() || 'Cliente',
+    rating: ap.clientRating,
+    comment: ap.clientRatingComment,
+    date: ap.clientRatedAt,
+    serviceName: ap.service?.name ?? '',
+    barberName:
+      ap.barber != null
+        ? `${ap.barber.firstName || ''} ${ap.barber.lastName || ''}`.trim()
+        : undefined,
+  }));
+
+  return {
+    average,
+    count,
+    distribution,
+    recent,
   };
 };
 

@@ -43,7 +43,56 @@ export default function TestimonialsPage() {
   };
 
   return (
-    <div className="page-shell">
+    <div className="space-y-8">
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
+        <div className="p-6 sm:p-8">
+          <p className="section-label text-gold mb-2">Satisfacción del cliente</p>
+          <h2 className="font-serif text-xl sm:text-2xl text-stone-900 font-medium tracking-tight mb-1">
+            Valoraciones de citas completadas
+          </h2>
+          <p className="text-stone-500 text-sm mb-6 max-w-2xl">
+            Misma fuente que la app móvil: estrellas y comentarios opcionales tras cada cita. Los testimonios
+            de la landing más abajo son contenido editorial independiente (textos curados para la web pública).
+          </p>
+          <AppointmentRatingsPanel
+            summary={ratingSummary}
+            loading={ratingLoading}
+            error={ratingError}
+            filtersSlot={
+              <div className="flex flex-wrap items-end gap-4 mb-2">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600 mb-1">Periodo</label>
+                  <select
+                    value={ratingPeriod}
+                    onChange={(e) => setRatingPeriod(e.target.value)}
+                    className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
+                  >
+                    <option value="30">Últimos 30 días</option>
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600 mb-1">Barbero</label>
+                  <select
+                    value={ratingBarberId}
+                    onChange={(e) => setRatingBarberId(e.target.value)}
+                    className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold min-w-[200px]"
+                  >
+                    <option value="">Todos los barberos</option>
+                    {barbers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.first_name} {b.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            }
+          />
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="section-label text-gold">Contenido</p>
