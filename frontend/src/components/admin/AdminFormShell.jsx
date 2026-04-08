@@ -74,6 +74,7 @@ export function AdminFormSecondaryButton({ children, onClick, type = 'button', c
  * @param {string} props.modeBadge — ej. "Alta", "Edición"
  * @param {boolean} [props.showAside=true]
  * @param {{ title: string, subtitle: string, bullets: string[], statusLabel?: string, statusValue?: string }} [props.aside]
+ * @param {boolean} [props.fullBleed=true] — Si es false (p. ej. vista cliente), sin márgenes negativos; el contenedor padre aporta el ancho.
  */
 export default function AdminFormShell({
   backTo,
@@ -82,11 +83,20 @@ export default function AdminFormShell({
   showAside = true,
   aside,
   children,
+  fullBleed = true,
 }) {
   const asideVisible = showAside && aside && Array.isArray(aside.bullets) && aside.bullets.length > 0;
 
+  const bleedWidth =
+    fullBleed
+      ? 'w-[calc(100%+3rem)] md:w-[calc(100%+4rem)] -mx-6 md:-mx-8'
+      : 'w-full min-w-0';
+  const rootMinHeight = fullBleed ? 'min-h-0' : 'min-h-[min(72vh,52rem)]';
+
   return (
-    <div className="relative flex-1 min-h-0 w-[calc(100%+3rem)] md:w-[calc(100%+4rem)] -mx-6 md:-mx-8 flex flex-col overflow-x-hidden overflow-y-hidden">
+    <div
+      className={`relative flex-1 ${rootMinHeight} ${bleedWidth} flex flex-col overflow-x-hidden overflow-y-hidden`}
+    >
       <div className="absolute inset-0 -z-20 bg-gradient-to-br from-stone-300/35 via-stone-100 to-stone-200/50" aria-hidden />
       <div
         className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_90%_70%_at_100%_0%,rgba(201,169,98,0.14),transparent_55%),radial-gradient(ellipse_70%_50%_at_0%_100%,rgba(12,10,9,0.08),transparent_50%)]"

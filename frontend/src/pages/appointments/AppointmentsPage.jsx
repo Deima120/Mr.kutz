@@ -198,7 +198,23 @@ export default function AppointmentsPage() {
     }
   };
 
-  const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
+  /** start_time de la API suele ser ISO (1970-01-01THH:mm:ss…); no usar slice(0,5) → "1970-". */
+  const formatTime = (t) => {
+    if (t == null || t === '') return '';
+    if (t instanceof Date) {
+      return `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+    }
+    const s = String(t);
+    const iso = s.match(/T(\d{1,2}):(\d{2})/);
+    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
+    const hm = s.match(/^(\d{1,2}):(\d{2})/);
+    if (hm) return `${String(hm[1]).padStart(2, '0')}:${hm[2]}`;
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    }
+    return '';
+  };
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 

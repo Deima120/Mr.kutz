@@ -1,18 +1,26 @@
 /**
  * Formulario para crear nueva cita
- * Vista cliente: diseño premium y pasos claros. Admin/Barber: formulario estándar.
+ * Misma envoltura visual que el alta de barberos (AdminFormShell + tarjeta editorial).
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
 import * as clientService from '../../services/clientService';
 import * as barberService from '../../services/barberService';
 import * as serviceService from '../../services/serviceService';
+import AdminFormShell, {
+  AdminFormCardHeader,
+  ADMIN_FORM_FIELD_CLASS,
+  ADMIN_FORM_LABEL_CLASS,
+  AdminFormFooterActions,
+  AdminFormPrimaryButton,
+  AdminFormSecondaryButton,
+} from '../../components/admin/AdminFormShell';
 
-const inputClass = 'w-full px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none';
-const labelClass = 'block text-sm font-semibold text-stone-700 mb-1.5';
+const stepKickerClass =
+  'text-[10px] font-semibold tracking-[0.28em] text-gold mb-3';
 
 export default function AppointmentFormPage() {
   const navigate = useNavigate();
@@ -37,10 +45,7 @@ export default function AppointmentFormPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
 
   useEffect(() => {
-    const promises = [
-      barberService.getBarbers(),
-      serviceService.getServices(),
-    ];
+    const promises = [barberService.getBarbers(), serviceService.getServices()];
     if (!isClient) promises.unshift(clientService.getClients());
     Promise.all(promises)
       .then((results) => {
@@ -111,237 +116,352 @@ export default function AppointmentFormPage() {
     }
   };
 
-  // ——— Vista cliente: diseño premium, pasos claros ———
-  if (isClient) {
-    return (
-      <div className="min-h-[60vh] bg-stone-50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className="max-w-xl mx-auto">
-            <Link
-              to="/appointments"
-              className="inline-flex items-center gap-1.5 text-stone-500 hover:text-stone-700 text-sm font-medium mb-6"
+  const formShellProps = isClient
+    ? {
+        fullBleed: false,
+        backTo: '/appointments',
+        backLabel: 'Mis citas',
+        modeBadge: 'Reserva',
+        aside: {
+          kicker: 'Tu cita',
+          title: 'Reserva con la misma calidad que en sala',
+          bullets: [
+            'Elige barbero y servicio; la fecha y hora se ajustan a la disponibilidad real.',
+            'Las notas son opcionales y ayudan al equipo a preparar tu visita.',
+            'Puedes revisar o gestionar tus citas cuando quieras desde el mismo panel.',
+          ],
+          statusLabel: 'Estado',
+          statusValue: 'Nueva reserva',
+        },
+      }
+    : {
+        backTo: '/appointments',
+        backLabel: 'Citas',
+        modeBadge: 'Alta',
+        aside: {
+          kicker: 'Agenda',
+          title: 'Cada cita ordena el día del equipo',
+          bullets: [
+            'Asigna cliente y barbero; los huecos dependen de la agenda y de citas ya confirmadas.',
+            'El servicio define duración y precio en el sistema.',
+            'Las notas internas ayudan al barbero sin que el cliente las vea en la app pública.',
+          ],
+          statusLabel: 'Estado',
+          statusValue: 'Alta nueva',
+        },
+      };
+
+  const outerWrapperClass = isClient
+    ? 'min-h-[60vh] bg-stone-100'
+    : '';
+
+  const innerWrapperClass = isClient
+    ? 'container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 max-w-[min(88rem,100%)]'
+    : '';
+
+  const shell = (
+    <AdminFormShell {...formShellProps}>
+      <form
+        onSubmit={handleSubmit}
+        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
+      >
+        <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
+        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+          <AdminFormCardHeader
+            eyebrow={isClient ? 'Reserva' : 'Cita'}
+            title={isClient ? 'Agendar cita' : 'Nueva cita'}
+          />
+
+          {error && (
+            <div className="alert-error text-sm py-2.5 shrink-0" role="alert">
+              {error}
+            </div>
+          )}
+
+          {dataLoaded && barbers.length === 0 && (
+            <div
+              className="rounded-xl border border-amber-200/90 bg-amber-50/95 text-amber-900 text-sm p-3.5 shrink-0"
+              role="status"
             >
-              <span aria-hidden>←</span>
-              Volver a mis citas
-            </Link>
-            <p className="section-label text-gold">Reserva</p>
-            <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight mb-2">
-              Agendar cita
-            </h1>
-            <p className="text-stone-500 mb-8">
-              Elige barbero, servicio, fecha y hora. En pocos pasos quedas listo.
-            </p>
+              <p className="font-semibold text-amber-950 mb-1">No hay barberos disponibles</p>
+              <p className="text-amber-800/95">
+                En este momento no podemos mostrar opciones para agendar. Contacta con la barbería o intenta más tarde.
+              </p>
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
-              <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
-              <div className="p-6 sm:p-8 space-y-6">
-                {error && (
-                  <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm" role="alert">
-                    {error}
-                  </div>
-                )}
+          {dataLoaded && services.length === 0 && barbers.length > 0 && (
+            <div
+              className="rounded-xl border border-amber-200/90 bg-amber-50/95 text-amber-900 text-sm p-3.5 shrink-0"
+              role="status"
+            >
+              <p className="font-semibold text-amber-950 mb-1">No hay servicios disponibles</p>
+              <p className="text-amber-800/95">No hay servicios cargados para elegir. Contacta con la barbería.</p>
+            </div>
+          )}
 
-                {dataLoaded && barbers.length === 0 && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm" role="status">
-                    <p className="font-medium mb-1">No hay barberos disponibles</p>
-                    <p className="text-amber-700">En este momento no podemos mostrar opciones para agendar. Por favor, contacta con la barbería o intenta más tarde.</p>
-                  </div>
-                )}
+          {!isClient && (
+            <div className="group">
+              <label className={ADMIN_FORM_LABEL_CLASS}>Cliente *</label>
+              <select
+                name="clientId"
+                value={formData.clientId}
+                onChange={handleChange}
+                className={ADMIN_FORM_FIELD_CLASS}
+                required
+              >
+                <option value="">Seleccionar cliente...</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.first_name} {c.last_name} {c.email ? `(${c.email})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-                {dataLoaded && services.length === 0 && barbers.length > 0 && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm" role="status">
-                    <p className="font-medium mb-1">No hay servicios disponibles</p>
-                    <p className="text-amber-700">No hay servicios cargados para elegir. Contacta con la barbería.</p>
-                  </div>
-                )}
-
-                <section>
-                  <h2 className="text-sm font-semibold text-gold tracking-wider mb-4">Paso 1 — Barbero y servicio</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="barberId" className={labelClass}>Barbero *</label>
-                      <select id="barberId" name="barberId" value={formData.barberId} onChange={handleChange} className={inputClass} required disabled={!dataLoaded || barbers.length === 0}>
-                        <option value="">
-                          {!dataLoaded ? 'Cargando...' : barbers.length === 0 ? 'No hay barberos disponibles' : 'Seleccionar barbero...'}
+          {isClient ? (
+            <>
+              <section>
+                <p className={stepKickerClass}>Paso 1 — Barbero y servicio</p>
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                  <div className="group">
+                    <label htmlFor="barberId" className={ADMIN_FORM_LABEL_CLASS}>
+                      Barbero *
+                    </label>
+                    <select
+                      id="barberId"
+                      name="barberId"
+                      value={formData.barberId}
+                      onChange={handleChange}
+                      className={ADMIN_FORM_FIELD_CLASS}
+                      required
+                      disabled={!dataLoaded || barbers.length === 0}
+                    >
+                      <option value="">
+                        {!dataLoaded
+                          ? 'Cargando...'
+                          : barbers.length === 0
+                            ? 'No hay barberos disponibles'
+                            : 'Seleccionar barbero...'}
+                      </option>
+                      {barbers.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.first_name} {b.last_name}
                         </option>
-                        {barbers.map((b) => (
-                          <option key={b.id} value={b.id}>{b.first_name} {b.last_name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="serviceId" className={labelClass}>Servicio *</label>
-                      <select id="serviceId" name="serviceId" value={formData.serviceId} onChange={handleChange} className={inputClass} required disabled={!dataLoaded || services.length === 0}>
-                        <option value="">
-                          {!dataLoaded ? 'Cargando...' : services.length === 0 ? 'No hay servicios disponibles' : 'Seleccionar servicio...'}
-                        </option>
-                        {services.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} — ${s.price} ({s.duration_minutes} min)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      ))}
+                    </select>
                   </div>
-                </section>
+                  <div className="group">
+                    <label htmlFor="serviceId" className={ADMIN_FORM_LABEL_CLASS}>
+                      Servicio *
+                    </label>
+                    <select
+                      id="serviceId"
+                      name="serviceId"
+                      value={formData.serviceId}
+                      onChange={handleChange}
+                      className={ADMIN_FORM_FIELD_CLASS}
+                      required
+                      disabled={!dataLoaded || services.length === 0}
+                    >
+                      <option value="">
+                        {!dataLoaded
+                          ? 'Cargando...'
+                          : services.length === 0
+                            ? 'No hay servicios disponibles'
+                            : 'Seleccionar servicio...'}
+                      </option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} — ${s.price} ({s.duration_minutes} min)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </section>
 
-                <section>
-                  <h2 className="text-sm font-semibold text-gold tracking-wider mb-4">Paso 2 — Fecha y hora</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="appointmentDate" className={labelClass}>Fecha *</label>
-                      <input
-                        id="appointmentDate"
-                        name="appointmentDate"
-                        type="date"
-                        value={formData.appointmentDate}
-                        onChange={handleChange}
-                        min={new Date().toISOString().slice(0, 10)}
-                        className={inputClass}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="startTime" className={labelClass}>Hora *</label>
-                      <select
-                        id="startTime"
-                        name="startTime"
-                        value={formData.startTime}
-                        onChange={handleChange}
-                        className={inputClass}
-                        required
-                        disabled={!formData.barberId || !formData.appointmentDate || slotsLoading}
-                      >
-                        <option value="">
-                          {!formData.barberId || !formData.appointmentDate
-                            ? 'Elige primero barbero y fecha'
-                            : slotsLoading
+              <section className="border-t border-stone-200/80 pt-4">
+                <p className={stepKickerClass}>Paso 2 — Fecha y hora</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="group">
+                    <label htmlFor="appointmentDate" className={ADMIN_FORM_LABEL_CLASS}>
+                      Fecha *
+                    </label>
+                    <input
+                      id="appointmentDate"
+                      name="appointmentDate"
+                      type="date"
+                      value={formData.appointmentDate}
+                      onChange={handleChange}
+                      min={new Date().toISOString().slice(0, 10)}
+                      className={ADMIN_FORM_FIELD_CLASS}
+                      required
+                    />
+                  </div>
+                  <div className="group">
+                    <label htmlFor="startTime" className={ADMIN_FORM_LABEL_CLASS}>
+                      Hora *
+                    </label>
+                    <select
+                      id="startTime"
+                      name="startTime"
+                      value={formData.startTime}
+                      onChange={handleChange}
+                      className={ADMIN_FORM_FIELD_CLASS}
+                      required
+                      disabled={!formData.barberId || !formData.appointmentDate || slotsLoading}
+                    >
+                      <option value="">
+                        {!formData.barberId || !formData.appointmentDate
+                          ? 'Elige primero barbero y fecha'
+                          : slotsLoading
                             ? 'Cargando horarios...'
                             : slots.length === 0
-                            ? 'Sin horarios para esta fecha'
-                            : 'Seleccionar hora...'}
+                              ? 'Sin horarios para esta fecha'
+                              : 'Seleccionar hora...'}
+                      </option>
+                      {slots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {slot}
                         </option>
-                        {slots.map((slot) => (
-                          <option key={slot} value={slot}>{slot}</option>
-                        ))}
-                      </select>
-                    </div>
+                      ))}
+                    </select>
                   </div>
-                </section>
+                </div>
+              </section>
 
-                <section>
-                  <h2 className="text-sm font-semibold text-gold tracking-wider mb-4">Opcional</h2>
-                  <label htmlFor="notes" className={labelClass}>Notas (ej. preferencia de corte)</label>
+              <section className="border-t border-stone-200/80 pt-4">
+                <p className={stepKickerClass}>Opcional</p>
+                <div className="group">
+                  <label htmlFor="notes" className={ADMIN_FORM_LABEL_CLASS}>
+                    Notas (ej. preferencia de corte)
+                  </label>
                   <textarea
                     id="notes"
                     name="notes"
                     value={formData.notes}
                     onChange={handleChange}
                     rows={2}
-                    className={inputClass + ' resize-none'}
+                    className={`${ADMIN_FORM_FIELD_CLASS} resize-none`}
                     placeholder="Algo que quieras que sepamos..."
                   />
-                </section>
-
-                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-                  <Link
-                    to="/appointments"
-                    className="inline-flex justify-center px-6 py-3 border border-stone-300 text-stone-700 font-semibold rounded-xl hover:bg-stone-50 transition-colors"
+                </div>
+              </section>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="group">
+                  <label className={ADMIN_FORM_LABEL_CLASS}>Barbero *</label>
+                  <select
+                    name="barberId"
+                    value={formData.barberId}
+                    onChange={handleChange}
+                    className={ADMIN_FORM_FIELD_CLASS}
+                    required
                   >
-                    Cancelar
-                  </Link>
-                  <button
-                    type="submit"
-                    disabled={loading || !dataLoaded || barbers.length === 0 || services.length === 0}
-                    className="inline-flex justify-center px-6 py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    <option value="">Seleccionar barbero...</option>
+                    {barbers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.first_name} {b.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="group">
+                  <label className={ADMIN_FORM_LABEL_CLASS}>Servicio *</label>
+                  <select
+                    name="serviceId"
+                    value={formData.serviceId}
+                    onChange={handleChange}
+                    className={ADMIN_FORM_FIELD_CLASS}
+                    required
                   >
-                    {loading ? 'Reservando...' : 'Confirmar reserva'}
-                  </button>
+                    <option value="">Seleccionar servicio...</option>
+                    {services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — ${s.price} ({s.duration_minutes} min)
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            </form>
-          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="group">
+                  <label className={ADMIN_FORM_LABEL_CLASS}>Fecha *</label>
+                  <input
+                    name="appointmentDate"
+                    type="date"
+                    value={formData.appointmentDate}
+                    onChange={handleChange}
+                    min={new Date().toISOString().slice(0, 10)}
+                    className={ADMIN_FORM_FIELD_CLASS}
+                    required
+                  />
+                </div>
+                <div className="group">
+                  <label className={ADMIN_FORM_LABEL_CLASS}>Hora *</label>
+                  <select
+                    name="startTime"
+                    value={formData.startTime}
+                    onChange={handleChange}
+                    className={ADMIN_FORM_FIELD_CLASS}
+                    required
+                    disabled={slotsLoading}
+                  >
+                    <option value="">
+                      {slotsLoading
+                        ? 'Cargando...'
+                        : formData.barberId && formData.appointmentDate && slots.length === 0
+                          ? 'Sin horarios'
+                          : 'Seleccionar...'}
+                    </option>
+                    {slots.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="group">
+                <label className={ADMIN_FORM_LABEL_CLASS}>Notas</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={2}
+                  className={`${ADMIN_FORM_FIELD_CLASS} resize-none`}
+                />
+              </div>
+            </>
+          )}
+
+          <AdminFormFooterActions className="mt-auto">
+            <AdminFormPrimaryButton
+              disabled={
+                loading ||
+                (isClient && (!dataLoaded || barbers.length === 0 || services.length === 0))
+              }
+            >
+              {loading ? (isClient ? 'Reservando…' : 'Creando…') : isClient ? 'Confirmar reserva' : 'Crear cita'}
+            </AdminFormPrimaryButton>
+            <AdminFormSecondaryButton onClick={() => navigate('/appointments')}>Cancelar</AdminFormSecondaryButton>
+          </AdminFormFooterActions>
         </div>
+      </form>
+    </AdminFormShell>
+  );
+
+  if (isClient) {
+    return (
+      <div className={outerWrapperClass}>
+        <div className={innerWrapperClass}>{shell}</div>
       </div>
     );
   }
 
-  // ——— Vista admin / barber ———
-  return (
-    <div className="space-y-8">
-      <div>
-        <p className="section-label text-gold">Citas</p>
-        <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
-          Nueva cita
-        </h1>
-        <p className="text-stone-500 mt-1">Asigna cliente, barbero, servicio, fecha y hora.</p>
-      </div>
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden max-w-xl">
-        <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
-        <div className="p-6 sm:p-8 space-y-5">
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm" role="alert">
-              {error}
-            </div>
-          )}
-          <div>
-            <label className={labelClass}>Cliente *</label>
-            <select name="clientId" value={formData.clientId} onChange={handleChange} className={inputClass} required>
-              <option value="">Seleccionar cliente...</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.first_name} {c.last_name} {c.email ? `(${c.email})` : ''}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Barbero *</label>
-            <select name="barberId" value={formData.barberId} onChange={handleChange} className={inputClass} required>
-              <option value="">Seleccionar barbero...</option>
-              {barbers.map((b) => (
-                <option key={b.id} value={b.id}>{b.first_name} {b.last_name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Servicio *</label>
-            <select name="serviceId" value={formData.serviceId} onChange={handleChange} className={inputClass} required>
-              <option value="">Seleccionar servicio...</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} — ${s.price} ({s.duration_minutes} min)</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Fecha *</label>
-              <input name="appointmentDate" type="date" value={formData.appointmentDate} onChange={handleChange} min={new Date().toISOString().slice(0, 10)} className={inputClass} required />
-            </div>
-            <div>
-              <label className={labelClass}>Hora *</label>
-              <select name="startTime" value={formData.startTime} onChange={handleChange} className={inputClass} required disabled={slotsLoading}>
-                <option value="">
-                  {slotsLoading ? 'Cargando...' : formData.barberId && formData.appointmentDate && slots.length === 0 ? 'Sin horarios' : 'Seleccionar...'}
-                </option>
-                {slots.map((slot) => (
-                  <option key={slot} value={slot}>{slot}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>Notas</label>
-            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className={inputClass + ' resize-none'} />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => navigate(-1)} className="px-6 py-3 border border-stone-300 text-stone-700 font-semibold rounded-xl hover:bg-stone-50 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading} className="px-6 py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50">
-              {loading ? 'Creando...' : 'Crear cita'}
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
+  return shell;
 }
