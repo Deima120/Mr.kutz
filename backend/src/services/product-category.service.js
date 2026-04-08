@@ -20,14 +20,24 @@ export const create = async (data) => prisma.productCategory.create({
   },
 });
 
-export const update = async (id, data) => prisma.productCategory.update({
-  where: { id: parseInt(id, 10) },
-  data: {
-    name: data.name,
-    description: data.description,
-    isActive: data.isActive,
-  },
-});
+export const update = async (id, data) => {
+  const patch = {};
+  if (data.name !== undefined) patch.name = String(data.name).trim();
+  if (data.description !== undefined) {
+    patch.description =
+      data.description != null && String(data.description).trim() !== ''
+        ? String(data.description).trim()
+        : null;
+  }
+  if (data.isActive !== undefined) patch.isActive = Boolean(data.isActive);
+  if (Object.keys(patch).length === 0) {
+    return getById(id);
+  }
+  return prisma.productCategory.update({
+    where: { id: parseInt(id, 10) },
+    data: patch,
+  });
+};
 
 export const remove = async (id) => {
   await prisma.productCategory.delete({ where: { id: parseInt(id, 10) } });

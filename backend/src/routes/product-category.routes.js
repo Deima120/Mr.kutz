@@ -15,8 +15,8 @@ const createValidation = [
 ];
 
 const updateValidation = [
-  body('name').optional().trim().isLength({ max: 100 }),
-  body('description').optional().trim(),
+  body('name').optional().trim().notEmpty().withMessage('El nombre no puede quedar vacío.').isLength({ max: 100 }),
+  body('description').optional({ nullable: true }).trim(),
   body('isActive').optional().isBoolean(),
 ];
 
