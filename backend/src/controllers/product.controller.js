@@ -95,15 +95,3 @@ export const getMovements = async (req, res, next) => {
     next(error);
   }
 };
-
-export const remove = async (req, res, next) => {
-  try {
-    const deleted = await productService.remove(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
-    }
-    res.json({ success: true, message: 'Producto eliminado correctamente.' });
-  } catch (error) {
-    next(error);
-  }
-};

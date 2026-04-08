@@ -13,20 +13,20 @@ const router = express.Router();
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
   body('description').optional().trim(),
-  body('sku').optional().trim().isLength({ max: 50 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
   body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
+  body('retailPrice').optional().isFloat({ min: 0 }),
 ];
 
 const updateValidation = [
   body('name').optional().trim().isLength({ max: 150 }),
   body('description').optional().trim(),
-  body('sku').optional().trim().isLength({ max: 50 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
   body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
   body('isActive').optional().isBoolean(),
+  body('retailPrice').optional({ nullable: true }).isFloat({ min: 0 }),
 ];
 
 const stockValidation = [
@@ -47,6 +47,5 @@ router.get('/:id', idParam, validate, productController.getById);
 router.post('/', createValidation, validate, productController.create);
 router.put('/:id', [idParam, ...updateValidation], validate, productController.update);
 router.put('/:id/stock', [idParam, ...stockValidation], validate, productController.updateStock);
-router.delete('/:id', idParam, validate, productController.remove);
 
 export default router;

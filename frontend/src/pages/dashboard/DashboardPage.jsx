@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useId } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as dashboardService from '../../services/dashboardService';
 import * as appointmentService from '../../services/appointmentService';
@@ -23,6 +23,7 @@ const STATUS_LABELS = {
 
 function BarberDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,9 +107,7 @@ function BarberDashboard() {
   const handleMarkCompleted = async (id) => {
     try {
       await appointmentService.updateAppointment(id, { status: 'completed' });
-      await refreshAll();
-      const data = await dashboardService.getStats().catch(() => null);
-      if (data?.role === 'barber') setMetrics(data);
+      navigate(`/payments/new?appointmentId=${id}`);
     } catch (err) {
       setError(err?.message || 'Error al actualizar');
     }
@@ -309,6 +308,7 @@ function BarberDashboard() {
 
 function AdminDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
   const [dateFrom, setDateFrom] = useState(new Date(new Date().setDate(1)).toISOString().slice(0, 10));
@@ -362,7 +362,7 @@ function AdminDashboard() {
   const handleMarkCompleted = async (id) => {
     try {
       await appointmentService.updateAppointment(id, { status: 'completed' });
-      await Promise.all([refreshAppointments(), fetchStats()]);
+      navigate(`/payments/new?appointmentId=${id}`);
     } catch (err) {
       setAppointmentsError(err?.message || 'Error al actualizar');
     }
