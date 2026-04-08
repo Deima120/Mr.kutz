@@ -6,6 +6,9 @@
   html {
     @apply scroll-smooth;
   }
+  html {
+    @apply scroll-smooth;
+  }
   body {
     @apply bg-stone-50 text-stone-900 antialiased font-sans;
   }

@@ -13,7 +13,7 @@ export const register = async (req, res, next) => {
     const result = await authService.register(req.body);
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'Usuario registrado correctamente.',
       data: result,
     });
   } catch (error) {
@@ -31,7 +31,7 @@ export const login = async (req, res, next) => {
     const result = await authService.login(email, password);
     res.json({
       success: true,
-      message: 'Login successful',
+      message: 'Sesión iniciada correctamente.',
       data: result,
     });
   } catch (error) {
@@ -47,7 +47,7 @@ export const getProfile = async (req, res, next) => {
   try {
     const profile = await authService.getProfile(req.user.id);
     if (!profile) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     }
     res.json({
       success: true,
@@ -69,8 +69,6 @@ export const forgotPassword = async (req, res, next) => {
     res.json({
       success: true,
       message: result.message,
-      // Solo en desarrollo
-      ...(result.resetCode && { resetCode: result.resetCode }),
     });
   } catch (error) {
     next(error);

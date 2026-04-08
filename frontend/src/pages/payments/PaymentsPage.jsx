@@ -9,6 +9,7 @@ import PageHeader from '../../components/admin/PageHeader';
 import StatsCard from '../../components/admin/StatsCard';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -55,41 +56,80 @@ export default function PaymentsPage() {
 
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-  const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
+  const formatTime = (t) => {
+    if (!t) return '';
+    if (t instanceof Date) {
+      const hh = String(t.getHours()).padStart(2, '0');
+      const mm = String(t.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    const s = String(t);
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime()) && s.includes('T')) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    const iso = s.match(/T(\d{1,2}):(\d{2})/);
+    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
+    const any = s.match(/(\d{1,2}):(\d{2})/);
+    if (any) {
+      const hh = String(any[1]).padStart(2, '0');
+      return `${hh}:${any[2]}`;
+    }
+    return s.slice(0, 5);
+  };
   const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title="Pagos y ventas"
+        label="Finanzas"
         subtitle="Historial de transacciones"
         actions={
-          <Link
-            to="/payments/new"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
-          >
-            + Registrar pago
-          </Link>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => downloadCSV('pagos.csv', payments.map((p) => ({
+                id: p.id,
+                fecha: p.created_at,
+                cliente: `${p.client_first_name || ''} ${p.client_last_name || ''}`.trim(),
+                servicio: p.service_name || '',
+                metodo: p.payment_method_name || '',
+                monto: p.amount,
+              })))}
+              className="btn-admin-outline"
+            >
+              Exportar CSV
+            </button>
+            <button type="button" onClick={printAsPDF} className="btn-admin-outline">
+              Exportar PDF
+            </button>
+            <Link to="/payments/new" className="btn-admin">
+              + Registrar pago
+            </Link>
+          </div>
         }
       />
 
       <div className="flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
+          <label className="block text-xs font-semibold text-stone-600 mb-1">Desde</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+            className="input-premium py-2.5 text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
+          <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+            className="input-premium py-2.5 text-sm"
           />
         </div>
       </div>
@@ -102,16 +142,16 @@ export default function PaymentsPage() {
       />
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {loading ? (
         <DataCard>
-          <div className="py-16 text-center text-gray-500">Cargando...</div>
+          <div className="py-16 text-center text-stone-500">Cargando...</div>
         </DataCard>
       ) : payments.length === 0 ? (
         <DataCard>
-          <div className="py-16 text-center text-gray-500">No hay pagos en este periodo.</div>
+          <div className="py-16 text-center text-stone-500">No hay pagos en este periodo.</div>
         </DataCard>
       ) : (
         <DataCard>
@@ -130,7 +170,7 @@ export default function PaymentsPage() {
                   <TableCell className="text-sm">
                     {formatDate(p.created_at)}
                     {p.start_time && (
-                      <span className="text-gray-500 ml-1">{formatTime(p.start_time)}</span>
+                      <span className="text-stone-500 ml-1">{formatTime(p.start_time)}</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -140,13 +180,13 @@ export default function PaymentsPage() {
                   </TableCell>
                   <TableCell>{p.service_name || '-'}</TableCell>
                   <TableCell>{p.payment_method_name || '-'}</TableCell>
-                  <TableCell className="text-right font-semibold text-gray-900">
+                  <TableCell className="text-right font-semibold text-gold">
                     {formatAmount(p.amount)}
                   </TableCell>
                   <TableCell>
                     <button
                       onClick={() => handleDelete(p.id)}
-                      className="text-sm text-red-600 hover:text-red-700 font-medium"
+                      className="text-sm font-medium text-red-600 hover:text-red-700"
                     >
                       Eliminar
                     </button>

@@ -11,14 +11,14 @@ import * as paymentController from '../controllers/payment.controller.js';
 const router = express.Router();
 
 const createValidation = [
-  body('amount').isFloat({ min: 0 }).withMessage('Amount must be >= 0'),
-  body('paymentMethodId').isInt({ min: 1 }).withMessage('Valid payment method required'),
+  body('amount').isFloat({ min: 0 }).withMessage('El monto debe ser mayor o igual a 0.'),
+  body('paymentMethodId').isInt({ min: 1 }).withMessage('Indica un método de pago válido.'),
   body('appointmentId').optional().isInt({ min: 1 }),
   body('reference').optional().trim().isLength({ max: 100 }),
   body('notes').optional().trim(),
 ];
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid payment ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de pago no válido.');
 
 router.use(auth);
 router.use(authorize('admin', 'barber'));

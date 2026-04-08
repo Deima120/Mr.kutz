@@ -13,8 +13,9 @@ const adminNavItems = [
   { path: '/clients', label: 'Clientes', icon: '👥' },
   { path: '/services', label: 'Servicios', icon: '✂️' },
   { path: '/barbers', label: 'Barberos', icon: '🧔' },
-  { path: '/testimonials', label: 'Satisfacción', icon: '💬' },
+  { path: '/testimonials', label: 'Testimonios', icon: '💬' },
   { path: '/payments', label: 'Pagos', icon: '💳' },
+  { path: '/purchases', label: 'Compras', icon: '🧾' },
   { path: '/inventory', label: 'Inventario', icon: '📦' },
   { path: '/reports', label: 'Reportes', icon: '📈' },
   { path: '/settings', label: 'Configuración', icon: '⚙️' },
@@ -44,7 +45,7 @@ export default function AdminLayout({ children }) {
   return (
     <div className="min-h-screen flex bg-stone-100">
       {/* Sidebar — identidad de marca */}
-      <aside className="w-64 bg-barber-dark text-white flex flex-col fixed h-full">
+      <aside className="w-64 bg-barber-dark text-white flex flex-col fixed h-full shadow-2xl">
         <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-gold/50 to-transparent" aria-hidden />
         <div className="p-6 border-b border-stone-800">
           <Link to="/dashboard" className="block group">
@@ -65,9 +66,9 @@ export default function AdminLayout({ children }) {
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-white text-barber-dark shadow-sm'
+                        ? 'bg-white text-barber-dark shadow-sm border border-stone-100'
                         : 'text-stone-400 hover:bg-stone-800 hover:text-white'
                     }`}
                   >
@@ -95,16 +96,16 @@ export default function AdminLayout({ children }) {
         </div>
       </aside>
 
-      <div className="flex-1 ml-64 min-h-screen flex flex-col">
-        <header className="bg-white border-b border-stone-200 px-8 py-4 sticky top-0 z-10 shadow-card">
+      <div className="flex-1 ml-64 h-screen min-h-0 flex flex-col overflow-hidden">
+        <header className="shrink-0 bg-white/95 backdrop-blur border-b border-stone-200 px-8 py-4 z-10 shadow-card">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-medium text-stone-900">
+            <h2 className="font-serif text-xl font-medium text-stone-900">
               {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
             </h2>
           </div>
         </header>
 
-        <main className="flex-1 p-8">
+        <main className="flex flex-1 flex-col min-h-0 overflow-y-auto p-6 md:p-8">
           {children}
         </main>
       </div>

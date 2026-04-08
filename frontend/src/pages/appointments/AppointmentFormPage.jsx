@@ -1,6 +1,7 @@
 /**
  * Formulario para crear nueva cita
  * Vista cliente: diseño premium y pasos claros. Admin/Barber: formulario estándar.
+ * Vista cliente: diseño premium y pasos claros. Admin/Barber: formulario estándar.
  */
 
 import { useState, useEffect } from 'react';
@@ -10,6 +11,9 @@ import * as appointmentService from '../../services/appointmentService';
 import * as clientService from '../../services/clientService';
 import * as barberService from '../../services/barberService';
 import * as serviceService from '../../services/serviceService';
+
+const inputClass = 'w-full px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none';
+const labelClass = 'block text-sm font-semibold text-stone-700 mb-1.5';
 
 const inputClass = 'w-full px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none';
 const labelClass = 'block text-sm font-semibold text-stone-700 mb-1.5';
@@ -35,6 +39,8 @@ export default function AppointmentFormPage() {
   const [error, setError] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   useEffect(() => {
     const promises = [
@@ -42,6 +48,24 @@ export default function AppointmentFormPage() {
       serviceService.getServices(),
     ];
     if (!isClient) promises.unshift(clientService.getClients());
+    Promise.all(promises)
+      .then((results) => {
+        if (!isClient) {
+          const [c, b, s] = results;
+          setClients(c?.clients || c || []);
+          setBarbers(Array.isArray(b) ? b : []);
+          setServices(Array.isArray(s) ? s : []);
+        } else {
+          const [b, s] = results;
+          setBarbers(Array.isArray(b) ? b : []);
+          setServices(Array.isArray(s) ? s : []);
+        }
+      })
+      .catch(() => {
+        setBarbers([]);
+        setServices([]);
+      })
+      .finally(() => setDataLoaded(true));
     Promise.all(promises)
       .then((results) => {
         if (!isClient) {
@@ -70,15 +94,20 @@ export default function AppointmentFormPage() {
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, startTime: '' }));
+    setFormData((prev) => ({ ...prev, startTime: '' }));
     if (formData.barberId && formData.appointmentDate) {
+      setSlotsLoading(true);
       setSlotsLoading(true);
       appointmentService
         .getAvailableSlots(formData.barberId, formData.appointmentDate)
         .then((slots) => setSlots(Array.isArray(slots) ? slots : []))
         .catch(() => setSlots([]))
         .finally(() => setSlotsLoading(false));
+        .catch(() => setSlots([]))
+        .finally(() => setSlotsLoading(false));
     } else {
       setSlots([]);
+      setSlotsLoading(false);
       setSlotsLoading(false);
     }
   }, [formData.barberId, formData.appointmentDate]);
@@ -103,6 +132,7 @@ export default function AppointmentFormPage() {
       if (!isClient) payload.clientId = parseInt(formData.clientId, 10);
       else if (user?.clientId) payload.clientId = user.clientId;
       await appointmentService.createAppointment(payload);
+      navigate('/appointments', { replace: true, state: { appointmentCreated: true } });
       navigate('/appointments', { replace: true, state: { appointmentCreated: true } });
     } catch (err) {
       setError(err?.message || 'Error al crear cita');
@@ -342,6 +372,6 @@ export default function AppointmentFormPage() {
           </div>
         </div>
       </form>
-    </div>
+    </AdminFormShell>
   );
 }

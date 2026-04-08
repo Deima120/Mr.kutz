@@ -1,172 +1,202 @@
-/**
- * Formulario para crear o editar cliente
- */
-
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import * as clientService from '../../services/clientService';
-
-export default function ClientFormPage() {
-  const { id } = useParams();
-  const isEdit = !!id;
-  const navigate = useNavigate();
-
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    notes: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (isEdit) {
-      clientService
-        .getClientById(id)
-        .then((client) => {
-          setFormData({
-            firstName: client.first_name || '',
-            lastName: client.last_name || '',
-            email: client.email || '',
-            phone: client.phone || '',
-            notes: client.notes || '',
-          });
-        })
-        .catch(() => setError('Cliente no encontrado'));
-    }
-  }, [id, isEdit]);
-
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setError('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      if (isEdit) {
-        await clientService.updateClient(id, formData);
-        navigate(`/clients/${id}`, { replace: true });
-      } else {
-        const client = await clientService.createClient(formData);
-        navigate(`/clients/${client.id}`, { replace: true });
-      }
-    } catch (err) {
-      const msg = err?.errors?.[0]?.message || err?.message || 'Error al guardar';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="max-w-xl">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-        {isEdit ? 'Editar cliente' : 'Nuevo cliente'}
-      </h2>
-
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow border border-gray-100 p-6 space-y-4">
-        {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre *
-            </label>
-            <input
-              id="firstName"
-              name="firstName"
-              type="text"
-              value={formData.firstName}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-              Apellido *
-            </label>
-            <input
-              id="lastName"
-              name="lastName"
-              type="text"
-              value={formData.lastName}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-              required
-            />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-            Teléfono
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-            Notas
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            value={formData.notes}
-            onChange={handleChange}
-            rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
-          />
-        </div>
-
-        <div className="flex gap-3 pt-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium disabled:opacity-50"
-          >
-            {loading ? 'Guardando...' : 'Guardar'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
-          >
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
+/**
+ * Formulario para crear o editar cliente
+ */
+
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import * as clientService from '../../services/clientService';
+import AdminFormShell, {
+  AdminFormCardHeader,
+  ADMIN_FORM_FIELD_CLASS,
+  AdminFormFooterActions,
+  AdminFormPrimaryButton,
+  AdminFormSecondaryButton,
+} from '../../components/admin/AdminFormShell';
+
+export default function ClientFormPage() {
+  const { id } = useParams();
+  const isEdit = !!id;
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    notes: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isEdit) {
+      clientService
+        .getClientById(id)
+        .then((client) => {
+          setFormData({
+            firstName: client.first_name || '',
+            lastName: client.last_name || '',
+            email: client.email || '',
+            phone: client.phone || '',
+            notes: client.notes || '',
+          });
+        })
+        .catch(() => setError('Cliente no encontrado'));
+    }
+  }, [id, isEdit]);
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isEdit) {
+        await clientService.updateClient(id, formData);
+        navigate(`/clients/${id}`, { replace: true });
+      } else {
+        const client = await clientService.createClient(formData);
+        navigate(`/clients/${client.id}`, { replace: true });
+      }
+    } catch (err) {
+      const msg = err?.errors?.[0]?.message || err?.message || 'Error al guardar';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AdminFormShell
+      backTo="/clients"
+      backLabel="Clientes"
+      modeBadge={isEdit ? 'Edición' : 'Alta'}
+      aside={{
+        kicker: 'Experiencia',
+        title: 'Cada dato suma al servicio',
+        bullets: [
+          'Correo y teléfono sirven para confirmar citas y enviar avisos.',
+          'Las notas son solo para el equipo; el cliente no las ve.',
+          'Tras guardar podrás ver historial y citas en su ficha.',
+        ],
+        statusLabel: 'Estado',
+        statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
+      >
+        <div
+          className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
+          aria-hidden
+        />
+        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col min-h-0 gap-4 flex-1">
+          <AdminFormCardHeader
+            eyebrow="Ficha de cliente"
+            title={isEdit ? 'Actualizar datos' : 'Registrar cliente'}
+          />
+
+          {error && (
+            <div className="alert-error shrink-0 text-sm py-2.5" role="alert">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 shrink-0">
+            <div className="group xl:col-span-1">
+              <label htmlFor="firstName" className={ADMIN_FORM_LABEL_CLASS}>
+                Nombre <span className="text-red-600 normal-case">*</span>
+              </label>
+              <input
+                id="firstName"
+                name="firstName"
+                type="text"
+                value={formData.firstName}
+                onChange={handleChange}
+                className={ADMIN_FORM_FIELD_CLASS}
+                required
+              />
+            </div>
+            <div className="group xl:col-span-1">
+              <label htmlFor="lastName" className={ADMIN_FORM_LABEL_CLASS}>
+                Apellido <span className="text-red-600 normal-case">*</span>
+              </label>
+              <input
+                id="lastName"
+                name="lastName"
+                type="text"
+                value={formData.lastName}
+                onChange={handleChange}
+                className={ADMIN_FORM_FIELD_CLASS}
+                required
+              />
+            </div>
+            <div className="group sm:col-span-2 xl:col-span-1">
+              <label htmlFor="email" className={ADMIN_FORM_LABEL_CLASS}>
+                Correo
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={ADMIN_FORM_FIELD_CLASS}
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
+            <div className="group sm:col-span-2 xl:col-span-1">
+              <label htmlFor="phone" className={ADMIN_FORM_LABEL_CLASS}>
+                Teléfono
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                className={ADMIN_FORM_FIELD_CLASS}
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
+
+          <div className="group flex-1 min-h-[5.5rem] flex flex-col">
+            <label htmlFor="notes" className={ADMIN_FORM_LABEL_CLASS}>
+              Notas internas
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              className={`${ADMIN_FORM_FIELD_CLASS} resize-none flex-1 min-h-[5rem] xl:min-h-[6.5rem]`}
+              placeholder="Preferencias, alergias, recordatorios para el equipo…"
+            />
+          </div>
+
+          <AdminFormFooterActions>
+            <AdminFormPrimaryButton disabled={loading}>
+              {loading ? (
+                <>
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Guardando…
+                </>
+              ) : (
+                'Guardar cliente'
+              )}
+            </AdminFormPrimaryButton>
+            <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
+          </AdminFormFooterActions>
+        </div>
+      </form>
+    </AdminFormShell>
+  );
+}
+

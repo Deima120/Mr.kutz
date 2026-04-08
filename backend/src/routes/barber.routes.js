@@ -13,7 +13,7 @@ const router = express.Router();
 
 const createValidation = [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }).withMessage('Password min 6 chars'),
+  body('password').isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres.'),
   body('firstName').trim().notEmpty().isLength({ max: 100 }),
   body('lastName').trim().notEmpty().isLength({ max: 100 }),
   body('phone').optional().trim().isLength({ max: 20 }),
@@ -28,25 +28,25 @@ const updateValidation = [
   body('isActive').optional().isBoolean(),
 ];
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid barber ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de barbero no válido.');
 
 const schedulesValidation = [
   body('schedules')
     .isArray()
-    .withMessage('schedules must be an array'),
+    .withMessage('Los horarios deben enviarse como lista (array).'),
   body('schedules.*.dayOfWeek')
     .isInt({ min: 0, max: 6 })
-    .withMessage('dayOfWeek 0-6'),
+    .withMessage('El día de la semana debe ser un número entre 0 y 6.'),
   body('schedules.*.startTime')
     .optional()
     .trim()
     .matches(/^\d{1,2}:\d{2}$/)
-    .withMessage('startTime HH:MM'),
+    .withMessage('La hora de inicio debe tener formato HH:MM.'),
   body('schedules.*.endTime')
     .optional()
     .trim()
     .matches(/^\d{1,2}:\d{2}$/)
-    .withMessage('endTime HH:MM'),
+    .withMessage('La hora de fin debe tener formato HH:MM.'),
   body('schedules.*.isAvailable')
     .optional()
     .isBoolean(),

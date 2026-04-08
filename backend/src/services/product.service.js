@@ -18,6 +18,7 @@ export const getAll = async ({ activeOnly = true, lowStockOnly = false, search =
     where,
     include: {
       inventory: true,
+      category: true,
     },
     orderBy: { name: 'asc' },
   });
@@ -26,6 +27,7 @@ export const getAll = async ({ activeOnly = true, lowStockOnly = false, search =
     ...p,
     quantity: p.inventory?.quantity ?? 0,
     stock_updated_at: p.inventory?.lastUpdated ?? null,
+    category_name: p.category?.name ?? null,
   }));
 
   if (lowStockOnly) {
@@ -38,13 +40,14 @@ export const getAll = async ({ activeOnly = true, lowStockOnly = false, search =
 export const getById = async (id) => {
   const product = await prisma.product.findUnique({
     where: { id: parseInt(id, 10) },
-    include: { inventory: true },
+    include: { inventory: true, category: true },
   });
   if (!product) return null;
   return {
     ...product,
     quantity: product.inventory?.quantity ?? 0,
     stock_updated_at: product.inventory?.lastUpdated ?? null,
+    category_name: product.category?.name ?? null,
   };
 };
 
@@ -66,7 +69,7 @@ export const getLowStock = async () => {
 };
 
 export const create = async (data) => {
-  const { name, description, sku, unit, minStock } = data;
+  const { name, description, sku, unit, minStock, categoryId } = data;
 
   const result = await prisma.$transaction(async (tx) => {
     const product = await tx.product.create({
@@ -76,6 +79,7 @@ export const create = async (data) => {
         sku: sku || null,
         unit: unit || 'unit',
         minStock: minStock ?? 0,
+        categoryId: categoryId ? parseInt(categoryId, 10) : null,
       },
     });
     await tx.inventory.create({
@@ -97,6 +101,7 @@ export const update = async (id, data) => {
       unit: data.unit,
       minStock: data.minStock,
       isActive: data.isActive,
+      categoryId: data.categoryId ? parseInt(data.categoryId, 10) : null,
     },
   });
   return product;
@@ -122,7 +127,7 @@ export const updateStock = async (productId, quantityChange, movementType, notes
     });
 
     if (updated.quantity < 0) {
-      throw new Error('Stock cannot be negative');
+      throw new Error('El stock no puede ser negativo.');
     }
 
     await tx.inventoryMovement.create({

@@ -1,9 +1,11 @@
 /**
  * Listado y calendario de citas
  * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
+ * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
  */
 
 import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as appointmentService from '../../services/appointmentService';
 import * as barberService from '../../services/barberService';
@@ -11,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import { downloadCSV, printAsPDF } from '../../utils/export';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -105,6 +108,8 @@ export default function AppointmentsPage() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [filterDate, setFilterDate] = useState(
@@ -113,6 +118,8 @@ export default function AppointmentsPage() {
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
@@ -164,11 +171,23 @@ export default function AppointmentsPage() {
     }
   }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
 
+  // Mensaje de éxito al llegar desde "Agendar cita" (state) o al cancelar
+  useEffect(() => {
+    if (isClient && location.state?.appointmentCreated) {
+      setSuccessMessage('Cita agendada correctamente.');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
+
   const handleStatusChange = async (id, newStatus) => {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
       setCancelConfirmId(null);
+      setCancelConfirmId(null);
       fetchAppointments();
+      if (isClient && newStatus === 'cancelled') {
+        setSuccessMessage('Cita cancelada correctamente.');
+      }
       if (isClient && newStatus === 'cancelled') {
         setSuccessMessage('Cita cancelada correctamente.');
       }
@@ -432,7 +451,7 @@ export default function AppointmentsPage() {
 
   // ——— Vista admin ———
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <PageHeader
         title={pageTitle}
         subtitle={pageSubtitle}
@@ -458,11 +477,11 @@ export default function AppointmentsPage() {
         </div>
         {isAdmin && (
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Barbero</label>
+            <label className="block text-xs font-semibold text-stone-600 mb-1">Barbero</label>
             <select
               value={filterBarber}
               onChange={(e) => setFilterBarber(e.target.value)}
-              className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 min-w-[180px]"
+              className="input-premium py-2.5 text-sm min-w-[180px]"
             >
               <option value="">Todos</option>
               {barbers.map((b) => (
@@ -476,16 +495,16 @@ export default function AppointmentsPage() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
+        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {loading ? (
         <DataCard>
-          <div className="py-16 text-center text-gray-500">Cargando...</div>
+          <div className="py-16 text-center text-stone-500">Cargando...</div>
         </DataCard>
       ) : appointments.length === 0 ? (
         <DataCard>
-          <div className="py-16 text-center text-gray-500">No hay citas para esta fecha.</div>
+          <div className="py-16 text-center text-stone-500">No hay citas para esta fecha.</div>
         </DataCard>
       ) : (
         <DataCard>
@@ -511,12 +530,12 @@ export default function AppointmentsPage() {
                   <TableCell>{a.service_name}</TableCell>
                   <TableCell>
                     <span
-                      className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+                      className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${
                         a.status === 'completed'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                           : a.status === 'cancelled' || a.status === 'no_show'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-primary-100 text-primary-800'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
                       }`}
                     >
                       {STATUS_LABELS[a.status] || a.status}
@@ -527,7 +546,7 @@ export default function AppointmentsPage() {
                       <select
                         value={a.status}
                         onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                        className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500"
+                        className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
                       >
                         <option value="scheduled">Agendada</option>
                         <option value="confirmed">Confirmada</option>

@@ -26,9 +26,9 @@ export const updateSettings = async (req, res, next) => {
   try {
     const settings = await settingsService.updateSettings(req.body);
     if (!settings) {
-      return res.status(404).json({ success: false, message: 'Settings not found' });
+      return res.status(404).json({ success: false, message: 'Configuración no encontrada.' });
     }
-    res.json({ success: true, message: 'Settings updated', data: settings });
+    res.json({ success: true, message: 'Configuración actualizada.', data: settings });
   } catch (error) {
     next(error);
   }

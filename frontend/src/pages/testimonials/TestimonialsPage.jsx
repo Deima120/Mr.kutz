@@ -1,25 +1,16 @@
 /**
- * Satisfacción: valoraciones reales de citas + testimonios públicos (landing)
+ * Listado de testimonios (admin)
  */
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as testimonialService from '../../services/testimonialService';
-import * as appointmentService from '../../services/appointmentService';
-import * as barberService from '../../services/barberService';
-import AppointmentRatingsPanel from '../../components/admin/AppointmentRatingsPanel';
 
 export default function TestimonialsPage() {
   const [list, setList] = useState([]);
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [ratingSummary, setRatingSummary] = useState(null);
-  const [ratingLoading, setRatingLoading] = useState(true);
-  const [ratingError, setRatingError] = useState('');
-  const [ratingPeriod, setRatingPeriod] = useState('30');
-  const [ratingBarberId, setRatingBarberId] = useState('');
-  const [barbers, setBarbers] = useState([]);
 
   const fetchList = async () => {
     setLoading(true);
@@ -40,38 +31,6 @@ export default function TestimonialsPage() {
   useEffect(() => {
     fetchList();
   }, [showInactive]);
-
-  useEffect(() => {
-    barberService.getBarbers().then((b) => {
-      setBarbers(Array.isArray(b) ? b : b?.data ?? []);
-    });
-  }, []);
-
-  const fetchRatingSummary = async () => {
-    setRatingLoading(true);
-    setRatingError('');
-    try {
-      const params = {};
-      if (ratingPeriod && ratingPeriod !== 'all') {
-        const d = parseInt(ratingPeriod, 10);
-        if (Number.isFinite(d) && d > 0) params.days = d;
-      } else {
-        params.days = 'all';
-      }
-      if (ratingBarberId) params.barberId = ratingBarberId;
-      const data = await appointmentService.getAppointmentRatingSummary(params);
-      setRatingSummary(data && typeof data === 'object' ? data : null);
-    } catch (err) {
-      setRatingError(err?.message || 'Error al cargar valoraciones');
-      setRatingSummary(null);
-    } finally {
-      setRatingLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRatingSummary();
-  }, [ratingPeriod, ratingBarberId]);
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`¿Eliminar testimonio de "${name}"?`)) return;
@@ -138,9 +97,9 @@ export default function TestimonialsPage() {
         <div>
           <p className="section-label text-gold">Contenido</p>
           <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
-            Testimonios públicos (landing)
+            Testimonios
           </h1>
-          <p className="text-stone-500">Textos curados para el carrusel; no sustituyen las valoraciones de citas.</p>
+          <p className="text-stone-500">Los que se muestran en la landing (solo activos).</p>
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
@@ -154,7 +113,7 @@ export default function TestimonialsPage() {
           </label>
           <Link
             to="/testimonials/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+            className="btn-admin"
           >
             + Nuevo testimonio
           </Link>
@@ -162,7 +121,7 @@ export default function TestimonialsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+        <div className="alert-error" role="alert">
           {error}
         </div>
       )}
@@ -170,7 +129,7 @@ export default function TestimonialsPage() {
       {loading ? (
         <div className="py-16 text-center text-stone-500">Cargando...</div>
       ) : list.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-12 text-center">
+        <div className="empty-state">
           <p className="text-stone-500 mb-4">No hay testimonios.</p>
           <Link
             to="/testimonials/new"

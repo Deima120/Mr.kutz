@@ -1,9 +1,10 @@
 /**
  * Inicio de sesión — Diseño alineado con la marca
+ * Inicio de sesión — Diseño alineado con la marca
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -12,8 +13,12 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [errorReason, setErrorReason] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) navigate('/', { replace: true });
+  }, [isAuthenticated, navigate]);
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
@@ -21,6 +26,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErrorReason(null);
     setLoading(true);
     try {
       await login(email, password);
@@ -33,6 +39,7 @@ export default function LoginPage() {
   };
 
   return (
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
@@ -98,6 +105,23 @@ export default function LoginPage() {
               </button>
             </form>
 
+            <p className="mt-8 text-center text-stone-600 text-sm">
+              ¿No tienes cuenta?{' '}
+              <Link to="/register" className="text-gold font-semibold hover:text-gold-dark transition-colors">
+                Regístrate
+              </Link>
+            </p>
+
+            <details className="mt-8">
+              <summary className="text-xs font-semibold text-stone-500 uppercase tracking-wider cursor-pointer">
+                Cuentas de prueba (solo desarrollo)
+              </summary>
+              <div className="mt-3 p-4 bg-stone-50 rounded-xl border border-stone-200 text-left">
+                <p className="text-xs text-stone-500 font-mono break-all">admin@mrkutz.com / password123</p>
+                <p className="text-xs text-stone-500 font-mono break-all">barber@mrkutz.com / password123</p>
+                <p className="text-xs text-stone-500 font-mono break-all">client@mrkutz.com / password123</p>
+              </div>
+            </details>
             <p className="mt-8 text-center text-stone-600 text-sm">
               ¿No tienes cuenta?{' '}
               <Link to="/register" className="text-gold font-semibold hover:text-gold-dark transition-colors">

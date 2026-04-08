@@ -39,8 +39,31 @@ export default function HistoryPage() {
       .finally(() => setLoading(false));
   }, [dateFrom, dateTo, user?.barberId]);
 
-  const formatTime = (t) => (t ? String(t).slice(0, 5) : '');
+  const formatTime = (t) => {
+    if (!t) return '';
+    if (t instanceof Date) {
+      const hh = String(t.getHours()).padStart(2, '0');
+      const mm = String(t.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    const s = String(t);
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime()) && s.includes('T')) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    const iso = s.match(/T(\d{1,2}):(\d{2})/);
+    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
+    const any = s.match(/(\d{1,2}):(\d{2})/);
+    if (any) {
+      const hh = String(any[1]).padStart(2, '0');
+      return `${hh}:${any[2]}`;
+    }
+    return s.slice(0, 5);
+  };
   const formatDate = (d) =>
+    d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
     d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
   return (
@@ -64,6 +87,10 @@ export default function HistoryPage() {
           <span className="text-stone-400 pt-6">—</span>
           <div>
             <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
+          </div>
+          <span className="text-stone-400 pt-6">—</span>
+          <div>
+            <label className="block text-xs font-semibold text-stone-600 mb-1">Hasta</label>
             <input
               type="date"
               value={dateTo}
@@ -71,6 +98,8 @@ export default function HistoryPage() {
               className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
             />
           </div>
+        </div>
+      </div>
         </div>
       </div>
 

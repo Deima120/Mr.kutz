@@ -5,6 +5,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as serviceService from '../../services/serviceService';
+import AdminFormShell, {
+  AdminFormCardHeader,
+  ADMIN_FORM_FIELD_CLASS,
+  ADMIN_FORM_LABEL_CLASS,
+  AdminFormFooterActions,
+  AdminFormPrimaryButton,
+  AdminFormSecondaryButton,
+} from '../../components/admin/AdminFormShell';
 
 export default function ServiceFormPage() {
   const { id } = useParams();
@@ -13,6 +21,7 @@ export default function ServiceFormPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    categoryName: 'General',
     price: '',
     durationMinutes: '',
     isActive: true,
@@ -28,6 +37,7 @@ export default function ServiceFormPage() {
           setFormData({
             name: s.name || '',
             description: s.description || '',
+            categoryName: s.category_name || 'General',
             price: s.price?.toString() || '',
             durationMinutes: s.duration_minutes?.toString() || '',
             isActive: s.is_active !== false,
@@ -53,6 +63,7 @@ export default function ServiceFormPage() {
     try {
       const payload = {
         name: formData.name,
+        categoryName: formData.categoryName,
         description: formData.description || undefined,
         price: parseFloat(formData.price),
         durationMinutes: parseInt(formData.durationMinutes, 10),
@@ -131,6 +142,6 @@ export default function ServiceFormPage() {
           </div>
         </div>
       </form>
-    </div>
+    </AdminFormShell>
   );
 }

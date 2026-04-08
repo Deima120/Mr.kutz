@@ -11,11 +11,12 @@ import * as productController from '../controllers/product.controller.js';
 const router = express.Router();
 
 const createValidation = [
-  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 150 }),
+  body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
   body('description').optional().trim(),
   body('sku').optional().trim().isLength({ max: 50 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
+  body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
 ];
 
 const updateValidation = [
@@ -24,16 +25,17 @@ const updateValidation = [
   body('sku').optional().trim().isLength({ max: 50 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
+  body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
   body('isActive').optional().isBoolean(),
 ];
 
 const stockValidation = [
-  body('quantityChange').isInt().withMessage('Quantity change required'),
+  body('quantityChange').isInt().withMessage('Indica el cambio de cantidad.'),
   body('movementType').optional().isIn(['purchase', 'sale', 'adjustment', 'damage']),
   body('notes').optional().trim(),
 ];
 
-const idParam = param('id').isInt({ min: 1 }).withMessage('Invalid product ID');
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID de producto no válido.');
 
 router.use(auth);
 router.use(authorize('admin', 'barber'));

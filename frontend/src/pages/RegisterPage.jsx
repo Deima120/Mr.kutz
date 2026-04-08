@@ -1,5 +1,6 @@
 /**
  * Registro — Diseño alineado con la marca
+ * Registro — Diseño alineado con la marca
  */
 
 import { useState, useEffect } from 'react';
@@ -23,6 +24,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) navigate('/', { replace: true });
+  }, [isAuthenticated, navigate]);
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
@@ -56,12 +60,14 @@ export default function RegisterPage() {
       navigate('/', { replace: true });
     } catch (err) {
       setError(err?.errors?.[0]?.message || err?.message || (typeof err === 'string' ? err : 'Error al registrarse'));
+      setError(err?.errors?.[0]?.message || err?.message || (typeof err === 'string' ? err : 'Error al registrarse'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
@@ -87,7 +93,17 @@ export default function RegisterPage() {
                   <label htmlFor="lastName" className={labelClass}>Apellido</label>
                   <input id="lastName" name="lastName" type="text" value={formData.lastName} onChange={handleChange} className={inputClass} required />
                 </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="firstName" className={labelClass}>Nombre</label>
+                  <input id="firstName" name="firstName" type="text" value={formData.firstName} onChange={handleChange} className={inputClass} required />
+                </div>
+                <div>
+                  <label htmlFor="lastName" className={labelClass}>Apellido</label>
+                  <input id="lastName" name="lastName" type="text" value={formData.lastName} onChange={handleChange} className={inputClass} required />
+                </div>
               </div>
+
 
               <div>
                 <label htmlFor="email" className={labelClass}>Email</label>
@@ -98,12 +114,24 @@ export default function RegisterPage() {
                 <label htmlFor="phone" className={labelClass}>Teléfono (opcional)</label>
                 <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} className={inputClass} />
               </div>
+              <div>
+                <label htmlFor="phone" className={labelClass}>Teléfono (opcional)</label>
+                <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} className={inputClass} />
+              </div>
 
               <div>
                 <label htmlFor="password" className={labelClass}>Contraseña</label>
                 <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} className={inputClass} placeholder="Mínimo 6 caracteres, 1 número" required minLength={6} />
               </div>
+              <div>
+                <label htmlFor="password" className={labelClass}>Contraseña</label>
+                <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} className={inputClass} placeholder="Mínimo 6 caracteres, 1 número" required minLength={6} />
+              </div>
 
+              <div>
+                <label htmlFor="confirmPassword" className={labelClass}>Confirmar contraseña</label>
+                <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} className={inputClass} required />
+              </div>
               <div>
                 <label htmlFor="confirmPassword" className={labelClass}>Confirmar contraseña</label>
                 <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} className={inputClass} required />
@@ -118,6 +146,13 @@ export default function RegisterPage() {
               </button>
             </form>
 
+            <p className="mt-8 text-center text-stone-600 text-sm">
+              ¿Ya tienes cuenta?{' '}
+              <Link to="/login" className="text-gold font-semibold hover:text-gold-dark transition-colors">
+                Inicia sesión
+              </Link>
+            </p>
+          </div>
             <p className="mt-8 text-center text-stone-600 text-sm">
               ¿Ya tienes cuenta?{' '}
               <Link to="/login" className="text-gold font-semibold hover:text-gold-dark transition-colors">

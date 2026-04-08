@@ -39,7 +39,7 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    callback(new Error('Not allowed by CORS'));
+    callback(new Error('No permitido por CORS.'));
   },
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -65,11 +65,11 @@ const startServer = async () => {
   try {
     await connectDatabase();
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📋 API Base: http://localhost:${PORT}/api`);
+      console.log(`🚀 Servidor en http://localhost:${PORT}`);
+      console.log(`📋 API: http://localhost:${PORT}/api`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error?.message || error);
+    console.error('❌ No se pudo iniciar el servidor:', error?.message || error);
     process.exit(1);
   }
 };

@@ -62,6 +62,14 @@ export default function HomePage() {
               En {businessName} combinamos tradición y tendencia para ofrecerte cortes y barbas de alta calidad.
               Nuestro equipo se asegura de que cada visita sea memorable en un ambiente acogedor.
             </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-16 pt-12 border-t border-stone-300/70">
+              {STATS.map((stat, i) => (
+                <div key={i} className="text-center">
+                  <p className="font-serif text-2xl md:text-3xl text-gold font-medium mb-1">{stat.value}</p>
+                  <p className="text-stone-500 text-sm uppercase tracking-wider">{stat.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -89,7 +97,21 @@ export default function HomePage() {
                 <h3 className="font-serif text-xl text-stone-900 font-medium mb-2 group-hover:text-gold transition-colors duration-300">
                   {s.title}
                 </h3>
-                <p className="text-stone-500 text-sm leading-relaxed">{s.desc}</p>
+                {s.description && (
+                  <p className="text-stone-500 text-sm leading-snug mb-4 line-clamp-2">
+                    {s.description}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-gold font-semibold tabular-nums">
+                    {formatPrice(s.price)}
+                  </span>
+                  {s.durationMinutes > 0 && (
+                    <span className="text-stone-500 text-xs uppercase tracking-wider">
+                      {formatDuration(s.durationMinutes)}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -102,6 +124,11 @@ export default function HomePage() {
               Ver disponibilidad y agendar
               <span className="group-hover:translate-x-0.5 transition-transform">→</span>
             </Link>
+            {services.length > 12 && (
+              <span className="text-stone-500 text-sm">
+                + {services.length - 12} servicios más en el agendador
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -153,6 +180,7 @@ export default function HomePage() {
         <section className="py-6 bg-stone-100 border-t border-stone-200">
           <div className="container mx-auto px-6 sm:px-8">
             <p className="text-stone-500 text-xs uppercase tracking-wider mb-3">Panel</p>
+            <p className="text-stone-500 text-xs uppercase tracking-wider mb-3">Panel</p>
             <div className="flex flex-wrap gap-2">
               <Link to="/dashboard" className="px-4 py-2 bg-barber-dark text-white text-sm font-medium rounded-lg hover:bg-barber-charcoal transition-colors">
                 Dashboard
@@ -173,6 +201,16 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      <div className="fixed bottom-5 right-5 z-40">
+        <Link
+          to="/appointments/new"
+          className="inline-flex items-center gap-2 px-4 sm:px-5 py-3 rounded-full bg-gold text-barber-dark font-semibold shadow-[0_14px_32px_rgba(0,0,0,0.28)] hover:bg-gold-light transition-colors"
+        >
+          Reservar ahora
+          <span aria-hidden>→</span>
+        </Link>
+      </div>
     </div>
   );
 }

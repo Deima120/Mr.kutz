@@ -231,7 +231,7 @@ export const create = async (data) => {
     where: { id: parseInt(serviceId, 10) },
   });
   if (!service) {
-    const err = new Error('Service not found');
+    const err = new Error('Servicio no encontrado.');
     err.statusCode = 400;
     throw err;
   }

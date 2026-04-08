@@ -43,7 +43,7 @@ export const getById = async (req, res, next) => {
   try {
     const payment = await paymentService.getById(req.params.id);
     if (!payment) {
-      return res.status(404).json({ success: false, message: 'Payment not found' });
+      return res.status(404).json({ success: false, message: 'Pago no encontrado.' });
     }
     res.json({ success: true, data: payment });
   } catch (error) {
@@ -59,7 +59,7 @@ export const create = async (req, res, next) => {
     });
     res.status(201).json({
       success: true,
-      message: 'Payment registered successfully',
+      message: 'Pago registrado correctamente.',
       data: payment,
     });
   } catch (error) {
@@ -71,9 +71,9 @@ export const remove = async (req, res, next) => {
   try {
     const deleted = await paymentService.remove(req.params.id);
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Payment not found' });
+      return res.status(404).json({ success: false, message: 'Pago no encontrado.' });
     }
-    res.json({ success: true, message: 'Payment deleted successfully' });
+    res.json({ success: true, message: 'Pago eliminado correctamente.' });
   } catch (error) {
     next(error);
   }

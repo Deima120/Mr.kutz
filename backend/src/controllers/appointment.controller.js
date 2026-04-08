@@ -52,7 +52,7 @@ export const getAvailableSlots = async (req, res, next) => {
   try {
     const { barberId, date } = req.query;
     if (!barberId || !date) {
-      return res.status(400).json({ success: false, message: 'barberId and date required' });
+      return res.status(400).json({ success: false, message: 'Se requieren barbero y fecha.' });
     }
     const slots = await appointmentService.getAvailableSlots(barberId, date);
     res.json({ success: true, data: slots });
@@ -141,11 +141,11 @@ export const update = async (req, res, next) => {
     }
     const appointment = await appointmentService.update(req.params.id, req.body);
     if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
+      return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
     res.json({
       success: true,
-      message: 'Appointment updated successfully',
+      message: 'Cita actualizada correctamente.',
       data: appointment,
     });
   } catch (error) {

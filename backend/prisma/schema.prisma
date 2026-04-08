@@ -29,6 +29,7 @@ model User {
   client             Client?
   inventoryMovements InventoryMovement[]
   paymentsCreated    Payment[]           @relation("PaymentsCreated")
+  purchasesCreated   Purchase[]          @relation("PurchasesCreated")
   role               Role                @relation(fields: [roleId], references: [id])
 }
 
@@ -78,6 +79,8 @@ model BarberSchedule {
 model Service {
   id              Int           @id @default(autoincrement())
   name            String        @db.VarChar(150)
+  categoryId      Int?          @map("category_id")
+  category        ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   description     String?
   price           Decimal       @db.Decimal(10, 2)
   durationMinutes Int           @map("duration_minutes")
@@ -85,6 +88,18 @@ model Service {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   appointments    Appointment[]
+}
+
+model ServiceCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  services    Service[]
+
+  @@map("service_categories")
 }
 
 model Appointment {
@@ -135,6 +150,7 @@ model Payment {
 
 model Product {
   id                 Int                 @id @default(autoincrement())
+  categoryId         Int?                @map("category_id")
   name               String              @db.VarChar(150)
   description        String?
   sku                String?             @unique @db.VarChar(50)
@@ -143,8 +159,10 @@ model Product {
   isActive           Boolean             @default(true) @map("is_active")
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
+  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   inventory          Inventory?
   inventoryMovements InventoryMovement[]
+  purchaseItems      PurchaseItem[]
 }
 
 model Inventory {
@@ -165,6 +183,47 @@ model InventoryMovement {
   createdAt      DateTime @default(now()) @map("created_at")
   creator        User?    @relation(fields: [createdBy], references: [id])
   product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  products    Product[]
+
+  @@map("product_categories")
+}
+
+model Purchase {
+  id             Int            @id @default(autoincrement())
+  supplierName   String?        @map("supplier_name") @db.VarChar(150)
+  invoiceNumber  String?        @map("invoice_number") @db.VarChar(80)
+  notes          String?
+  totalAmount    Decimal        @default(0) @map("total_amount") @db.Decimal(10, 2)
+  createdBy      Int?           @map("created_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  creator        User?          @relation("PurchasesCreated", fields: [createdBy], references: [id])
+  items          PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id           Int      @id @default(autoincrement())
+  purchaseId    Int      @map("purchase_id")
+  productId     Int      @map("product_id")
+  quantity      Int
+  unitCost      Decimal  @map("unit_cost") @db.Decimal(10, 2)
+  subtotal      Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  purchase      Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_items")
 }
 
 model BusinessSetting {

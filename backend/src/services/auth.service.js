@@ -5,7 +5,8 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
-import { sendPasswordResetCode } from './email.service.js';
+import { sendPasswordResetCode } from '../lib/mailer.js';
+import * as settingsService from './settings.service.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -18,7 +19,7 @@ export const register = async (userData) => {
   });
 
   if (existingUser) {
-    const error = new Error('Email already registered');
+    const error = new Error('Este correo electrónico ya está registrado.');
     error.statusCode = 409;
     throw error;
   }
@@ -28,7 +29,7 @@ export const register = async (userData) => {
   });
 
   if (!roleRecord) {
-    const error = new Error('Invalid role');
+    const error = new Error('El rol no es válido.');
     error.statusCode = 400;
     throw error;
   }
@@ -88,20 +89,27 @@ export const login = async (email, password) => {
   });
 
   if (!dbUser) {
-    const error = new Error('Invalid email or password');
+    const error = new Error(
+      'No existe una cuenta con este correo electrónico. Verifica que esté bien escrito o regístrate si aún no tienes cuenta.'
+    );
     error.statusCode = 401;
+    error.reason = 'USER_NOT_FOUND';
     throw error;
   }
 
   if (!dbUser.isActive) {
-    const error = new Error('Account is inactive');
+    const error = new Error('Tu cuenta está desactivada. Contacta al administrador.');
     error.statusCode = 401;
+    error.reason = 'ACCOUNT_DISABLED';
     throw error;
   }
 
   if (!dbUser.passwordHash) {
-    const error = new Error('Invalid email or password');
+    const error = new Error(
+      'Esta cuenta no puede iniciar sesión de forma habitual. Contacta al administrador.'
+    );
     error.statusCode = 401;
+    error.reason = 'NO_PASSWORD';
     throw error;
   }
 
@@ -110,14 +118,18 @@ export const login = async (email, password) => {
     isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
   } catch (bcryptError) {
     console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
-    const error = new Error('Invalid email or password');
+    const error = new Error('No pudimos verificar la contraseña. Intenta de nuevo.');
     error.statusCode = 401;
+    error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 
   if (!isValidPassword) {
-    const error = new Error('Invalid email or password');
+    const error = new Error(
+      'La contraseña no es correcta. Comprueba mayúsculas y números, o usa «¿Olvidaste tu contraseña?» si la olvidaste.'
+    );
     error.statusCode = 401;
+    error.reason = 'INVALID_PASSWORD';
     throw error;
   }
 
@@ -134,7 +146,7 @@ export const forgotPassword = async (email) => {
 
   if (!dbUser) {
     // Por seguridad, no revelamos si el email existe o no
-    return { message: 'If the email exists, you will receive instructions' };
+    return { message: 'Si el correo existe, recibirás instrucciones en breve.' };
   }
 
   // Generar código de recuperación (6 dígitos)
@@ -149,18 +161,28 @@ export const forgotPassword = async (email) => {
     },
   });
 
-  // Enviar email con el código
-  const emailResult = await sendPasswordResetCode(email.toLowerCase(), resetCode);
-  
-  if (emailResult.success) {
-    console.log(`Reset code sent to ${email}`);
-  } else {
-    console.error(`Failed to send reset code to ${email}:`, emailResult.error);
+  let businessName = 'Mr. Kutz';
+  try {
+    const settings = await settingsService.getSettings();
+    if (settings?.business_name?.trim()) {
+      businessName = settings.business_name.trim();
+    }
+  } catch (settingsError) {
+    console.warn('[forgotPassword] No se pudo leer business settings:', settingsError?.message || settingsError);
+  }
+
+  const delivery = await sendPasswordResetCode({
+    to: dbUser.email,
+    code: resetCode,
+    businessName,
+  });
+
+  if (!delivery?.sent) {
+    console.error('[forgotPassword] No se pudo enviar el correo de recuperación:', delivery?.reason || 'unknown');
   }
 
   return { 
-    message: 'If the email exists, you will receive instructions',
-    emailSent: emailResult.success,
+    message: 'Si el correo existe, recibirás instrucciones en breve.',
     // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
     ...(process.env.NODE_ENV !== 'production' && { resetCode })
   };
@@ -173,19 +195,19 @@ export const verifyResetCode = async (email, code) => {
   });
 
   if (!dbUser || !dbUser.resetCode || !dbUser.resetCodeExpires) {
-    const error = new Error('Invalid or expired code');
+    const error = new Error('El código no es válido o ha caducado.');
     error.statusCode = 400;
     throw error;
   }
 
   if (dbUser.resetCode !== code) {
-    const error = new Error('Invalid code');
+    const error = new Error('El código no es correcto.');
     error.statusCode = 400;
     throw error;
   }
 
   if (new Date() > dbUser.resetCodeExpires) {
-    const error = new Error('Code has expired');
+    const error = new Error('El código ha caducado.');
     error.statusCode = 400;
     throw error;
   }
@@ -209,7 +231,7 @@ export const resetPassword = async (email, code, newPassword) => {
     },
   });
 
-  return { message: 'Password updated successfully' };
+  return { message: 'Contraseña actualizada correctamente.' };
 };
 
 export const getProfile = async (userId) => {

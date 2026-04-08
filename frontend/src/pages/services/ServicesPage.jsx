@@ -1,5 +1,6 @@
 /**
  * Listado de servicios (admin)
+ * Listado de servicios (admin)
  */
 
 import { useState, useEffect } from 'react';
@@ -9,6 +10,7 @@ import * as serviceService from '../../services/serviceService';
 export default function ServicesPage() {
   const [services, setServices] = useState([]);
   const [showInactive, setShowInactive] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -31,6 +33,15 @@ export default function ServicesPage() {
   useEffect(() => {
     fetchServices();
   }, [showInactive]);
+
+  const categories = Array.from(
+    new Set(services.map((s) => s.category_name || 'General'))
+  ).sort((a, b) => a.localeCompare(b, 'es'));
+
+  const filteredServices =
+    categoryFilter === 'all'
+      ? services
+      : services.filter((s) => (s.category_name || 'General') === categoryFilter);
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`¿Eliminar servicio "${name}"?`)) return;
@@ -68,6 +79,7 @@ export default function ServicesPage() {
           >
             + Nuevo servicio
           </Link>
+        </div>
         </div>
       </div>
 

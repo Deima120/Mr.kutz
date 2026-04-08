@@ -67,7 +67,7 @@ export const create = async (data) => {
     where: { email: email.toLowerCase() },
   });
   if (existing) {
-    const err = new Error('Email already registered');
+    const err = new Error('Este correo electrónico ya está registrado.');
     err.statusCode = 409;
     throw err;
   }
@@ -76,7 +76,7 @@ export const create = async (data) => {
     where: { name: 'barber' },
   });
   if (!role) {
-    const err = new Error('Barber role not found');
+    const err = new Error('No se encontró el rol de barbero.');
     err.statusCode = 500;
     throw err;
   }

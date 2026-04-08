@@ -29,7 +29,7 @@ export const getById = async (req, res, next) => {
   try {
     const product = await productService.getById(req.params.id);
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
     }
     res.json({ success: true, data: product });
   } catch (error) {
@@ -42,7 +42,7 @@ export const create = async (req, res, next) => {
     const product = await productService.create(req.body);
     res.status(201).json({
       success: true,
-      message: 'Product created successfully',
+      message: 'Producto creado correctamente.',
       data: product,
     });
   } catch (error) {
@@ -54,11 +54,11 @@ export const update = async (req, res, next) => {
   try {
     const product = await productService.update(req.params.id, req.body);
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
     }
     res.json({
       success: true,
-      message: 'Product updated successfully',
+      message: 'Producto actualizado correctamente.',
       data: product,
     });
   } catch (error) {
@@ -78,7 +78,7 @@ export const updateStock = async (req, res, next) => {
     );
     res.json({
       success: true,
-      message: 'Stock updated successfully',
+      message: 'Stock actualizado correctamente.',
       data: product,
     });
   } catch (error) {
@@ -100,9 +100,9 @@ export const remove = async (req, res, next) => {
   try {
     const deleted = await productService.remove(req.params.id);
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
     }
-    res.json({ success: true, message: 'Product deleted successfully' });
+    res.json({ success: true, message: 'Producto eliminado correctamente.' });
   } catch (error) {
     next(error);
   }

@@ -69,19 +69,20 @@ export default function ReportsPage() {
   if (loading || !stats) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-gray-500">
+        <div className="text-stone-500">
           {loading ? 'Cargando reportes...' : 'Error al cargar datos'}
         </div>
       </div>
     );
   }
 
-  const formatAmount = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
+  const formatAmount = (n) => `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="page-shell print:space-y-4">
       <PageHeader
         title="Reportes"
+        label="Análisis"
         subtitle="Estadísticas e ingresos por periodo"
         actions={
           <div className="flex flex-wrap gap-2 items-center no-print">
@@ -89,26 +90,26 @@ export default function ReportsPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input-premium py-2.5 text-sm"
             />
-            <span className="text-gray-400">—</span>
+            <span className="text-stone-400 hidden sm:inline">—</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input-premium py-2.5 text-sm"
             />
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium"
+              className="btn-admin flex-1 sm:flex-none"
             >
               Exportar CSV
             </button>
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+              className="btn-admin-outline flex-1 sm:flex-none"
             >
               Imprimir
             </button>
@@ -138,13 +139,13 @@ export default function ReportsPage() {
             <ul className="space-y-3">
               {stats.topServices.map((s, i) => (
                 <li key={i} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700">{s.name}</span>
-                  <span className="font-semibold text-primary-600">{s.count} citas</span>
+                  <span className="text-stone-700">{s.name}</span>
+                  <span className="font-semibold text-gold">{s.count} citas</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 text-sm">Sin datos en el periodo</p>
+            <p className="text-stone-500 text-sm">Sin datos en el periodo</p>
           )}
         </DataCard>
         <DataCard title="Barberos más activos">
@@ -152,15 +153,15 @@ export default function ReportsPage() {
             <ul className="space-y-3">
               {stats.topBarbers.map((b, i) => (
                 <li key={i} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700">
+                  <span className="text-stone-700">
                     {b.first_name} {b.last_name}
                   </span>
-                  <span className="font-semibold text-primary-600">{b.count} citas</span>
+                  <span className="font-semibold text-gold">{b.count} citas</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 text-sm">Sin datos en el periodo</p>
+            <p className="text-stone-500 text-sm">Sin datos en el periodo</p>
           )}
         </DataCard>
       </div>

@@ -20,7 +20,7 @@ export const getStats = async (dateFrom, dateTo) => {
     prisma.appointment.groupBy({
       by: ['status'],
       where: { appointmentDate: { gte: fromDate, lte: toDate } },
-      _count: true,
+      _count: { _all: true },
     }),
     prisma.appointment.findMany({
       where: {
@@ -43,11 +43,11 @@ export const getStats = async (dateFrom, dateTo) => {
     prisma.client.count(),
   ]);
 
-  const completed = appointments.find((g) => g.status === 'completed')?._count ?? 0;
+  const completed = appointments.find((g) => g.status === 'completed')?._count?._all ?? 0;
   const pending = appointments
     .filter((g) => g.status && ['scheduled', 'confirmed', 'in_progress'].includes(g.status))
-    .reduce((sum, g) => sum + (g._count ?? 0), 0);
-  const total = appointments.reduce((sum, g) => sum + (g._count ?? 0), 0);
+    .reduce((sum, g) => sum + (g._count?._all ?? 0), 0);
+  const total = appointments.reduce((sum, g) => sum + (g._count?._all ?? 0), 0);
 
   const svcCount = {};
   servicesTop.forEach((a) => {
@@ -87,5 +87,178 @@ export const getStats = async (dateFrom, dateTo) => {
     lowStockCount,
     totalClients: clientsCount,
     period: { from, to },
+  };
+};
+
+/** Fecha local YYYY-MM-DD */
+function formatYMD(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function ymdBounds(ymdStr) {
+  const [y, m, d] = ymdStr.split('-').map(Number);
+  return {
+    start: new Date(y, m - 1, d, 0, 0, 0, 0),
+    end: new Date(y, m - 1, d, 23, 59, 59, 999),
+  };
+}
+
+function ymdRangeBounds(fromStr, toStr) {
+  const a = ymdBounds(fromStr);
+  const b = ymdBounds(toStr);
+  return { start: a.start, end: b.end };
+}
+
+/**
+ * Métricas para el panel del barbero: ingresos (pagos ligados a sus citas), cortes completados,
+ * clientes distintos atendidos, citas de hoy y serie 7 días.
+ */
+export const getBarberStats = async (barberId) => {
+  const bid = parseInt(barberId, 10);
+  if (!bid || Number.isNaN(bid)) return null;
+
+  const now = new Date();
+  const todayStr = formatYMD(now);
+
+  const calDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dow = calDay.getDay();
+  const offset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(calDay);
+  monday.setDate(calDay.getDate() + offset);
+  const weekStartStr = formatYMD(monday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const weekEndStr = formatYMD(sunday);
+
+  const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const monthEndStr = formatYMD(lastDayMonth);
+
+  const { start: dayS, end: dayE } = ymdBounds(todayStr);
+  const { start: weekS, end: weekE } = ymdRangeBounds(weekStartStr, weekEndStr);
+  const { start: monthS, end: monthE } = ymdRangeBounds(monthStartStr, monthEndStr);
+
+  const barberWhere = { barberId: bid };
+
+  const revenueBetween = async (start, end) => {
+    const r = await prisma.payment.aggregate({
+      where: {
+        appointment: { is: barberWhere },
+        createdAt: { gte: start, lte: end },
+      },
+      _sum: { amount: true },
+    });
+    return Number(r._sum?.amount ?? 0);
+  };
+
+  const cutsBetween = async (start, end) =>
+    prisma.appointment.count({
+      where: {
+        ...barberWhere,
+        status: 'completed',
+        appointmentDate: { gte: start, lte: end },
+      },
+    });
+
+  const distinctClientsBetween = async (start, end) => {
+    const rows = await prisma.appointment.groupBy({
+      by: ['clientId'],
+      where: {
+        ...barberWhere,
+        status: 'completed',
+        appointmentDate: { gte: start, lte: end },
+      },
+    });
+    return rows.length;
+  };
+
+  const todayGroups = await prisma.appointment.groupBy({
+    by: ['status'],
+    where: {
+      ...barberWhere,
+      appointmentDate: { gte: dayS, lte: dayE },
+    },
+    _count: { _all: true },
+  });
+
+  let todayTotal = 0;
+  let todayCompleted = 0;
+  let todayPending = 0;
+  todayGroups.forEach((g) => {
+    const c = g._count?._all ?? 0;
+    todayTotal += c;
+    if (g.status === 'completed') todayCompleted += c;
+    else if (g.status && ['scheduled', 'confirmed', 'in_progress'].includes(g.status)) todayPending += c;
+  });
+
+  const chartDays = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    chartDays.push(formatYMD(d));
+  }
+  const chartRangeStart = ymdBounds(chartDays[0]).start;
+
+  const [revDay, revWeek, revMonth, cutsDay, cutsWeek, cutsMonth, cliDay, cliWeek, cliMonth, payList, completedList] =
+    await Promise.all([
+      revenueBetween(dayS, dayE),
+      revenueBetween(weekS, weekE),
+      revenueBetween(monthS, monthE),
+      cutsBetween(dayS, dayE),
+      cutsBetween(weekS, weekE),
+      cutsBetween(monthS, monthE),
+      distinctClientsBetween(dayS, dayE),
+      distinctClientsBetween(weekS, weekE),
+      distinctClientsBetween(monthS, monthE),
+      prisma.payment.findMany({
+        where: {
+          appointment: { is: barberWhere },
+          createdAt: { gte: chartRangeStart, lte: dayE },
+        },
+        select: { amount: true, createdAt: true },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          ...barberWhere,
+          status: 'completed',
+          appointmentDate: { gte: chartRangeStart, lte: dayE },
+        },
+        select: { appointmentDate: true },
+      }),
+    ]);
+
+  const revMap = Object.fromEntries(chartDays.map((k) => [k, 0]));
+  const cutMap = Object.fromEntries(chartDays.map((k) => [k, 0]));
+
+  payList.forEach((p) => {
+    const k = formatYMD(new Date(p.createdAt));
+    if (Object.prototype.hasOwnProperty.call(revMap, k)) revMap[k] += Number(p.amount);
+  });
+  completedList.forEach((a) => {
+    const k = formatYMD(new Date(a.appointmentDate));
+    if (Object.prototype.hasOwnProperty.call(cutMap, k)) cutMap[k] += 1;
+  });
+
+  const chart7d = chartDays.map((date) => ({
+    date,
+    label: new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }),
+    revenue: Math.round(revMap[date] * 100) / 100,
+    cuts: cutMap[date],
+  }));
+
+  return {
+    role: 'barber',
+    revenue: { day: revDay, week: revWeek, month: revMonth },
+    cutsCompleted: { day: cutsDay, week: cutsWeek, month: cutsMonth },
+    clientsServed: { day: cliDay, week: cliWeek, month: cliMonth },
+    todayAppointments: {
+      total: todayTotal,
+      completed: todayCompleted,
+      pending: todayPending,
+    },
+    chart7d,
+    periodLabels: {
+      week: `${weekStartStr} — ${weekEndStr}`,
+      month: `${monthStartStr} — ${monthEndStr}`,
+    },
   };
 };
