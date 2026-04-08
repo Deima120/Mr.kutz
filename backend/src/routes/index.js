@@ -32,6 +32,7 @@ router.get('/', (req, res) => {
       services: '/api/services',
       barbers: '/api/barbers',
       appointments: '/api/appointments',
+      appointmentsPublicSatisfaction: '/api/appointments/public-satisfaction',
       testimonials: '/api/testimonials',
       payments: '/api/payments',
       products: '/api/products',

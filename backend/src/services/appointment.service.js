@@ -82,7 +82,17 @@ export const getById = async (id) => {
   });
   if (!a) return null;
   return {
-    ...a,
+    id: a.id,
+    client_id: a.clientId,
+    barber_id: a.barberId,
+    service_id: a.serviceId,
+    appointment_date: a.appointmentDate,
+    start_time: a.startTime,
+    end_time: a.endTime,
+    status: a.status,
+    notes: a.notes,
+    created_at: a.createdAt,
+    updated_at: a.updatedAt,
     client_first_name: a.client.firstName,
     client_last_name: a.client.lastName,
     client_phone: a.client.phone,
@@ -108,28 +118,28 @@ export const submitClientRating = async (appointmentId, clientId, { rating, comm
     where: { id },
   });
   if (!appt) {
-    const err = new Error('Appointment not found');
+    const err = new Error('Cita no encontrada.');
     err.statusCode = 404;
     throw err;
   }
   if (appt.clientId !== cid) {
-    const err = new Error('You can only rate your own appointments.');
+    const err = new Error('Solo puedes valorar tus propias citas.');
     err.statusCode = 403;
     throw err;
   }
   if (appt.status !== 'completed') {
-    const err = new Error('Only completed appointments can be rated.');
+    const err = new Error('Solo se pueden valorar citas completadas.');
     err.statusCode = 400;
     throw err;
   }
   if (appt.clientRating != null) {
-    const err = new Error('This appointment has already been rated.');
+    const err = new Error('Esta cita ya tiene valoración.');
     err.statusCode = 409;
     throw err;
   }
   const r = Number(rating);
   if (!Number.isInteger(r) || r < 1 || r > 5) {
-    const err = new Error('Rating must be an integer between 1 and 5.');
+    const err = new Error('La valoración debe ser un entero entre 1 y 5.');
     err.statusCode = 400;
     throw err;
   }
@@ -152,9 +162,9 @@ export const submitClientRating = async (appointmentId, clientId, { rating, comm
 
 /**
  * Resumen agregado de valoraciones (barbero concreto o global si barberId es null).
- * @param {{ barberId: number | null, days: number | null }} opts — days null = sin límite temporal
+ * @param {{ barberId: number | null, days: number | null, recentTake?: number }} opts — days null = sin límite temporal
  */
-export const getRatingSummary = async ({ barberId = null, days = null } = {}) => {
+export const getRatingSummary = async ({ barberId = null, days = null, recentTake = 50 } = {}) => {
   const where = {
     status: 'completed',
     clientRating: { not: null },
@@ -169,19 +179,24 @@ export const getRatingSummary = async ({ barberId = null, days = null } = {}) =>
     where.clientRatedAt = { gte: since };
   }
 
-  const [rowsForDist, agg, recentRows] = await Promise.all([
-    prisma.appointment.findMany({
+  const takeRecent = Math.min(Math.max(1, recentTake), 50);
+
+  // groupBy + aggregate evitan cargar todas las filas en memoria y reducen presión en el pool (vs findMany masivo).
+  const [grouped, agg, recentRows] = await Promise.all([
+    prisma.appointment.groupBy({
+      by: ['clientRating'],
       where,
-      select: { clientRating: true },
+      _count: { _all: true },
     }),
     prisma.appointment.aggregate({
       where,
       _avg: { clientRating: true },
+      _count: { _all: true },
     }),
     prisma.appointment.findMany({
       where,
       orderBy: { clientRatedAt: 'desc' },
-      take: 50,
+      take: takeRecent,
       include: {
         client: { select: { firstName: true, lastName: true } },
         service: { select: { name: true } },
@@ -190,11 +205,11 @@ export const getRatingSummary = async ({ barberId = null, days = null } = {}) =>
     }),
   ]);
 
-  const count = rowsForDist.length;
+  const count = agg._count._all ?? 0;
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  for (const row of rowsForDist) {
+  for (const row of grouped) {
     const n = row.clientRating;
-    if (n >= 1 && n <= 5) distribution[n] += 1;
+    if (n >= 1 && n <= 5) distribution[n] = row._count._all;
   }
 
   const average =
@@ -224,6 +239,25 @@ export const getRatingSummary = async ({ barberId = null, days = null } = {}) =>
   };
 };
 
+/**
+ * Resumen público para la landing (sin autenticación): mismas métricas que rating-summary global,
+ * con la lista `recent` acotada por privacidad y rendimiento.
+ */
+export const getPublicRatingSummary = async ({ recentLimit = 24 } = {}) => {
+  const cap = Math.min(Math.max(1, recentLimit), 48);
+  const full = await getRatingSummary({
+    barberId: null,
+    days: null,
+    recentTake: cap,
+  });
+  return {
+    average: full.average,
+    count: full.count,
+    distribution: full.distribution,
+    recent: full.recent || [],
+  };
+};
+
 export const create = async (data) => {
   const { clientId, barberId, serviceId, appointmentDate, startTime, notes } = data;
 
@@ -249,7 +283,7 @@ export const create = async (data) => {
   const startDate = new Date(`1970-01-01T${start.length === 5 ? start + ':00' : start}`);
   const endDate = new Date(`1970-01-01T${endTime}`);
 
-  const appointment = await prisma.appointment.create({
+  const created = await prisma.appointment.create({
     data: {
       clientId: parseInt(clientId, 10),
       barberId: parseInt(barberId, 10),
@@ -260,7 +294,7 @@ export const create = async (data) => {
       notes: notes || null,
     },
   });
-  return appointment;
+  return getById(created.id);
 };
 
 export const update = async (id, data) => {

@@ -17,6 +17,7 @@ Sistema de gestión integral para barbería: reserva de citas, clientes, barbero
 - [Configuración e instalación](#configuración-e-instalación)
 - [Usuarios de prueba](#usuarios-de-prueba)
 - [Comandos útiles](#comandos-útiles)
+- [Despliegue (producción)](#despliegue-producción)
 
 ---
 
@@ -70,7 +71,34 @@ Mr.kutz/
 
 Se usa **PostgreSQL** con **Prisma** como ORM. El esquema se define en `backend/prisma/schema.prisma`.
 
-Tras actualizar el esquema, desde `backend` ejecutar `npx prisma migrate deploy` (o `migrate dev` en local) y `npx prisma generate`.
+Cada desarrollador necesita `backend/.env` con **`DATABASE_URL`** correcto (Neon u otro host). Parte de `backend/.env.example`.
+
+### Citas (`Appointment`) — valoraciones del cliente
+
+En base de datos (columnas mapeadas desde Prisma) deben existir:
+
+| Campo Prisma | Columna SQL | Tipo |
+|--------------|-------------|------|
+| `clientRating` | `client_rating` | `INTEGER` nullable (1–5 en la app) |
+| `clientRatingComment` | `client_rating_comment` | `VARCHAR(2000)` nullable |
+| `clientRatedAt` | `client_rated_at` | `TIMESTAMP` nullable |
+
+Si la tabla ya existía sin estas columnas, `db push` o una migración las añadirá según `schema.prisma`.
+
+### Migraciones vs. desarrollo rápido
+
+- **CI / producción** (historial de migraciones aplicado): desde `backend`, `npx prisma migrate deploy` y `npx prisma generate`.
+- **Desarrollo local** con una BD que ya tenía tablas creadas con `db push` o sin historial limpio de Prisma Migrate: `npx prisma migrate deploy` puede responder **P3005** (*database schema is not empty*). En ese caso, para **alinear el esquema con `schema.prisma`** suele bastar:
+
+```bash
+cd backend
+npx prisma db push
+npx prisma generate
+```
+
+Para adoptar migraciones formales sobre una BD existente, ver [baselining](https://www.prisma.io/docs/guides/migrate/developing-with-prisma-migrate/add-prisma-migrate-to-a-project) (`prisma migrate resolve --applied …`).
+
+Tras actualizar el esquema en equipos que sí usan solo migraciones: `npx prisma migrate dev` (local interactivo) o `migrate deploy` + `prisma generate`.
 
 ### Modelos principales
 
@@ -91,6 +119,8 @@ Tras actualizar el esquema, desde `backend` ejecutar `npx prisma migrate deploy`
 | **BusinessSetting** | Configuración del negocio (nombre, colores, contacto, etc.). |
 | **Testimonial** | Testimonios para la landing (autor, rol, contenido, orden, activo). |
 
+**Satisfacción del cliente (fuente operativa en web y landing):** estrellas 1–5 y comentario opcional se guardan solo en **Appointment** (`clientRating`, `clientRatingComment`, `clientRatedAt`) tras una cita **completed**. La landing pública usa `GET /api/appointments/public-satisfaction` (sin token). **Testimonial** en base de datos sigue disponible vía `/api/testimonials` por si integraciones externas lo necesitan; el panel web ya no gestiona testimonios curados en la UI.
+
 ### Relaciones clave
 
 - **User** → **Role** (muchos a uno).
@@ -100,14 +130,14 @@ Tras actualizar el esquema, desde `backend` ejecutar `npx prisma migrate deploy`
 - **Payment** → Appointment, PaymentMethod (opcional).
 - **Product** → Inventory, InventoryMovement.
 
-Tras cambiar el schema: `npm run db:push` (o migraciones). Datos iniciales: `npm run db:seed`.
+Tras cambiar el schema: ver la subsección **Migraciones vs. desarrollo rápido** arriba (`db push` o migraciones). Datos iniciales: `npm run db:seed`.
 
 ---
 
 ## Backend
 
 - **Entrada**: `backend/src/index.js`.
-- **Framework**: Express con `express.json()`, CORS configurado (origen desde `FRONTEND_URL` o `http://localhost:5173`).
+- **Framework**: Express con `express.json()`, CORS: localhost/127.0.0.1 siempre permitidos; en producción define **`FRONTEND_URL`** (una o varias URLs separadas por coma) para el dominio del frontend web.
 - **Montaje**: Todas las rutas API bajo el prefijo `/api` (ver [API REST](#api-rest)).
 - **Health**: `GET /health` devuelve estado y timestamp.
 
@@ -145,8 +175,8 @@ Formato de respuesta típico: `{ success: true, data: ... }` o `{ success: false
 | Clientes | `/api/clients` | Admin, Barber | CRUD clientes e historial. |
 | Servicios | `/api/services` | GET público; CRUD Admin/Barber | Catálogo para agendar y administrar. |
 | Barberos | `/api/barbers` | Admin, Barber, Client (solo GET) | Listado y horarios para agendar; CRUD admin. |
-| Citas | `/api/appointments` | Admin, Barber, Client | CRUD citas y slots disponibles. |
-| Testimonios | `/api/testimonials` | GET público; CRUD Admin | Landing y panel de testimonios. |
+| Citas | `/api/appointments` | Ver detalle (incluye `GET /public-satisfaction` público) | CRUD citas, slots y valoraciones. |
+| Testimonios | `/api/testimonials` | GET público; CRUD Admin | Modelo opcional; la web usa valoraciones en `Appointment`. |
 | Pagos | `/api/payments` | Admin, Barber | CRUD pagos, métodos, totales. |
 | Productos | `/api/products` | Admin, Barber | Inventario, stock bajo, movimientos. |
 | Dashboard | `/api/dashboard` | Admin, Barber | Estadísticas. |
@@ -199,7 +229,11 @@ Todas las rutas requieren **auth** y **admin** o **barber**.
 
 #### Citas (`/api/appointments`)
 
-Todas requieren **auth** y **admin**, **barber** o **client**. Los clientes solo pueden ver/modificar sus propias citas (y solo cancelar).
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/public-satisfaction` | No | Resumen global para la landing: `average`, `count`, `distribution` (1–5), `recent` (últimas valoraciones con nombre de cliente, servicio, barbero, fecha). Query opcional: `limit` (1–48, por defecto 24) para acotar `recent`. |
+
+El resto de rutas de este prefijo requieren **auth** y **admin**, **barber** o **client**. Los clientes solo pueden ver/modificar sus propias citas (y solo cancelar).
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -215,7 +249,7 @@ En listados y detalle de citas, cada ítem incluye (cuando aplica) en **camelCas
 
 #### Testimonios (`/api/testimonials`)
 
-Textos opcionales para la **landing** (carrusel), independientes de las valoraciones de citas anteriores.
+Opcional: contenido editorial en tabla **Testimonial**. La landing del proyecto usa valoraciones de **Appointment** (`public-satisfaction`), no este listado.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
@@ -292,9 +326,9 @@ Para futura app móvil o cliente alternativo.
 
 ### Rutas y layouts
 
-- **MainLayout**: Envuelve todas las rutas. Si el usuario es **admin** o **barber**, redirige el contenido al **AdminLayout** (sidebar). Si no, muestra header público/cliente con enlaces a Inicio, Servicios, Testimonios, Ubicación, y (si está logueado) Mis citas y cerrar sesión.
+- **MainLayout**: Envuelve todas las rutas. Si el usuario es **admin** o **barber**, redirige el contenido al **AdminLayout** (sidebar). Si no, muestra header público/cliente con enlaces a Inicio, Servicios, Satisfacción, Ubicación, y (si está logueado) Mis citas y cerrar sesión.
 - **AdminLayout**: Sidebar con navegación según rol:
-  - **Admin**: Dashboard, Citas, Clientes, Servicios, Barberos, Testimonios, Pagos, Inventario, Reportes, Configuración.
+  - **Admin**: Dashboard, Citas, Clientes, Servicios, Barberos, Satisfacción (`/testimonials`), Pagos, Inventario, Reportes, Configuración.
   - **Barber**: Mi día (Dashboard), Mis citas, Agenda, Historial, Clientes (solo lectura).
 
 Rutas principales:
@@ -313,7 +347,7 @@ Rutas principales:
 | `/agenda`, `/history` | Barber | Agenda semanal e historial de servicios. |
 | `/reports` | Admin | Reportes. |
 | `/settings` | Admin | Configuración. |
-| `/testimonials`, `/testimonials/new`, `/testimonials/:id/edit` | Admin | Testimonios. |
+| `/testimonials` | Admin | Satisfacción: valoraciones de citas (filtros periodo/barbero). |
 
 La protección se hace con **ProtectedRoute** (componente que comprueba `allowedRoles` y redirige a login o home si no cumple).
 
@@ -352,7 +386,7 @@ Archivos en `src/services/`:
 - **Sobre nosotros**: Texto con nombre del negocio (SettingsContext).
 - **Servicios**: Grid de servicios cargados desde `GET /api/services`; si falla o está vacío, se muestra lista estática por defecto.
 - **Galería**: Carrusel 3D de imágenes (GalleryCarousel3D).
-- **Testimonios**: Carrusel de testimonios desde `GET /api/testimonials` (activos); si falla o vacío, se usan testimonios por defecto.
+- **Satisfacción**: Bloque con promedio, distribución y comentarios recientes desde `GET /api/appointments/public-satisfaction`.
 - **Ubicación**: Placeholder “próximamente”.
 - **CTA**: Enlaces a agendar cita (`/appointments`).
 - Si el usuario es admin o barber, al final se muestran enlaces rápidos al panel (Dashboard, Citas, Clientes, Servicios, Barberos).
@@ -394,8 +428,25 @@ Para una app de **cliente** (rol `client`), usa estos endpoints (todos con `Auth
 | Método | Ruta | Query / Body | Descripción |
 |--------|------|--------------|-------------|
 | GET | `/api/mobile/client/availability` | `barberId`, `date` (YYYY-MM-DD) | Slots disponibles para ese barbero y fecha. |
-| GET | `/api/mobile/client/appointments` | — | Lista de citas del cliente autenticado. |
-| POST | `/api/mobile/client/appointments` | Body: `barberId`, `serviceId`, `appointmentDate` (ISO), `startTime?` (HH:MM), `notes?` | Crear una nueva cita (el `clientId` se toma del token). |
+| GET | `/api/mobile/client/appointments` | — | Lista de citas del cliente (incluye campos de valoración; ver abajo). Equivalente: `GET /api/appointments` con el mismo token. |
+| POST | `/api/mobile/client/appointments` | Body: `barberId`, `serviceId`, `appointmentDate` (ISO), `startTime?` (HH:MM), `notes?` | Crear cita (`clientId` del token). |
+| POST | `/api/mobile/client/appointments/:id/rating` **o** `POST /api/appointments/:id/rating` | `{ "rating": 1-5, "comment"?: string }` | Solo si la cita está **`completed`**, es del cliente y aún no tiene valoración. Misma lógica en ambas URLs. |
+
+#### Listado de citas (cliente): `clientRating`, `clientRatingComment`, `clientRatedAt`
+
+En cada elemento del array `data` de `GET /api/mobile/client/appointments` o `GET /api/appointments`, el backend expone en **camelCase** (además del resto de campos del listado):
+
+| Campo | Uso en la app |
+|-------|----------------|
+| `clientRating` | `null` o entero 1–5. |
+| `clientRatingComment` | `null` o texto. |
+| `clientRatedAt` | `null` o fecha ISO. |
+
+Flujo recomendado: si `status === "completed"` y `clientRating == null`, mostrar formulario de valoración; si ya hay `clientRating`, mostrar solo lectura (estrellas + comentario si existe).
+
+#### Barbero (app móvil): resumen de satisfacción
+
+El resumen agregado **no** está en `/api/mobile`. Usar **`GET {BASE}/api/appointments/rating-summary`** con **Bearer** del usuario **barber** (o admin). Query opcional: `days` (número, p. ej. `30`) o `days=all`. El servidor limita al barbero autenticado a **sus** citas. Respuesta `data`: `average`, `count`, `distribution` (1–5), `recent`.
 
 ### Datos públicos (sin token)
 
@@ -420,51 +471,10 @@ En Flutter puedes usar **GET /api/services** y **GET /api/settings/public** sin 
    - `GET /api/barbers` con token para lista de barberos.  
    - `GET /api/mobile/client/availability?barberId=&date=` con token para slots.  
    - `POST /api/mobile/client/appointments` con token para crear la cita.
-4. **Mis citas**: `GET /api/mobile/client/appointments` con token.
-5. **Configuración / branding**: `GET /api/settings/public` sin token.
-
-Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con código HTTP 4xx; en 401 hay que borrar el token y redirigir a login.
-
----
-
-## Configuración e instalación
-
-### Requisitos
-### Cliente: citas y disponibilidad
-
-Para una app de **cliente** (rol `client`), usa estos endpoints (todos con `Authorization: Bearer <token>`):
-
-| Método | Ruta | Query / Body | Descripción |
-|--------|------|--------------|-------------|
-| GET | `/api/mobile/client/availability` | `barberId`, `date` (YYYY-MM-DD) | Slots disponibles para ese barbero y fecha. |
-| GET | `/api/mobile/client/appointments` | — | Lista de citas del cliente autenticado. |
-| POST | `/api/mobile/client/appointments` | Body: `barberId`, `serviceId`, `appointmentDate` (ISO), `startTime?` (HH:MM), `notes?` | Crear una nueva cita (el `clientId` se toma del token). |
-
-### Datos públicos (sin token)
-
-Para pantallas de selección (barberos, servicios, configuración del negocio):
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/barbers` | Lista de barberos (requiere token de cualquier rol: admin, barber o **client**). |
-| GET | `/api/barbers/:id/schedules` | Horarios del barbero (mismo requisito de token). |
-| GET | `/api/services` | Lista de servicios activos (**público**, no requiere token). |
-| GET | `/api/settings/public` | Nombre del negocio y datos públicos (**público**). |
-| GET | `/api/testimonials` | Testimonios activos para mostrar en la app (**público**). |
-
-En Flutter puedes usar **GET /api/services** y **GET /api/settings/public** sin estar logueado; para barberos y horarios el backend exige un usuario autenticado (p. ej. cliente ya logueado).
-
-### Resumen para Flutter
-
-1. **Login**: `POST /api/mobile/auth/login` → guardar `token` y opcionalmente `user`.
-2. **Perfil**: `GET /api/mobile/auth/me` con el token para obtener `clientId` y datos actualizados.
-3. **Pantalla de reserva**:  
-   - `GET /api/services` (público) para lista de servicios.  
-   - `GET /api/barbers` con token para lista de barberos.  
-   - `GET /api/mobile/client/availability?barberId=&date=` con token para slots.  
-   - `POST /api/mobile/client/appointments` con token para crear la cita.
-4. **Mis citas**: `GET /api/mobile/client/appointments` con token.
-5. **Configuración / branding**: `GET /api/settings/public` sin token.
+4. **Mis citas**: `GET /api/mobile/client/appointments` con token; parsear `clientRating`, `clientRatingComment`, `clientRatedAt` en cada ítem.
+5. **Valorar cita completada** (cliente): `POST {BASE}/api/mobile/client/appointments/:id/rating` o `POST {BASE}/api/appointments/:id/rating` con el mismo body y Bearer.
+6. **Barbero — resumen de valoraciones**: `GET {BASE}/api/appointments/rating-summary` con Bearer barbero (base `/api`, no `/api/mobile`). Query `days` / `days=all`.
+7. **Configuración / branding**: `GET /api/settings/public` sin token.
 
 Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con código HTTP 4xx; en 401 hay que borrar el token y redirigir a login.
 
@@ -476,7 +486,6 @@ Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con 
 
 - Node.js 18+
 - PostgreSQL (por ejemplo [Neon](https://neon.tech) o instalación local)
-- PostgreSQL (por ejemplo [Neon](https://neon.tech) o instalación local)
 
 ### Backend
 
@@ -487,27 +496,13 @@ Las respuestas de error suelen ser `{ "success": false, "message": "..." }` con 
    - `JWT_SECRET` – secreto para firmar tokens (en producción usar valor seguro)
    - `PORT` – opcional, por defecto 5000
    - `FRONTEND_URL` – opcional, origen CORS (por defecto `http://localhost:5173`)
-4. `npm run db:push` – sincroniza el schema con la BD
-5. `npm run db:seed` – crea roles, usuarios de prueba, métodos de pago, configuración y servicios de ejemplo
-2. `npm install`
-3. Crear `.env` en `backend/` con al menos:
-   - `DATABASE_URL` – URL de conexión PostgreSQL (ej. `postgresql://user:pass@host:5432/dbname?sslmode=require`)
-   - `JWT_SECRET` – secreto para firmar tokens (en producción usar valor seguro)
-   - `PORT` – opcional, por defecto 5000
-   - `FRONTEND_URL` – opcional, origen CORS (por defecto `http://localhost:5173`)
-4. `npm run db:push` – sincroniza el schema con la BD
+4. Alinear esquema: ver [Migraciones vs. desarrollo rápido](#migraciones-vs-desarrollo-rápido) (`npx prisma migrate deploy` o `npx prisma db push` + `npx prisma generate`).
 5. `npm run db:seed` – crea roles, usuarios de prueba, métodos de pago, configuración y servicios de ejemplo
 
 ### Frontend
 
 1. `cd frontend`
 2. `npm install`
-3. Opcional: crear `.env` o `.env.local` con `VITE_API_URL=http://localhost:5000/api` si no usas el proxy (en dev el proxy de Vite redirige `/api` a `http://localhost:5000`).
-4. `npm run dev` – inicia el frontend en `http://localhost:5173`
-
-Para uso normal en desarrollo, levantar backend (puerto 5000) y frontend (5173); el proxy de Vite enviará las peticiones `/api` al backend.
-
----
 3. Opcional: crear `.env` o `.env.local` con `VITE_API_URL=http://localhost:5000/api` si no usas el proxy (en dev el proxy de Vite redirige `/api` a `http://localhost:5000`).
 4. `npm run dev` – inicia el frontend en `http://localhost:5173`
 
@@ -526,36 +521,19 @@ Tras ejecutar `npm run db:seed` en `backend/`:
 | client@mrkutz.com | password123 | Cliente |
 
 ---
-Tras ejecutar `npm run db:seed` en `backend/`:
-
-| Email | Contraseña | Rol |
-|-------|------------|-----|
-| admin@mrkutz.com | password123 | Admin |
-| barber@mrkutz.com | password123 | Barbero |
-| client@mrkutz.com | password123 | Cliente |
-
----
 
 ## Comandos útiles
-## Comandos útiles
 
-**Backend**
-
-- `npm run dev` – servidor con hot reload (--watch)
-- `npm run start` – servidor producción
 **Backend**
 
 - `npm run dev` – servidor con hot reload (--watch)
 - `npm run start` – servidor producción
 - `npm run db:generate` – regenerar cliente Prisma
 - `npm run db:push` – aplicar schema a la BD (sin migraciones)
-- `npm run db:push` – aplicar schema a la BD (sin migraciones)
+- `npm run db:migrate` – aplicar migraciones en producción/CI (`prisma migrate deploy`)
 - `npm run db:seed` – ejecutar seed
 - `npm run db:studio` – abrir Prisma Studio
 
-**Frontend**
-
-- `npm run dev` – desarrollo (puerto 5173, proxy a backend)
 **Frontend**
 
 - `npm run dev` – desarrollo (puerto 5173, proxy a backend)
@@ -564,8 +542,62 @@ Tras ejecutar `npm run db:seed` en `backend/`:
 
 ---
 
-Este README describe el estado actual del proyecto: APIs, backend, frontend y base de datos, con nivel de detalle suficiente para desarrollar, mantener o desplegar Mr. Kutz.
-- `npm run preview` – previsualizar build
+## Despliegue (producción)
+
+Checklist orientativo; los nombres de productos son ejemplos habituales (puedes usar otros análogos).
+
+### 1. Base de datos PostgreSQL
+
+- Crea una instancia ([Neon](https://neon.tech), Supabase, RDS, etc.).
+- Copia **`DATABASE_URL`** (en Neon suele usarse la URL **pooled** para el runtime del servidor).
+- Asegura `?sslmode=require` (o equivalente) si el proveedor lo exige.
+
+### 2. Backend (API Node)
+
+En plataformas tipo **Railway**, **Render**, **Fly.io** o un **VPS**:
+
+| Variable | Descripción |
+|----------|-------------|
+| `DATABASE_URL` | URL de PostgreSQL (paso 1). |
+| `JWT_SECRET` | Secreto largo y aleatorio (no reutilizar el de desarrollo). |
+| `NODE_ENV` | `production`. |
+| `FRONTEND_URL` | Origen(es) del sitio web público, **HTTPS**, p. ej. `https://app.tudominio.com`. Varias URLs: separadas por **coma** (sin espacios extra). |
+| `PORT` | Muchos hosts inyectan el puerto; si no, define uno y configura el proxy del host. |
+
+**Comando de arranque recomendado** (ajusta al script que use tu plataforma):
+
+```bash
+cd backend && npm ci && npx prisma generate && npx prisma migrate deploy && npm run start
+```
+
+- La primera vez puedes ejecutar **`npm run db:seed`** en un entorno controlado si quieres datos de prueba (cambia luego las contraseñas o desactiva usuarios).
+- Comprueba **`GET https://<tu-api>/health`** tras el deploy.
+
+### 3. Frontend (Vite / React)
+
+En **Vercel**, **Netlify**, **Cloudflare Pages** u hosting estático:
+
+1. Variable de entorno de build: **`VITE_API_URL`** = URL pública del backend **incluyendo** `/api`, por ejemplo `https://api.tudominio.com/api` (o `https://tu-servicio.railway.app/api`).
+2. Build: `npm ci && npm run build` y sirve la carpeta **`dist/`**.
+3. En local el proxy de Vite usa `/api`; **en producción no hay proxy**: sin `VITE_API_URL` correcta, las peticiones fallarán.
+
+### 4. Orden práctico (primera vez)
+
+1. Base de datos creada y `DATABASE_URL` lista.
+2. Desplegar **backend** con variables + `prisma migrate deploy` (y `db:seed` solo si lo necesitas).
+3. Anotar la **URL base del API** (ej. `https://api…/api`).
+4. Desplegar **frontend** con `VITE_API_URL` apuntando a esa URL.
+5. Poner en el backend **`FRONTEND_URL`** = URL real del frontend (HTTPS) y **volver a desplegar** el API si hace falta (CORS).
+6. Probar login desde el dominio del frontend y, si aplica, registro / recuperación de contraseña.
+
+### 5. App móvil (Flutter)
+
+- Usa la **misma URL base HTTPS** del API (`…/api`); no dependas del proxy de Vite.
+- Revisa en README la sección [API para Flutter](#api-para-flutter).
+
+### 6. Correo (recuperación de contraseña, etc.)
+
+- En producción configura **`RESEND_API_KEY`** / **`RESEND_FROM`** o **SMTP** en las variables del backend (ver `backend/.env.example`).
 
 ---
 

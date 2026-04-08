@@ -112,6 +112,7 @@ model Appointment {
   endTime              DateTime  @map("end_time") @db.Time(6)
   status               String    @default("scheduled") @db.VarChar(20)
   notes                String?
+  /// Valoración del cliente tras cita completada (1–5); una vez por cita
   clientRating         Int?      @map("client_rating")
   clientRatingComment  String?   @map("client_rating_comment") @db.VarChar(2000)
   clientRatedAt        DateTime? @map("client_rated_at")
@@ -240,6 +241,7 @@ model BusinessSetting {
   @@map("business_settings")
 }
 
+/// Textos curados para la landing pública; no sustituyen la valoración operativa en Appointment.
 model Testimonial {
   id         Int      @id @default(autoincrement())
   authorName String   @map("author_name") @db.VarChar(100)

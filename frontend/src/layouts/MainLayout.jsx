@@ -41,7 +41,7 @@ export default function MainLayout() {
   const navLinks = [
     { to: '/', label: 'Inicio' },
     { to: '/#servicios', label: 'Servicios' },
-    { to: '/#testimonios', label: 'Testimonios' },
+    { to: '/#satisfaccion', label: 'Satisfacción' },
     { to: '/#ubicacion', label: 'Ubicación' },
   ];
 

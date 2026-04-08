@@ -4,17 +4,24 @@
  *
  * En esta primera versión se cubren:
  * - Subproceso de acceso (login, perfil)
- * - Subproceso de cliente (disponibilidad y manejo de citas)
+ * - Subproceso de cliente (disponibilidad, citas y valoración post-cita; misma lógica que `/api/appointments`)
  */
 
 import express from 'express';
-import { body, query } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import * as authController from '../controllers/auth.controller.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 
 const router = express.Router();
+
+const appointmentIdParam = param('id').isInt({ min: 1 }).withMessage('ID de cita no válido.');
+
+const clientRatingBody = [
+  body('rating').isInt({ min: 1, max: 5 }).withMessage('La valoración debe ser un entero entre 1 y 5.'),
+  body('comment').optional().trim().isLength({ max: 2000 }).withMessage('El comentario supera el máximo permitido.'),
+];
 
 // ====== AUTH MÓVIL ======
 
@@ -60,6 +67,14 @@ router.post(
   ],
   validate,
   appointmentController.create,
+);
+
+/** Misma lógica que POST /api/appointments/:id/rating (valoración en Appointment). */
+router.post(
+  '/client/appointments/:id/rating',
+  [appointmentIdParam, ...clientRatingBody],
+  validate,
+  appointmentController.submitClientRating,
 );
 
 export default router;

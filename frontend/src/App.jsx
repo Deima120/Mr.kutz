@@ -34,7 +34,6 @@ const HistoryPage = lazy(() => import('./pages/history/HistoryPage'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const TestimonialsPage = lazy(() => import('./pages/testimonials/TestimonialsPage'));
-const TestimonialFormPage = lazy(() => import('./pages/testimonials/TestimonialFormPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const PurchasesPage = lazy(() => import('./pages/purchases/PurchasesPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
@@ -286,22 +285,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <TestimonialsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="testimonials/new"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <TestimonialFormPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="testimonials/:id/edit"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <TestimonialFormPage />
               </ProtectedRoute>
             }
           />

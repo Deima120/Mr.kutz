@@ -67,8 +67,8 @@ export default function ProfilePage() {
                 <Link to="/appointments" className="btn-outline w-full text-center">
                   Ver mis citas
                 </Link>
-                <Link to="/#testimonios" className="btn-outline w-full text-center">
-                  Ver testimonios
+                <Link to="/#satisfaccion" className="btn-outline w-full text-center">
+                  Ver satisfacción
                 </Link>
               </div>
               <p className="text-xs text-stone-500 mt-4">

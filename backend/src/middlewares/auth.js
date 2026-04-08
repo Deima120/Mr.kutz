@@ -5,7 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * Verifica que el token JWT sea válido

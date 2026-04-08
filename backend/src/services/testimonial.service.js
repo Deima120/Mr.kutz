@@ -1,5 +1,6 @@
 /**
- * Testimonial Service - Gestión de testimonios (Prisma)
+ * Testimonial Service — contenido editorial para la landing (tabla Testimonial).
+ * La satisfacción medible por cita vive en Appointment (clientRating, etc.).
  */
 
 import prisma from '../lib/prisma.js';

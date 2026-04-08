@@ -23,22 +23,25 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
 ];
 
-// En desarrollo, permitir cualquier localhost para Flutter
+/** Producción: FRONTEND_URL=https://app.tudominio.com o varias separadas por coma */
+const envOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const corsOptions = {
   origin: (origin, callback) => {
     // Permitir solicitudes sin origin (móvil, Postman, etc.)
     if (!origin) return callback(null, true);
-    
-    // Permitir cualquier localhost en desarrollo
+
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return callback(null, true);
     }
-    
-    // Verificar lista de permitidos
-    if (allowedOrigins.includes(origin)) {
+
+    if (allowedOrigins.includes(origin) || envOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
     callback(new Error('No permitido por CORS.'));
   },
   credentials: true,

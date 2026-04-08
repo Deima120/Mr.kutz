@@ -3,15 +3,18 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const recovered = location.state?.recovered;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [errorReason, setErrorReason] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -21,12 +24,22 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErrorReason(null);
     setLoading(true);
     try {
       await login(email, password);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err?.message || (typeof err === 'string' ? err : 'Error al iniciar sesión'));
+      const validationMsg =
+        Array.isArray(err?.errors) && err.errors.length > 0
+          ? err.errors.find((item) => item.field === 'email')?.message || err.errors[0]?.message
+          : null;
+      setError(
+        validationMsg ||
+          err?.message ||
+          (typeof err === 'string' ? err : 'Error al iniciar sesión')
+      );
+      setErrorReason(err?.reason || null);
     } finally {
       setLoading(false);
     }
@@ -35,7 +48,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-card border border-stone-200 overflow-hidden">
+        <div className="panel-card overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" aria-hidden />
 
           <div className="p-8 sm:p-10">
@@ -44,22 +57,45 @@ export default function LoginPage() {
             <p className="text-stone-500 text-sm mb-8">Ingresa tus credenciales para acceder</p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {recovered && (
+                <div
+                  className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+                  role="status"
+                >
+                  Contraseña actualizada. Ya puedes iniciar sesión con la nueva clave.
+                </div>
+              )}
               {error && (
-                <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm" role="alert">
-                  {error}
+                <div className="alert-error space-y-2" role="alert">
+                  <p>{error}</p>
+                  {errorReason === 'USER_NOT_FOUND' && (
+                    <p className="text-sm font-normal opacity-95 border-t border-red-200/60 pt-2 mt-2">
+                      ¿Primera vez aquí?{' '}
+                      <Link to="/register" className="font-semibold underline underline-offset-2 hover:no-underline">
+                        Crear cuenta
+                      </Link>
+                    </p>
+                  )}
+                  {errorReason === 'INVALID_PASSWORD' && (
+                    <p className="text-sm font-normal opacity-95 border-t border-red-200/60 pt-2 mt-2">
+                      <Link to="/forgot-password" className="font-semibold underline underline-offset-2 hover:no-underline">
+                        Recuperar contraseña
+                      </Link>
+                    </p>
+                  )}
                 </div>
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-stone-700 mb-1.5">
-                  Email
+                <label htmlFor="email" className="label-premium">
+                  Correo electrónico
                 </label>
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none"
+                  className="input-premium rounded-lg"
                   placeholder="tu@email.com"
                   required
                   autoComplete="email"
@@ -67,7 +103,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-stone-700 mb-1.5">
+                <label htmlFor="password" className="label-premium">
                   Contraseña
                 </label>
                 <input
@@ -75,15 +111,15 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none"
+                  className="input-premium rounded-lg"
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
                 />
               </div>
 
-              <div className="flex justify-end">
-                <Link to="/forgot-password" className="text-sm text-gold font-medium hover:text-gold-dark">
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-sm text-gold font-medium hover:text-gold-dark transition-colors">
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
@@ -91,7 +127,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-barber-dark text-white font-semibold rounded-lg hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full btn-dark py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>

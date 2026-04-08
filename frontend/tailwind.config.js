@@ -23,22 +23,8 @@ export default {
           800: '#292524',
           900: '#1c1917',
           950: '#0c0a09',
-          50: '#fafaf9',
-          100: '#f5f5f4',
-          200: '#e7e5e4',
-          300: '#d6d3d1',
-          400: '#a8a29e',
-          500: '#78716c',
-          600: '#57534e',
-          700: '#44403c',
-          800: '#292524',
-          900: '#1c1917',
-          950: '#0c0a09',
         },
         barber: {
-          dark: '#0c0a09',
-          charcoal: '#1c1917',
-          muted: '#78716c',
           dark: '#0c0a09',
           charcoal: '#1c1917',
           muted: '#78716c',
@@ -54,6 +40,8 @@ export default {
         'fade-in': 'fadeIn 0.6s ease-out forwards',
         'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
         'slide-in-right': 'slideInRight 0.4s ease-out',
+        'line-expand': 'lineExpand 0.8s ease-out forwards',
+        float: 'float 4s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -67,6 +55,14 @@ export default {
         slideInRight: {
           '0%': { opacity: '0', transform: 'translateX(12px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        lineExpand: {
+          '0%': { transform: 'scaleX(0)', opacity: '0.8' },
+          '100%': { transform: 'scaleX(1)', opacity: '1' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
         },
       },
       backgroundImage: {

@@ -31,6 +31,18 @@ const STATUS_STYLE = {
   no_show: 'bg-red-50 text-red-700 border-red-200',
 };
 
+/** API devuelve camelCase; toleramos snake_case por si el proxy serializa distinto */
+function clientRatingOf(a) {
+  const r = a?.clientRating ?? a?.client_rating;
+  if (r == null || r === '') return null;
+  const n = Number(r);
+  return Number.isFinite(n) ? n : null;
+}
+
+function clientRatingCommentOf(a) {
+  return a?.clientRatingComment ?? a?.client_rating_comment ?? null;
+}
+
 function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
@@ -274,18 +286,20 @@ export default function AppointmentsPage() {
                         <p className="text-stone-600 text-sm mt-1">
                           {formatTime(a.start_time)} · {a.barber_first_name} {a.barber_last_name}
                         </p>
-                        {a.status === 'completed' && a.clientRating == null && (
+                        {a.status === 'completed' && clientRatingOf(a) == null && (
                           <ClientAppointmentRatingForm appointmentId={a.id} onSuccess={fetchAppointments} />
                         )}
-                        {a.status === 'completed' && a.clientRating != null && (
+                        {a.status === 'completed' && clientRatingOf(a) != null && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             <p className="text-sm text-stone-600">
                               Tu valoración:{' '}
-                              <span className="text-amber-500">{'★'.repeat(a.clientRating)}</span>
-                              <span className="text-stone-300">{'☆'.repeat(5 - a.clientRating)}</span>
+                              <span className="text-amber-500">{'★'.repeat(clientRatingOf(a))}</span>
+                              <span className="text-stone-300">{'☆'.repeat(5 - clientRatingOf(a))}</span>
                             </p>
-                            {a.clientRatingComment ? (
-                              <p className="text-sm text-stone-500 mt-1 italic">"{a.clientRatingComment}"</p>
+                            {clientRatingCommentOf(a) ? (
+                              <p className="text-sm text-stone-500 mt-1 italic">
+                                "{clientRatingCommentOf(a)}"
+                              </p>
                             ) : null}
                           </div>
                         )}
@@ -397,13 +411,25 @@ export default function AppointmentsPage() {
                       </p>
                       <p className="text-stone-600 text-sm mt-0.5">
                         {a.client_first_name} {a.client_last_name}
-                        {a.status === 'completed' && a.clientRating != null && (
-                          <span className="ml-2 text-amber-600 font-medium" title="Valoración del cliente">
-                            {'★'.repeat(a.clientRating)}
-                            <span className="text-stone-300">{'☆'.repeat(5 - a.clientRating)}</span>
-                          </span>
-                        )}
                       </p>
+                      {a.status === 'completed' && clientRatingOf(a) != null && (
+                        <p className="text-sm mt-2 text-amber-700">
+                          <span className="font-medium text-stone-600">Valoración del cliente: </span>
+                          <span
+                            className="tabular-nums"
+                            title={`${clientRatingOf(a)} de 5 estrellas`}
+                            aria-label={`${clientRatingOf(a)} de 5 estrellas`}
+                          >
+                            <span className="text-amber-500">{'★'.repeat(clientRatingOf(a))}</span>
+                            <span className="text-stone-300">{'☆'.repeat(5 - clientRatingOf(a))}</span>
+                          </span>
+                          {clientRatingCommentOf(a) ? (
+                            <span className="block text-stone-500 font-normal mt-1 italic text-xs">
+                              "{clientRatingCommentOf(a)}"
+                            </span>
+                          ) : null}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
@@ -440,7 +466,7 @@ export default function AppointmentsPage() {
         actions={
           <Link
             to="/appointments/new"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm"
+            className="inline-flex items-center px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm shadow-sm"
           >
             + Nueva cita
           </Link>
@@ -497,10 +523,13 @@ export default function AppointmentsPage() {
               <TableHeader>Barbero</TableHeader>
               <TableHeader>Servicio</TableHeader>
               <TableHeader>Estado</TableHeader>
+              <TableHeader>Valoración</TableHeader>
               <TableHeader>Acciones</TableHeader>
             </TableHead>
             <TableBody>
-              {appointments.map((a) => (
+              {appointments.map((a) => {
+                const rating = clientRatingOf(a);
+                return (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{formatTime(a.start_time)}</TableCell>
                   <TableCell>
@@ -523,6 +552,18 @@ export default function AppointmentsPage() {
                       {STATUS_LABELS[a.status] || a.status}
                     </span>
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {a.status === 'completed' && rating != null ? (
+                      <span className="text-amber-600 tabular-nums" title="Valoración del cliente">
+                        {'★'.repeat(rating)}
+                        <span className="text-stone-300">{'☆'.repeat(5 - rating)}</span>
+                      </span>
+                    ) : a.status === 'completed' ? (
+                      <span className="text-stone-400">—</span>
+                    ) : (
+                      <span className="text-stone-300">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
                       <select
@@ -540,7 +581,8 @@ export default function AppointmentsPage() {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </DataCard>

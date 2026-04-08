@@ -18,6 +18,51 @@ function StarRow({ label, count, max }) {
   );
 }
 
+function formatRatedDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function RecentCommentsList({ recent, compact, commentsOnly }) {
+  if (!recent?.length) return null;
+  return (
+    <ul
+      className={`space-y-3 overflow-y-auto pr-1 ${compact ? 'max-h-56' : commentsOnly ? 'max-h-[28rem]' : 'max-h-80'}`}
+    >
+      {recent.map((r) => {
+        const meta = [r.serviceName, r.barberName, formatRatedDate(r.date)].filter(Boolean).join(' · ');
+        return (
+          <li
+            key={`${r.appointmentId}-${r.date}`}
+            className="p-4 rounded-xl bg-stone-50/90 border border-stone-100 text-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+              <span className="font-semibold text-stone-900">{r.clientName}</span>
+              <span
+                className="text-amber-600 font-medium tabular-nums"
+                aria-label={`${r.rating} de 5 estrellas`}
+              >
+                {'★'.repeat(r.rating)}
+                <span className="text-stone-300">{'☆'.repeat(5 - r.rating)}</span>
+              </span>
+            </div>
+            {meta ? <p className="text-stone-500 text-xs mb-1">{meta}</p> : null}
+            {r.comment ? (
+              <p className="text-stone-700 italic">"{r.comment}"</p>
+            ) : (
+              !commentsOnly && <p className="text-stone-400 text-xs">Sin comentario</p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function AppointmentRatingsPanel({
   summary,
   loading,
@@ -27,6 +72,8 @@ export default function AppointmentRatingsPanel({
   compact = false,
   /** Si se define, solo se muestran los N primeros comentarios recientes */
   recentLimit,
+  /** Solo lista de estrellas + comentarios (sin promedio, totales ni distribución) — p. ej. landing pública */
+  commentsOnly = false,
 }) {
   if (loading) {
     return (
@@ -59,6 +106,20 @@ export default function AppointmentRatingsPanel({
       ? summary.recent.slice(0, recentLimit)
       : summary.recent;
 
+  if (commentsOnly) {
+    return (
+      <div className="space-y-4">
+        {recent?.length > 0 ? (
+          <RecentCommentsList recent={recent} compact={compact} commentsOnly />
+        ) : (
+          <div className="py-6 text-center text-stone-500 text-sm">
+            {emptyHint || 'Aún no hay comentarios para mostrar.'}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {filtersSlot}
@@ -86,41 +147,7 @@ export default function AppointmentRatingsPanel({
       {recent?.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Últimos comentarios</p>
-          <ul className={`space-y-3 overflow-y-auto pr-1 ${compact ? 'max-h-56' : 'max-h-80'}`}>
-            {recent.map((r) => (
-              <li
-                key={`${r.appointmentId}-${r.date}`}
-                className="p-4 rounded-xl bg-stone-50/90 border border-stone-100 text-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                  <span className="font-semibold text-stone-900">{r.clientName}</span>
-                  <span
-                    className="text-amber-600 font-medium tabular-nums"
-                    aria-label={`${r.rating} de 5 estrellas`}
-                  >
-                    {'★'.repeat(r.rating)}
-                    <span className="text-stone-300">{'☆'.repeat(5 - r.rating)}</span>
-                  </span>
-                </div>
-                <p className="text-stone-500 text-xs mb-1">
-                  {r.serviceName}
-                  {r.barberName ? ` · ${r.barberName}` : ''}
-                  {r.date
-                    ? ` · ${new Date(r.date).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}`
-                    : ''}
-                </p>
-                {r.comment ? (
-                  <p className="text-stone-700 italic">"{r.comment}"</p>
-                ) : (
-                  <p className="text-stone-400 text-xs">Sin comentario</p>
-                )}
-              </li>
-            ))}
-          </ul>
+          <RecentCommentsList recent={recent} compact={compact} commentsOnly={false} />
         </div>
       )}
     </div>

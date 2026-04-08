@@ -33,14 +33,16 @@ export const getById = async (req, res, next) => {
   try {
     const appointment = await appointmentService.getById(req.params.id);
     if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
+      return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
     const role = req.user.role_name;
-    if (role === 'client' && Number(appointment.clientId) !== Number(req.user.client_id)) {
-      return res.status(403).json({ success: false, message: 'You can only view your own appointments.' });
+    const ownerClientId = appointment.client_id ?? appointment.clientId;
+    const ownerBarberId = appointment.barber_id ?? appointment.barberId;
+    if (role === 'client' && Number(ownerClientId) !== Number(req.user.client_id)) {
+      return res.status(403).json({ success: false, message: 'Solo puedes ver tus propias citas.' });
     }
-    if (role === 'barber' && Number(appointment.barberId) !== Number(req.user.barber_id)) {
-      return res.status(403).json({ success: false, message: 'You can only view your own appointments.' });
+    if (role === 'barber' && Number(ownerBarberId) !== Number(req.user.barber_id)) {
+      return res.status(403).json({ success: false, message: 'Solo puedes ver tus propias citas.' });
     }
     res.json({ success: true, data: appointment });
   } catch (error) {
@@ -70,7 +72,7 @@ export const create = async (req, res, next) => {
     const appointment = await appointmentService.create(body);
     res.status(201).json({
       success: true,
-      message: 'Appointment created successfully',
+      message: 'Cita creada correctamente.',
       data: appointment,
     });
   } catch (error) {
@@ -81,14 +83,11 @@ export const create = async (req, res, next) => {
 export const getRatingSummary = async (req, res, next) => {
   try {
     const role = req.user.role_name;
-    if (role !== 'admin' && role !== 'barber') {
-      return res.status(403).json({ success: false, message: 'Insufficient permissions.' });
-    }
     let { barberId, days } = req.query;
     if (role === 'barber') {
       barberId = req.user.barber_id != null ? String(req.user.barber_id) : '';
       if (!barberId) {
-        return res.status(403).json({ success: false, message: 'Barber profile not linked.' });
+        return res.status(403).json({ success: false, message: 'Perfil de barbero no vinculado.' });
       }
     }
     const daysRaw = days;
@@ -106,10 +105,26 @@ export const getRatingSummary = async (req, res, next) => {
   }
 };
 
+/** GET público para la landing: valoraciones agregadas y comentarios recientes (sin token). */
+export const getPublicRatingSummary = async (req, res, next) => {
+  try {
+    const raw = req.query.limit;
+    let recentLimit = 24;
+    if (raw != null && raw !== '') {
+      const n = parseInt(String(raw), 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 48) recentLimit = n;
+    }
+    const summary = await appointmentService.getPublicRatingSummary({ recentLimit });
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const submitClientRating = async (req, res, next) => {
   try {
     if (req.user.role_name !== 'client' || !req.user.client_id) {
-      return res.status(403).json({ success: false, message: 'Only clients can submit a rating.' });
+      return res.status(403).json({ success: false, message: 'Solo los clientes pueden enviar una valoración.' });
     }
     const appointment = await appointmentService.submitClientRating(req.params.id, req.user.client_id, {
       rating: req.body.rating,
@@ -117,7 +132,7 @@ export const submitClientRating = async (req, res, next) => {
     });
     res.status(200).json({
       success: true,
-      message: 'Rating saved',
+      message: 'Valoración guardada.',
       data: appointment,
     });
   } catch (error) {
@@ -130,13 +145,14 @@ export const update = async (req, res, next) => {
     if (req.user.role_name === 'client' && req.user.client_id) {
       const existing = await appointmentService.getById(req.params.id);
       if (!existing) {
-        return res.status(404).json({ success: false, message: 'Appointment not found' });
+        return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
       }
-      if (Number(existing.clientId) !== Number(req.user.client_id)) {
-        return res.status(403).json({ success: false, message: 'You can only update your own appointments.' });
+      const ownerClientId = existing.client_id ?? existing.clientId;
+      if (Number(ownerClientId) !== Number(req.user.client_id)) {
+        return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propias citas.' });
       }
       if (req.body.status && !['cancelled'].includes(req.body.status)) {
-        return res.status(403).json({ success: false, message: 'Clients can only cancel appointments.' });
+        return res.status(403).json({ success: false, message: 'Como cliente solo puedes cancelar citas.' });
       }
     }
     const appointment = await appointmentService.update(req.params.id, req.body);
