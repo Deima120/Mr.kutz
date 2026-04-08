@@ -161,9 +161,25 @@ export const forgotPassword = async (email) => {
     },
   });
 
-  // En producción, aquí se enviaría un email con el código
-  // Por ahora, lo retornamos para pruebas (en producción, eliminar esto)
-  console.log(`Reset code for ${email}: ${resetCode}`);
+  let businessName = 'Mr. Kutz';
+  try {
+    const settings = await settingsService.getSettings();
+    if (settings?.business_name?.trim()) {
+      businessName = settings.business_name.trim();
+    }
+  } catch (settingsError) {
+    console.warn('[forgotPassword] No se pudo leer business settings:', settingsError?.message || settingsError);
+  }
+
+  const delivery = await sendPasswordResetCode({
+    to: dbUser.email,
+    code: resetCode,
+    businessName,
+  });
+
+  if (!delivery?.sent) {
+    console.error('[forgotPassword] No se pudo enviar el correo de recuperación:', delivery?.reason || 'unknown');
+  }
 
   return { 
     message: 'Si el correo existe, recibirás instrucciones en breve.',
