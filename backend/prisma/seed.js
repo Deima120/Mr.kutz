@@ -141,51 +141,115 @@ async function main() {
   });
   console.log('✅ Usuario client: client@mrkutz.com');
 
-  // 8. Servicios MR KUTZ (catálogo profesional según perfil Plani)
-  const services = [
-    { name: 'Corte', description: 'Corte clásico con terminación profesional', price: 60000, durationMinutes: 35 },
-    { name: 'Barba', description: 'Arreglo y perfilado de barba', price: 35000, durationMinutes: 15 },
-    { name: 'Corte + Barba', description: 'Combo completo. Corte y barba en una sesión', price: 80000, durationMinutes: 60 },
-    { name: 'Corte + Barba Premium', description: 'Experiencia premium con acabados detallados', price: 85000, durationMinutes: 75 },
-    { name: 'Barba Premium', description: 'Barba + marcación y cuidado especial', price: 45000, durationMinutes: 30 },
-    { name: 'Barba + Marcación', description: 'Perfilado y marcación de barba', price: 45000, durationMinutes: 30 },
-    { name: 'Contorno De Barba', description: 'Definición y contorno de barba', price: 10000, durationMinutes: 5 },
-    { name: 'Corte Niño', description: 'Corte para los más pequeños', price: 55000, durationMinutes: 30 },
-    { name: 'Corte De Puntas', description: 'Recorte y mantenimiento de puntas', price: 20000, durationMinutes: 15 },
-    { name: 'Moldeo', description: 'Moldeo y fijación del cabello', price: 20000, durationMinutes: 15 },
-    { name: 'Moldeo Y Peinado', description: 'Moldeo y peinado profesional', price: 35000, durationMinutes: 10 },
-    { name: 'Lavado De Cabello', description: 'Lavado y cuidado del cabello', price: 25000, durationMinutes: 10 },
-    { name: 'Rayas O Tribal', description: 'Diseño en rayas o tribal', price: 25000, durationMinutes: 10 },
-    { name: 'Corte + Cejas', description: 'Corte con arreglo de cejas', price: 70000, durationMinutes: 45 },
-    { name: 'Corte + Barba + Cejas', description: 'Combo completo con cejas', price: 90000, durationMinutes: 60 },
-    { name: 'Barba + Cejas', description: 'Barba y arreglo de cejas', price: 48000, durationMinutes: 25 },
-    { name: 'Cejas Con Cera/Hilo', description: 'Diseño de cejas con cera o hilo', price: 35000, durationMinutes: 15 },
-    { name: 'Cejas Con Barbera', description: 'Arreglo de cejas con navaja', price: 18000, durationMinutes: 15 },
-    { name: 'Barba + Limpieza Facial', description: 'Barba y limpieza facial', price: 43000, durationMinutes: 30 },
-    { name: 'Depilación Nasal', description: 'Depilación de vello nasal', price: 23000, durationMinutes: 15 },
-    { name: 'Depilación Nasal/Oídos', description: 'Depilación nasal y de oídos', price: 33000, durationMinutes: 20 },
-    { name: 'Bozo En Cera', description: 'Depilación de bozo con cera', price: 20000, durationMinutes: 15 },
-    { name: 'Limpieza Facial', description: 'Limpieza facial profesional', price: 25000, durationMinutes: 15 },
-    { name: 'Mascarilla De Puntos Negros', description: 'Tratamiento con mascarilla puntos negros', price: 25000, durationMinutes: 15 },
-    { name: 'Mascarilla Velo', description: 'Mascarilla en velo', price: 21000, durationMinutes: 15 },
-    { name: 'Mascarilla Gold Mask', description: 'Mascarilla oro', price: 25000, durationMinutes: 15 },
-    { name: 'Mascarilla Gris De Murano', description: 'Mascarilla Gris Murano', price: 25000, durationMinutes: 15 },
-    { name: 'Mascarilla De Parches De Ojos', description: 'Parches para contorno de ojos', price: 21000, durationMinutes: 15 },
-    { name: 'Combo Mascarillas', description: 'Combo de mascarillas faciales', price: 55000, durationMinutes: 45 },
-    { name: 'Exfoliación Facial', description: 'Exfoliación facial', price: 20000, durationMinutes: 15 },
-    { name: 'Cubrimiento De Canas', description: 'Cubrimiento de canas', price: 80000, durationMinutes: 60 },
-    { name: 'Color Full', description: 'Coloración completa', price: 250000, durationMinutes: 300 },
-    { name: 'Aplicación De Matizante', description: 'Aplicación de matizante', price: 40000, durationMinutes: 35 },
-    { name: 'Pigmentación De Barba', description: 'Pigmentación de barba', price: 20000, durationMinutes: 15 },
-    { name: 'Alissado 5 Min', description: 'Alissado express', price: 55000, durationMinutes: 15 },
+  // 8. Categorías de servicios (catálogo Mr. Kutz)
+  const serviceCategoryDefs = [
+    { name: 'Cortes', description: 'Cortes de cabello, moldeo, lavado y acabados' },
+    { name: 'Barba', description: 'Arreglo, perfilado y barba premium' },
+    { name: 'Combos', description: 'Paquetes que combinan varios servicios' },
+    { name: 'Cejas', description: 'Diseño y arreglo de cejas' },
+    { name: 'Depilación', description: 'Cera, nasal, oídos y bozo' },
+    { name: 'Facial', description: 'Limpieza, mascarillas y exfoliación' },
+    { name: 'Coloración', description: 'Tintes, matiz, canas y pigmentación' },
   ];
-  for (const svc of services) {
-    const existing = await prisma.service.findFirst({ where: { name: svc.name } });
-    if (!existing) {
-      await prisma.service.create({ data: svc });
+  for (const c of serviceCategoryDefs) {
+    await prisma.serviceCategory.upsert({
+      where: { name: c.name },
+      update: { description: c.description, isActive: true },
+      create: { name: c.name, description: c.description },
+    });
+  }
+  const categoriesByName = Object.fromEntries(
+    (await prisma.serviceCategory.findMany()).map((row) => [row.name, row.id])
+  );
+
+  // 9. Servicios MR KUTZ — cada ítem con categoría (mismo catálogo Plani)
+  const services = [
+    { name: 'Corte', category: 'Cortes', description: 'Corte clásico con terminación profesional', price: 60000, durationMinutes: 35 },
+    { name: 'Barba', category: 'Barba', description: 'Arreglo y perfilado de barba', price: 35000, durationMinutes: 15 },
+    { name: 'Corte + Barba', category: 'Combos', description: 'Combo completo. Corte y barba en una sesión', price: 80000, durationMinutes: 60 },
+    { name: 'Corte + Barba Premium', category: 'Combos', description: 'Experiencia premium con acabados detallados', price: 85000, durationMinutes: 75 },
+    { name: 'Barba Premium', category: 'Barba', description: 'Barba + marcación y cuidado especial', price: 45000, durationMinutes: 30 },
+    { name: 'Barba + Marcación', category: 'Barba', description: 'Perfilado y marcación de barba', price: 45000, durationMinutes: 30 },
+    { name: 'Contorno De Barba', category: 'Barba', description: 'Definición y contorno de barba', price: 10000, durationMinutes: 5 },
+    { name: 'Corte Niño', category: 'Cortes', description: 'Corte para los más pequeños', price: 55000, durationMinutes: 30 },
+    { name: 'Corte De Puntas', category: 'Cortes', description: 'Recorte y mantenimiento de puntas', price: 20000, durationMinutes: 15 },
+    { name: 'Moldeo', category: 'Cortes', description: 'Moldeo y fijación del cabello', price: 20000, durationMinutes: 15 },
+    { name: 'Moldeo Y Peinado', category: 'Cortes', description: 'Moldeo y peinado profesional', price: 35000, durationMinutes: 10 },
+    { name: 'Lavado De Cabello', category: 'Cortes', description: 'Lavado y cuidado del cabello', price: 25000, durationMinutes: 10 },
+    { name: 'Rayas O Tribal', category: 'Cortes', description: 'Diseño en rayas o tribal', price: 25000, durationMinutes: 10 },
+    { name: 'Corte + Cejas', category: 'Combos', description: 'Corte con arreglo de cejas', price: 70000, durationMinutes: 45 },
+    { name: 'Corte + Barba + Cejas', category: 'Combos', description: 'Combo completo con cejas', price: 90000, durationMinutes: 60 },
+    { name: 'Barba + Cejas', category: 'Combos', description: 'Barba y arreglo de cejas', price: 48000, durationMinutes: 25 },
+    { name: 'Cejas Con Cera/Hilo', category: 'Cejas', description: 'Diseño de cejas con cera o hilo', price: 35000, durationMinutes: 15 },
+    { name: 'Cejas Con Barbera', category: 'Cejas', description: 'Arreglo de cejas con navaja', price: 18000, durationMinutes: 15 },
+    { name: 'Barba + Limpieza Facial', category: 'Combos', description: 'Barba y limpieza facial', price: 43000, durationMinutes: 30 },
+    { name: 'Depilación Nasal', category: 'Depilación', description: 'Depilación de vello nasal', price: 23000, durationMinutes: 15 },
+    { name: 'Depilación Nasal/Oídos', category: 'Depilación', description: 'Depilación nasal y de oídos', price: 33000, durationMinutes: 20 },
+    { name: 'Bozo En Cera', category: 'Depilación', description: 'Depilación de bozo con cera', price: 20000, durationMinutes: 15 },
+    { name: 'Limpieza Facial', category: 'Facial', description: 'Limpieza facial profesional', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla De Puntos Negros', category: 'Facial', description: 'Tratamiento con mascarilla puntos negros', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla Velo', category: 'Facial', description: 'Mascarilla en velo', price: 21000, durationMinutes: 15 },
+    { name: 'Mascarilla Gold Mask', category: 'Facial', description: 'Mascarilla oro', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla Gris De Murano', category: 'Facial', description: 'Mascarilla Gris Murano', price: 25000, durationMinutes: 15 },
+    { name: 'Mascarilla De Parches De Ojos', category: 'Facial', description: 'Parches para contorno de ojos', price: 21000, durationMinutes: 15 },
+    { name: 'Combo Mascarillas', category: 'Combos', description: 'Combo de mascarillas faciales', price: 55000, durationMinutes: 45 },
+    { name: 'Exfoliación Facial', category: 'Facial', description: 'Exfoliación facial', price: 20000, durationMinutes: 15 },
+    { name: 'Cubrimiento De Canas', category: 'Coloración', description: 'Cubrimiento de canas', price: 80000, durationMinutes: 60 },
+    { name: 'Color Full', category: 'Coloración', description: 'Coloración completa', price: 250000, durationMinutes: 300 },
+    { name: 'Aplicación De Matizante', category: 'Coloración', description: 'Aplicación de matizante', price: 40000, durationMinutes: 35 },
+    { name: 'Pigmentación De Barba', category: 'Coloración', description: 'Pigmentación de barba', price: 20000, durationMinutes: 15 },
+    { name: 'Alissado 5 Min', category: 'Cortes', description: 'Alissado express', price: 55000, durationMinutes: 15 },
+  ];
+
+  for (const row of services) {
+    const { category, name, description, price, durationMinutes } = row;
+    const categoryId = categoriesByName[category] ?? null;
+    const existing = await prisma.service.findFirst({ where: { name } });
+    if (existing) {
+      await prisma.service.update({
+        where: { id: existing.id },
+        data: {
+          categoryId,
+          description,
+          price,
+          durationMinutes,
+        },
+      });
+    } else {
+      await prisma.service.create({
+        data: {
+          name,
+          description,
+          price,
+          durationMinutes,
+          categoryId,
+        },
+      });
     }
   }
-  console.log('✅ Servicios MR KUTZ verificados');
+
+  // 10. Eliminar categorías legacy «Barbas» / «General»: reasignar servicios y borrar filas
+  const barbaMain = await prisma.serviceCategory.findUnique({ where: { name: 'Barba' } });
+  const cortesMain = await prisma.serviceCategory.findUnique({ where: { name: 'Cortes' } });
+  const legacyCats = await prisma.serviceCategory.findMany({
+    where: {
+      OR: [
+        { name: { equals: 'Barbas', mode: 'insensitive' } },
+        { name: { equals: 'General', mode: 'insensitive' } },
+      ],
+    },
+  });
+  for (const leg of legacyCats) {
+    const key = leg.name.trim().toLowerCase();
+    const targetId = key === 'barbas' ? barbaMain?.id : key === 'general' ? cortesMain?.id : null;
+    if (!targetId || leg.id === targetId) continue;
+    await prisma.service.updateMany({ where: { categoryId: leg.id }, data: { categoryId: targetId } });
+    await prisma.serviceCategory.delete({ where: { id: leg.id } });
+  }
+  if (cortesMain) {
+    await prisma.service.updateMany({ where: { categoryId: null }, data: { categoryId: cortesMain.id } });
+  }
+  console.log('✅ Categorías y servicios MR KUTZ sincronizados (sin Barbas/General)');
 
   console.log('\n🎉 Seed completado. Usuarios de prueba:');
   console.log('   admin@mrkutz.com / password123');
