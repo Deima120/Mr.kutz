@@ -12,6 +12,7 @@ import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 import { downloadCSV, printAsPDF } from '../../utils/export';
+import { formatAppointmentClockTime } from '../../utils/appointmentTime';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -169,13 +170,18 @@ export default function AppointmentsPage() {
     fetchAppointments();
   }, [filterDate, filterBarber, user?.barberId, user?.clientId]);
 
-  // Mensaje de éxito al llegar desde "Agendar cita" (state) o al cancelar
+  // Mensaje de éxito al llegar desde alta/edición de cita (state) o al cancelar
   useEffect(() => {
-    if (isClient && location.state?.appointmentCreated) {
+    if (!isClient) return;
+    const st = location.state;
+    if (st?.appointmentCreated) {
       setSuccessMessage('Cita agendada correctamente.');
       navigate(location.pathname, { replace: true, state: {} });
+    } else if (st?.appointmentUpdated) {
+      setSuccessMessage('Cita actualizada correctamente.');
+      navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [isClient, location.state?.appointmentCreated, location.pathname, navigate]);
+  }, [isClient, location.state, location.pathname, navigate]);
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -202,23 +208,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  /** start_time de la API suele ser ISO (1970-01-01THH:mm:ss…); no usar slice(0,5) → "1970-". */
-  const formatTime = (t) => {
-    if (t == null || t === '') return '';
-    if (t instanceof Date) {
-      return `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
-    }
-    const s = String(t);
-    const iso = s.match(/T(\d{1,2}):(\d{2})/);
-    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
-    const hm = s.match(/^(\d{1,2}):(\d{2})/);
-    if (hm) return `${String(hm[1]).padStart(2, '0')}:${hm[2]}`;
-    const d = new Date(s);
-    if (!Number.isNaN(d.getTime())) {
-      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-    }
-    return '';
-  };
+  const formatTime = formatAppointmentClockTime;
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
@@ -324,7 +314,13 @@ export default function AppointmentsPage() {
                           </div>
                         )}
                         {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                          <div className="mt-4 pt-4 border-t border-stone-100">
+                          <div className="mt-4 pt-4 border-t border-stone-100 flex flex-wrap items-center gap-x-4 gap-y-2">
+                            <Link
+                              to={`/appointments/${a.id}/edit`}
+                              className="text-sm font-semibold text-barber-dark hover:text-gold-dark underline-offset-2 hover:underline"
+                            >
+                              Modificar cita
+                            </Link>
                             {cancelConfirmId === a.id ? (
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm text-stone-600">¿Cancelar esta cita?</span>
@@ -451,20 +447,28 @@ export default function AppointmentsPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                        <select
-                          value={a.status}
-                          onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                          className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
-                        >
-                          <option value="scheduled">Agendada</option>
-                          <option value="confirmed">Confirmada</option>
-                          <option value="in_progress">En progreso</option>
-                          <option value="completed">Completada</option>
-                          <option value="cancelled">Cancelada</option>
-                          <option value="no_show">No asistió</option>
-                        </select>
+                        <>
+                          <Link
+                            to={`/appointments/${a.id}/edit`}
+                            className="text-sm font-semibold text-barber-dark hover:text-gold-dark px-3 py-2 rounded-xl border border-stone-200 hover:border-gold/50 transition-colors"
+                          >
+                            Editar
+                          </Link>
+                          <select
+                            value={a.status}
+                            onChange={(e) => handleStatusChange(a.id, e.target.value)}
+                            className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
+                          >
+                            <option value="scheduled">Agendada</option>
+                            <option value="confirmed">Confirmada</option>
+                            <option value="in_progress">En progreso</option>
+                            <option value="completed">Completada</option>
+                            <option value="cancelled">Cancelada</option>
+                            <option value="no_show">No asistió</option>
+                          </select>
+                        </>
                       )}
                     </div>
                   </div>
@@ -585,20 +589,28 @@ export default function AppointmentsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                      <select
-                        value={a.status}
-                        onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                        className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
-                      >
-                        <option value="scheduled">Agendada</option>
-                        <option value="confirmed">Confirmada</option>
-                        <option value="in_progress">En progreso</option>
-                        <option value="completed">Completada</option>
-                        <option value="cancelled">Cancelada</option>
-                        <option value="no_show">No asistió</option>
-                      </select>
-                    )}
+                    {!['cancelled', 'no_show', 'completed'].includes(a.status) ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          to={`/appointments/${a.id}/edit`}
+                          className="text-sm font-semibold text-primary-600 hover:text-primary-800 whitespace-nowrap"
+                        >
+                          Editar
+                        </Link>
+                        <select
+                          value={a.status}
+                          onChange={(e) => handleStatusChange(a.id, e.target.value)}
+                          className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
+                        >
+                          <option value="scheduled">Agendada</option>
+                          <option value="confirmed">Confirmada</option>
+                          <option value="in_progress">En progreso</option>
+                          <option value="completed">Completada</option>
+                          <option value="cancelled">Cancelada</option>
+                          <option value="no_show">No asistió</option>
+                        </select>
+                      </div>
+                    ) : null}
                   </TableCell>
                 </TableRow>
                 );
