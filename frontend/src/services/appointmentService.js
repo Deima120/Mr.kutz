@@ -18,9 +18,13 @@ export const getAppointmentById = async (id) => {
   return res?.data ?? res;
 };
 
-export const getAvailableSlots = async (barberId, date) => {
+export const getAvailableSlots = async (barberId, date, excludeAppointmentId) => {
+  const params = { barberId, date };
+  if (excludeAppointmentId != null && excludeAppointmentId !== '') {
+    params.excludeAppointmentId = excludeAppointmentId;
+  }
   const response = await api.get(`${APPOINTMENTS_BASE}/slots`, {
-    params: { barberId, date },
+    params,
   });
   const res = response?.data ?? response;
   return res?.data ?? res;

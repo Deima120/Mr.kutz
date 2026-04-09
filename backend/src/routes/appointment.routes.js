@@ -27,6 +27,9 @@ const createValidation = [
 ];
 
 const updateValidation = [
+  body('clientId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('barberId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('serviceId').optional({ checkFalsy: true }).isInt({ min: 1 }),
   body('appointmentDate').optional({ checkFalsy: true }).isDate(),
   body('startTime')
     .optional({ checkFalsy: true })

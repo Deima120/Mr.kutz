@@ -169,6 +169,14 @@ function App() {
             }
           />
           <Route
+            path="appointments/:id/edit"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'barber', 'client']}>
+                <AppointmentFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="payments"
             element={
               <ProtectedRoute allowedRoles={['admin']}>

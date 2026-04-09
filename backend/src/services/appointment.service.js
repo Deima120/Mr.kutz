@@ -298,29 +298,76 @@ export const create = async (data) => {
 };
 
 export const update = async (id, data) => {
-  const { appointmentDate, startTime, status, notes } = data;
+  const apptId = parseInt(id, 10);
+  const existing = await prisma.appointment.findUnique({
+    where: { id: apptId },
+    include: { service: true },
+  });
+  if (!existing) return null;
+
+  const nextClientId = data.clientId != null ? parseInt(data.clientId, 10) : existing.clientId;
+  const nextBarberId = data.barberId != null ? parseInt(data.barberId, 10) : existing.barberId;
+  const nextServiceId = data.serviceId != null ? parseInt(data.serviceId, 10) : existing.serviceId;
+
+  const service = await prisma.service.findUnique({
+    where: { id: nextServiceId },
+  });
+  if (!service) {
+    const err = new Error('Servicio no encontrado.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const nextAppointmentDate =
+    data.appointmentDate != null ? new Date(data.appointmentDate) : existing.appointmentDate;
+
+  let nextStartTime = existing.startTime;
+  if (data.startTime !== undefined) {
+    const s = typeof data.startTime === 'string' && data.startTime ? data.startTime : toTimeStr(existing.startTime);
+    nextStartTime = new Date(`1970-01-01T${s.length === 5 ? s + ':00' : s}`);
+  }
+
+  const timingChanged =
+    data.serviceId != null ||
+    data.startTime !== undefined ||
+    data.appointmentDate != null;
+
+  let nextEndTime = existing.endTime;
+  if (timingChanged) {
+    const startStr = toTimeStr(nextStartTime);
+    const parts = startStr.split(':');
+    const h = parseInt(parts[0], 10) || 9;
+    const m = parseInt(parts[1], 10) || 0;
+    const duration = Number(service.durationMinutes);
+    const endMinutes = h * 60 + m + duration;
+    const endH = Math.floor(endMinutes / 60);
+    const endM = endMinutes % 60;
+    const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+    nextEndTime = new Date(`1970-01-01T${endTimeStr}`);
+  }
 
   const updateData = {};
-  if (appointmentDate) updateData.appointmentDate = new Date(appointmentDate);
-  if (startTime !== undefined) {
-    const s = typeof startTime === 'string' && startTime ? startTime : '09:00';
-    updateData.startTime = new Date(`1970-01-01T${s.length === 5 ? s + ':00' : s}`);
-  }
-  if (status) updateData.status = status;
-  if (notes !== undefined) updateData.notes = notes;
+  if (data.clientId != null) updateData.clientId = nextClientId;
+  if (data.barberId != null) updateData.barberId = nextBarberId;
+  if (data.serviceId != null) updateData.serviceId = nextServiceId;
+  if (data.appointmentDate != null) updateData.appointmentDate = nextAppointmentDate;
+  if (data.startTime !== undefined) updateData.startTime = nextStartTime;
+  if (timingChanged) updateData.endTime = nextEndTime;
+  if (data.status) updateData.status = data.status;
+  if (data.notes !== undefined) updateData.notes = data.notes === '' ? null : data.notes;
 
   if (Object.keys(updateData).length === 0) {
-    return getById(id);
+    return getById(apptId);
   }
 
-  const appointment = await prisma.appointment.update({
-    where: { id: parseInt(id, 10) },
+  await prisma.appointment.update({
+    where: { id: apptId },
     data: updateData,
   });
-  return getById(id);
+  return getById(apptId);
 };
 
-export const getAvailableSlots = async (barberId, date) => {
+export const getAvailableSlots = async (barberId, date, excludeAppointmentId = null) => {
   const bid = parseInt(barberId, 10);
   let dateStr = String(date || '').trim();
   const dateOnlyMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -347,12 +394,18 @@ export const getAvailableSlots = async (barberId, date) => {
   }
 
   const appointmentDateOnly = new Date(Date.UTC(y, m - 1, day));
+  const excludeId =
+    excludeAppointmentId != null && excludeAppointmentId !== ''
+      ? parseInt(String(excludeAppointmentId), 10)
+      : null;
+  const busyWhere = {
+    barberId: bid,
+    appointmentDate: appointmentDateOnly,
+    status: { notIn: ['cancelled', 'no_show'] },
+    ...(Number.isFinite(excludeId) ? { id: { not: excludeId } } : {}),
+  };
   const busy = await prisma.appointment.findMany({
-    where: {
-      barberId: bid,
-      appointmentDate: appointmentDateOnly,
-      status: { notIn: ['cancelled', 'no_show'] },
-    },
+    where: busyWhere,
     select: { startTime: true, endTime: true },
   });
 

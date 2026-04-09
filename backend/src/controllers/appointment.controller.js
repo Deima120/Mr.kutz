@@ -52,11 +52,11 @@ export const getById = async (req, res, next) => {
 
 export const getAvailableSlots = async (req, res, next) => {
   try {
-    const { barberId, date } = req.query;
+    const { barberId, date, excludeAppointmentId } = req.query;
     if (!barberId || !date) {
       return res.status(400).json({ success: false, message: 'Se requieren barbero y fecha.' });
     }
-    const slots = await appointmentService.getAvailableSlots(barberId, date);
+    const slots = await appointmentService.getAvailableSlots(barberId, date, excludeAppointmentId);
     res.json({ success: true, data: slots });
   } catch (error) {
     next(error);
@@ -142,20 +142,42 @@ export const submitClientRating = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
-    if (req.user.role_name === 'client' && req.user.client_id) {
-      const existing = await appointmentService.getById(req.params.id);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
+    let body = { ...req.body };
+    const existingForRole = await appointmentService.getById(req.params.id);
+    if (!existingForRole) {
+      return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
+    }
+
+    if (req.user.role_name === 'barber' && req.user.barber_id) {
+      if (Number(existingForRole.barber_id) !== Number(req.user.barber_id)) {
+        return res.status(403).json({ success: false, message: 'Solo puedes editar citas asignadas a ti.' });
       }
-      const ownerClientId = existing.client_id ?? existing.clientId;
+    }
+
+    if (req.user.role_name === 'client' && req.user.client_id) {
+      const ownerClientId = existingForRole.client_id ?? existingForRole.clientId;
       if (Number(ownerClientId) !== Number(req.user.client_id)) {
         return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propias citas.' });
       }
-      if (req.body.status && !['cancelled'].includes(req.body.status)) {
-        return res.status(403).json({ success: false, message: 'Como cliente solo puedes cancelar citas.' });
+      const terminal = ['cancelled', 'no_show', 'completed'];
+      if (terminal.includes(existingForRole.status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se puede editar una cita cancelada, completada o marcada como no asistió.',
+        });
       }
+      if (body.status && !['cancelled'].includes(body.status)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Como cliente solo puedes cancelar la cita o usar «Editar» para cambiar fecha y hora.',
+        });
+      }
+      delete body.clientId;
+      delete body.barberId;
+      delete body.serviceId;
     }
-    const appointment = await appointmentService.update(req.params.id, req.body);
+
+    const appointment = await appointmentService.update(req.params.id, body);
     if (!appointment) {
       return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }

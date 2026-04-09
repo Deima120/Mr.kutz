@@ -3,8 +3,8 @@
  * Misma envoltura visual que el alta de barberos (AdminFormShell + tarjeta editorial).
  */
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
 import * as clientService from '../../services/clientService';
@@ -18,12 +18,15 @@ import AdminFormShell, {
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
 } from '../../components/admin/AdminFormShell';
+import { formatAppointmentClockTime } from '../../utils/appointmentTime';
 
 const stepKickerClass =
   'text-[10px] font-semibold tracking-[0.28em] text-gold mb-3';
 
 export default function AppointmentFormPage() {
   const navigate = useNavigate();
+  const { id: editId } = useParams();
+  const isEdit = Boolean(editId);
   const { user } = useAuth();
   const isClient = user?.role === 'client';
 
@@ -43,6 +46,14 @@ export default function AppointmentFormPage() {
   const [error, setError] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [apptLoading, setApptLoading] = useState(isEdit);
+  const [loadError, setLoadError] = useState('');
+
+  const dateInputMin = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!isEdit || !formData.appointmentDate) return today;
+    return formData.appointmentDate < today ? formData.appointmentDate : today;
+  }, [isEdit, formData.appointmentDate]);
 
   useEffect(() => {
     const promises = [barberService.getBarbers(), serviceService.getServices()];
@@ -68,17 +79,72 @@ export default function AppointmentFormPage() {
   }, [isClient]);
 
   useEffect(() => {
-    if (isClient && user?.clientId) {
+    if (isClient && user?.clientId && !isEdit) {
       setFormData((prev) => ({ ...prev, clientId: String(user.clientId) }));
     }
-  }, [isClient, user?.clientId]);
+  }, [isClient, user?.clientId, isEdit]);
 
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, startTime: '' }));
+    if (!isEdit || !editId || !dataLoaded) return undefined;
+    let cancelled = false;
+    setApptLoading(true);
+    setLoadError('');
+    appointmentService
+      .getAppointmentById(editId)
+      .then((a) => {
+        if (cancelled || !a) return;
+        if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
+          setLoadError('Esta cita ya no se puede modificar.');
+          return;
+        }
+        const apptDate = a.appointment_date
+          ? new Date(a.appointment_date).toISOString().slice(0, 10)
+          : '';
+        setFormData({
+          clientId: String(a.client_id ?? ''),
+          barberId: String(a.barber_id ?? ''),
+          serviceId: String(a.service_id ?? ''),
+          appointmentDate: apptDate,
+          startTime: formatAppointmentClockTime(a.start_time),
+          notes: a.notes ?? '',
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('No se pudo cargar la cita.');
+      })
+      .finally(() => {
+        if (!cancelled) setApptLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, editId, dataLoaded]);
+
+  const slotOptions = useMemo(() => {
+    const raw = Array.isArray(slots) ? slots : [];
+    const list = [
+      ...new Set(
+        raw
+          .map((x) => formatAppointmentClockTime(x) || String(x).trim())
+          .filter(Boolean)
+      ),
+    ];
+    const selected = formData.startTime
+      ? formatAppointmentClockTime(formData.startTime) || formData.startTime.trim()
+      : '';
+    if (selected && !list.includes(selected)) list.push(selected);
+    list.sort((x, y) => x.localeCompare(y, 'es'));
+    return list;
+  }, [slots, formData.startTime]);
+
+  useEffect(() => {
+    if (!isEdit) {
+      setFormData((prev) => ({ ...prev, startTime: '' }));
+    }
     if (formData.barberId && formData.appointmentDate) {
       setSlotsLoading(true);
       appointmentService
-        .getAvailableSlots(formData.barberId, formData.appointmentDate)
+        .getAvailableSlots(formData.barberId, formData.appointmentDate, isEdit ? editId : undefined)
         .then((slotList) => setSlots(Array.isArray(slotList) ? slotList : []))
         .catch(() => setSlots([]))
         .finally(() => setSlotsLoading(false));
@@ -86,31 +152,74 @@ export default function AppointmentFormPage() {
       setSlots([]);
       setSlotsLoading(false);
     }
-  }, [formData.barberId, formData.appointmentDate]);
+  }, [formData.barberId, formData.appointmentDate, isEdit, editId]);
 
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const nextValue =
+      name === 'startTime' && value
+        ? formatAppointmentClockTime(value) || value
+        : value;
+    setFormData((prev) => {
+      const next = { ...prev, [name]: nextValue };
+      if (
+        isEdit &&
+        (name === 'appointmentDate' || name === 'barberId' || name === 'serviceId')
+      ) {
+        next.startTime = '';
+      }
+      return next;
+    });
     setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isEdit && (apptLoading || loadError)) return;
     setLoading(true);
     setError('');
     try {
-      const payload = {
-        barberId: parseInt(formData.barberId, 10),
-        serviceId: parseInt(formData.serviceId, 10),
-        appointmentDate: formData.appointmentDate,
-        startTime: formData.startTime || undefined,
-        notes: formData.notes || undefined,
-      };
-      if (!isClient) payload.clientId = parseInt(formData.clientId, 10);
-      else if (user?.clientId) payload.clientId = user.clientId;
-      await appointmentService.createAppointment(payload);
-      navigate('/appointments', { replace: true, state: { appointmentCreated: true } });
+      if (isEdit) {
+        let payload;
+        if (isClient) {
+          payload = {
+            appointmentDate: formData.appointmentDate,
+            startTime: formData.startTime || undefined,
+            notes: formData.notes?.trim() ? formData.notes.trim() : undefined,
+          };
+        } else {
+          payload = {
+            clientId: parseInt(formData.clientId, 10),
+            barberId: parseInt(formData.barberId, 10),
+            serviceId: parseInt(formData.serviceId, 10),
+            appointmentDate: formData.appointmentDate,
+            startTime: formData.startTime || undefined,
+            notes: formData.notes?.trim() ? formData.notes.trim() : undefined,
+          };
+        }
+        await appointmentService.updateAppointment(editId, payload);
+        navigate('/appointments', {
+          replace: true,
+          state: { appointmentUpdated: true },
+        });
+      } else {
+        const payload = {
+          barberId: parseInt(formData.barberId, 10),
+          serviceId: parseInt(formData.serviceId, 10),
+          appointmentDate: formData.appointmentDate,
+          startTime: formData.startTime || undefined,
+          notes: formData.notes || undefined,
+        };
+        if (!isClient) payload.clientId = parseInt(formData.clientId, 10);
+        else if (user?.clientId) payload.clientId = user.clientId;
+        await appointmentService.createAppointment(payload);
+        navigate('/appointments', { replace: true, state: { appointmentCreated: true } });
+      }
     } catch (err) {
-      setError(err?.message || 'Error al crear cita');
+      setError(
+        err?.message ||
+          (isEdit ? 'Error al guardar los cambios' : 'Error al crear cita')
+      );
     } finally {
       setLoading(false);
     }
@@ -121,33 +230,49 @@ export default function AppointmentFormPage() {
         fullBleed: false,
         backTo: '/appointments',
         backLabel: 'Mis citas',
-        modeBadge: 'Reserva',
+        modeBadge: isEdit ? 'Edición' : 'Reserva',
         aside: {
           kicker: 'Tu cita',
-          title: 'Reserva con la misma calidad que en sala',
-          bullets: [
-            'Elige barbero y servicio; la fecha y hora se ajustan a la disponibilidad real.',
-            'Las notas son opcionales y ayudan al equipo a preparar tu visita.',
-            'Puedes revisar o gestionar tus citas cuando quieras desde el mismo panel.',
-          ],
+          title: isEdit
+            ? 'Ajusta fecha, hora o notas'
+            : 'Reserva con la misma calidad que en sala',
+          bullets: isEdit
+            ? [
+                'Puedes cambiar la fecha y la hora si hay huecos libres.',
+                'Barbero y servicio no se modifican desde aquí; contacta a la barbería si necesitas otro servicio.',
+                'Las notas ayudan al equipo a preparar tu visita.',
+              ]
+            : [
+                'Elige barbero y servicio; la fecha y hora se ajustan a la disponibilidad real.',
+                'Las notas son opcionales y ayudan al equipo a preparar tu visita.',
+                'Puedes revisar o gestionar tus citas cuando quieras desde el mismo panel.',
+              ],
           statusLabel: 'Estado',
-          statusValue: 'Nueva reserva',
+          statusValue: isEdit ? 'Modificar reserva' : 'Nueva reserva',
         },
       }
     : {
         backTo: '/appointments',
         backLabel: 'Citas',
-        modeBadge: 'Alta',
+        modeBadge: isEdit ? 'Edición' : 'Alta',
         aside: {
           kicker: 'Agenda',
-          title: 'Cada cita ordena el día del equipo',
-          bullets: [
-            'Asigna cliente y barbero; los huecos dependen de la agenda y de citas ya confirmadas.',
-            'El servicio define duración y precio en el sistema.',
-            'Las notas internas ayudan al barbero sin que el cliente las vea en la app pública.',
-          ],
+          title: isEdit
+            ? 'Actualiza los datos de la cita'
+            : 'Cada cita ordena el día del equipo',
+          bullets: isEdit
+            ? [
+                'Puedes reasignar cliente, barbero, servicio, fecha u hora según disponibilidad.',
+                'Al cambiar servicio u horario se recalcula la duración automáticamente.',
+                'Las notas internas siguen siendo solo para el equipo.',
+              ]
+            : [
+                'Asigna cliente y barbero; los huecos dependen de la agenda y de citas ya confirmadas.',
+                'El servicio define duración y precio en el sistema.',
+                'Las notas internas ayudan al barbero sin que el cliente las vea en la app pública.',
+              ],
           statusLabel: 'Estado',
-          statusValue: 'Alta nueva',
+          statusValue: isEdit ? 'Modificar cita' : 'Alta nueva',
         },
       };
 
@@ -159,6 +284,8 @@ export default function AppointmentFormPage() {
     ? 'container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 max-w-[min(88rem,100%)]'
     : '';
 
+  const showFormFields = !isEdit || (!apptLoading && !loadError);
+
   const shell = (
     <AdminFormShell {...formShellProps}>
       <form
@@ -169,8 +296,34 @@ export default function AppointmentFormPage() {
         <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
           <AdminFormCardHeader
             eyebrow={isClient ? 'Reserva' : 'Cita'}
-            title={isClient ? 'Agendar cita' : 'Nueva cita'}
+            title={
+              isClient
+                ? isEdit
+                  ? 'Modificar cita'
+                  : 'Agendar cita'
+                : isEdit
+                  ? 'Editar cita'
+                  : 'Nueva cita'
+            }
           />
+
+          {isEdit && apptLoading && (
+            <p className="text-sm text-stone-600 shrink-0" role="status">
+              Cargando cita…
+            </p>
+          )}
+
+          {isEdit && loadError && !apptLoading && (
+            <div className="rounded-xl border border-red-200/90 bg-red-50/95 text-red-900 text-sm p-3.5 shrink-0 space-y-3" role="alert">
+              <p>{loadError}</p>
+              <Link
+                to="/appointments"
+                className="inline-flex font-semibold text-red-800 underline underline-offset-2 hover:text-red-950"
+              >
+                Volver a citas
+              </Link>
+            </div>
+          )}
 
           {error && (
             <div className="alert-error text-sm py-2.5 shrink-0" role="alert">
@@ -178,6 +331,8 @@ export default function AppointmentFormPage() {
             </div>
           )}
 
+          {showFormFields && (
+          <>
           {dataLoaded && barbers.length === 0 && (
             <div
               className="rounded-xl border border-amber-200/90 bg-amber-50/95 text-amber-900 text-sm p-3.5 shrink-0"
@@ -236,7 +391,7 @@ export default function AppointmentFormPage() {
                       onChange={handleChange}
                       className={ADMIN_FORM_FIELD_CLASS}
                       required
-                      disabled={!dataLoaded || barbers.length === 0}
+                      disabled={!dataLoaded || barbers.length === 0 || (isClient && isEdit)}
                     >
                       <option value="">
                         {!dataLoaded
@@ -263,7 +418,7 @@ export default function AppointmentFormPage() {
                       onChange={handleChange}
                       className={ADMIN_FORM_FIELD_CLASS}
                       required
-                      disabled={!dataLoaded || services.length === 0}
+                      disabled={!dataLoaded || services.length === 0 || (isClient && isEdit)}
                     >
                       <option value="">
                         {!dataLoaded
@@ -295,7 +450,7 @@ export default function AppointmentFormPage() {
                       type="date"
                       value={formData.appointmentDate}
                       onChange={handleChange}
-                      min={new Date().toISOString().slice(0, 10)}
+                      min={dateInputMin}
                       className={ADMIN_FORM_FIELD_CLASS}
                       required
                     />
@@ -318,11 +473,11 @@ export default function AppointmentFormPage() {
                           ? 'Elige primero barbero y fecha'
                           : slotsLoading
                             ? 'Cargando horarios...'
-                            : slots.length === 0
+                            : slotOptions.length === 0
                               ? 'Sin horarios para esta fecha'
                               : 'Seleccionar hora...'}
                       </option>
-                      {slots.map((slot) => (
+                      {slotOptions.map((slot) => (
                         <option key={slot} value={slot}>
                           {slot}
                         </option>
@@ -396,7 +551,7 @@ export default function AppointmentFormPage() {
                     type="date"
                     value={formData.appointmentDate}
                     onChange={handleChange}
-                    min={new Date().toISOString().slice(0, 10)}
+                    min={dateInputMin}
                     className={ADMIN_FORM_FIELD_CLASS}
                     required
                   />
@@ -414,11 +569,11 @@ export default function AppointmentFormPage() {
                     <option value="">
                       {slotsLoading
                         ? 'Cargando...'
-                        : formData.barberId && formData.appointmentDate && slots.length === 0
+                        : formData.barberId && formData.appointmentDate && slotOptions.length === 0
                           ? 'Sin horarios'
                           : 'Seleccionar...'}
                     </option>
-                    {slots.map((slot) => (
+                    {slotOptions.map((slot) => (
                       <option key={slot} value={slot}>
                         {slot}
                       </option>
@@ -443,13 +598,27 @@ export default function AppointmentFormPage() {
             <AdminFormPrimaryButton
               disabled={
                 loading ||
+                apptLoading ||
+                !!loadError ||
                 (isClient && (!dataLoaded || barbers.length === 0 || services.length === 0))
               }
             >
-              {loading ? (isClient ? 'Reservando…' : 'Creando…') : isClient ? 'Confirmar reserva' : 'Crear cita'}
+              {loading
+                ? isEdit
+                  ? 'Guardando…'
+                  : isClient
+                    ? 'Reservando…'
+                    : 'Creando…'
+                : isEdit
+                  ? 'Guardar cambios'
+                  : isClient
+                    ? 'Confirmar reserva'
+                    : 'Crear cita'}
             </AdminFormPrimaryButton>
             <AdminFormSecondaryButton onClick={() => navigate('/appointments')}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
+          </>
+          )}
         </div>
       </form>
     </AdminFormShell>
