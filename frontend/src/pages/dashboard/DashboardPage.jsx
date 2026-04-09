@@ -320,7 +320,6 @@ function AdminDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState('');
-  const [showAgendaDetails, setShowAgendaDetails] = useState(false);
 
   const refreshAppointments = async () => {
     setAppointmentsLoading(true);
@@ -396,19 +395,6 @@ function AdminDashboard() {
       return `${hh}:${mm}`;
     }
     return s.slice(0, 5);
-  };
-  const parseTimeToMinutes = (t) => {
-    if (!t) return NaN;
-    if (t instanceof Date) return t.getHours() * 60 + t.getMinutes();
-    const s = String(t);
-    const d = new Date(s);
-    if (!Number.isNaN(d.getTime()) && s.includes('T')) return d.getHours() * 60 + d.getMinutes();
-    const m = s.match(/(\d{1,2}):(\d{2})/);
-    if (!m) return NaN;
-    const hh = parseInt(m[1], 10);
-    const mm = parseInt(m[2], 10);
-    if (Number.isNaN(hh) || Number.isNaN(mm)) return NaN;
-    return hh * 60 + mm;
   };
 
   const activeAppointments = appointments.filter(
@@ -679,82 +665,6 @@ function AdminDashboard() {
     );
   };
 
-  const AppointmentTimeline = ({ list }) => {
-    const trackStart = 9 * 60; // 09:00
-    const trackEnd = 18 * 60; // 18:00
-    const range = trackEnd - trackStart;
-    const layers = 4;
-    const barH = 14;
-    const barGap = 6;
-
-    const safeList = Array.isArray(list) ? list : [];
-    if (!safeList.length) return null;
-
-    const getStatusBarClass = (status) => {
-      switch (status) {
-        case 'completed':
-          return 'bg-emerald-500/90 border-emerald-400/40';
-        case 'cancelled':
-          return 'bg-stone-300/70 border-stone-200/50';
-        case 'no_show':
-          return 'bg-red-400/70 border-red-300/50';
-        case 'scheduled':
-        case 'confirmed':
-          return 'bg-gold/80 border-gold-dark/40';
-        case 'in_progress':
-          return 'bg-amber-500/70 border-amber-400/50';
-        default:
-          return 'bg-stone-300/70 border-stone-200/50';
-      }
-    };
-
-    return (
-      <div className="space-y-3">
-        <div className="relative rounded-2xl border border-stone-200/90 bg-stone-50/50 overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between text-xs text-stone-500">
-              <span>09:00</span>
-              <span>12:00</span>
-              <span>15:00</span>
-              <span>18:00</span>
-            </div>
-
-            <div className="relative h-[90px] mt-2">
-              <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-[2px] bg-stone-200 rounded-full" aria-hidden />
-
-              {safeList.slice(0, 10).map((a, idx) => {
-                const startM = parseTimeToMinutes(a.start_time);
-                const leftPct = Number.isNaN(startM) ? 0 : Math.max(0, Math.min(1, (startM - trackStart) / range));
-                const durationMin = Number(a.duration_minutes ?? 30);
-                const widthPct = Math.max(0.05, Math.min(1, durationMin / range));
-                const layer = idx % layers;
-                const topPx = 10 + layer * (barH + barGap);
-
-                return (
-                  <div
-                    key={a.id}
-                    className={`absolute rounded-full border ${getStatusBarClass(a.status)} shadow-sm`}
-                    style={{
-                      left: `${leftPct * 100}%`,
-                      width: `${widthPct * 100}%`,
-                      top: topPx,
-                      height: `${barH}px`,
-                      transform: 'translateX(-0.5%)',
-                    }}
-                    title={`${formatTime(a.start_time)} - ${a.service_name}`}
-                    aria-label={`Cita ${formatTime(a.start_time)}: ${a.service_name}`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="page-shell space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -957,80 +867,6 @@ function AdminDashboard() {
           </div>
         </div>
       )}
-
-      <div className="panel-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/50">
-          <h2 className="font-serif text-lg text-stone-900 font-medium">
-            Agenda del día ({appointments.length} citas)
-          </h2>
-        </div>
-        <div className="p-6">
-          {appointmentsLoading ? (
-            <div className="py-12 text-center text-stone-500">Cargando citas…</div>
-          ) : appointments.length === 0 ? (
-            <p className="text-stone-500 py-6">No tienes citas programadas para hoy.</p>
-          ) : (
-            <div className="space-y-5">
-              <AppointmentTimeline list={appointments} />
-
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-stone-500">
-                  {appointments.length} citas hoy. Detalle {showAgendaDetails ? 'visible' : 'oculto'}.
-                </p>
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-stone-700 hover:text-stone-900 transition-colors px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 border border-stone-200"
-                  onClick={() => setShowAgendaDetails((v) => !v)}
-                >
-                  {showAgendaDetails ? 'Ocultar detalle' : 'Ver detalle'}
-                </button>
-              </div>
-
-              {showAgendaDetails && (
-                <div className="max-h-56 overflow-y-auto pr-2">
-                  <ul className="space-y-3">
-                    {appointments.map((a) => (
-                      <li
-                        key={a.id}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 px-4 rounded-xl bg-stone-50/80 border border-stone-100"
-                      >
-                        <div>
-                          <span className="font-semibold text-stone-900">{formatTime(a.start_time)}</span>
-                          <span className="text-stone-600 ml-2">
-                            {a.client_first_name} {a.client_last_name} — {a.service_name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span
-                            className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${
-                              a.status === 'completed'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : ['cancelled', 'no_show'].includes(a.status)
-                                  ? 'bg-stone-100 text-stone-600 border-stone-200'
-                                  : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
-                          >
-                            {STATUS_LABELS[a.status] || a.status}
-                          </span>
-                          {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                            <button
-                              type="button"
-                              onClick={() => handleMarkCompleted(a.id)}
-                              className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
-                            >
-                              Completada
-                            </button>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

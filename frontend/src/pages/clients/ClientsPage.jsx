@@ -152,6 +152,8 @@ export default function ClientsPage() {
                   nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
                   email: c.email || '',
                   telefono: c.phone || '',
+                  documento_tipo: c.document_type || '',
+                  documento_numero: c.document_number || '',
                 })))}
                 className="btn-admin-outline"
               >

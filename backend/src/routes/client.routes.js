@@ -31,7 +31,9 @@ const clientValidation = [
     .trim()
     .isEmail()
     .withMessage('Correo electrónico no válido.'),
-  body('notes').optional({ checkFalsy: true }).trim(),
+  body('documentType').optional({ checkFalsy: true }).trim().isLength({ max: 40 }),
+  body('documentNumber').optional({ checkFalsy: true }).trim().isLength({ max: 80 }),
+  body('notes').optional({ nullable: true }).trim().isLength({ max: 500 }),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');

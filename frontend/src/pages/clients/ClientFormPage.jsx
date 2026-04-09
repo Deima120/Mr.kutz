@@ -1,5 +1,5 @@
 /**
- * Formulario para crear o editar cliente
+ * Formulario para crear o editar cliente (compacto)
  */
 
 import { useState, useEffect } from 'react';
@@ -14,6 +14,8 @@ import AdminFormShell, {
   AdminFormSecondaryButton,
 } from '../../components/admin/AdminFormShell';
 
+const NOTES_MAX = 500;
+
 export default function ClientFormPage() {
   const { id } = useParams();
   const isEdit = !!id;
@@ -24,6 +26,8 @@ export default function ClientFormPage() {
     lastName: '',
     email: '',
     phone: '',
+    documentType: '',
+    documentNumber: '',
     notes: '',
   });
   const [loading, setLoading] = useState(false);
@@ -39,6 +43,8 @@ export default function ClientFormPage() {
             lastName: client.last_name || '',
             email: client.email || '',
             phone: client.phone || '',
+            documentType: client.document_type || '',
+            documentNumber: client.document_number || '',
             notes: client.notes || '',
           });
         })
@@ -47,7 +53,9 @@ export default function ClientFormPage() {
   }, [id, isEdit]);
 
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === 'notes' && value.length > NOTES_MAX) return;
+    setFormData((prev) => ({ ...prev, [name]: value }));
     setError('');
   };
 
@@ -56,12 +64,22 @@ export default function ClientFormPage() {
     setLoading(true);
     setError('');
 
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      documentType: formData.documentType.trim() || undefined,
+      documentNumber: formData.documentNumber.trim() || undefined,
+      notes: formData.notes.trim(),
+    };
+
     try {
       if (isEdit) {
-        await clientService.updateClient(id, formData);
+        await clientService.updateClient(id, payload);
         navigate(`/clients/${id}`, { replace: true });
       } else {
-        const client = await clientService.createClient(formData);
+        const client = await clientService.createClient(payload);
         navigate(`/clients/${client.id}`, { replace: true });
       }
     } catch (err) {
@@ -82,8 +100,8 @@ export default function ClientFormPage() {
         title: 'Cada dato suma al servicio',
         bullets: [
           'Correo y teléfono sirven para confirmar citas y enviar avisos.',
-          'Las notas son solo para el equipo; el cliente no las ve.',
-          'Tras guardar podrás ver historial y citas en su ficha.',
+          'Documento opcional; útil para facturación o identificación en caja.',
+          'Las notas son internas (máx. 500 caracteres) y el cliente no las ve.',
         ],
         statusLabel: 'Estado',
         statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
@@ -97,20 +115,20 @@ export default function ClientFormPage() {
           className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
           aria-hidden
         />
-        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col min-h-0 gap-4 flex-1">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto">
           <AdminFormCardHeader
             eyebrow="Ficha de cliente"
             title={isEdit ? 'Actualizar datos' : 'Registrar cliente'}
           />
 
           {error && (
-            <div className="alert-error shrink-0 text-sm py-2.5" role="alert">
+            <div className="alert-error shrink-0 text-xs py-2" role="alert">
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 shrink-0">
-            <div className="group xl:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
+            <div className="group">
               <label htmlFor="firstName" className={ADMIN_FORM_LABEL_CLASS}>
                 Nombre <span className="text-red-600 normal-case">*</span>
               </label>
@@ -120,11 +138,11 @@ export default function ClientFormPage() {
                 type="text"
                 value={formData.firstName}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 required
               />
             </div>
-            <div className="group xl:col-span-1">
+            <div className="group">
               <label htmlFor="lastName" className={ADMIN_FORM_LABEL_CLASS}>
                 Apellido <span className="text-red-600 normal-case">*</span>
               </label>
@@ -134,11 +152,11 @@ export default function ClientFormPage() {
                 type="text"
                 value={formData.lastName}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 required
               />
             </div>
-            <div className="group sm:col-span-2 xl:col-span-1">
+            <div className="group">
               <label htmlFor="email" className={ADMIN_FORM_LABEL_CLASS}>
                 Correo
               </label>
@@ -148,11 +166,11 @@ export default function ClientFormPage() {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 placeholder="correo@ejemplo.com"
               />
             </div>
-            <div className="group sm:col-span-2 xl:col-span-1">
+            <div className="group">
               <label htmlFor="phone" className={ADMIN_FORM_LABEL_CLASS}>
                 Teléfono
               </label>
@@ -162,27 +180,73 @@ export default function ClientFormPage() {
                 type="tel"
                 value={formData.phone}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 placeholder="Opcional"
               />
             </div>
           </div>
 
-          <div className="group flex-1 min-h-[5.5rem] flex flex-col">
-            <label htmlFor="notes" className={ADMIN_FORM_LABEL_CLASS}>
-              Notas internas
-            </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
+            <div className="group">
+              <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
+                Tipo de documento
+              </label>
+              <input
+                id="documentType"
+                name="documentType"
+                list="client-doc-types"
+                value={formData.documentType}
+                onChange={handleChange}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                placeholder="Ej. CC, CE, NIT…"
+                maxLength={40}
+              />
+              <datalist id="client-doc-types">
+                <option value="CC" />
+                <option value="CE" />
+                <option value="TI" />
+                <option value="Pasaporte" />
+                <option value="NIT" />
+              </datalist>
+            </div>
+            <div className="group">
+              <label htmlFor="documentNumber" className={ADMIN_FORM_LABEL_CLASS}>
+                Número de documento
+              </label>
+              <input
+                id="documentNumber"
+                name="documentNumber"
+                value={formData.documentNumber}
+                onChange={handleChange}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                placeholder="Opcional"
+                maxLength={80}
+              />
+            </div>
+          </div>
+
+          <div className="group shrink-0">
+            <div className="flex items-baseline justify-between gap-2 mb-0.5">
+              <label htmlFor="notes" className={`${ADMIN_FORM_LABEL_CLASS} mb-0`}>
+                Notas internas
+              </label>
+              <span className="text-[10px] text-stone-400 tabular-nums">
+                {formData.notes.length}/{NOTES_MAX}
+              </span>
+            </div>
             <textarea
               id="notes"
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              className={`${ADMIN_FORM_FIELD_CLASS} resize-none flex-1 min-h-[5rem] xl:min-h-[6.5rem]`}
-              placeholder="Preferencias, alergias, recordatorios para el equipo…"
+              rows={2}
+              maxLength={NOTES_MAX}
+              className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm resize-none min-h-[3.25rem] max-h-24 leading-snug`}
+              placeholder="Breve: preferencias, alergias…"
             />
           </div>
 
-          <AdminFormFooterActions>
+          <AdminFormFooterActions className="mt-1">
             <AdminFormPrimaryButton disabled={loading}>
               {loading ? (
                 <>
@@ -200,4 +264,3 @@ export default function ClientFormPage() {
     </AdminFormShell>
   );
 }
-

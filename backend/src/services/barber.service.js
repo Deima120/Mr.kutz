@@ -7,6 +7,16 @@ import prisma from '../lib/prisma.js';
 
 const SALT_ROUNDS = 10;
 
+function normDocType(v) {
+  if (v == null || String(v).trim() === '') return null;
+  return String(v).trim().slice(0, 40);
+}
+
+function normDocNumber(v) {
+  if (v == null || String(v).trim() === '') return null;
+  return String(v).trim().slice(0, 80);
+}
+
 export const getAll = async ({ activeOnly = true } = {}) => {
   const barbers = await prisma.barber.findMany({
     where: activeOnly ? { isActive: true } : {},
@@ -19,6 +29,8 @@ export const getAll = async ({ activeOnly = true } = {}) => {
     first_name: b.firstName,
     last_name: b.lastName,
     phone: b.phone,
+    document_type: b.documentType,
+    document_number: b.documentNumber,
     specialties: b.specialties,
     is_active: b.isActive,
     created_at: b.createdAt,
@@ -38,6 +50,8 @@ export const getById = async (id) => {
     first_name: barber.firstName,
     last_name: barber.lastName,
     phone: barber.phone,
+    document_type: barber.documentType,
+    document_number: barber.documentNumber,
     specialties: barber.specialties,
     is_active: barber.isActive,
     created_at: barber.createdAt,
@@ -61,7 +75,7 @@ export const getSchedules = async (barberId) => {
 };
 
 export const create = async (data) => {
-  const { email, password, firstName, lastName, phone, specialties } = data;
+  const { email, password, firstName, lastName, phone, specialties, documentType, documentNumber } = data;
 
   const existing = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
@@ -97,6 +111,8 @@ export const create = async (data) => {
         firstName,
         lastName,
         phone: phone || null,
+        documentType: normDocType(documentType),
+        documentNumber: normDocNumber(documentNumber),
         specialties: specialties || [],
       },
     });
@@ -109,6 +125,8 @@ export const create = async (data) => {
     first_name: result.barber.firstName,
     last_name: result.barber.lastName,
     phone: result.barber.phone,
+    document_type: result.barber.documentType,
+    document_number: result.barber.documentNumber,
     specialties: result.barber.specialties,
     is_active: result.barber.isActive,
     created_at: result.barber.createdAt,
@@ -117,15 +135,18 @@ export const create = async (data) => {
 };
 
 export const update = async (id, data) => {
+  const patch = {};
+  if (data.firstName !== undefined) patch.firstName = data.firstName;
+  if (data.lastName !== undefined) patch.lastName = data.lastName;
+  if (data.phone !== undefined) patch.phone = data.phone || null;
+  if (data.specialties !== undefined) patch.specialties = data.specialties;
+  if (data.isActive !== undefined) patch.isActive = data.isActive;
+  if (data.documentType !== undefined) patch.documentType = normDocType(data.documentType);
+  if (data.documentNumber !== undefined) patch.documentNumber = normDocNumber(data.documentNumber);
+
   const barber = await prisma.barber.update({
     where: { id: parseInt(id, 10) },
-    data: {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phone: data.phone,
-      specialties: data.specialties,
-      isActive: data.isActive,
-    },
+    data: patch,
     include: { user: { select: { email: true } } },
   });
   return {
@@ -134,6 +155,8 @@ export const update = async (id, data) => {
     first_name: barber.firstName,
     last_name: barber.lastName,
     phone: barber.phone,
+    document_type: barber.documentType,
+    document_number: barber.documentNumber,
     specialties: barber.specialties,
     is_active: barber.isActive,
     created_at: barber.createdAt,

@@ -118,6 +118,14 @@ export default function ClientDetailPage() {
               <dt className="text-gray-500">Teléfono</dt>
               <dd>{client.phone || '-'}</dd>
             </div>
+            {(client.document_type || client.document_number) && (
+              <div>
+                <dt className="text-gray-500">Documento</dt>
+                <dd>
+                  {[client.document_type, client.document_number].filter(Boolean).join(' · ') || '—'}
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-gray-500">Registrado</dt>
               <dd>{formatDate(client.created_at)}</dd>
@@ -125,7 +133,7 @@ export default function ClientDetailPage() {
             {client.notes && (
               <div>
                 <dt className="text-gray-500">Notas</dt>
-                <dd className="mt-1">{client.notes}</dd>
+                <dd className="mt-1 text-sm leading-snug line-clamp-4">{client.notes}</dd>
               </div>
             )}
           </dl>
