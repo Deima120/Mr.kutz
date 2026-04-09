@@ -12,6 +12,7 @@ export const getAll = async ({ search, limit = 50, offset = 0 }) => {
           { lastName: { contains: search.trim(), mode: 'insensitive' } },
           { email: { contains: search.trim(), mode: 'insensitive' } },
           { phone: { contains: search.trim(), mode: 'insensitive' } },
+          { documentNumber: { contains: search.trim(), mode: 'insensitive' } },
         ],
       }
     : {};
@@ -29,6 +30,8 @@ export const getAll = async ({ search, limit = 50, offset = 0 }) => {
         lastName: true,
         phone: true,
         email: true,
+        documentType: true,
+        documentNumber: true,
         notes: true,
         createdAt: true,
       },
@@ -43,6 +46,8 @@ export const getAll = async ({ search, limit = 50, offset = 0 }) => {
     last_name: c.lastName,
     phone: c.phone,
     email: c.email,
+    document_type: c.documentType,
+    document_number: c.documentNumber,
     notes: c.notes,
     created_at: c.createdAt,
   }));
@@ -58,6 +63,8 @@ const toSnake = (c) =>
         last_name: c.lastName,
         phone: c.phone,
         email: c.email,
+        document_type: c.documentType,
+        document_number: c.documentNumber,
         notes: c.notes,
         created_at: c.createdAt,
         updated_at: c.updatedAt,
@@ -71,6 +78,21 @@ export const getById = async (id) => {
   return toSnake(client);
 };
 
+function normDocType(v) {
+  if (v == null || String(v).trim() === '') return null;
+  return String(v).trim().slice(0, 40);
+}
+
+function normDocNumber(v) {
+  if (v == null || String(v).trim() === '') return null;
+  return String(v).trim().slice(0, 80);
+}
+
+function normNotes(v) {
+  if (v == null || String(v).trim() === '') return null;
+  return String(v).trim().slice(0, 500);
+}
+
 export const create = async (data) => {
   const client = await prisma.client.create({
     data: {
@@ -78,7 +100,9 @@ export const create = async (data) => {
       lastName: data.lastName,
       phone: data.phone || null,
       email: data.email || null,
-      notes: data.notes || null,
+      documentType: normDocType(data.documentType),
+      documentNumber: normDocNumber(data.documentNumber),
+      notes: normNotes(data.notes),
       userId: data.userId ? parseInt(data.userId, 10) : null,
     },
   });
@@ -86,15 +110,18 @@ export const create = async (data) => {
 };
 
 export const update = async (id, data) => {
+  const patch = {};
+  if (data.firstName !== undefined) patch.firstName = data.firstName;
+  if (data.lastName !== undefined) patch.lastName = data.lastName;
+  if (data.phone !== undefined) patch.phone = data.phone || null;
+  if (data.email !== undefined) patch.email = data.email || null;
+  if (data.documentType !== undefined) patch.documentType = normDocType(data.documentType);
+  if (data.documentNumber !== undefined) patch.documentNumber = normDocNumber(data.documentNumber);
+  if (data.notes !== undefined) patch.notes = normNotes(data.notes);
+
   const client = await prisma.client.update({
     where: { id: parseInt(id, 10) },
-    data: {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phone: data.phone,
-      email: data.email,
-      notes: data.notes,
-    },
+    data: patch,
   });
   return toSnake(client);
 };

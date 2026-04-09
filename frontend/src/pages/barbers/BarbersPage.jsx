@@ -89,6 +89,11 @@ export default function BarbersPage() {
                   {b.phone && (
                     <p className="text-stone-600 text-sm mt-1">{b.phone}</p>
                   )}
+                  {(b.document_type || b.document_number) && (
+                    <p className="text-stone-500 text-xs mt-1">
+                      Doc.: {[b.document_type, b.document_number].filter(Boolean).join(' ')}
+                    </p>
+                  )}
                   {b.specialties?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {b.specialties.map((s, i) => (
