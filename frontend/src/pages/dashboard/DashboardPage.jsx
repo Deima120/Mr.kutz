@@ -524,18 +524,49 @@ function AdminDashboard() {
           return 'bg-gradient-to-t from-amber-600 via-amber-500 to-amber-300 shadow-sm';
         case 'gold':
           return 'bg-gradient-to-t from-gold-dark via-gold to-gold-light shadow-sm';
+        case 'indigo':
+          return 'bg-gradient-to-t from-indigo-800 via-indigo-600 to-indigo-400 shadow-sm';
+        case 'violet':
+          return 'bg-gradient-to-t from-violet-800 via-violet-600 to-violet-400 shadow-sm';
+        case 'sky':
+          return 'bg-gradient-to-t from-sky-800 via-sky-600 to-sky-400 shadow-sm';
+        case 'rose':
+          return 'bg-gradient-to-t from-rose-800 via-rose-600 to-rose-400 shadow-sm';
+        case 'cyan':
+          return 'bg-gradient-to-t from-cyan-800 via-cyan-600 to-cyan-400 shadow-sm';
         case 'stone':
         default:
           return 'bg-gradient-to-t from-stone-700 to-stone-500 shadow-sm';
       }
     };
 
+    const titleAccentClass = (tone) => {
+      switch (tone) {
+        case 'gold':
+          return 'text-gold';
+        case 'emerald':
+          return 'text-emerald-700';
+        case 'amber':
+          return 'text-amber-700';
+        case 'indigo':
+          return 'text-indigo-700';
+        case 'violet':
+          return 'text-violet-700';
+        case 'sky':
+          return 'text-sky-700';
+        case 'rose':
+          return 'text-rose-700';
+        case 'cyan':
+          return 'text-cyan-700';
+        default:
+          return 'text-stone-500';
+      }
+    };
+
     return (
       <div className="min-w-0">
         <div className="mb-3">
-          <h3
-            className={`text-xs font-bold tracking-[0.18em] ${leftTone === 'gold' ? 'text-gold' : 'text-stone-500'} mb-1`}
-          >
+          <h3 className={`text-xs font-bold tracking-[0.18em] ${titleAccentClass(leftTone)} mb-1`}>
             {title}
           </h3>
           {subtitle && <p className="text-[11px] text-stone-500">{subtitle}</p>}
@@ -768,7 +799,7 @@ function AdminDashboard() {
                     rightValue={kpiTrans}
                     rightValueText={String(kpiTrans)}
                     leftTone="gold"
-                    rightTone="stone"
+                    rightTone="indigo"
                   />
 
                   <TwoBarsKpi
@@ -793,8 +824,8 @@ function AdminDashboard() {
                     rightLabel="Base"
                     rightValue={0}
                     rightValueText="—"
-                    leftTone="gold"
-                    rightTone="stone"
+                    leftTone="violet"
+                    rightTone="sky"
                   />
 
                   <div className="min-w-0">
@@ -807,12 +838,12 @@ function AdminDashboard() {
                       rightLabel="Ok"
                       rightValue={0}
                       rightValueText="—"
-                      leftTone="amber"
-                      rightTone="stone"
+                      leftTone="rose"
+                      rightTone="cyan"
                     />
                     {kpiLowStock > 0 && (
                       <div className="mt-3 text-xs">
-                        <Link to="/inventory?lowStock=true" className="text-amber-600 hover:text-amber-700 font-semibold">
+                        <Link to="/inventory?lowStock=true" className="text-rose-600 hover:text-rose-700 font-semibold">
                           Ver inventario con stock bajo
                         </Link>
                       </div>
