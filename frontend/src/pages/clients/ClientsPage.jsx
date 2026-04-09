@@ -19,14 +19,18 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [documentFilter, setDocumentFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchClients = async (searchTerm = search) => {
+  const fetchClients = async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await clientService.getClients({ search: searchTerm || undefined });
+      const data = await clientService.getClients({
+        search: search.trim() || undefined,
+        document: documentFilter.trim() || undefined,
+      });
       setClients(data.clients || []);
       setTotal(data.total ?? 0);
     } catch (err) {
@@ -42,7 +46,7 @@ export default function ClientsPage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchClients(search);
+    fetchClients();
   };
 
   const handleDelete = async (id, name) => {
@@ -71,17 +75,24 @@ export default function ClientsPage() {
 
         <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
           <div className="p-6 border-b border-stone-100">
-            <form onSubmit={handleSearch} className="flex gap-3">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, email o teléfono..."
+                placeholder="Nombre, apellido, email o teléfono…"
+                className="flex-1 px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm"
+              />
+              <input
+                type="text"
+                value={documentFilter}
+                onChange={(e) => setDocumentFilter(e.target.value)}
+                placeholder="Filtrar por documento (tipo o número)…"
                 className="flex-1 px-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm"
               />
               <button
                 type="submit"
-                className="px-5 py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
+                className="px-5 py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm shrink-0"
               >
                 Buscar
               </button>
@@ -116,6 +127,9 @@ export default function ClientsPage() {
                           {client.phone && (
                             <p className="text-stone-500 text-sm">{client.phone}</p>
                           )}
+                          <p className="text-stone-500 text-xs mt-1">
+                            Doc.: {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
+                          </p>
                         </div>
                         <span className="text-gold text-sm font-semibold">Ver detalle →</span>
                       </div>
@@ -171,15 +185,22 @@ export default function ClientsPage() {
       />
 
       <DataCard>
-        <form onSubmit={handleSearch} className="mb-4 flex gap-3">
+        <form onSubmit={handleSearch} className="mb-4 flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, email o teléfono..."
+            placeholder="Nombre, apellido, email o teléfono…"
             className="input-premium flex-1 py-2.5 text-sm"
           />
-          <button type="submit" className="btn-admin">
+          <input
+            type="text"
+            value={documentFilter}
+            onChange={(e) => setDocumentFilter(e.target.value)}
+            placeholder="Documento (tipo o número)…"
+            className="input-premium flex-1 py-2.5 text-sm"
+          />
+          <button type="submit" className="btn-admin shrink-0">
             Buscar
           </button>
         </form>
@@ -201,6 +222,7 @@ export default function ClientsPage() {
             <Table>
               <TableHead>
                 <TableHeader>Nombre</TableHeader>
+                <TableHeader>Documento</TableHeader>
                 <TableHeader>Correo</TableHeader>
                 <TableHeader>Teléfono</TableHeader>
                 <TableHeader>Acciones</TableHeader>
@@ -215,6 +237,9 @@ export default function ClientsPage() {
                       >
                         {client.first_name} {client.last_name}
                       </Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-stone-600 whitespace-nowrap">
+                      {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
                     </TableCell>
                     <TableCell>{client.email || '-'}</TableCell>
                     <TableCell>{client.phone || '-'}</TableCell>

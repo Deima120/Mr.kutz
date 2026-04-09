@@ -10,9 +10,10 @@ import * as clientService from '../services/client.service.js';
  */
 export const getAll = async (req, res, next) => {
   try {
-    const { search, limit, offset } = req.query;
+    const { search, document, limit, offset } = req.query;
     const result = await clientService.getAll({
       search,
+      document,
       limit: limit ? parseInt(limit, 10) : 50,
       offset: offset ? parseInt(offset, 10) : 0,
     });

@@ -4,18 +4,34 @@
 
 import prisma from '../lib/prisma.js';
 
-export const getAll = async ({ search, limit = 50, offset = 0 }) => {
-  const where = search?.trim()
-    ? {
-        OR: [
-          { firstName: { contains: search.trim(), mode: 'insensitive' } },
-          { lastName: { contains: search.trim(), mode: 'insensitive' } },
-          { email: { contains: search.trim(), mode: 'insensitive' } },
-          { phone: { contains: search.trim(), mode: 'insensitive' } },
-          { documentNumber: { contains: search.trim(), mode: 'insensitive' } },
-        ],
-      }
-    : {};
+export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
+  const parts = [];
+
+  if (search?.trim()) {
+    const q = search.trim();
+    parts.push({
+      OR: [
+        { firstName: { contains: q, mode: 'insensitive' } },
+        { lastName: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+        { documentNumber: { contains: q, mode: 'insensitive' } },
+        { documentType: { contains: q, mode: 'insensitive' } },
+      ],
+    });
+  }
+
+  if (document?.trim()) {
+    const d = document.trim();
+    parts.push({
+      OR: [
+        { documentNumber: { contains: d, mode: 'insensitive' } },
+        { documentType: { contains: d, mode: 'insensitive' } },
+      ],
+    });
+  }
+
+  const where = parts.length === 0 ? {} : parts.length === 1 ? parts[0] : { AND: parts };
 
   const [clients, total] = await Promise.all([
     prisma.client.findMany({
@@ -94,14 +110,21 @@ function normNotes(v) {
 }
 
 export const create = async (data) => {
+  const docType = normDocType(data.documentType);
+  const docNum = normDocNumber(data.documentNumber);
+  if (!docType || !docNum) {
+    const err = new Error('El tipo y número de documento son obligatorios.');
+    err.statusCode = 400;
+    throw err;
+  }
   const client = await prisma.client.create({
     data: {
       firstName: data.firstName,
       lastName: data.lastName,
       phone: data.phone || null,
       email: data.email || null,
-      documentType: normDocType(data.documentType),
-      documentNumber: normDocNumber(data.documentNumber),
+      documentType: docType,
+      documentNumber: docNum,
       notes: normNotes(data.notes),
       userId: data.userId ? parseInt(data.userId, 10) : null,
     },
@@ -115,8 +138,24 @@ export const update = async (id, data) => {
   if (data.lastName !== undefined) patch.lastName = data.lastName;
   if (data.phone !== undefined) patch.phone = data.phone || null;
   if (data.email !== undefined) patch.email = data.email || null;
-  if (data.documentType !== undefined) patch.documentType = normDocType(data.documentType);
-  if (data.documentNumber !== undefined) patch.documentNumber = normDocNumber(data.documentNumber);
+  if (data.documentType !== undefined) {
+    const v = normDocType(data.documentType);
+    if (!v) {
+      const err = new Error('El tipo de documento es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.documentType = v;
+  }
+  if (data.documentNumber !== undefined) {
+    const v = normDocNumber(data.documentNumber);
+    if (!v) {
+      const err = new Error('El número de documento es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.documentNumber = v;
+  }
   if (data.notes !== undefined) patch.notes = normNotes(data.notes);
 
   const client = await prisma.client.update({

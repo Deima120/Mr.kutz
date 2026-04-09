@@ -29,7 +29,6 @@ export default function PaymentFormPage() {
     paymentMethodId: '',
     appointmentId: '',
     reference: '',
-    notes: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -182,7 +181,6 @@ export default function PaymentFormPage() {
         amount: parseFloat(formData.amount),
         paymentMethodId: parseInt(formData.paymentMethodId, 10),
         reference: formData.reference || undefined,
-        notes: formData.notes || undefined,
       };
       if (saleProduct) {
         const q = Math.max(1, parseInt(productQty, 10) || 1);
@@ -225,7 +223,7 @@ export default function PaymentFormPage() {
           : [
               'Vincular a una cita completada ayuda a cuadrar ingresos con el servicio.',
               'El método de pago queda registrado para reportes y auditoría.',
-              'Referencia y notas son opcionales pero útiles en conciliación.',
+              'La referencia es opcional pero útil en conciliación.',
             ],
         statusLabel: 'Flujo',
         statusValue: appointmentFromUrl ? 'Servicio completado' : 'Caja / cobro',
@@ -402,17 +400,6 @@ export default function PaymentFormPage() {
               onChange={handleChange}
               placeholder="Nº operación, folio…"
               className={ADMIN_FORM_FIELD_CLASS}
-            />
-          </div>
-
-          <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Notas</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={2}
-              className={`${ADMIN_FORM_FIELD_CLASS} resize-none min-h-[2.75rem] text-sm`}
             />
           </div>
 

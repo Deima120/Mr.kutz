@@ -95,12 +95,20 @@ async function main() {
   });
   const barber = await prisma.barber.upsert({
     where: { userId: barberUser.id },
-    update: { firstName: 'Carlos', lastName: 'Barber', phone: '+56 9 1234 5678' },
+    update: {
+      firstName: 'Carlos',
+      lastName: 'Barber',
+      phone: '+56 9 1234 5678',
+      documentType: 'CC',
+      documentNumber: '80123456',
+    },
     create: {
       userId: barberUser.id,
       firstName: 'Carlos',
       lastName: 'Barber',
       phone: '+56 9 1234 5678',
+      documentType: 'CC',
+      documentNumber: '80123456',
       specialties: ['Corte clásico', 'Barba'],
     },
   });
@@ -130,13 +138,22 @@ async function main() {
   });
   await prisma.client.upsert({
     where: { userId: clientUser.id },
-    update: { firstName: 'Pedro', lastName: 'Cliente', phone: '+56 9 8765 4321', email: 'client@mrkutz.com' },
+    update: {
+      firstName: 'Pedro',
+      lastName: 'Cliente',
+      phone: '+56 9 8765 4321',
+      email: 'client@mrkutz.com',
+      documentType: 'CC',
+      documentNumber: '1098765432',
+    },
     create: {
       userId: clientUser.id,
       firstName: 'Pedro',
       lastName: 'Cliente',
       phone: '+56 9 8765 4321',
       email: 'client@mrkutz.com',
+      documentType: 'CC',
+      documentNumber: '1098765432',
     },
   });
   console.log('✅ Usuario client: client@mrkutz.com');

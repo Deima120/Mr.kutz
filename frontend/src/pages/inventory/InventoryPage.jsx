@@ -137,7 +137,12 @@ export default function InventoryPage() {
     navigate(`/payments/new?productId=${product.id}`);
   };
 
-  const isLowStock = (p) => (p.quantity ?? 0) <= (p.min_stock ?? 0);
+  const isLowStock = (p) => (p.quantity ?? 0) <= (p.min_stock ?? p.minStock ?? 0);
+  /** API Prisma usa `isActive`; toleramos `is_active` por compatibilidad */
+  const isProductActive = (p) => {
+    const v = p.isActive ?? p.is_active;
+    return v !== false;
+  };
   const totalUnits = products.reduce((sum, p) => sum + (p.quantity ?? 0), 0);
 
   return (
@@ -159,9 +164,9 @@ export default function InventoryPage() {
                     categoria: p.category_name || '',
                     sku: p.sku || '',
                     stock: p.quantity ?? 0,
-                    min_stock: p.min_stock ?? 0,
+                    min_stock: p.min_stock ?? p.minStock ?? 0,
                     precio_venta: p.retail_price ?? '',
-                    activo: p.is_active ? 'Sí' : 'No',
+                    activo: isProductActive(p) ? 'Sí' : 'No',
                   }))
                 )
               }
@@ -207,7 +212,7 @@ export default function InventoryPage() {
                 <Link to={`/inventory/${p.id}/edit`} className="hover:underline font-medium">
                   {p.name}
                 </Link>
-                : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo {p.min_stock})
+                : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo {p.min_stock ?? p.minStock ?? 0})
               </li>
             ))}
           </ul>
@@ -294,7 +299,7 @@ export default function InventoryPage() {
                     >
                       {p.name}
                     </Link>
-                    {!p.is_active && (
+                    {!isProductActive(p) && (
                       <span className="ml-2 text-xs text-stone-500">(inactivo)</span>
                     )}
                   </TableCell>
@@ -335,7 +340,9 @@ export default function InventoryPage() {
                       </button>
                     </div>
                   </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>{p.min_stock ?? 0}</TableCell>
+                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
+                    {p.min_stock ?? p.minStock ?? 0}
+                  </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
                       <button
