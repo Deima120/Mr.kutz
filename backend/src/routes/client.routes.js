@@ -31,16 +31,8 @@ const clientValidation = [
     .trim()
     .isEmail()
     .withMessage('Correo electrónico no válido.'),
-  body('documentType')
-    .trim()
-    .notEmpty()
-    .withMessage('El tipo de documento es obligatorio.')
-    .isLength({ max: 40 }),
-  body('documentNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('El número de documento es obligatorio.')
-    .isLength({ max: 80 }),
+  body('documentType').optional({ checkFalsy: true }).trim().isLength({ max: 40 }),
+  body('documentNumber').optional({ checkFalsy: true }).trim().isLength({ max: 80 }),
   body('notes').optional({ nullable: true }).trim().isLength({ max: 500 }),
 ];
 
