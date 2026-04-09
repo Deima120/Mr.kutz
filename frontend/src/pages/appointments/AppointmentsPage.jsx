@@ -11,11 +11,13 @@ import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '../../components/AppointmentNoteText';
 import { downloadCSV, printAsPDF } from '../../utils/export';
 import {
   formatAppointmentClockTime,
   formatAppointmentCalendarDate,
   extractAppointmentDateYmd,
+  appointmentNotesOf,
 } from '../../utils/appointmentTime';
 
 const STATUS_LABELS = {
@@ -280,7 +282,9 @@ export default function AppointmentsPage() {
               </div>
             ) : (
               <ul className="space-y-4">
-                {appointments.map((a) => (
+                {appointments.map((a) => {
+                  const noteText = appointmentNotesOf(a);
+                  return (
                   <li key={a.id}>
                     <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:shadow-card-hover hover:border-stone-300 transition-all duration-300">
                       <div className="p-5 sm:p-6">
@@ -301,6 +305,13 @@ export default function AppointmentsPage() {
                         <p className="text-stone-600 text-sm mt-1">
                           {formatTime(a.start_time)} · {a.barber_first_name} {a.barber_last_name}
                         </p>
+                        {noteText ? (
+                          <AppointmentNoteBlock
+                            text={noteText}
+                            maxLength={160}
+                            className="text-stone-600 text-sm mt-3 pl-3 border-l-2 border-gold/35"
+                          />
+                        ) : null}
                         {a.status === 'completed' && clientRatingOf(a) == null && (
                           <ClientAppointmentRatingForm appointmentId={a.id} onSuccess={fetchAppointments} />
                         )}
@@ -358,7 +369,8 @@ export default function AppointmentsPage() {
                       </div>
                     </article>
                   </li>
-                ))}
+                );
+                })}
               </ul>
             )}
           </div>
@@ -419,7 +431,9 @@ export default function AppointmentsPage() {
           </div>
         ) : (
           <ul className="space-y-4">
-            {appointments.map((a) => (
+            {appointments.map((a) => {
+              const noteText = appointmentNotesOf(a);
+              return (
               <li key={a.id}>
                 <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:shadow-card-hover transition-shadow">
                   <div className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
@@ -433,6 +447,13 @@ export default function AppointmentsPage() {
                       <p className="text-stone-600 text-sm mt-0.5">
                         {a.client_first_name} {a.client_last_name}
                       </p>
+                      {noteText ? (
+                        <AppointmentNoteBlock
+                          text={noteText}
+                          maxLength={160}
+                          className="text-stone-600 text-sm mt-2 pl-3 border-l-2 border-gold/35 max-w-xl"
+                        />
+                      ) : null}
                       {a.status === 'completed' && clientRatingOf(a) != null && (
                         <p className="text-sm mt-2 text-amber-700">
                           <span className="font-medium text-stone-600">Valoración del cliente: </span>
@@ -479,7 +500,8 @@ export default function AppointmentsPage() {
                   </div>
                 </article>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </div>
@@ -551,6 +573,7 @@ export default function AppointmentsPage() {
               <TableHeader>Cliente</TableHeader>
               <TableHeader>Barbero</TableHeader>
               <TableHeader>Servicio</TableHeader>
+              <TableHeader>Nota</TableHeader>
               <TableHeader>Estado</TableHeader>
               <TableHeader>Valoración</TableHeader>
               <TableHeader>Acciones</TableHeader>
@@ -558,6 +581,7 @@ export default function AppointmentsPage() {
             <TableBody>
               {appointments.map((a) => {
                 const rating = clientRatingOf(a);
+                const noteText = appointmentNotesOf(a);
                 return (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{formatTime(a.start_time)}</TableCell>
@@ -568,6 +592,13 @@ export default function AppointmentsPage() {
                     {a.barber_first_name} {a.barber_last_name}
                   </TableCell>
                   <TableCell>{a.service_name}</TableCell>
+                  <TableCell className="max-w-[220px]">
+                    {noteText ? (
+                      <AppointmentNoteEllipsis text={noteText} maxLength={72} className="text-sm text-stone-600" />
+                    ) : (
+                      <span className="text-stone-300">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${

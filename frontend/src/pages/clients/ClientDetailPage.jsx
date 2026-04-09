@@ -8,7 +8,9 @@ import * as clientService from '../../services/clientService';
 import {
   formatAppointmentCalendarDate,
   formatAppointmentClockTime,
+  appointmentNotesOf,
 } from '../../utils/appointmentTime';
+import { AppointmentNoteBlock } from '../../components/AppointmentNoteText';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -125,7 +127,9 @@ export default function ClientDetailPage() {
             <p className="text-gray-500 text-sm">Sin citas registradas</p>
           ) : (
             <ul className="space-y-3 max-h-64 overflow-y-auto">
-              {history.map((item) => (
+              {history.map((item) => {
+                const noteText = appointmentNotesOf(item);
+                return (
                 <li
                   key={item.id}
                   className="flex justify-between items-start text-sm border-b border-gray-100 pb-2 last:border-0"
@@ -139,6 +143,15 @@ export default function ClientDetailPage() {
                       · {formatAppointmentClockTime(item.start_time)} ·{' '}
                       {item.barber_first_name} {item.barber_last_name}
                     </p>
+                    {noteText ? (
+                      <AppointmentNoteBlock
+                        text={noteText}
+                        maxLength={140}
+                        label="Nota cita"
+                        labelClassName="font-semibold text-gray-700"
+                        className="text-gray-600 text-xs mt-1.5 pl-2 border-l-2 border-amber-200/80 leading-snug"
+                      />
+                    ) : null}
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded text-xs font-medium ${
@@ -152,7 +165,8 @@ export default function ClientDetailPage() {
                     {STATUS_LABELS[item.status] || item.status}
                   </span>
                 </li>
-              ))}
+              );
+              })}
             </ul>
           )}
         </div>

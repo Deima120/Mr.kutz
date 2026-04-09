@@ -63,3 +63,11 @@ export function formatAppointmentCalendarDate(
     ...dateStyleOpts,
   });
 }
+
+/** Notas de la cita tal como las devuelve la API (`notes`); texto recortado o null si no hay. */
+export function appointmentNotesOf(a) {
+  const n = a?.notes;
+  if (n == null || n === '') return null;
+  const s = String(n).trim();
+  return s.length ? s : null;
+}

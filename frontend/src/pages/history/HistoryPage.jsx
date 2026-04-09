@@ -5,7 +5,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
-import { formatAppointmentCalendarDate } from '../../utils/appointmentTime';
+import { formatAppointmentCalendarDate, appointmentNotesOf } from '../../utils/appointmentTime';
+import { AppointmentNoteEllipsis } from '../../components/AppointmentNoteText';
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -120,11 +121,14 @@ export default function HistoryPage() {
                       <th className="pb-3 pr-4">Hora</th>
                       <th className="pb-3 pr-4">Cliente</th>
                       <th className="pb-3 pr-4">Servicio</th>
+                      <th className="pb-3 pr-4">Nota</th>
                       <th className="pb-3 text-right">Precio</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {appointments.map((a) => (
+                    {appointments.map((a) => {
+                      const noteText = appointmentNotesOf(a);
+                      return (
                       <tr key={a.id} className="border-b border-stone-100 hover:bg-stone-50/50">
                         <td className="py-3 pr-4 text-stone-700">
                           {formatAppointmentCalendarDate(a.appointment_date)}
@@ -132,9 +136,17 @@ export default function HistoryPage() {
                         <td className="py-3 pr-4 font-medium text-stone-900">{formatTime(a.start_time)}</td>
                         <td className="py-3 pr-4">{a.client_first_name} {a.client_last_name}</td>
                         <td className="py-3 pr-4">{a.service_name}</td>
+                        <td className="py-3 pr-4 max-w-[200px]">
+                          {noteText ? (
+                            <AppointmentNoteEllipsis text={noteText} maxLength={70} className="text-stone-600 text-xs" />
+                          ) : (
+                            <span className="text-stone-300">—</span>
+                          )}
+                        </td>
                         <td className="py-3 text-right font-medium text-stone-900">${parseFloat(a.price || 0).toFixed(2)}</td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>

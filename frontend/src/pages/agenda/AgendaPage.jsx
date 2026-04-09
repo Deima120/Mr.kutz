@@ -5,6 +5,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
+import { appointmentNotesOf } from '../../utils/appointmentTime';
+import { AppointmentNoteEllipsis } from '../../components/AppointmentNoteText';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const STATUS_LABELS = {
@@ -178,7 +180,9 @@ export default function AgendaPage() {
                     <ul className="space-y-2">
                       {list
                         .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
-                        .map((a) => (
+                        .map((a) => {
+                          const noteText = appointmentNotesOf(a);
+                          return (
                           <li key={a.id} className="text-sm border-l-2 border-gold/40 pl-2 py-1">
                             <span className="font-semibold text-stone-900">{formatTime(a.start_time)}</span>
                             <span className="text-stone-600">
@@ -186,6 +190,12 @@ export default function AgendaPage() {
                               {a.client_first_name} {a.client_last_name}
                             </span>
                             <span className="block text-stone-500 truncate">{a.service_name}</span>
+                            {noteText ? (
+                              <span className="block text-stone-500 text-xs mt-0.5">
+                                <span className="text-stone-600 font-medium">Nota: </span>
+                                <AppointmentNoteEllipsis text={noteText} maxLength={48} />
+                              </span>
+                            ) : null}
                             <span
                               className={`inline-block mt-0.5 px-1.5 py-0.5 rounded-lg text-xs font-medium ${
                                 a.status === 'completed'
@@ -198,7 +208,8 @@ export default function AgendaPage() {
                               {STATUS_LABELS[a.status] || a.status}
                             </span>
                           </li>
-                        ))}
+                        );
+                        })}
                     </ul>
                   )}
                 </div>
