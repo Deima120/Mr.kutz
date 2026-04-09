@@ -5,6 +5,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import * as clientService from '../../services/clientService';
+import {
+  formatAppointmentCalendarDate,
+  formatAppointmentClockTime,
+} from '../../utils/appointmentTime';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -65,30 +69,6 @@ export default function ClientDetailPage() {
     });
   };
 
-  const formatTime = (timeStr) => {
-    if (!timeStr) return '';
-    if (timeStr instanceof Date) {
-      const hh = String(timeStr.getHours()).padStart(2, '0');
-      const mm = String(timeStr.getMinutes()).padStart(2, '0');
-      return `${hh}:${mm}`;
-    }
-    const s = String(timeStr);
-    const d = new Date(s);
-    if (!Number.isNaN(d.getTime()) && s.includes('T')) {
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      return `${hh}:${mm}`;
-    }
-    const iso = s.match(/T(\d{1,2}):(\d{2})/);
-    if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
-    const any = s.match(/(\d{1,2}):(\d{2})/);
-    if (any) {
-      const hh = String(any[1]).padStart(2, '0');
-      return `${hh}:${any[2]}`;
-    }
-    return s.slice(0, 5);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -145,7 +125,10 @@ export default function ClientDetailPage() {
                   <div>
                     <p className="font-medium text-gray-800">{item.service_name}</p>
                     <p className="text-gray-500 text-xs">
-                      {formatDate(item.appointment_date)} · {formatTime(item.start_time)} ·{' '}
+                      {formatAppointmentCalendarDate(item.appointment_date, 'es-ES', {
+                        year: 'numeric',
+                      })}{' '}
+                      · {formatAppointmentClockTime(item.start_time)} ·{' '}
                       {item.barber_first_name} {item.barber_last_name}
                     </p>
                   </div>
