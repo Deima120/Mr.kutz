@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
+import { formatAppointmentCalendarDate } from '../../utils/appointmentTime';
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -62,9 +63,6 @@ export default function HistoryPage() {
     }
     return s.slice(0, 5);
   };
-  const formatDate = (d) =>
-    d ? new Date((d + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
-
   return (
     <div className="space-y-8">
       <div>
@@ -128,7 +126,9 @@ export default function HistoryPage() {
                   <tbody>
                     {appointments.map((a) => (
                       <tr key={a.id} className="border-b border-stone-100 hover:bg-stone-50/50">
-                        <td className="py-3 pr-4 text-stone-700">{formatDate(a.appointment_date)}</td>
+                        <td className="py-3 pr-4 text-stone-700">
+                          {formatAppointmentCalendarDate(a.appointment_date)}
+                        </td>
                         <td className="py-3 pr-4 font-medium text-stone-900">{formatTime(a.start_time)}</td>
                         <td className="py-3 pr-4">{a.client_first_name} {a.client_last_name}</td>
                         <td className="py-3 pr-4">{a.service_name}</td>

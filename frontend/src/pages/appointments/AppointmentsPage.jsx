@@ -12,7 +12,11 @@ import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
 import { downloadCSV, printAsPDF } from '../../utils/export';
-import { formatAppointmentClockTime } from '../../utils/appointmentTime';
+import {
+  formatAppointmentClockTime,
+  formatAppointmentCalendarDate,
+  extractAppointmentDateYmd,
+} from '../../utils/appointmentTime';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -209,8 +213,6 @@ export default function AppointmentsPage() {
   };
 
   const formatTime = formatAppointmentClockTime;
-  const formatDate = (d) =>
-    d ? new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 
   const pageTitle = isClient ? 'Mis citas' : isBarber ? 'Mis citas' : 'Citas';
   const pageSubtitle = isClient
@@ -286,8 +288,11 @@ export default function AppointmentsPage() {
                           <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[a.status] || 'bg-stone-100 text-stone-700'}`}>
                             {STATUS_LABELS[a.status] || a.status}
                           </span>
-                          <time className="text-sm text-stone-500" dateTime={a.appointment_date}>
-                            {formatDate(a.appointment_date)}
+                          <time
+                            className="text-sm text-stone-500"
+                            dateTime={extractAppointmentDateYmd(a.appointment_date) || undefined}
+                          >
+                            {formatAppointmentCalendarDate(a.appointment_date)}
                           </time>
                         </div>
                         <p className="font-semibold text-stone-900 text-lg">

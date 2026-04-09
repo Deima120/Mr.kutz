@@ -18,7 +18,7 @@ import AdminFormShell, {
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
 } from '../../components/admin/AdminFormShell';
-import { formatAppointmentClockTime } from '../../utils/appointmentTime';
+import { formatAppointmentClockTime, extractAppointmentDateYmd } from '../../utils/appointmentTime';
 
 const stepKickerClass =
   'text-[10px] font-semibold tracking-[0.28em] text-gold mb-3';
@@ -97,9 +97,7 @@ export default function AppointmentFormPage() {
           setLoadError('Esta cita ya no se puede modificar.');
           return;
         }
-        const apptDate = a.appointment_date
-          ? new Date(a.appointment_date).toISOString().slice(0, 10)
-          : '';
+        const apptDate = extractAppointmentDateYmd(a.appointment_date);
         setFormData({
           clientId: String(a.client_id ?? ''),
           barberId: String(a.barber_id ?? ''),
