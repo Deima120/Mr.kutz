@@ -7,7 +7,8 @@ import * as barberService from '../services/barber.service.js';
 export const getAll = async (req, res, next) => {
   try {
     const activeOnly = req.query.active !== 'false';
-    const barbers = await barberService.getAll({ activeOnly });
+    const document = req.query.document;
+    const barbers = await barberService.getAll({ activeOnly, document });
     res.json({ success: true, data: barbers });
   } catch (error) {
     next(error);

@@ -78,8 +78,8 @@ export default function BarberFormPage() {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone || undefined,
-          documentType: formData.documentType.trim() || null,
-          documentNumber: formData.documentNumber.trim() || null,
+          documentType: formData.documentType.trim(),
+          documentNumber: formData.documentNumber.trim(),
           specialties,
           isActive: formData.isActive,
         });
@@ -95,8 +95,8 @@ export default function BarberFormPage() {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone || undefined,
-          documentType: formData.documentType.trim() || undefined,
-          documentNumber: formData.documentNumber.trim() || undefined,
+          documentType: formData.documentType.trim(),
+          documentNumber: formData.documentNumber.trim(),
           specialties,
         });
       }
@@ -118,7 +118,7 @@ export default function BarberFormPage() {
         title: 'Perfiles que marcan la agenda',
         bullets: [
           'Las especialidades ayudan a filtrar citas y mostrar talento en la app.',
-          'Documento opcional para expediente del equipo o nómina.',
+          'Tipo y número de documento son obligatorios para expediente del equipo.',
           'El correo de alta no se puede cambiar; desactiva si está de baja temporal.',
         ],
         statusLabel: 'Estado',
@@ -201,7 +201,7 @@ export default function BarberFormPage() {
               />
             </div>
             <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Tipo de documento</label>
+              <label className={ADMIN_FORM_LABEL_CLASS}>Tipo de documento *</label>
               <input
                 name="documentType"
                 list="barber-doc-types"
@@ -210,6 +210,7 @@ export default function BarberFormPage() {
                 className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 placeholder="Ej. CC, CE, NIT…"
                 maxLength={40}
+                required
               />
               <datalist id="barber-doc-types">
                 <option value="CC" />
@@ -220,14 +221,15 @@ export default function BarberFormPage() {
               </datalist>
             </div>
             <div className="group sm:col-span-2">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Número de documento</label>
+              <label className={ADMIN_FORM_LABEL_CLASS}>Número de documento *</label>
               <input
                 name="documentNumber"
                 value={formData.documentNumber}
                 onChange={handleChange}
                 className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-                placeholder="Opcional"
+                placeholder="Sin puntos ni espacios, si aplica"
                 maxLength={80}
+                required
               />
             </div>
             <div className="group sm:col-span-2">

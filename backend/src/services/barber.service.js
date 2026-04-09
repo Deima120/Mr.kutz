@@ -17,9 +17,22 @@ function normDocNumber(v) {
   return String(v).trim().slice(0, 80);
 }
 
-export const getAll = async ({ activeOnly = true } = {}) => {
+export const getAll = async ({ activeOnly = true, document } = {}) => {
+  const parts = [];
+  if (activeOnly) parts.push({ isActive: true });
+  if (document?.trim()) {
+    const d = document.trim();
+    parts.push({
+      OR: [
+        { documentNumber: { contains: d, mode: 'insensitive' } },
+        { documentType: { contains: d, mode: 'insensitive' } },
+      ],
+    });
+  }
+  const where = parts.length === 0 ? {} : parts.length === 1 ? parts[0] : { AND: parts };
+
   const barbers = await prisma.barber.findMany({
-    where: activeOnly ? { isActive: true } : {},
+    where,
     include: { user: { select: { email: true } } },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
@@ -97,6 +110,14 @@ export const create = async (data) => {
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
+  const docType = normDocType(documentType);
+  const docNum = normDocNumber(documentNumber);
+  if (!docType || !docNum) {
+    const err = new Error('El tipo y número de documento son obligatorios.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -111,8 +132,8 @@ export const create = async (data) => {
         firstName,
         lastName,
         phone: phone || null,
-        documentType: normDocType(documentType),
-        documentNumber: normDocNumber(documentNumber),
+        documentType: docType,
+        documentNumber: docNum,
         specialties: specialties || [],
       },
     });
@@ -141,8 +162,24 @@ export const update = async (id, data) => {
   if (data.phone !== undefined) patch.phone = data.phone || null;
   if (data.specialties !== undefined) patch.specialties = data.specialties;
   if (data.isActive !== undefined) patch.isActive = data.isActive;
-  if (data.documentType !== undefined) patch.documentType = normDocType(data.documentType);
-  if (data.documentNumber !== undefined) patch.documentNumber = normDocNumber(data.documentNumber);
+  if (data.documentType !== undefined) {
+    const v = normDocType(data.documentType);
+    if (!v) {
+      const err = new Error('El tipo de documento es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.documentType = v;
+  }
+  if (data.documentNumber !== undefined) {
+    const v = normDocNumber(data.documentNumber);
+    if (!v) {
+      const err = new Error('El número de documento es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.documentNumber = v;
+  }
 
   const barber = await prisma.barber.update({
     where: { id: parseInt(id, 10) },

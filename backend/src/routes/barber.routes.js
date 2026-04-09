@@ -17,8 +17,16 @@ const createValidation = [
   body('firstName').trim().notEmpty().isLength({ max: 100 }),
   body('lastName').trim().notEmpty().isLength({ max: 100 }),
   body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
-  body('documentType').optional({ checkFalsy: true }).trim().isLength({ max: 40 }),
-  body('documentNumber').optional({ checkFalsy: true }).trim().isLength({ max: 80 }),
+  body('documentType')
+    .trim()
+    .notEmpty()
+    .withMessage('El tipo de documento es obligatorio.')
+    .isLength({ max: 40 }),
+  body('documentNumber')
+    .trim()
+    .notEmpty()
+    .withMessage('El número de documento es obligatorio.')
+    .isLength({ max: 80 }),
   body('specialties').optional({ checkFalsy: true }).isArray(),
 ];
 
@@ -26,8 +34,16 @@ const updateValidation = [
   body('firstName').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
   body('lastName').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
   body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
-  body('documentType').optional({ nullable: true }).trim().isLength({ max: 40 }),
-  body('documentNumber').optional({ nullable: true }).trim().isLength({ max: 80 }),
+  body('documentType')
+    .trim()
+    .notEmpty()
+    .withMessage('El tipo de documento es obligatorio.')
+    .isLength({ max: 40 }),
+  body('documentNumber')
+    .trim()
+    .notEmpty()
+    .withMessage('El número de documento es obligatorio.')
+    .isLength({ max: 80 }),
   body('specialties').optional({ checkFalsy: true }).isArray(),
   body('isActive').optional({ checkFalsy: true }).isBoolean(),
 ];

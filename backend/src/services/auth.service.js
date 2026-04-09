@@ -12,7 +12,24 @@ const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
 
 export const register = async (userData) => {
-  const { email, password, role = 'client', firstName, lastName, phone } = userData;
+  const {
+    email,
+    password,
+    role = 'client',
+    firstName,
+    lastName,
+    phone,
+    documentType,
+    documentNumber,
+  } = userData;
+
+  const docType = documentType != null ? String(documentType).trim().slice(0, 40) : '';
+  const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 80) : '';
+  if ((role === 'client' || role === 'barber') && (!docType || !docNum)) {
+    const error = new Error('El tipo y número de documento son obligatorios.');
+    error.statusCode = 400;
+    throw error;
+  }
 
   const existingUser = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
@@ -54,6 +71,8 @@ export const register = async (userData) => {
           lastName: lastName || '',
           phone: phone || null,
           email: email.toLowerCase(),
+          documentType: docType,
+          documentNumber: docNum,
         },
       });
     } else if (role === 'barber') {
@@ -63,6 +82,8 @@ export const register = async (userData) => {
           firstName: firstName || '',
           lastName: lastName || '',
           phone: phone || null,
+          documentType: docType,
+          documentNumber: docNum,
         },
       });
     }

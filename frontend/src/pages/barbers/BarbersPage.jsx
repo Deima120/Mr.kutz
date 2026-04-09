@@ -14,6 +14,7 @@ export default function BarbersPage() {
   const isAdmin = user?.role === 'admin';
   const [barbers, setBarbers] = useState([]);
   const [showInactive, setShowInactive] = useState(false);
+  const [documentFilter, setDocumentFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -23,6 +24,7 @@ export default function BarbersPage() {
     try {
       const data = await barberService.getBarbers({
         active: showInactive ? 'false' : undefined,
+        document: documentFilter.trim() || undefined,
       });
       setBarbers(Array.isArray(data) ? data : data?.data ?? data?.barbers ?? []);
     } catch (err) {
@@ -36,6 +38,11 @@ export default function BarbersPage() {
   useEffect(() => {
     fetchBarbers();
   }, [showInactive]);
+
+  const handleFilterSubmit = (e) => {
+    e.preventDefault();
+    fetchBarbers();
+  };
 
   return (
     <div className="page-shell">
@@ -52,17 +59,31 @@ export default function BarbersPage() {
         }
       />
 
-      {isAdmin && (
-        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-4">
+        <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0 max-w-xl">
           <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded border-stone-300 text-gold focus:ring-gold/40"
+            type="text"
+            value={documentFilter}
+            onChange={(e) => setDocumentFilter(e.target.value)}
+            placeholder="Filtrar por documento (tipo o número)…"
+            className="input-premium flex-1 py-2.5 text-sm min-w-0"
           />
-          Mostrar inactivos
-        </label>
-      )}
+          <button type="submit" className="btn-admin shrink-0">
+            Filtrar
+          </button>
+        </form>
+        {isAdmin && (
+          <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-stone-300 text-gold focus:ring-gold/40"
+            />
+            Mostrar inactivos
+          </label>
+        )}
+      </div>
 
       {error && (
         <div className="alert-error" role="alert">{error}</div>
@@ -89,11 +110,9 @@ export default function BarbersPage() {
                   {b.phone && (
                     <p className="text-stone-600 text-sm mt-1">{b.phone}</p>
                   )}
-                  {(b.document_type || b.document_number) && (
-                    <p className="text-stone-500 text-xs mt-1">
-                      Doc.: {[b.document_type, b.document_number].filter(Boolean).join(' ')}
-                    </p>
-                  )}
+                  <p className="text-stone-500 text-xs mt-1">
+                    Doc.: {[b.document_type, b.document_number].filter(Boolean).join(' ') || '—'}
+                  </p>
                   {b.specialties?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {b.specialties.map((s, i) => (
