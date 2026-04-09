@@ -19,6 +19,9 @@ export default function PurchasesPage() {
     notes: '',
     items: [{ productId: '', quantity: 1, unitCost: 0 }],
   });
+  const [voidTarget, setVoidTarget] = useState(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -99,6 +102,7 @@ export default function PurchasesPage() {
                     proveedor: p.supplier_name || '',
                     factura: p.invoice_number || '',
                     total: p.total_amount,
+                    estado: p.voided_at ? 'Anulada' : 'Activa',
                     fecha: p.created_at,
                   }))
                 )
@@ -118,6 +122,68 @@ export default function PurchasesPage() {
       />
 
       {error && <div className="alert-error">{error}</div>}
+
+      {voidTarget != null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="void-purchase-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white border border-stone-200 shadow-xl p-5 sm:p-6">
+            <h2 id="void-purchase-title" className="text-lg font-semibold text-stone-900 mb-1">
+              Anular compra #{voidTarget}
+            </h2>
+            <p className="text-sm text-stone-600 mb-4">
+              Se descontará del inventario la cantidad ingresada en cada ítem. Solo es posible si hay stock suficiente.
+            </p>
+            <label className="block text-xs font-semibold text-stone-600 mb-1.5">Motivo (opcional)</label>
+            <textarea
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              className="input-premium w-full min-h-[4.5rem] resize-y mb-4"
+              maxLength={500}
+              placeholder="Ej. factura duplicada, error de digitación…"
+            />
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                className="btn-admin-outline"
+                disabled={voiding}
+                onClick={() => {
+                  setVoidTarget(null);
+                  setVoidReason('');
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-admin bg-red-700 hover:bg-red-800 border-red-800"
+                disabled={voiding}
+                onClick={async () => {
+                  setVoiding(true);
+                  setError('');
+                  try {
+                    await purchaseService.voidPurchase(voidTarget, {
+                      voidReason: voidReason.trim() || undefined,
+                    });
+                    setVoidTarget(null);
+                    setVoidReason('');
+                    fetchData();
+                  } catch (err) {
+                    setError(err?.message || err?.errors?.[0]?.message || 'No se pudo anular la compra');
+                  } finally {
+                    setVoiding(false);
+                  }
+                }}
+              >
+                {voiding ? 'Anulando…' : 'Confirmar anulación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="relative rounded-[1.35rem] p-[1.5px] bg-gradient-to-br from-gold/55 via-stone-100/60 to-gold/30 shadow-[0_16px_44px_rgba(0,0,0,0.1)] mb-6">
@@ -214,7 +280,9 @@ export default function PurchasesPage() {
               <TableHeader>Proveedor</TableHeader>
               <TableHeader>Factura</TableHeader>
               <TableHeader>Total</TableHeader>
+              <TableHeader>Estado</TableHeader>
               <TableHeader>Fecha</TableHeader>
+              <TableHeader className="text-right">Acciones</TableHeader>
             </TableHead>
             <TableBody>
               {purchases.map((p) => (
@@ -223,7 +291,30 @@ export default function PurchasesPage() {
                   <TableCell>{p.supplier_name || '-'}</TableCell>
                   <TableCell>{p.invoice_number || '-'}</TableCell>
                   <TableCell>${Math.round(Number(p.total_amount || 0)).toLocaleString('es-CO')}</TableCell>
+                  <TableCell>
+                    {p.voided_at ? (
+                      <span className="text-red-700 text-sm font-medium">Anulada</span>
+                    ) : (
+                      <span className="text-emerald-700 text-sm">Activa</span>
+                    )}
+                  </TableCell>
                   <TableCell>{p.created_at ? new Date(p.created_at).toLocaleString('es-ES') : '-'}</TableCell>
+                  <TableCell className="text-right">
+                    {!p.voided_at ? (
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-red-700 hover:text-red-900 underline-offset-2 hover:underline"
+                        onClick={() => {
+                          setVoidReason('');
+                          setVoidTarget(p.id);
+                        }}
+                      >
+                        Anular
+                      </button>
+                    ) : (
+                      <span className="text-stone-400 text-sm">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

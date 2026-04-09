@@ -110,14 +110,21 @@ function normNotes(v) {
 }
 
 export const create = async (data) => {
+  const docType = normDocType(data.documentType);
+  const docNum = normDocNumber(data.documentNumber);
+  if (!docType || !docNum) {
+    const err = new Error('El tipo y número de documento son obligatorios.');
+    err.statusCode = 400;
+    throw err;
+  }
   const client = await prisma.client.create({
     data: {
       firstName: data.firstName,
       lastName: data.lastName,
       phone: data.phone || null,
       email: data.email || null,
-      documentType: normDocType(data.documentType),
-      documentNumber: normDocNumber(data.documentNumber),
+      documentType: docType,
+      documentNumber: docNum,
       notes: normNotes(data.notes),
       userId: data.userId ? parseInt(data.userId, 10) : null,
     },
@@ -131,8 +138,17 @@ export const update = async (id, data) => {
   if (data.lastName !== undefined) patch.lastName = data.lastName;
   if (data.phone !== undefined) patch.phone = data.phone || null;
   if (data.email !== undefined) patch.email = data.email || null;
-  if (data.documentType !== undefined) patch.documentType = normDocType(data.documentType);
-  if (data.documentNumber !== undefined) patch.documentNumber = normDocNumber(data.documentNumber);
+  if (data.documentType !== undefined || data.documentNumber !== undefined) {
+    const docType = normDocType(data.documentType);
+    const docNum = normDocNumber(data.documentNumber);
+    if (!docType || !docNum) {
+      const err = new Error('El tipo y número de documento son obligatorios.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.documentType = docType;
+    patch.documentNumber = docNum;
+  }
   if (data.notes !== undefined) patch.notes = normNotes(data.notes);
 
   const client = await prisma.client.update({

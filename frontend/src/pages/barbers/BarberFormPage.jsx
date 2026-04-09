@@ -74,6 +74,11 @@ export default function BarberFormPage() {
         : [];
 
       if (isEdit) {
+        if (!formData.documentType.trim() || !formData.documentNumber.trim()) {
+          setError('El tipo y número de documento son obligatorios');
+          setLoading(false);
+          return;
+        }
         await barberService.updateBarber(id, {
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -84,6 +89,11 @@ export default function BarberFormPage() {
           isActive: formData.isActive,
         });
       } else {
+        if (!formData.documentType.trim() || !formData.documentNumber.trim()) {
+          setError('El tipo y número de documento son obligatorios');
+          setLoading(false);
+          return;
+        }
         if (!formData.password || formData.password.length < 6) {
           setError('La contraseña debe tener al menos 6 caracteres');
           setLoading(false);
@@ -117,8 +127,8 @@ export default function BarberFormPage() {
         kicker: 'Equipo',
         title: 'Perfiles que marcan la agenda',
         bullets: [
+          'Primero registra tipo y número de documento del integrante.',
           'Las especialidades ayudan a filtrar citas y mostrar talento en la app.',
-          'Tipo y número de documento son obligatorios para expediente del equipo.',
           'El correo de alta no se puede cambiar; desactiva si está de baja temporal.',
         ],
         statusLabel: 'Estado',
@@ -137,6 +147,43 @@ export default function BarberFormPage() {
           />
 
           {error && <div className="alert-error text-xs py-2 shrink-0">{error}</div>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            <div className="group">
+              <label className={ADMIN_FORM_LABEL_CLASS}>Tipo de documento *</label>
+              <input
+                name="documentType"
+                list="barber-doc-types"
+                value={formData.documentType}
+                onChange={handleChange}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                placeholder="Ej. CC, CE, NIT…"
+                maxLength={40}
+                required
+                autoComplete="off"
+              />
+              <datalist id="barber-doc-types">
+                <option value="CC" />
+                <option value="CE" />
+                <option value="TI" />
+                <option value="Pasaporte" />
+                <option value="NIT" />
+              </datalist>
+            </div>
+            <div className="group">
+              <label className={ADMIN_FORM_LABEL_CLASS}>Número de documento *</label>
+              <input
+                name="documentNumber"
+                value={formData.documentNumber}
+                onChange={handleChange}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                placeholder="Sin puntos ni espacios, si aplica"
+                maxLength={80}
+                required
+                autoComplete="off"
+              />
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3">
             <div className="group">
@@ -198,38 +245,6 @@ export default function BarberFormPage() {
                 value={formData.phone}
                 onChange={handleChange}
                 className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-              />
-            </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Tipo de documento *</label>
-              <input
-                name="documentType"
-                list="barber-doc-types"
-                value={formData.documentType}
-                onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-                placeholder="Ej. CC, CE, NIT…"
-                maxLength={40}
-                required
-              />
-              <datalist id="barber-doc-types">
-                <option value="CC" />
-                <option value="CE" />
-                <option value="TI" />
-                <option value="Pasaporte" />
-                <option value="NIT" />
-              </datalist>
-            </div>
-            <div className="group sm:col-span-2">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Número de documento *</label>
-              <input
-                name="documentNumber"
-                value={formData.documentNumber}
-                onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-                placeholder="Sin puntos ni espacios, si aplica"
-                maxLength={80}
-                required
               />
             </div>
             <div className="group sm:col-span-2">

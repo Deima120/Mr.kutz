@@ -64,6 +64,12 @@ export default function ClientFormPage() {
     setLoading(true);
     setError('');
 
+    if (!formData.documentType.trim() || !formData.documentNumber.trim()) {
+      setError('El tipo y número de documento son obligatorios.');
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -99,8 +105,8 @@ export default function ClientFormPage() {
         kicker: 'Experiencia',
         title: 'Cada dato suma al servicio',
         bullets: [
+          'Primero identifica al cliente con tipo y número de documento.',
           'Correo y teléfono sirven para confirmar citas y enviar avisos.',
-          'Tipo y número de documento son obligatorios (identificación y consultas).',
           'Las notas son internas (máx. 500 caracteres) y el cliente no las ve.',
         ],
         statusLabel: 'Estado',
@@ -126,6 +132,49 @@ export default function ClientFormPage() {
               {error}
             </div>
           )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
+            <div className="group">
+              <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
+                Tipo de documento <span className="text-red-600 normal-case">*</span>
+              </label>
+              <input
+                id="documentType"
+                name="documentType"
+                list="client-doc-types"
+                value={formData.documentType}
+                onChange={handleChange}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                placeholder="Ej. CC, CE, NIT…"
+                maxLength={40}
+                required
+                autoComplete="off"
+              />
+              <datalist id="client-doc-types">
+                <option value="CC" />
+                <option value="CE" />
+                <option value="TI" />
+                <option value="Pasaporte" />
+                <option value="NIT" />
+              </datalist>
+            </div>
+            <div className="group">
+              <label htmlFor="documentNumber" className={ADMIN_FORM_LABEL_CLASS}>
+                Número de documento <span className="text-red-600 normal-case">*</span>
+              </label>
+              <input
+                id="documentNumber"
+                name="documentNumber"
+                value={formData.documentNumber}
+                onChange={handleChange}
+                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                placeholder="Sin puntos ni espacios, si aplica"
+                maxLength={80}
+                required
+                autoComplete="off"
+              />
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
             <div className="group">
@@ -182,47 +231,6 @@ export default function ClientFormPage() {
                 onChange={handleChange}
                 className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 placeholder="Opcional"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
-            <div className="group">
-              <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
-                Tipo de documento <span className="text-red-600 normal-case">*</span>
-              </label>
-              <input
-                id="documentType"
-                name="documentType"
-                list="client-doc-types"
-                value={formData.documentType}
-                onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-                placeholder="Ej. CC, CE, NIT…"
-                maxLength={40}
-                required
-              />
-              <datalist id="client-doc-types">
-                <option value="CC" />
-                <option value="CE" />
-                <option value="TI" />
-                <option value="Pasaporte" />
-                <option value="NIT" />
-              </datalist>
-            </div>
-            <div className="group">
-              <label htmlFor="documentNumber" className={ADMIN_FORM_LABEL_CLASS}>
-                Número de documento <span className="text-red-600 normal-case">*</span>
-              </label>
-              <input
-                id="documentNumber"
-                name="documentNumber"
-                value={formData.documentNumber}
-                onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-                placeholder="Sin puntos ni espacios, si aplica"
-                maxLength={80}
-                required
               />
             </div>
           </div>

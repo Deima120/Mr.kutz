@@ -6,6 +6,9 @@ const toDto = (p) => ({
   invoice_number: p.invoiceNumber,
   notes: p.notes,
   total_amount: p.totalAmount,
+  voided_at: p.voidedAt,
+  void_reason: p.voidReason,
+  voided_by: p.voidedBy,
   created_at: p.createdAt,
   created_by_email: p.creator?.email,
   items: (p.items || []).map((i) => ({
@@ -115,4 +118,77 @@ export const create = async (data, userId) => {
   });
 
   return toDto(result);
+};
+
+/**
+ * Anula una compra: descuenta del inventario las cantidades ingresadas (no borra el registro).
+ */
+export const voidPurchase = async (id, { voidReason, voidedBy } = {}) => {
+  const pid = parseInt(id, 10);
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.purchase.findUnique({
+      where: { id: pid },
+      include: { items: true },
+    });
+    if (!existing) {
+      const err = new Error('Compra no encontrada.');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (existing.voidedAt) {
+      const err = new Error('Esta compra ya está anulada.');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!existing.items?.length) {
+      const err = new Error('La compra no tiene artículos para revertir.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const voidedById = voidedBy != null ? parseInt(voidedBy, 10) : null;
+
+    for (const item of existing.items) {
+      const inv = await tx.inventory.findUnique({ where: { productId: item.productId } });
+      const current = inv?.quantity ?? 0;
+      if (current < item.quantity) {
+        const err = new Error(
+          `No hay stock suficiente para anular esta compra (producto #${item.productId}: hay ${current}, se requieren ${item.quantity}).`
+        );
+        err.statusCode = 400;
+        throw err;
+      }
+      await tx.inventory.update({
+        where: { productId: item.productId },
+        data: { quantity: { decrement: item.quantity } },
+      });
+      await tx.inventoryMovement.create({
+        data: {
+          productId: item.productId,
+          quantityChange: -item.quantity,
+          movementType: 'adjustment',
+          notes: `Salida por anulación de compra #${pid}`,
+          createdBy: Number.isFinite(voidedById) ? voidedById : null,
+        },
+      });
+    }
+
+    await tx.purchase.update({
+      where: { id: pid },
+      data: {
+        voidedAt: new Date(),
+        voidReason: voidReason?.trim() ? voidReason.trim().slice(0, 500) : null,
+        voidedBy: Number.isFinite(voidedById) ? voidedById : null,
+      },
+    });
+
+    const updated = await tx.purchase.findUnique({
+      where: { id: pid },
+      include: {
+        creator: { select: { email: true } },
+        items: { include: { product: { select: { name: true } } } },
+      },
+    });
+    return toDto(updated);
+  });
 };

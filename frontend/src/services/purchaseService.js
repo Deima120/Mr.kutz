@@ -21,3 +21,8 @@ export const createPurchase = async (data) => {
   const response = await api.post(BASE, data);
   return extract(response);
 };
+
+export const voidPurchase = async (id, body = {}) => {
+  const response = await api.post(`${BASE}/${id}/void`, body);
+  return extract(response);
+};

@@ -85,6 +85,48 @@ export default function RegisterPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label htmlFor="documentType" className={labelClass}>
+                    Tipo de documento <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    id="documentType"
+                    name="documentType"
+                    list="register-doc-types"
+                    value={formData.documentType}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="CC, CE…"
+                    maxLength={40}
+                    required
+                    autoComplete="off"
+                  />
+                  <datalist id="register-doc-types">
+                    <option value="CC" />
+                    <option value="CE" />
+                    <option value="TI" />
+                    <option value="Pasaporte" />
+                    <option value="NIT" />
+                  </datalist>
+                </div>
+                <div>
+                  <label htmlFor="documentNumber" className={labelClass}>
+                    Número de documento <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    id="documentNumber"
+                    name="documentNumber"
+                    value={formData.documentNumber}
+                    onChange={handleChange}
+                    className={inputClass}
+                    maxLength={80}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label htmlFor="firstName" className={labelClass}>
                     Nombre
                   </label>
@@ -135,46 +177,6 @@ export default function RegisterPage() {
                   Teléfono (opcional)
                 </label>
                 <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} className={inputClass} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="documentType" className={labelClass}>
-                    Tipo de documento
-                  </label>
-                  <input
-                    id="documentType"
-                    name="documentType"
-                    list="register-doc-types"
-                    value={formData.documentType}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="CC, CE…"
-                    maxLength={40}
-                    required
-                  />
-                  <datalist id="register-doc-types">
-                    <option value="CC" />
-                    <option value="CE" />
-                    <option value="TI" />
-                    <option value="Pasaporte" />
-                    <option value="NIT" />
-                  </datalist>
-                </div>
-                <div>
-                  <label htmlFor="documentNumber" className={labelClass}>
-                    Número de documento
-                  </label>
-                  <input
-                    id="documentNumber"
-                    name="documentNumber"
-                    value={formData.documentNumber}
-                    onChange={handleChange}
-                    className={inputClass}
-                    maxLength={80}
-                    required
-                  />
-                </div>
               </div>
 
               <div>
