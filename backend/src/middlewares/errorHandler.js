@@ -39,6 +39,21 @@ export const errorHandler = (err, req, res, next) => {
   if (err.code === 'P2003') {
     return res.status(400).json({ success: false, message: 'Referencia inválida' });
   }
+  // Esquema Prisma y BD no coinciden (migraciones pendientes o fallidas)
+  if (err.code === 'P2021') {
+    return res.status(503).json({
+      success: false,
+      message:
+        'La base de datos no tiene tablas esperadas por la aplicación. Aplica migraciones: en la carpeta backend ejecuta «npx prisma migrate deploy» o «npx prisma db push».',
+    });
+  }
+  if (err.code === 'P2022') {
+    return res.status(503).json({
+      success: false,
+      message:
+        'La base de datos está desactualizada (faltan columnas). En la carpeta backend ejecuta «npx prisma migrate deploy» o «npx prisma db push» y vuelve a intentar.',
+    });
+  }
   if (err.code && String(err.code).startsWith('P2')) {
     return res.status(400).json({ success: false, message: 'Error en los datos enviados' });
   }

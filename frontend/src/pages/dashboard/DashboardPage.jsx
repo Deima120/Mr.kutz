@@ -7,6 +7,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as dashboardService from '../../services/dashboardService';
 import * as appointmentService from '../../services/appointmentService';
+import { appointmentNotesOf } from '../../utils/appointmentTime';
+import { AppointmentNoteBlock } from '../../components/AppointmentNoteText';
 import PageHeader from '../../components/admin/PageHeader';
 import StatsCard from '../../components/admin/StatsCard';
 import DataCard from '../../components/admin/DataCard';
@@ -237,6 +239,13 @@ function BarberDashboard() {
                 <p className="text-stone-600 mt-0.5">
                   {nextAppointment.client_first_name} {nextAppointment.client_last_name}
                 </p>
+                {appointmentNotesOf(nextAppointment) ? (
+                  <AppointmentNoteBlock
+                    text={appointmentNotesOf(nextAppointment)}
+                    maxLength={180}
+                    className="text-stone-600 text-sm mt-2 pl-3 border-l-2 border-gold/35 max-w-xl"
+                  />
+                ) : null}
               </div>
               <button
                 type="button"
@@ -263,18 +272,28 @@ function BarberDashboard() {
             <p className="text-stone-500 py-6">No tienes citas programadas para hoy.</p>
           ) : (
             <ul className="space-y-3">
-              {appointments.map((a) => (
+              {appointments.map((a) => {
+                const noteText = appointmentNotesOf(a);
+                return (
                 <li
                   key={a.id}
                   className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl bg-stone-50/80 border border-stone-100"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <span className="font-semibold text-stone-900">{formatTime(a.start_time)}</span>
                     <span className="text-stone-600 ml-2">
                       {a.client_first_name} {a.client_last_name} — {a.service_name}
                     </span>
+                    {noteText ? (
+                      <AppointmentNoteBlock
+                        text={noteText}
+                        maxLength={110}
+                        labelClassName="font-semibold text-stone-600"
+                        className="text-stone-500 text-xs mt-1.5 pl-2 border-l-2 border-gold/30"
+                      />
+                    ) : null}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span
                       className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${
                         a.status === 'completed'
@@ -297,7 +316,8 @@ function BarberDashboard() {
                     )}
                   </div>
                 </li>
-              ))}
+              );
+              })}
             </ul>
           )}
         </div>
@@ -859,6 +879,13 @@ function AdminDashboard() {
                 <p className="text-stone-600 mt-0.5">
                   {nextAppointment.client_first_name} {nextAppointment.client_last_name}
                 </p>
+                {appointmentNotesOf(nextAppointment) ? (
+                  <AppointmentNoteBlock
+                    text={appointmentNotesOf(nextAppointment)}
+                    maxLength={180}
+                    className="text-stone-600 text-sm mt-2 pl-3 border-l-2 border-gold/35 max-w-xl"
+                  />
+                ) : null}
               </div>
               <button type="button" onClick={() => handleMarkCompleted(nextAppointment.id)} className="btn-dark">
                 Marcar completada
