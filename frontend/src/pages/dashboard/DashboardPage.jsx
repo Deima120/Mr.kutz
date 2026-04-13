@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useId } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import * as dashboardService from '../../services/dashboardService';
 import * as appointmentService from '../../services/appointmentService';
@@ -184,8 +185,8 @@ function BarberDashboard() {
             to="/appointments"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
           >
-            Ver todas mis citas
-            <span aria-hidden>→</span>
+            <span>Ver todas mis citas</span>
+            <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
           </Link>
         </div>
       </div>

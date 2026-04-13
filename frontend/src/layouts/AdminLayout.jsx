@@ -4,29 +4,47 @@
  */
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  Scissors,
+  UserCircle,
+  Star,
+  CreditCard,
+  Receipt,
+  Package,
+  TrendingUp,
+  Settings,
+  CalendarDays,
+  ClipboardList,
+  Home,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 
+const navIconClass = 'w-5 h-5 shrink-0';
+
 const adminNavItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { path: '/appointments', label: 'Citas', icon: '📅' },
-  { path: '/clients', label: 'Clientes', icon: '👥' },
-  { path: '/services', label: 'Servicios', icon: '✂️' },
-  { path: '/barbers', label: 'Barberos', icon: '🧔' },
-  { path: '/testimonials', label: 'Satisfacción', icon: '⭐' },
-  { path: '/payments', label: 'Pagos', icon: '💳' },
-  { path: '/purchases', label: 'Compras', icon: '🧾' },
-  { path: '/inventory', label: 'Inventario', icon: '📦' },
-  { path: '/reports', label: 'Reportes', icon: '📈' },
-  { path: '/settings', label: 'Configuración', icon: '⚙️' },
+  { path: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { path: '/appointments', label: 'Citas', Icon: Calendar },
+  { path: '/clients', label: 'Clientes', Icon: Users },
+  { path: '/services', label: 'Servicios', Icon: Scissors },
+  { path: '/barbers', label: 'Barberos', Icon: UserCircle },
+  { path: '/testimonials', label: 'Satisfacción', Icon: Star },
+  { path: '/payments', label: 'Pagos', Icon: CreditCard },
+  { path: '/purchases', label: 'Compras', Icon: Receipt },
+  { path: '/inventory', label: 'Inventario', Icon: Package },
+  { path: '/reports', label: 'Reportes', Icon: TrendingUp },
+  { path: '/settings', label: 'Configuración', Icon: Settings },
 ];
 
 const barberNavItems = [
-  { path: '/dashboard', label: 'Mi día', icon: '📊' },
-  { path: '/appointments', label: 'Mis citas', icon: '📅' },
-  { path: '/agenda', label: 'Agenda', icon: '📆' },
-  { path: '/history', label: 'Historial', icon: '📋' },
-  { path: '/clients', label: 'Clientes', icon: '👥' },
+  { path: '/dashboard', label: 'Mi día', Icon: LayoutDashboard },
+  { path: '/appointments', label: 'Mis citas', Icon: Calendar },
+  { path: '/agenda', label: 'Agenda', Icon: CalendarDays },
+  { path: '/history', label: 'Historial', Icon: ClipboardList },
+  { path: '/clients', label: 'Clientes', Icon: Users },
 ];
 
 export default function AdminLayout({ children }) {
@@ -60,8 +78,9 @@ export default function AdminLayout({ children }) {
         <nav className="flex-1 py-4 overflow-y-auto">
           <ul className="space-y-0.5 px-3">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path ||
-                location.pathname.startsWith(item.path + '/');
+              const isActive =
+                location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+              const { Icon } = item;
               return (
                 <li key={item.path}>
                   <Link
@@ -72,7 +91,7 @@ export default function AdminLayout({ children }) {
                         : 'text-stone-400 hover:bg-stone-800 hover:text-white'
                     }`}
                   >
-                    <span className="text-lg">{item.icon}</span>
+                    <Icon className={navIconClass} strokeWidth={1.75} aria-hidden />
                     {item.label}
                   </Link>
                 </li>
@@ -86,10 +105,18 @@ export default function AdminLayout({ children }) {
             {user?.firstName || user?.email}
           </div>
           <div className="px-2 mt-2 space-y-0.5">
-            <Link to="/" className="block px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors">
-              ← Inicio
+            <Link
+              to="/"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors"
+            >
+              <Home className="w-4 h-4 shrink-0 opacity-80" strokeWidth={1.75} aria-hidden />
+              Inicio
             </Link>
-            <button type="button" onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full text-left px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors"
+            >
               Cerrar sesión
             </button>
           </div>
@@ -100,7 +127,8 @@ export default function AdminLayout({ children }) {
         <header className="shrink-0 bg-white/95 backdrop-blur border-b border-stone-200 px-4 sm:px-6 md:px-8 py-3 md:py-4 z-10 shadow-card min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl font-medium text-stone-900">
-              {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
+              {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))
+                ?.label || businessName}
             </h2>
           </div>
         </header>

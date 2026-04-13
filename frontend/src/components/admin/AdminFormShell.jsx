@@ -4,6 +4,7 @@
  */
 
 import { Link } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 
 /** Clase para inputs/selects/textarea en formularios admin (profundidad sutil). */
 export const ADMIN_FORM_FIELD_CLASS =
@@ -118,9 +119,11 @@ export default function AdminFormShell({
             to={backTo}
             className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
           >
-            <span className="transition-transform group-hover:-translate-x-0.5" aria-hidden>
-              ←
-            </span>
+            <ChevronLeft
+              className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
+              strokeWidth={2}
+              aria-hidden
+            />
             {backLabel}
           </Link>
           <span className="h-px flex-1 min-w-[3rem] bg-gradient-to-r from-gold/55 to-stone-300/40 rounded-full" />

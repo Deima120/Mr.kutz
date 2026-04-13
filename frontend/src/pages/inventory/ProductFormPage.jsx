@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import * as productService from '../../services/productService';
 import * as productCategoryService from '../../services/productCategoryService';
 import AdminFormShell, {
@@ -226,7 +227,11 @@ export default function ProductFormPage() {
                     Última actualización: {new Date(productMeta.stockUpdatedAt).toLocaleString('es-ES')}
                   </p>
                 )}
-                <p className="text-stone-500 text-xs mt-2">Para ajustar cantidad usa inventario → Ajustar.</p>
+                <p className="text-stone-500 text-xs mt-2 inline-flex flex-wrap items-center gap-1">
+                  <span>Para ajustar cantidad usa inventario</span>
+                  <ArrowRight className="w-3 h-3 shrink-0 text-stone-400" strokeWidth={2} aria-hidden />
+                  <span>Ajustar.</span>
+                </p>
               </div>
               <label className="flex items-center gap-2 cursor-pointer shrink-0">
                 <input

@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import * as clientService from '../../services/clientService';
 import {
   formatAppointmentCalendarDate,
@@ -170,8 +171,12 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      <Link to="/clients" className="text-primary-600 hover:text-primary-700 text-sm">
-        ← Volver a clientes
+      <Link
+        to="/clients"
+        className="inline-flex items-center gap-1.5 text-primary-600 hover:text-primary-700 text-sm"
+      >
+        <ChevronLeft className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+        Volver a clientes
       </Link>
     </div>
   );

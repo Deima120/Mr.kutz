@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import * as clientService from '../../services/clientService';
 import PageHeader from '../../components/admin/PageHeader';
@@ -131,7 +132,10 @@ export default function ClientsPage() {
                             Doc.: {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
                           </p>
                         </div>
-                        <span className="text-gold text-sm font-semibold">Ver detalle →</span>
+                        <span className="text-gold text-sm font-semibold inline-flex items-center gap-1">
+                          Ver detalle
+                          <ChevronRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                        </span>
                       </div>
                     </Link>
                   </li>

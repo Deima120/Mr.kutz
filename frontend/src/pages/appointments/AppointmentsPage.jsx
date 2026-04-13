@@ -5,12 +5,14 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Star, Plus, ArrowRight } from 'lucide-react';
 import * as appointmentService from '../../services/appointmentService';
 import * as barberService from '../../services/barberService';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
+import RatingStars from '../../components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '../../components/AppointmentNoteText';
 import { downloadCSV, printAsPDF } from '../../utils/export';
 import {
@@ -85,13 +87,14 @@ function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
               setStars(n);
               setErr('');
             }}
-            className={`text-2xl leading-none px-1 rounded transition-colors ${
-              n <= stars ? 'text-amber-500' : 'text-stone-200 hover:text-stone-300'
-            }`}
+            className="p-0.5 rounded transition-colors"
             aria-pressed={n <= stars}
             aria-label={`${n} estrellas`}
           >
-            ★
+            <Star
+              className={`w-7 h-7 ${n <= stars ? 'fill-amber-500 text-amber-500' : 'fill-none text-stone-200 hover:text-stone-300'}`}
+              strokeWidth={1.5}
+            />
           </button>
         ))}
       </div>
@@ -255,7 +258,7 @@ export default function AppointmentsPage() {
               to="/appointments/new"
               className="inline-flex items-center gap-2 w-full sm:w-auto justify-center px-6 py-3.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors mb-8"
             >
-              <span aria-hidden>+</span>
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Agendar nueva cita
             </Link>
 
@@ -277,7 +280,7 @@ export default function AppointmentsPage() {
                   className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
                 >
                   Agendar mi primera cita
-                  <span aria-hidden>→</span>
+                  <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
                 </Link>
               </div>
             ) : (
@@ -317,10 +320,9 @@ export default function AppointmentsPage() {
                         )}
                         {a.status === 'completed' && clientRatingOf(a) != null && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
-                            <p className="text-sm text-stone-600">
-                              Tu valoración:{' '}
-                              <span className="text-amber-500">{'★'.repeat(clientRatingOf(a))}</span>
-                              <span className="text-stone-300">{'☆'.repeat(5 - clientRatingOf(a))}</span>
+                            <p className="text-sm text-stone-600 inline-flex flex-wrap items-center gap-1">
+                              <span>Tu valoración:</span>
+                              <RatingStars value={clientRatingOf(a)} sizeClass="w-4 h-4" />
                             </p>
                             {clientRatingCommentOf(a) ? (
                               <p className="text-sm text-stone-500 mt-1 italic">
@@ -405,7 +407,8 @@ export default function AppointmentsPage() {
               to="/appointments/new"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
             >
-              + Nueva cita
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Nueva cita
             </Link>
           </div>
         </div>
@@ -425,8 +428,9 @@ export default function AppointmentsPage() {
               to="/appointments/new"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
             >
-              + Crear cita
-              <span aria-hidden>→</span>
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Crear cita
+              <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
             </Link>
           </div>
         ) : (
@@ -457,13 +461,8 @@ export default function AppointmentsPage() {
                       {a.status === 'completed' && clientRatingOf(a) != null && (
                         <p className="text-sm mt-2 text-amber-700">
                           <span className="font-medium text-stone-600">Valoración del cliente: </span>
-                          <span
-                            className="tabular-nums"
-                            title={`${clientRatingOf(a)} de 5 estrellas`}
-                            aria-label={`${clientRatingOf(a)} de 5 estrellas`}
-                          >
-                            <span className="text-amber-500">{'★'.repeat(clientRatingOf(a))}</span>
-                            <span className="text-stone-300">{'☆'.repeat(5 - clientRatingOf(a))}</span>
+                          <span className="tabular-nums inline-flex items-center" title={`${clientRatingOf(a)} de 5 estrellas`} aria-label={`${clientRatingOf(a)} de 5 estrellas`}>
+                            <RatingStars value={clientRatingOf(a)} sizeClass="w-4 h-4" />
                           </span>
                           {clientRatingCommentOf(a) ? (
                             <span className="block text-stone-500 font-normal mt-1 italic text-xs">
@@ -517,9 +516,10 @@ export default function AppointmentsPage() {
         actions={
           <Link
             to="/appointments/new"
-            className="inline-flex items-center px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm shadow-sm"
           >
-            + Nueva cita
+            <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+            Nueva cita
           </Link>
         }
       />
@@ -614,9 +614,8 @@ export default function AppointmentsPage() {
                   </TableCell>
                   <TableCell className="text-sm">
                     {a.status === 'completed' && rating != null ? (
-                      <span className="text-amber-600 tabular-nums" title="Valoración del cliente">
-                        {'★'.repeat(rating)}
-                        <span className="text-stone-300">{'☆'.repeat(5 - rating)}</span>
+                      <span className="text-amber-600 tabular-nums inline-flex items-center" title="Valoración del cliente">
+                        <RatingStars value={rating} sizeClass="w-3.5 h-3.5" />
                       </span>
                     ) : a.status === 'completed' ? (
                       <span className="text-stone-400">—</span>

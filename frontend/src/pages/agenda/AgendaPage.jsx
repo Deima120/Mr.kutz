@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import * as appointmentService from '../../services/appointmentService';
 import { appointmentNotesOf } from '../../utils/appointmentTime';
@@ -123,9 +124,10 @@ export default function AgendaPage() {
             <button
               type="button"
               onClick={goPrevWeek}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
             >
-              ← Anterior
+              <ChevronLeft className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Anterior
             </button>
             <span className="text-sm text-stone-600 min-w-[200px] text-center font-medium">
               {new Date(dateFrom + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
@@ -139,9 +141,10 @@ export default function AgendaPage() {
             <button
               type="button"
               onClick={goNextWeek}
-              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-stone-300 rounded-xl text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
             >
-              Siguiente →
+              Siguiente
+              <ChevronRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
             </button>
           </div>
         </div>

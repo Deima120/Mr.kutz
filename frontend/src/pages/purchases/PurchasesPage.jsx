@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '../../components/admin/Table';
@@ -114,8 +115,19 @@ export default function PurchasesPage() {
             <button type="button" onClick={printAsPDF} className="btn-admin-outline">
               Exportar PDF
             </button>
-            <button type="button" onClick={() => setShowForm((v) => !v)} className="btn-admin">
-              {showForm ? 'Cerrar' : '+ Nueva compra'}
+            <button
+              type="button"
+              onClick={() => setShowForm((v) => !v)}
+              className="btn-admin inline-flex items-center justify-center gap-2"
+            >
+              {showForm ? (
+                'Cerrar'
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                  Nueva compra
+                </>
+              )}
             </button>
           </div>
         }
@@ -254,8 +266,9 @@ export default function PurchasesPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <button type="button" onClick={addItem} className="btn-admin-outline">
-                + Agregar item
+              <button type="button" onClick={addItem} className="btn-admin-outline inline-flex items-center gap-2">
+                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Agregar item
               </button>
               <p className="text-stone-600 text-sm">Total estimado: <strong>${Math.round(totalPreview).toLocaleString('es-CO')}</strong></p>
             </div>

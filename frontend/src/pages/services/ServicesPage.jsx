@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus, ArrowRight } from 'lucide-react';
 import * as serviceService from '../../services/serviceService';
 import PageHeader from '../../components/admin/PageHeader';
 import DataCard from '../../components/admin/DataCard';
@@ -153,8 +154,9 @@ export default function ServicesPage() {
           <div className="py-10 text-center">
             <p className="text-stone-500 text-sm mb-3">No hay servicios registrados.</p>
             <Link to="/services/new" className="btn-admin-outline inline-flex items-center gap-2 text-sm">
-              + Crear primero
-              <span aria-hidden>→</span>
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Crear primero
+              <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
             </Link>
           </div>
         </DataCard>
