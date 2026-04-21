@@ -3,6 +3,7 @@
  */
 
 import prisma from '../lib/prisma.js';
+import { notifyAppointmentCreated } from './appointmentNotifications.js';
 
 /** Convierte Date o string de tiempo a "HH:MM" (misma zona que al guardar horarios del barbero) */
 function toTimeStr(d) {
@@ -294,7 +295,9 @@ export const create = async (data) => {
       notes: notes || null,
     },
   });
-  return getById(created.id);
+  const full = await getById(created.id);
+  notifyAppointmentCreated(full);
+  return full;
 };
 
 export const update = async (id, data) => {

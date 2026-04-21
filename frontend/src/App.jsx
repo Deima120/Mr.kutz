@@ -38,6 +38,7 @@ const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const PurchasesPage = lazy(() => import('./pages/purchases/PurchasesPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const BookingPage = lazy(() => import('./pages/booking/BookingPage'));
 
 function HomeOrRedirect() {
   const { user, isAuthenticated } = useAuth();
@@ -65,6 +66,7 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reservar" element={<BookingPage />} />
           <Route
             path="clients"
             element={
