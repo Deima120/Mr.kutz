@@ -9,7 +9,20 @@ import express from 'express';
 import { body } from 'express-validator';
 import { auth } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { loginThrottle } from '../middlewares/loginThrottle.js';
 import * as authController from '../controllers/auth.controller.js';
+
+const strongPassword = (field) => [
+  body(field)
+    .isLength({ min: 8 })
+    .withMessage('La contraseña debe tener al menos 8 caracteres.')
+    .matches(/[A-Z]/)
+    .withMessage('La contraseña debe incluir al menos una mayúscula.')
+    .matches(/[a-z]/)
+    .withMessage('La contraseña debe incluir al menos una minúscula.')
+    .matches(/\d/)
+    .withMessage('La contraseña debe incluir al menos un número.'),
+];
 
 const router = express.Router();
 
@@ -19,11 +32,7 @@ const registerValidation = [
     .isEmail()
     .withMessage('Indica un correo electrónico válido.')
     .normalizeEmail(),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('La contraseña debe tener al menos 6 caracteres.')
-    .matches(/\d/)
-    .withMessage('La contraseña debe incluir al menos un número.'),
+  ...strongPassword('password'),
   body('firstName')
     .trim()
     .notEmpty()
@@ -82,15 +91,11 @@ const verifyCodeValidation = [
 const resetPasswordValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
   body('code').isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.'),
-  body('newPassword')
-    .isLength({ min: 6 })
-    .withMessage('La contraseña debe tener al menos 6 caracteres.')
-    .matches(/\d/)
-    .withMessage('La contraseña debe incluir al menos un número.'),
+  ...strongPassword('newPassword'),
 ];
 
 router.post('/register', registerValidation, validate, authController.register);
-router.post('/login', loginValidation, validate, authController.login);
+router.post('/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);
 router.post('/forgot-password', forgotPasswordValidation, validate, authController.forgotPassword);
 router.post('/verify-code', verifyCodeValidation, validate, authController.verifyResetCode);

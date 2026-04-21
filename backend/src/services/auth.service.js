@@ -199,13 +199,16 @@ export const forgotPassword = async (email) => {
   });
 
   if (!delivery?.sent) {
-    console.error('[forgotPassword] No se pudo enviar el correo de recuperación:', delivery?.reason || 'unknown');
+    console.error(
+      '[forgotPassword] No se pudo enviar el correo de recuperación:',
+      delivery?.reason || 'unknown'
+    );
   }
 
-  return { 
+  return {
     message: 'Si el correo existe, recibirás instrucciones en breve.',
-    // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
-    ...(process.env.NODE_ENV !== 'production' && { resetCode })
+    emailSent: !!delivery?.sent,
+    ...(process.env.NODE_ENV !== 'production' && { resetCode }),
   };
 };
 

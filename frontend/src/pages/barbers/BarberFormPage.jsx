@@ -230,7 +230,7 @@ export default function BarberFormPage() {
                 value={formData.password}
                 onChange={handleChange}
                 className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
                 required={!isEdit}
               />
             </div>

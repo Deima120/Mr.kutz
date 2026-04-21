@@ -37,6 +37,7 @@ const TestimonialsPage = lazy(() => import('./pages/testimonials/TestimonialsPag
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const PurchasesPage = lazy(() => import('./pages/purchases/PurchasesPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function HomeOrRedirect() {
   const { user, isAuthenticated } = useAuth();
@@ -296,7 +297,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
         </Routes>
       </ErrorBoundary>

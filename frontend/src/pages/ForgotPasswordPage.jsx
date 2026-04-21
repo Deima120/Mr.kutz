@@ -33,10 +33,18 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const res = await authService.forgotPassword(email.trim());
-      const message = res?.message || 'Si el correo existe, recibirás instrucciones en breve.';
-      setInfo(
-        `${message} Revisa tu bandeja de entrada y la carpeta de spam.`
-      );
+      const baseMessage =
+        res?.message || 'Si el correo existe, recibirás instrucciones en breve.';
+      const emailSent = res?.emailSent;
+      let message;
+      if (emailSent === true) {
+        message = `${baseMessage} Revisa tu bandeja de entrada y la carpeta de spam.`;
+      } else if (emailSent === false) {
+        message = `${baseMessage} No pudimos confirmar el envío del correo; si no lo recibes en unos minutos, vuelve a intentarlo.`;
+      } else {
+        message = baseMessage;
+      }
+      setInfo(message);
       setStep(2);
     } catch (err) {
       setError(err?.message || 'No se pudo procesar la solicitud.');
@@ -52,12 +60,18 @@ export default function ForgotPasswordPage() {
       setError('Las contraseñas no coinciden');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (newPassword.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
-    if (!/\d/.test(newPassword)) {
-      setError('La contraseña debe incluir al menos un número');
+    if (
+      !/[A-Z]/.test(newPassword) ||
+      !/[a-z]/.test(newPassword) ||
+      !/\d/.test(newPassword)
+    ) {
+      setError(
+        'La contraseña debe incluir al menos una mayúscula, una minúscula y un número.'
+      );
       return;
     }
     if (!/^\d{6}$/.test(code.trim())) {
@@ -179,7 +193,7 @@ export default function ForgotPasswordPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className={inputClass}
-                    placeholder="Mínimo 6 caracteres, 1 número"
+                    placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
                     required
                     minLength={6}
                     autoComplete="new-password"

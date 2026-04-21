@@ -42,8 +42,15 @@ export default function RegisterPage() {
       setError('Las contraseñas no coinciden');
       return;
     }
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    const pwd = formData.password;
+    if (pwd.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    if (!/[A-Z]/.test(pwd) || !/[a-z]/.test(pwd) || !/\d/.test(pwd)) {
+      setError(
+        'La contraseña debe incluir al menos una mayúscula, una minúscula y un número.'
+      );
       return;
     }
     setLoading(true);
@@ -190,7 +197,7 @@ export default function RegisterPage() {
                   value={formData.password}
                   onChange={handleChange}
                   className={inputClass}
-                  placeholder="Mínimo 6 caracteres, 1 número"
+                  placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
                   required
                   minLength={6}
                 />
