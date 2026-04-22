@@ -20,3 +20,13 @@ export const getStats = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getReport = async (req, res, next) => {
+  try {
+    const { dateFrom, dateTo } = req.query;
+    const report = await dashboardService.getReport(dateFrom, dateTo);
+    res.json({ success: true, data: report });
+  } catch (error) {
+    next(error);
+  }
+};

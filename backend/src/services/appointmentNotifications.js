@@ -9,8 +9,18 @@ import prisma from '../lib/prisma.js';
 import {
   sendAppointmentConfirmation,
   sendAppointmentBarberNotice,
+  sendAppointmentReviewRequest,
 } from '../lib/mailer.js';
 import * as settingsService from './settings.service.js';
+
+function resolvePublicBaseUrl() {
+  const raw =
+    process.env.PUBLIC_FRONTEND_URL ||
+    process.env.FRONTEND_URL ||
+    process.env.APP_URL;
+  if (!raw) return null;
+  return String(raw).trim().replace(/\/+$/, '');
+}
 
 async function resolveBusinessName() {
   try {
@@ -90,4 +100,33 @@ export async function notifyAppointmentCreated(appointment) {
 
   // No esperamos a que terminen; si falla, solo queda log.
   Promise.allSettled(tasks);
+}
+
+/**
+ * Envía al cliente la invitación a dejar reseña cuando la cita pasa a completada.
+ * Fire-and-forget: no bloquea la respuesta.
+ */
+export async function notifyAppointmentCompleted(appointment) {
+  if (!appointment || !appointment.client_email) return;
+  const businessName = await resolveBusinessName();
+  const base = resolvePublicBaseUrl();
+  const reviewUrl = base ? `${base}/appointments` : undefined;
+
+  sendAppointmentReviewRequest({
+    to: appointment.client_email,
+    appointment,
+    businessName,
+    reviewUrl,
+  })
+    .then((r) => {
+      if (!r?.sent) {
+        console.warn(
+          '[appointmentNotifications] Correo de valoración no enviado:',
+          r?.reason || 'unknown'
+        );
+      }
+    })
+    .catch((err) =>
+      console.error('[appointmentNotifications] valoración:', err?.message || err)
+    );
 }

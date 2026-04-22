@@ -296,6 +296,43 @@ function buildAppointmentClientContent(appointment, businessName) {
   };
 }
 
+function buildAppointmentReviewContent(appointment, businessName, reviewUrl) {
+  const clientName =
+    `${appointment.client_first_name || ''} ${appointment.client_last_name || ''}`.trim() ||
+    'cliente';
+  return {
+    subject: `${businessName} — ¿Cómo fue tu experiencia?`,
+    text: [
+      `Hola ${clientName},`,
+      '',
+      'Gracias por venir a tu cita. Nos ayudarías mucho si nos compartes tu opinión.',
+      '',
+      `Servicio: ${appointment.service_name}`,
+      `Barbero: ${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim(),
+      '',
+      reviewUrl ? `Deja tu valoración aquí: ${reviewUrl}` : '',
+      '',
+      `— ${businessName}`,
+    ]
+      .filter((l) => l !== undefined)
+      .join('\n'),
+    html: shell({
+      businessName,
+      title: '¿Cómo fue tu experiencia?',
+      intro: `Hola <strong>${escapeHtml(clientName)}</strong>, esperamos que hayas disfrutado tu visita.`,
+      highlightHtml: `${appointmentDetailsHtml(appointment)}${
+        reviewUrl
+          ? `<p style="text-align:center; margin: 24px 0;">
+               <a href="${escapeHtml(reviewUrl)}" style="display:inline-block; padding:12px 22px; background:#1c1917; color:#ffffff; text-decoration:none; border-radius:10px; font-weight:600;">Dejar mi valoración</a>
+             </p>`
+          : ''
+      }`,
+      closing:
+        'Tu opinión nos ayuda a mejorar y también orienta a otros clientes que están buscando barbero.',
+    }),
+  };
+}
+
 function buildAppointmentBarberContent(appointment, businessName) {
   const barberName =
     `${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim() ||
@@ -365,5 +402,24 @@ export async function sendAppointmentBarberNotice({
 }) {
   if (!to) return { sent: false, reason: 'no_recipient' };
   const { subject, text, html } = buildAppointmentBarberContent(appointment, businessName);
+  return sendMail({ to, subject, text, html, businessName });
+}
+
+/**
+ * Invita al cliente a dejar una reseña después de que la cita se marque como completada.
+ * @param {{ to: string, appointment: object, businessName?: string, reviewUrl?: string }} params
+ */
+export async function sendAppointmentReviewRequest({
+  to,
+  appointment,
+  businessName = 'Mr. Kutz',
+  reviewUrl,
+}) {
+  if (!to) return { sent: false, reason: 'no_recipient' };
+  const { subject, text, html } = buildAppointmentReviewContent(
+    appointment,
+    businessName,
+    reviewUrl
+  );
   return sendMail({ to, subject, text, html, businessName });
 }

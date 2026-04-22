@@ -90,6 +90,107 @@ export const getStats = async (dateFrom, dateTo) => {
   };
 };
 
+function pctChange(current, previous) {
+  const curr = Number(current || 0);
+  const prev = Number(previous || 0);
+  if (!Number.isFinite(curr)) return 0;
+  if (prev === 0) return curr === 0 ? 0 : null;
+  return Math.round(((curr - prev) / Math.abs(prev)) * 1000) / 10;
+}
+
+function previousRange(fromStr, toStr) {
+  const [fy, fm, fd] = String(fromStr).split('-').map(Number);
+  const [ty, tm, td] = String(toStr).split('-').map(Number);
+  const fromDate = new Date(Date.UTC(fy, (fm || 1) - 1, fd || 1));
+  const toDate = new Date(Date.UTC(ty, (tm || 1) - 1, td || 1));
+  const diffDays = Math.max(0, Math.round((toDate - fromDate) / (24 * 60 * 60 * 1000)));
+  const prevTo = new Date(fromDate);
+  prevTo.setUTCDate(prevTo.getUTCDate() - 1);
+  const prevFrom = new Date(prevTo);
+  prevFrom.setUTCDate(prevFrom.getUTCDate() - diffDays);
+  const toISOYmd = (d) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return { from: toISOYmd(prevFrom), to: toISOYmd(prevTo) };
+}
+
+/**
+ * Reporte comparativo entre el periodo actual y el anterior de igual duración.
+ * Incluye resumen de valoraciones del periodo.
+ */
+export const getReport = async (dateFrom, dateTo) => {
+  const from = dateFrom || new Date().toISOString().slice(0, 10);
+  const to = dateTo || from;
+
+  const [current, prev] = await Promise.all([
+    getStats(from, to),
+    (async () => {
+      const { from: pFrom, to: pTo } = previousRange(from, to);
+      return getStats(pFrom, pTo);
+    })(),
+  ]);
+
+  const [fy, fm, fd] = String(from).split('-').map(Number);
+  const [ty, tm, td] = String(to).split('-').map(Number);
+  const fromDate = new Date(Date.UTC(fy, (fm || 1) - 1, fd || 1, 0, 0, 0));
+  const toDateEnd = new Date(Date.UTC(ty, (tm || 1) - 1, td || 1, 23, 59, 59, 999));
+
+  const ratingsRows = await prisma.appointment.findMany({
+    where: {
+      status: 'completed',
+      clientRating: { not: null },
+      clientRatedAt: { gte: fromDate, lte: toDateEnd },
+    },
+    orderBy: { clientRatedAt: 'desc' },
+    take: 25,
+    include: {
+      client: { select: { firstName: true, lastName: true } },
+      service: { select: { name: true } },
+      barber: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let sum = 0;
+  for (const r of ratingsRows) {
+    const v = Number(r.clientRating);
+    if (v >= 1 && v <= 5) {
+      distribution[v] += 1;
+      sum += v;
+    }
+  }
+  const count = ratingsRows.length;
+  const average = count > 0 ? Math.round((sum / count) * 100) / 100 : null;
+
+  const recent = ratingsRows.map((ap) => ({
+    appointmentId: ap.id,
+    clientName:
+      [ap.client?.firstName, ap.client?.lastName].filter(Boolean).join(' ').trim() || 'Cliente',
+    serviceName: ap.service?.name || '',
+    barberName:
+      [ap.barber?.firstName, ap.barber?.lastName].filter(Boolean).join(' ').trim() || '',
+    rating: ap.clientRating,
+    comment: ap.clientRatingComment,
+    date: ap.clientRatedAt,
+  }));
+
+  const comparison = {
+    salesTotal: pctChange(current.sales?.total, prev.sales?.total),
+    salesCount: pctChange(current.sales?.count, prev.sales?.count),
+    appointmentsCompleted: pctChange(
+      current.appointments?.completed,
+      prev.appointments?.completed
+    ),
+    appointmentsTotal: pctChange(current.appointments?.total, prev.appointments?.total),
+  };
+
+  return {
+    current,
+    previous: prev,
+    comparison,
+    ratings: { average, count, distribution, recent },
+  };
+};
+
 /** Fecha local YYYY-MM-DD */
 function formatYMD(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
