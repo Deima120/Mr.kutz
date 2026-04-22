@@ -599,7 +599,11 @@ En plataformas tipo **Railway**, **Render**, **Fly.io** o un **VPS**:
 | `JWT_SECRET` | Secreto largo y aleatorio (no reutilizar el de desarrollo). |
 | `NODE_ENV` | `production`. |
 | `FRONTEND_URL` | Origen(es) del sitio web público, **HTTPS**, p. ej. `https://app.tudominio.com`. Varias URLs: separadas por **coma** (sin espacios extra). |
+| `PUBLIC_FRONTEND_URL` | (Opcional) URL base usada en enlaces dentro de correos (ej. botón "Dejar mi valoración"). Si no se define, el mailer usa la primera de `FRONTEND_URL`. |
+| `CORS_ALLOW_PREVIEWS` | (Opcional) `true` para aceptar dominios `*.vercel.app` / `*.netlify.app` (útil en staging). |
 | `PORT` | Muchos hosts inyectan el puerto; si no, define uno y configura el proxy del host. |
+
+> **Render.com**: el repo incluye `backend/render.yaml` como plantilla (servicio Node, health check `/health`, variables listadas). Conéctalo como "Blueprint" y completa los valores marcados `sync: false`.
 
 **Comando de arranque recomendado** (ajusta al script que use tu plataforma):
 
@@ -617,6 +621,7 @@ En **Vercel**, **Netlify**, **Cloudflare Pages** u hosting estático:
 1. Variable de entorno de build: **`VITE_API_URL`** = URL pública del backend **incluyendo** `/api`, por ejemplo `https://api.tudominio.com/api` (o `https://tu-servicio.railway.app/api`).
 2. Build: `npm ci && npm run build` y sirve la carpeta **`dist/`**.
 3. En local el proxy de Vite usa `/api`; **en producción no hay proxy**: sin `VITE_API_URL` correcta, las peticiones fallarán.
+4. **Vercel**: el repo trae `frontend/vercel.json` con `rewrites` SPA (refrescar una ruta interna no da 404) y `Cache-Control` inmutable para assets con hash. Conecta el directorio `frontend/` como raíz del proyecto.
 
 ### 4. Orden práctico (primera vez)
 

@@ -55,8 +55,28 @@ function getWeekRange(dateStr) {
 export default function AgendaPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [view, setView] = useState('week');
+  const [view, setView] = useState(() => {
+    if (typeof window === 'undefined') return 'week';
+    return window.matchMedia?.('(max-width: 768px)')?.matches ? 'list' : 'week';
+  });
   const [weekStart, setWeekStart] = useState(() => mondayOf(toISO(new Date())));
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = (e) => {
+      setView((current) => {
+        if (e.matches && current === 'week') return 'list';
+        return current;
+      });
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
