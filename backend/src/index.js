@@ -11,6 +11,16 @@ import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import routes from './routes/index.js';
 
+if (process.env.NODE_ENV === 'production') {
+  const secret = String(process.env.JWT_SECRET || '').trim();
+  if (secret.length < 32) {
+    console.error(
+      'En producción define JWT_SECRET en el entorno (cadena aleatoria de al menos 32 caracteres).'
+    );
+    process.exit(1);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

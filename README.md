@@ -513,7 +513,7 @@ Objetivo: tener **API en el puerto 5000** y **web en http://localhost:5173** con
    - `npm install`
    - No hace falta `.env` en local si usas el proxy de Vite (las peticiones van a `/api` → backend en 5000).
    - `npm run dev` → abre **http://localhost:5173**
-6. **Probar:** inicia sesión con un usuario de [Usuarios de prueba](#usuarios-de-prueba) (p. ej. `admin@mrkutz.com` / `password123`).
+6. **Probar:** tras el seed, crea el admin con [Usuario administrador](#usuario-administrador-práctica-real) y entra al panel.
 
 **Comprobar API:** con el backend levantado, en el navegador o con curl: `http://localhost:5000/health` debe responder `ok`.
 
@@ -534,7 +534,7 @@ En **PowerShell** no uses `&&` encadenando; ejecuta cada comando por línea o us
    - `PORT` – opcional, por defecto 5000
    - `FRONTEND_URL` – opcional, origen CORS (por defecto `http://localhost:5173`)
 4. Alinear esquema: ver [Migraciones vs. desarrollo rápido](#migraciones-vs-desarrollo-rápido) (`npx prisma migrate deploy` o `npx prisma db push` + `npx prisma generate`).
-5. `npm run db:seed` – crea roles, usuarios de prueba, métodos de pago, configuración y servicios de ejemplo
+5. `npm run db:seed` – crea roles, métodos de pago, configuración y servicios; luego `npm run create-admin` para el administrador
 
 ### Frontend
 
@@ -547,15 +547,16 @@ Para uso normal en desarrollo, levantar backend (puerto 5000) y frontend (5173);
 
 ---
 
-## Usuarios de prueba
+## Usuario administrador (práctica real)
 
-Tras ejecutar `npm run db:seed` en `backend/`:
+El seed **ya no crea** cuentas demo. Tras `npm run db:seed` en `backend/`:
 
-| Email | Contraseña | Rol |
-|-------|------------|-----|
-| admin@mrkutz.com | password123 | Admin |
-| barber@mrkutz.com | password123 | Barbero |
-| client@mrkutz.com | password123 | Cliente |
+1. En `backend/.env` define **`ADMIN_EMAIL`** y **`ADMIN_PASSWORD`** (misma regla que el registro: mínimo 8 caracteres, mayúscula, minúscula y número).
+2. Ejecuta **`npm run create-admin`** — crea o actualiza ese usuario con rol **admin**.
+
+Si tu base aún tiene las cuentas antiguas del seed (`admin@mrkutz.com`, `barber@mrkutz.com`, `client@mrkutz.com`), bórralas con **`npm run remove-demo-users`** (limpia citas/pagos vinculados antes de borrar).
+
+Los **barberos** con horario se dan de alta desde el panel **admin** (no hay registro público de barbero). Los **clientes** pueden registrarse en la web.
 
 ---
 
@@ -569,6 +570,8 @@ Tras ejecutar `npm run db:seed` en `backend/`:
 - `npm run db:push` – aplicar schema a la BD (sin migraciones)
 - `npm run db:migrate` – aplicar migraciones en producción/CI (`prisma migrate deploy`)
 - `npm run db:seed` – ejecutar seed
+- `npm run create-admin` – crear o actualizar admin (`ADMIN_EMAIL`, `ADMIN_PASSWORD` en `.env`)
+- `npm run remove-demo-users` – eliminar cuentas demo `@mrkutz.com` del seed antiguo
 - `npm run db:studio` – abrir Prisma Studio
 
 **Frontend**
@@ -611,7 +614,7 @@ En plataformas tipo **Railway**, **Render**, **Fly.io** o un **VPS**:
 cd backend && npm ci && npx prisma generate && npx prisma migrate deploy && npm run start
 ```
 
-- La primera vez puedes ejecutar **`npm run db:seed`** en un entorno controlado si quieres datos de prueba (cambia luego las contraseñas o desactiva usuarios).
+- La primera vez puedes ejecutar **`npm run db:seed`** y **`npm run create-admin`** en un entorno controlado; en bases antiguas con demo, **`npm run remove-demo-users`**.
 - Comprueba **`GET https://<tu-api>/health`** tras el deploy.
 
 ### 3. Frontend (Vite / React)

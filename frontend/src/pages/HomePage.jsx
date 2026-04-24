@@ -165,9 +165,6 @@ export default function HomePage() {
   const { businessName, address, openingHours } = useSettings();
   const canManage = user?.role === 'admin' || user?.role === 'barber';
   const locationAddress = (address || '').trim();
-  const mapSrc = locationAddress
-    ? `https://www.google.com/maps?q=${encodeURIComponent(locationAddress)}&output=embed`
-    : '';
   const mapLink = locationAddress
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationAddress)}`
     : '';
@@ -434,14 +431,13 @@ export default function HomePage() {
           {locationAddress ? (
             <div className="max-w-4xl mx-auto mt-6">
               <div className="overflow-hidden rounded-2xl border border-stone-300 bg-white shadow-[0_18px_50px_rgba(20,20,20,0.18)]">
-                <div className="aspect-[16/8] w-full bg-stone-100">
-                  <iframe
-                    title="Mapa de ubicación Mr. Kutz"
-                    src={mapSrc}
-                    className="w-full h-full border-0"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
+                <div className="aspect-[16/8] w-full bg-stone-100 flex items-center justify-center p-6 sm:p-10">
+                  <div className="text-center max-w-xl">
+                    <p className="font-serif text-xl sm:text-2xl text-stone-800 mb-3">Ubicación de Mr. Kutz</p>
+                    <p className="text-stone-600 text-sm sm:text-base">
+                      Para evitar bloqueos del navegador y mantener la consola limpia, abrimos el mapa en una pestaña nueva.
+                    </p>
+                  </div>
                 </div>
                 <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200">
                   <p className="text-sm text-stone-600">Ubicación: {locationAddress}</p>

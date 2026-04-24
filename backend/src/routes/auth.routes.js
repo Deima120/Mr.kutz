@@ -47,27 +47,19 @@ const registerValidation = [
     .withMessage('El apellido es demasiado largo.'),
   body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
   body('documentType')
-    .if((value, { req }) => {
-      const r = req.body?.role ?? 'client';
-      return r === 'client' || r === 'barber';
-    })
     .trim()
     .notEmpty()
     .withMessage('El tipo de documento es obligatorio.')
     .isLength({ max: 40 }),
   body('documentNumber')
-    .if((value, { req }) => {
-      const r = req.body?.role ?? 'client';
-      return r === 'client' || r === 'barber';
-    })
     .trim()
     .notEmpty()
     .withMessage('El número de documento es obligatorio.')
     .isLength({ max: 80 }),
   body('role')
     .optional({ checkFalsy: true })
-    .isIn(['admin', 'barber', 'client'])
-    .withMessage('El rol no es válido.'),
+    .isIn(['client'])
+    .withMessage('El registro público solo admite el rol cliente.'),
 ];
 
 // Validaciones para login
