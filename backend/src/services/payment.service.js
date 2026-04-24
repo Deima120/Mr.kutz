@@ -3,6 +3,41 @@
  */
 
 import prisma from '../lib/prisma.js';
+import { randomBytes } from 'node:crypto';
+
+const REFERENCE_PREFIX = 'MKP';
+
+function cleanReference(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 100).toUpperCase();
+}
+
+function buildReferenceCandidate() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const random = randomBytes(3).toString('hex').toUpperCase();
+  return `${REFERENCE_PREFIX}-${yyyy}${mm}${dd}-${random}`;
+}
+
+async function getOrCreateReference(tx, requestedReference) {
+  const provided = cleanReference(requestedReference);
+  if (provided) return provided;
+
+  for (let i = 0; i < 6; i += 1) {
+    const candidate = buildReferenceCandidate();
+    const existing = await tx.payment.findFirst({
+      where: { reference: candidate },
+      select: { id: true },
+    });
+    if (!existing) return candidate;
+  }
+  const err = new Error('No se pudo generar una referencia de pago. Intenta de nuevo.');
+  err.statusCode = 503;
+  throw err;
+}
 
 function toPaymentRow(p) {
   return {
@@ -112,8 +147,16 @@ export const getById = async (id) => {
 };
 
 export const create = async (data) => {
+  const amount = Number(data.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const err = new Error('El monto debe ser mayor a 0.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const appointmentId = data.appointmentId ? parseInt(data.appointmentId, 10) : null;
   const productId = data.productId ? parseInt(data.productId, 10) : null;
+  const paymentMethodId = data.paymentMethodId ? parseInt(data.paymentMethodId, 10) : null;
   const productQuantity =
     data.productQuantity != null && data.productQuantity !== ''
       ? parseInt(data.productQuantity, 10)
@@ -129,8 +172,23 @@ export const create = async (data) => {
     err.statusCode = 400;
     throw err;
   }
+  if (!paymentMethodId || !Number.isFinite(paymentMethodId) || paymentMethodId < 1) {
+    const err = new Error('Indica un método de pago válido.');
+    err.statusCode = 400;
+    throw err;
+  }
 
   return prisma.$transaction(async (tx) => {
+    const paymentMethod = await tx.paymentMethod.findFirst({
+      where: { id: paymentMethodId, isActive: true },
+      select: { id: true },
+    });
+    if (!paymentMethod) {
+      const err = new Error('El método de pago no existe o está inactivo.');
+      err.statusCode = 400;
+      throw err;
+    }
+
     if (productId) {
       const inv = await tx.inventory.findUnique({ where: { productId } });
       const current = inv?.quantity ?? 0;
@@ -159,10 +217,10 @@ export const create = async (data) => {
         appointmentId,
         productId: productId || null,
         productQuantity: productId ? productQuantity : null,
-        amount: parseFloat(data.amount),
-        paymentMethodId: data.paymentMethodId ? parseInt(data.paymentMethodId, 10) : null,
-        reference: data.reference || null,
-        notes: data.notes || null,
+        amount,
+        paymentMethodId,
+        reference: await getOrCreateReference(tx, data.reference),
+        notes: String(data.notes || '').trim() || null,
         createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
       },
     });

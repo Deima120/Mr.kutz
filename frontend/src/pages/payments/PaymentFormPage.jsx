@@ -16,6 +16,15 @@ import AdminFormShell, {
   AdminFormSecondaryButton,
 } from '../../components/admin/AdminFormShell';
 
+function generatePaymentReference() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `MKP-${yyyy}${mm}${dd}-${random}`;
+}
+
 export default function PaymentFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -28,7 +37,7 @@ export default function PaymentFormPage() {
     amount: '',
     paymentMethodId: '',
     appointmentId: '',
-    reference: '',
+    reference: generatePaymentReference(),
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -385,7 +394,7 @@ export default function PaymentFormPage() {
                 <option value="">Seleccionar…</option>
                 {methods.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name}
+                    {m.description ? `${m.name} — ${m.description}` : m.name}
                   </option>
                 ))}
               </select>
@@ -394,13 +403,28 @@ export default function PaymentFormPage() {
 
           <div className="group">
             <label className={ADMIN_FORM_LABEL_CLASS}>Referencia</label>
-            <input
-              name="reference"
-              value={formData.reference}
-              onChange={handleChange}
-              placeholder="Nº operación, folio…"
-              className={ADMIN_FORM_FIELD_CLASS}
-            />
+            <div className="flex gap-2">
+              <input
+                name="reference"
+                value={formData.reference}
+                onChange={handleChange}
+                placeholder="Nº operación, folio…"
+                className={ADMIN_FORM_FIELD_CLASS}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({ ...prev, reference: generatePaymentReference() }))
+                }
+                className="px-3 rounded-lg border border-stone-300 text-xs text-stone-700 hover:bg-stone-50"
+                title="Generar una nueva referencia"
+              >
+                Generar
+              </button>
+            </div>
+            <p className="text-[11px] text-stone-500 mt-1">
+              Puedes editarla. Si la dejas vacía, el servidor generará una automáticamente.
+            </p>
           </div>
 
           <AdminFormFooterActions className="mt-auto">
