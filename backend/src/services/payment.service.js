@@ -188,6 +188,18 @@ export const create = async (data) => {
       err.statusCode = 400;
       throw err;
     }
+    if (appointmentId) {
+      const existingForAppointment = await tx.payment.findFirst({
+        where: { appointmentId, voidedAt: null },
+        select: { id: true, reference: true },
+      });
+      if (existingForAppointment) {
+        const err = new Error('Esta cita ya tiene un pago registrado.');
+        err.statusCode = 409;
+        err.reason = 'APPOINTMENT_ALREADY_PAID';
+        throw err;
+      }
+    }
 
     if (productId) {
       const inv = await tx.inventory.findUnique({ where: { productId } });

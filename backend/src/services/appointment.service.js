@@ -78,6 +78,11 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
       client: { select: { firstName: true, lastName: true } },
       barber: { select: { firstName: true, lastName: true } },
       service: { select: { name: true, price: true, durationMinutes: true } },
+      payments: {
+        where: { voidedAt: null },
+        select: { id: true },
+        take: 1,
+      },
     },
     orderBy: dateFrom && dateTo
       ? [{ appointmentDate: 'asc' }, { startTime: 'asc' }]
@@ -104,6 +109,7 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
     service_name: a.service.name,
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
+    has_active_payment: (a.payments?.length || 0) > 0,
     clientRating: a.clientRating,
     clientRatingComment: a.clientRatingComment,
     clientRatedAt: a.clientRatedAt,
@@ -117,6 +123,11 @@ export const getById = async (id) => {
       client: { select: { firstName: true, lastName: true, phone: true, email: true } },
       barber: { select: { firstName: true, lastName: true } },
       service: { select: { name: true, price: true, durationMinutes: true } },
+      payments: {
+        where: { voidedAt: null },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
   if (!a) return null;
@@ -141,6 +152,7 @@ export const getById = async (id) => {
     service_name: a.service.name,
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
+    has_active_payment: (a.payments?.length || 0) > 0,
     clientRating: a.clientRating,
     clientRatingComment: a.clientRatingComment,
     clientRatedAt: a.clientRatedAt,

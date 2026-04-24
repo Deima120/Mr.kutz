@@ -114,6 +114,11 @@ export default function PaymentFormPage() {
           setAppointmentFromUrl(null);
           return;
         }
+        if (a.has_active_payment) {
+          setAppointmentPrefillError('Esta cita ya tiene un pago registrado.');
+          setAppointmentFromUrl(null);
+          return;
+        }
         setAppointmentFromUrl(a);
         const price = a.price ?? a.service_price;
         setFormData((prev) => ({
@@ -157,9 +162,9 @@ export default function PaymentFormPage() {
   }, [linkToAppointment, saleProduct]);
 
   const appointmentSelectRows = useMemo(() => {
-    const rows = [...completedAppointments];
+    const rows = completedAppointments.filter((x) => !x?.has_active_payment);
     if (appointmentFromUrl && !rows.some((x) => x.id === appointmentFromUrl.id)) {
-      rows.unshift(appointmentFromUrl);
+      if (!appointmentFromUrl?.has_active_payment) rows.unshift(appointmentFromUrl);
     }
     return rows;
   }, [completedAppointments, appointmentFromUrl]);
@@ -365,6 +370,11 @@ export default function PaymentFormPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+          {!saleProduct && linkToAppointment && appointmentSelectRows.length === 0 && (
+            <div className="rounded-lg border border-stone-200 bg-stone-50 text-stone-600 text-xs py-2 px-2.5 shrink-0">
+              No hay citas completadas pendientes de cobro.
             </div>
           )}
 
