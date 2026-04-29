@@ -28,7 +28,7 @@ Copia la salida que aparece.
 
 ## Paso 4: Pegar en la config
 
-Abre `frontend/src/config/cortes.js` y pega el contenido generado (reemplaza el array `CORTES`).
+Abre `frontend/src/shared/utils/cortes.js` y pega el contenido generado (reemplaza el array `CORTES`).
 
 ## Resultado
 
