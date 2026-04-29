@@ -42,7 +42,7 @@
    frontend/public/modelos/
    ```
 
-2. Edita `frontend/src/config/cortes.js`:
+2. Edita `frontend/src/shared/utils/cortes.js`:
    ```js
    export const MODEL_PATH = '/modelos/tu-archivo.glb';
    ```

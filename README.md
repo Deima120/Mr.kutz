@@ -54,13 +54,11 @@ Mr.kutz/
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/     # Reutilizables y landing (carousels, etc.)
-│   │   ├── context/        # AuthContext, SettingsContext
-│   │   ├── layouts/        # MainLayout (público/cliente), AdminLayout (admin/barber)
-│   │   ├── pages/          # Páginas por módulo (clients, services, appointments…)
-│   │   ├── services/       # Llamadas API (auth, barber, appointment…)
-│   │   ├── App.jsx
-│   │   └── main.jsx
+│   │   ├── features/       # Funcionalidades: auth, dashboard, clients, appointments...
+│   │   ├── shared/         # Componentes, contextos, estilos, servicios y utilidades comunes
+│   │   ├── App.js
+│   │   ├── index.js
+│   │   └── routes.js
 │   ├── vite.config.js      # Proxy /api → backend
 │   └── package.json
 └── README.md
@@ -321,7 +319,7 @@ Para futura app móvil o cliente alternativo.
 
 ## Frontend
 
-- **Entrada**: `frontend/src/main.jsx` → `App.jsx`.
+- **Entrada**: `frontend/src/index.js` → `App.js` → `routes.js`.
 - **Build**: Vite 5, React 18, React Router 6.
 - **Estilos**: Tailwind CSS (config en `tailwind.config.js`), tema barbería (colores `barber-dark`, `gold`, etc.).
 
@@ -359,27 +357,26 @@ La protección se hace con **ProtectedRoute** (componente que comprueba `allowed
 
 ### Servicios (llamadas API)
 
-Todos usan el cliente **Axios** definido en `src/services/api.js`:
+Todos usan el cliente **Axios** definido en `src/shared/services/api.js`:
 
 - **baseURL**: `import.meta.env.VITE_API_URL` o `'/api'`.
 - **Interceptor request**: Añade `Authorization: Bearer <token>` si hay token en `localStorage`.
 - **Interceptor response**: Devuelve `response.data`; en 401 limpia token y redirige a `/login`.
 
-Archivos en `src/services/`:
+Archivos principales de servicios:
 
 | Archivo | Uso |
 |---------|-----|
-| `api.js` | Cliente Axios compartido. |
-| `authService.js` | login, register, getProfile. |
-| `clientService.js` | CRUD clientes, historial. |
-| `serviceService.js` | CRUD servicios (getServices usado en landing y formulario de citas). |
-| `barberService.js` | CRUD barberos, getSchedules. |
-| `appointmentService.js` | CRUD citas, getAvailableSlots. |
-| `testimonialService.js` | CRUD testimonios (getTestimonials en landing). |
-| `paymentService.js` | Pagos y métodos de pago. |
-| `productService.js` | Productos, stock, movimientos. |
-| `dashboardService.js` | Estadísticas. |
-| `settingsService.js` | Configuración pública y completa. |
+| `shared/services/api.js` | Cliente Axios compartido. |
+| `features/auth/services/authService.js` | login, register, getProfile. |
+| `features/clients/services/clientService.js` | CRUD clientes, historial. |
+| `features/services/services/serviceService.js` | CRUD servicios (getServices usado en landing y formulario de citas). |
+| `features/barbers/services/barberService.js` | CRUD barberos, getSchedules. |
+| `features/appointments/services/appointmentService.js` | CRUD citas, getAvailableSlots. |
+| `features/payments/services/paymentService.js` | Pagos y métodos de pago. |
+| `features/inventory/services/productService.js` | Productos, stock, movimientos. |
+| `features/dashboard/services/dashboardService.js` | Estadísticas. |
+| `features/settings/services/settingsService.js` | Configuración pública y completa. |
 
 ### Landing (HomePage)
 

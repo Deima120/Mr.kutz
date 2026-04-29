@@ -1,7 +1,7 @@
 /**
  * Script para generar la lista de cortes desde public/cortes/
  * Ejecutar: node scripts/list-cortes.js
- * Copia la salida en src/config/cortes.js
+ * Copia la salida en src/shared/utils/cortes.js
  */
 
 import fs from 'fs';
@@ -31,7 +31,7 @@ const items = files.map((f, i) => {
   return `  { src: '/cortes/${f}', nombre: '${nombre}' },`;
 });
 
-console.log('// Copia esto en src/config/cortes.js o en el array CORTES del componente:\n');
+console.log('// Copia esto en src/shared/utils/cortes.js o en el array CORTES del componente:\n');
 console.log('export const CORTES = [');
 console.log(items.join('\n'));
 console.log('];');
