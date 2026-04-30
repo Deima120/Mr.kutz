@@ -216,6 +216,9 @@ model Purchase {
   notes          String?
   totalAmount    Decimal        @default(0) @map("total_amount") @db.Decimal(10, 2)
   createdBy      Int?           @map("created_by")
+  voidedAt       DateTime?      @map("voided_at")
+  voidReason     String?        @map("void_reason") @db.VarChar(500)
+  voidedBy       Int?           @map("voided_by")
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   creator        User?          @relation("PurchasesCreated", fields: [createdBy], references: [id])

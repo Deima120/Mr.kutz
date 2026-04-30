@@ -4,6 +4,7 @@
 
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
+import { canonicalEmail } from '../utils/emailCanonical.js';
 
 const SALT_ROUNDS = 10;
 
@@ -89,9 +90,10 @@ export const getSchedules = async (barberId) => {
 
 export const create = async (data) => {
   const { email, password, firstName, lastName, phone, specialties, documentType, documentNumber } = data;
+  const emailNorm = canonicalEmail(email);
 
   const existing = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: emailNorm },
   });
   if (existing) {
     const err = new Error('Este correo electrónico ya está registrado.');
@@ -121,7 +123,7 @@ export const create = async (data) => {
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: email.toLowerCase(),
+        email: emailNorm,
         passwordHash,
         roleId: role.id,
       },

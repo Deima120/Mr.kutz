@@ -12,5 +12,6 @@ router.use(auth);
 router.use(authorize('admin', 'barber'));
 
 router.get('/stats', dashboardController.getStats);
+router.get('/report', authorize('admin'), dashboardController.getReport);
 
 export default router;

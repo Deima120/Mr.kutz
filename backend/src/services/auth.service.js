@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
 import { sendPasswordResetCode } from '../lib/mailer.js';
+import { canonicalEmail } from '../utils/emailCanonical.js';
 import * as settingsService from './settings.service.js';
 
 const SALT_ROUNDS = 10;
@@ -15,7 +16,7 @@ export const register = async (userData) => {
   const {
     email,
     password,
-    role = 'client',
+    role: requestedRole,
     firstName,
     lastName,
     phone,
@@ -23,16 +24,25 @@ export const register = async (userData) => {
     documentNumber,
   } = userData;
 
+  // Registro público: solo clientes. Admin/barber se crean desde el panel o scripts.
+  const role = 'client';
+  if (requestedRole && requestedRole !== 'client') {
+    const error = new Error('El registro público solo está disponible para clientes.');
+    error.statusCode = 403;
+    throw error;
+  }
+
   const docType = documentType != null ? String(documentType).trim().slice(0, 40) : '';
   const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 80) : '';
-  if ((role === 'client' || role === 'barber') && (!docType || !docNum)) {
+  if (!docType || !docNum) {
     const error = new Error('El tipo y número de documento son obligatorios.');
     error.statusCode = 400;
     throw error;
   }
 
+  const emailNorm = canonicalEmail(email);
   const existingUser = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: emailNorm },
   });
 
   if (existingUser) {
@@ -56,37 +66,24 @@ export const register = async (userData) => {
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: email.toLowerCase(),
+        email: emailNorm,
         passwordHash,
         roleId: roleRecord.id,
       },
       select: { id: true, email: true, roleId: true, isActive: true, createdAt: true },
     });
 
-    if (role === 'client') {
-      await tx.client.create({
-        data: {
-          userId: user.id,
-          firstName: firstName || '',
-          lastName: lastName || '',
-          phone: phone || null,
-          email: email.toLowerCase(),
-          documentType: docType,
-          documentNumber: docNum,
-        },
-      });
-    } else if (role === 'barber') {
-      await tx.barber.create({
-        data: {
-          userId: user.id,
-          firstName: firstName || '',
-          lastName: lastName || '',
-          phone: phone || null,
-          documentType: docType,
-          documentNumber: docNum,
-        },
-      });
-    }
+    await tx.client.create({
+      data: {
+        userId: user.id,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        phone: phone || null,
+        email: emailNorm,
+        documentType: docType,
+        documentNumber: docNum,
+      },
+    });
 
     const userWithRole = await tx.user.findUnique({
       where: { id: user.id },
@@ -104,8 +101,9 @@ export const register = async (userData) => {
 };
 
 export const login = async (email, password) => {
+  const emailNorm = canonicalEmail(email);
   const dbUser = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: emailNorm },
     include: { role: true },
   });
 
@@ -161,8 +159,9 @@ export const login = async (email, password) => {
 
 // Solicitar recuperación de contraseña
 export const forgotPassword = async (email) => {
+  const emailNorm = canonicalEmail(email);
   const dbUser = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: emailNorm },
   });
 
   if (!dbUser) {
@@ -199,20 +198,24 @@ export const forgotPassword = async (email) => {
   });
 
   if (!delivery?.sent) {
-    console.error('[forgotPassword] No se pudo enviar el correo de recuperación:', delivery?.reason || 'unknown');
+    console.error(
+      '[forgotPassword] No se pudo enviar el correo de recuperación:',
+      delivery?.reason || 'unknown'
+    );
   }
 
-  return { 
+  return {
     message: 'Si el correo existe, recibirás instrucciones en breve.',
-    // Solo para desarrollo - ELIMINAR EN PRODUCCIÓN
-    ...(process.env.NODE_ENV !== 'production' && { resetCode })
+    emailSent: !!delivery?.sent,
+    ...(process.env.NODE_ENV !== 'production' && { resetCode }),
   };
 };
 
 // Verificar código de recuperación
 export const verifyResetCode = async (email, code) => {
+  const emailNorm = canonicalEmail(email);
   const dbUser = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: emailNorm },
   });
 
   if (!dbUser || !dbUser.resetCode || !dbUser.resetCodeExpires) {
@@ -244,7 +247,7 @@ export const resetPassword = async (email, code, newPassword) => {
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
 
   await prisma.user.update({
-    where: { email: email.toLowerCase() },
+    where: { email: canonicalEmail(email) },
     data: {
       passwordHash,
       resetCode: null,
@@ -296,7 +299,16 @@ const generateToken = (userId) => {
 };
 
 const formatUserResponse = (dbUser, extra = {}) => {
-  const { passwordHash, role: roleObj, barber, client, ...rest } = dbUser;
+  const {
+    passwordHash: _ph,
+    resetCode: _rc,
+    resetCodeExpires: _rce,
+    role: roleObj,
+    barber,
+    client,
+    roleId: _rid,
+    ..._rest
+  } = dbUser;
   return {
     id: dbUser.id,
     email: dbUser.email,
@@ -304,6 +316,7 @@ const formatUserResponse = (dbUser, extra = {}) => {
     isActive: dbUser.isActive,
     firstName: extra.firstName ?? barber?.firstName ?? client?.firstName,
     lastName: extra.lastName ?? barber?.lastName ?? client?.lastName,
-    ...rest,
+    createdAt: dbUser.createdAt,
+    updatedAt: dbUser.updatedAt,
   };
 };

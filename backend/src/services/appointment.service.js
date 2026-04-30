@@ -3,6 +3,45 @@
  */
 
 import prisma from '../lib/prisma.js';
+import {
+  notifyAppointmentCreated,
+  notifyAppointmentCompleted,
+} from './appointmentNotifications.js';
+
+/**
+ * Verifica que el rango [startMin, endMin) no se solape con otra cita activa
+ * del mismo barbero ese día. Lanza 409 si hay conflicto.
+ */
+async function assertNoOverlap({ barberId, appointmentDate, startMin, endMin, excludeId }) {
+  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin <= startMin) {
+    return;
+  }
+  const dayKey = new Date(appointmentDate);
+  dayKey.setUTCHours(0, 0, 0, 0);
+  const busy = await prisma.appointment.findMany({
+    where: {
+      barberId: Number(barberId),
+      appointmentDate: dayKey,
+      status: { notIn: ['cancelled', 'no_show'] },
+      ...(excludeId != null ? { id: { not: Number(excludeId) } } : {}),
+    },
+    select: { startTime: true, endTime: true },
+  });
+  for (const b of busy) {
+    const s = toTimeStr(b.startTime);
+    const e = toTimeStr(b.endTime);
+    const [sh, sm] = s.split(':').map(Number);
+    const [eh, em] = e.split(':').map(Number);
+    const busyStart = sh * 60 + sm;
+    const busyEnd = eh * 60 + em;
+    if (startMin < busyEnd && endMin > busyStart) {
+      const err = new Error('El barbero ya tiene otra cita en ese horario.');
+      err.statusCode = 409;
+      err.reason = 'APPOINTMENT_OVERLAP';
+      throw err;
+    }
+  }
+}
 
 /** Convierte Date o string de tiempo a "HH:MM" (misma zona que al guardar horarios del barbero) */
 function toTimeStr(d) {
@@ -39,6 +78,11 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
       client: { select: { firstName: true, lastName: true } },
       barber: { select: { firstName: true, lastName: true } },
       service: { select: { name: true, price: true, durationMinutes: true } },
+      payments: {
+        where: { voidedAt: null },
+        select: { id: true },
+        take: 1,
+      },
     },
     orderBy: dateFrom && dateTo
       ? [{ appointmentDate: 'asc' }, { startTime: 'asc' }]
@@ -65,6 +109,7 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
     service_name: a.service.name,
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
+    has_active_payment: (a.payments?.length || 0) > 0,
     clientRating: a.clientRating,
     clientRatingComment: a.clientRatingComment,
     clientRatedAt: a.clientRatedAt,
@@ -78,6 +123,11 @@ export const getById = async (id) => {
       client: { select: { firstName: true, lastName: true, phone: true, email: true } },
       barber: { select: { firstName: true, lastName: true } },
       service: { select: { name: true, price: true, durationMinutes: true } },
+      payments: {
+        where: { voidedAt: null },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
   if (!a) return null;
@@ -102,6 +152,7 @@ export const getById = async (id) => {
     service_name: a.service.name,
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
+    has_active_payment: (a.payments?.length || 0) > 0,
     clientRating: a.clientRating,
     clientRatingComment: a.clientRatingComment,
     clientRatedAt: a.clientRatedAt,
@@ -275,13 +326,21 @@ export const create = async (data) => {
   const h = parseInt(parts[0], 10) || 9;
   const m = parseInt(parts[1], 10) || 0;
   const duration = Number(service.durationMinutes);
-  const endMinutes = h * 60 + m + duration;
+  const startMinutes = h * 60 + m;
+  const endMinutes = startMinutes + duration;
   const endH = Math.floor(endMinutes / 60);
   const endM = endMinutes % 60;
   const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
 
   const startDate = new Date(`1970-01-01T${start.length === 5 ? start + ':00' : start}`);
   const endDate = new Date(`1970-01-01T${endTime}`);
+
+  await assertNoOverlap({
+    barberId,
+    appointmentDate,
+    startMin: startMinutes,
+    endMin: endMinutes,
+  });
 
   const created = await prisma.appointment.create({
     data: {
@@ -294,7 +353,9 @@ export const create = async (data) => {
       notes: notes || null,
     },
   });
-  return getById(created.id);
+  const full = await getById(created.id);
+  notifyAppointmentCreated(full);
+  return full;
 };
 
 export const update = async (id, data) => {
@@ -360,11 +421,36 @@ export const update = async (id, data) => {
     return getById(apptId);
   }
 
+  if (timingChanged || data.barberId != null) {
+    const startStr = toTimeStr(nextStartTime);
+    const [sh, sm] = startStr.split(':').map(Number);
+    const startMin = sh * 60 + sm;
+    const endStr = toTimeStr(nextEndTime);
+    const [eh, em] = endStr.split(':').map(Number);
+    const endMin = eh * 60 + em;
+    await assertNoOverlap({
+      barberId: nextBarberId,
+      appointmentDate: nextAppointmentDate,
+      startMin,
+      endMin,
+      excludeId: apptId,
+    });
+  }
+
   await prisma.appointment.update({
     where: { id: apptId },
     data: updateData,
   });
-  return getById(apptId);
+
+  const full = await getById(apptId);
+  if (
+    data.status === 'completed' &&
+    existing.status !== 'completed' &&
+    full
+  ) {
+    notifyAppointmentCompleted(full);
+  }
+  return full;
 };
 
 export const getAvailableSlots = async (barberId, date, excludeAppointmentId = null) => {

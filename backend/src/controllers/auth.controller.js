@@ -3,6 +3,10 @@
  */
 
 import * as authService from '../services/auth.service.js';
+import {
+  clearLoginAttempts,
+  registerFailedLogin,
+} from '../middlewares/loginThrottle.js';
 
 /**
  * POST /api/auth/register
@@ -29,12 +33,16 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const result = await authService.login(email, password);
+    clearLoginAttempts(req);
     res.json({
       success: true,
       message: 'Sesión iniciada correctamente.',
       data: result,
     });
   } catch (error) {
+    if (error?.statusCode === 401) {
+      registerFailedLogin(req);
+    }
     next(error);
   }
 };
@@ -69,6 +77,8 @@ export const forgotPassword = async (req, res, next) => {
     res.json({
       success: true,
       message: result.message,
+      emailSent: result.emailSent ?? null,
+      ...(result.resetCode ? { resetCode: result.resetCode } : {}),
     });
   } catch (error) {
     next(error);

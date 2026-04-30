@@ -18,10 +18,16 @@ const createValidation = [
   body('items.*.unitCost').isFloat({ min: 0 }).withMessage('Costo unitario no válido.'),
 ];
 
+const voidValidation = [
+  idParam,
+  body('voidReason').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),
+];
+
 router.use(auth);
 router.use(authorize('admin'));
 
 router.get('/', purchaseController.getAll);
+router.post('/:id/void', voidValidation, validate, purchaseController.voidPurchase);
 router.get('/:id', idParam, validate, purchaseController.getById);
 router.post('/', createValidation, validate, purchaseController.create);
 

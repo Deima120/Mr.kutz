@@ -14,6 +14,8 @@
     "db:pull": "prisma db pull",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "create-admin": "node scripts/create-admin.mjs",
+    "remove-demo-users": "node scripts/remove-demo-users.mjs",
     "mail:test": "node scripts/probar-correo.mjs"
   },
   "dependencies": {
@@ -27,7 +29,8 @@
     "nodemailer": "^8.0.4",
     "pg": "^8.11.3",
     "prisma": "^5.22.0",
-    "resend": "^6.10.0"
+    "resend": "^6.10.0",
+    "validator": "^13.12.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

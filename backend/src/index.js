@@ -11,27 +11,46 @@ import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import routes from './routes/index.js';
 
+if (process.env.NODE_ENV === 'production') {
+  const secret = String(process.env.JWT_SECRET || '').trim();
+  if (secret.length < 32) {
+    console.error(
+      'En producción define JWT_SECRET en el entorno (cadena aleatoria de al menos 32 caracteres).'
+    );
+    process.exit(1);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ========== MIDDLEWARES GLOBALES ==========
 // Orígenes permitidos (frontend web + app Flutter)
 const allowedOrigins = [
-  'http://localhost:5173',  // Frontend React (Vite)
-  'http://localhost:3000',  // Alternativo
+  'http://localhost:5173',
+  'http://localhost:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
 ];
 
-/** Producción: FRONTEND_URL=https://app.tudominio.com o varias separadas por coma */
-const envOrigins = (process.env.FRONTEND_URL || '')
-  .split(',')
+/**
+ * Producción: FRONTEND_URL (y opcionalmente PUBLIC_FRONTEND_URL) pueden listar
+ * varios orígenes separados por coma.
+ *   FRONTEND_URL=https://app.tudominio.com,https://www.tudominio.com
+ */
+const envOrigins = [
+  ...String(process.env.FRONTEND_URL || '').split(','),
+  ...String(process.env.PUBLIC_FRONTEND_URL || '').split(','),
+]
   .map((s) => s.trim())
   .filter(Boolean);
 
+/** Permite previews de Vercel/Netlify si se quiere (CORS_ALLOW_PREVIEWS=true). */
+const allowPreviews =
+  String(process.env.CORS_ALLOW_PREVIEWS || '').toLowerCase() === 'true';
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // Permitir solicitudes sin origin (móvil, Postman, etc.)
     if (!origin) return callback(null, true);
 
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
@@ -42,6 +61,18 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    if (allowPreviews) {
+      try {
+        const host = new URL(origin).hostname;
+        if (/\.vercel\.app$|\.netlify\.app$/i.test(host)) {
+          return callback(null, true);
+        }
+      } catch (_) {
+        // ignore URL parse errors
+      }
+    }
+
+    console.warn('[cors] origen rechazado:', origin);
     callback(new Error('No permitido por CORS.'));
   },
   credentials: true,

@@ -138,23 +138,16 @@ export const update = async (id, data) => {
   if (data.lastName !== undefined) patch.lastName = data.lastName;
   if (data.phone !== undefined) patch.phone = data.phone || null;
   if (data.email !== undefined) patch.email = data.email || null;
-  if (data.documentType !== undefined) {
-    const v = normDocType(data.documentType);
-    if (!v) {
-      const err = new Error('El tipo de documento es obligatorio.');
+  if (data.documentType !== undefined || data.documentNumber !== undefined) {
+    const docType = normDocType(data.documentType);
+    const docNum = normDocNumber(data.documentNumber);
+    if (!docType || !docNum) {
+      const err = new Error('El tipo y número de documento son obligatorios.');
       err.statusCode = 400;
       throw err;
     }
-    patch.documentType = v;
-  }
-  if (data.documentNumber !== undefined) {
-    const v = normDocNumber(data.documentNumber);
-    if (!v) {
-      const err = new Error('El número de documento es obligatorio.');
-      err.statusCode = 400;
-      throw err;
-    }
-    patch.documentNumber = v;
+    patch.documentType = docType;
+    patch.documentNumber = docNum;
   }
   if (data.notes !== undefined) patch.notes = normNotes(data.notes);
 

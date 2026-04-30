@@ -54,13 +54,11 @@ Mr.kutz/
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/     # Reutilizables y landing (carousels, etc.)
-│   │   ├── context/        # AuthContext, SettingsContext
-│   │   ├── layouts/        # MainLayout (público/cliente), AdminLayout (admin/barber)
-│   │   ├── pages/          # Páginas por módulo (clients, services, appointments…)
-│   │   ├── services/       # Llamadas API (auth, barber, appointment…)
-│   │   ├── App.jsx
-│   │   └── main.jsx
+│   │   ├── features/       # Funcionalidades: auth, dashboard, clients, appointments...
+│   │   ├── shared/         # Componentes, contextos, estilos, servicios y utilidades comunes
+│   │   ├── App.js
+│   │   ├── index.js
+│   │   └── routes.js
 │   ├── vite.config.js      # Proxy /api → backend
 │   └── package.json
 └── README.md
@@ -321,7 +319,7 @@ Para futura app móvil o cliente alternativo.
 
 ## Frontend
 
-- **Entrada**: `frontend/src/main.jsx` → `App.jsx`.
+- **Entrada**: `frontend/src/index.js` → `App.js` → `routes.js`.
 - **Build**: Vite 5, React 18, React Router 6.
 - **Estilos**: Tailwind CSS (config en `tailwind.config.js`), tema barbería (colores `barber-dark`, `gold`, etc.).
 
@@ -359,27 +357,26 @@ La protección se hace con **ProtectedRoute** (componente que comprueba `allowed
 
 ### Servicios (llamadas API)
 
-Todos usan el cliente **Axios** definido en `src/services/api.js`:
+Todos usan el cliente **Axios** definido en `src/shared/services/api.js`:
 
 - **baseURL**: `import.meta.env.VITE_API_URL` o `'/api'`.
 - **Interceptor request**: Añade `Authorization: Bearer <token>` si hay token en `localStorage`.
 - **Interceptor response**: Devuelve `response.data`; en 401 limpia token y redirige a `/login`.
 
-Archivos en `src/services/`:
+Archivos principales de servicios:
 
 | Archivo | Uso |
 |---------|-----|
-| `api.js` | Cliente Axios compartido. |
-| `authService.js` | login, register, getProfile. |
-| `clientService.js` | CRUD clientes, historial. |
-| `serviceService.js` | CRUD servicios (getServices usado en landing y formulario de citas). |
-| `barberService.js` | CRUD barberos, getSchedules. |
-| `appointmentService.js` | CRUD citas, getAvailableSlots. |
-| `testimonialService.js` | CRUD testimonios (getTestimonials en landing). |
-| `paymentService.js` | Pagos y métodos de pago. |
-| `productService.js` | Productos, stock, movimientos. |
-| `dashboardService.js` | Estadísticas. |
-| `settingsService.js` | Configuración pública y completa. |
+| `shared/services/api.js` | Cliente Axios compartido. |
+| `features/auth/services/authService.js` | login, register, getProfile. |
+| `features/clients/services/clientService.js` | CRUD clientes, historial. |
+| `features/services/services/serviceService.js` | CRUD servicios (getServices usado en landing y formulario de citas). |
+| `features/barbers/services/barberService.js` | CRUD barberos, getSchedules. |
+| `features/appointments/services/appointmentService.js` | CRUD citas, getAvailableSlots. |
+| `features/payments/services/paymentService.js` | Pagos y métodos de pago. |
+| `features/inventory/services/productService.js` | Productos, stock, movimientos. |
+| `features/dashboard/services/dashboardService.js` | Estadísticas. |
+| `features/settings/services/settingsService.js` | Configuración pública y completa. |
 
 ### Landing (HomePage)
 
@@ -513,7 +510,7 @@ Objetivo: tener **API en el puerto 5000** y **web en http://localhost:5173** con
    - `npm install`
    - No hace falta `.env` en local si usas el proxy de Vite (las peticiones van a `/api` → backend en 5000).
    - `npm run dev` → abre **http://localhost:5173**
-6. **Probar:** inicia sesión con un usuario de [Usuarios de prueba](#usuarios-de-prueba) (p. ej. `admin@mrkutz.com` / `password123`).
+6. **Probar:** tras el seed, crea el admin con [Usuario administrador](#usuario-administrador-práctica-real) y entra al panel.
 
 **Comprobar API:** con el backend levantado, en el navegador o con curl: `http://localhost:5000/health` debe responder `ok`.
 
@@ -534,7 +531,7 @@ En **PowerShell** no uses `&&` encadenando; ejecuta cada comando por línea o us
    - `PORT` – opcional, por defecto 5000
    - `FRONTEND_URL` – opcional, origen CORS (por defecto `http://localhost:5173`)
 4. Alinear esquema: ver [Migraciones vs. desarrollo rápido](#migraciones-vs-desarrollo-rápido) (`npx prisma migrate deploy` o `npx prisma db push` + `npx prisma generate`).
-5. `npm run db:seed` – crea roles, usuarios de prueba, métodos de pago, configuración y servicios de ejemplo
+5. `npm run db:seed` – crea roles, métodos de pago, configuración y servicios; luego `npm run create-admin` para el administrador
 
 ### Frontend
 
@@ -547,15 +544,16 @@ Para uso normal en desarrollo, levantar backend (puerto 5000) y frontend (5173);
 
 ---
 
-## Usuarios de prueba
+## Usuario administrador (práctica real)
 
-Tras ejecutar `npm run db:seed` en `backend/`:
+El seed **ya no crea** cuentas demo. Tras `npm run db:seed` en `backend/`:
 
-| Email | Contraseña | Rol |
-|-------|------------|-----|
-| admin@mrkutz.com | password123 | Admin |
-| barber@mrkutz.com | password123 | Barbero |
-| client@mrkutz.com | password123 | Cliente |
+1. En `backend/.env` define **`ADMIN_EMAIL`** y **`ADMIN_PASSWORD`** (misma regla que el registro: mínimo 8 caracteres, mayúscula, minúscula y número).
+2. Ejecuta **`npm run create-admin`** — crea o actualiza ese usuario con rol **admin**.
+
+Si tu base aún tiene las cuentas antiguas del seed (`admin@mrkutz.com`, `barber@mrkutz.com`, `client@mrkutz.com`), bórralas con **`npm run remove-demo-users`** (limpia citas/pagos vinculados antes de borrar).
+
+Los **barberos** con horario se dan de alta desde el panel **admin** (no hay registro público de barbero). Los **clientes** pueden registrarse en la web.
 
 ---
 
@@ -569,6 +567,8 @@ Tras ejecutar `npm run db:seed` en `backend/`:
 - `npm run db:push` – aplicar schema a la BD (sin migraciones)
 - `npm run db:migrate` – aplicar migraciones en producción/CI (`prisma migrate deploy`)
 - `npm run db:seed` – ejecutar seed
+- `npm run create-admin` – crear o actualizar admin (`ADMIN_EMAIL`, `ADMIN_PASSWORD` en `.env`)
+- `npm run remove-demo-users` – eliminar cuentas demo `@mrkutz.com` del seed antiguo
 - `npm run db:studio` – abrir Prisma Studio
 
 **Frontend**
@@ -599,7 +599,11 @@ En plataformas tipo **Railway**, **Render**, **Fly.io** o un **VPS**:
 | `JWT_SECRET` | Secreto largo y aleatorio (no reutilizar el de desarrollo). |
 | `NODE_ENV` | `production`. |
 | `FRONTEND_URL` | Origen(es) del sitio web público, **HTTPS**, p. ej. `https://app.tudominio.com`. Varias URLs: separadas por **coma** (sin espacios extra). |
+| `PUBLIC_FRONTEND_URL` | (Opcional) URL base usada en enlaces dentro de correos (ej. botón "Dejar mi valoración"). Si no se define, el mailer usa la primera de `FRONTEND_URL`. |
+| `CORS_ALLOW_PREVIEWS` | (Opcional) `true` para aceptar dominios `*.vercel.app` / `*.netlify.app` (útil en staging). |
 | `PORT` | Muchos hosts inyectan el puerto; si no, define uno y configura el proxy del host. |
+
+> **Render.com**: el repo incluye `backend/render.yaml` como plantilla (servicio Node, health check `/health`, variables listadas). Conéctalo como "Blueprint" y completa los valores marcados `sync: false`.
 
 **Comando de arranque recomendado** (ajusta al script que use tu plataforma):
 
@@ -607,7 +611,7 @@ En plataformas tipo **Railway**, **Render**, **Fly.io** o un **VPS**:
 cd backend && npm ci && npx prisma generate && npx prisma migrate deploy && npm run start
 ```
 
-- La primera vez puedes ejecutar **`npm run db:seed`** en un entorno controlado si quieres datos de prueba (cambia luego las contraseñas o desactiva usuarios).
+- La primera vez puedes ejecutar **`npm run db:seed`** y **`npm run create-admin`** en un entorno controlado; en bases antiguas con demo, **`npm run remove-demo-users`**.
 - Comprueba **`GET https://<tu-api>/health`** tras el deploy.
 
 ### 3. Frontend (Vite / React)
@@ -617,6 +621,7 @@ En **Vercel**, **Netlify**, **Cloudflare Pages** u hosting estático:
 1. Variable de entorno de build: **`VITE_API_URL`** = URL pública del backend **incluyendo** `/api`, por ejemplo `https://api.tudominio.com/api` (o `https://tu-servicio.railway.app/api`).
 2. Build: `npm ci && npm run build` y sirve la carpeta **`dist/`**.
 3. En local el proxy de Vite usa `/api`; **en producción no hay proxy**: sin `VITE_API_URL` correcta, las peticiones fallarán.
+4. **Vercel**: el repo trae `frontend/vercel.json` con `rewrites` SPA (refrescar una ruta interna no da 404) y `Cache-Control` inmutable para assets con hash. Conecta el directorio `frontend/` como raíz del proyecto.
 
 ### 4. Orden práctico (primera vez)
 

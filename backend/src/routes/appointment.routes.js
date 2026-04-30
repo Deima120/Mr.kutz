@@ -6,7 +6,9 @@ import express from 'express';
 import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { publicThrottle } from '../middlewares/publicThrottle.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
+import * as publicBookingController from '../controllers/publicBooking.controller.js';
 
 const router = express.Router();
 
@@ -55,6 +57,56 @@ router.get(
   [query('limit').optional({ values: 'falsy' }).isInt({ min: 1, max: 48 }).withMessage('limit no válido (1–48).')],
   validate,
   appointmentController.getPublicRatingSummary,
+);
+
+/**
+ * Reservas públicas (sin autenticación). Protegidas con rate-limit en memoria.
+ */
+const publicBookingValidation = [
+  body('firstName')
+    .trim()
+    .notEmpty()
+    .withMessage('El nombre es obligatorio.')
+    .isLength({ max: 100 }),
+  body('lastName')
+    .trim()
+    .notEmpty()
+    .withMessage('El apellido es obligatorio.')
+    .isLength({ max: 100 }),
+  body('email')
+    .isEmail()
+    .withMessage('Indica un correo electrónico válido.')
+    .normalizeEmail(),
+  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
+  body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
+  body('appointmentDate')
+    .isDate()
+    .withMessage('Indica una fecha válida.'),
+  body('startTime')
+    .trim()
+    .matches(/^\d{1,2}:\d{2}$/)
+    .withMessage('La hora debe tener formato HH:MM.'),
+  body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),
+];
+
+router.get('/public/barbers', publicBookingController.listBarbers);
+router.get('/public/services', publicBookingController.listServices);
+router.get(
+  '/public/slots',
+  [
+    query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
+    query('date').isDate().withMessage('Indica una fecha válida.'),
+  ],
+  validate,
+  publicBookingController.getSlots,
+);
+router.post(
+  '/public',
+  publicThrottle({ scope: 'public-booking', max: 6, windowMs: 10 * 60 * 1000 }),
+  publicBookingValidation,
+  validate,
+  publicBookingController.createBooking,
 );
 
 router.use(auth);
