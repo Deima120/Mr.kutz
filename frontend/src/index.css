@@ -76,6 +76,54 @@
   .section-label {
     @apply font-sans text-gold tracking-wide text-xs font-semibold mb-4;
   }
+  .admin-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(201, 169, 98, 0.55) rgba(255, 255, 255, 0.04);
+  }
+  .admin-content-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(120, 113, 108, 0.45) rgba(231, 229, 228, 0.7);
+  }
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar {
+  width: 0.55rem;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 999px;
+  margin: 0.75rem 0;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(180deg, rgba(229, 212, 161, 0.9), rgba(154, 123, 58, 0.9));
+  border: 2px solid #0c0a09;
+  border-radius: 999px;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(180deg, rgba(245, 229, 177, 1), rgba(201, 169, 98, 1));
+}
+
+.admin-content-scroll::-webkit-scrollbar {
+  width: 0.65rem;
+}
+
+.admin-content-scroll::-webkit-scrollbar-track {
+  background: rgba(231, 229, 228, 0.75);
+}
+
+.admin-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.42);
+  border: 2px solid rgba(231, 229, 228, 0.75);
+  border-radius: 999px;
+}
+
+.admin-content-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(87, 83, 78, 0.65);
 }
 
 /* Patrón sutil para fondos de sección */
