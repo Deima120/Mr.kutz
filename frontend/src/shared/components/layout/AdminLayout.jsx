@@ -157,10 +157,12 @@ export default function AdminLayout({ children }) {
         <div className="relative border-b border-white/10 px-4 py-5">
           <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-gold/12 blur-3xl" />
           <div className={`relative flex items-start gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
-            <Link
-              to="/dashboard"
-              className={`group min-w-0 flex-1 ${sidebarCollapsed ? 'lg:flex lg:justify-center' : ''}`}
-              title={businessName}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              className={`group min-w-0 flex-1 text-left ${sidebarCollapsed ? 'lg:flex lg:justify-center' : ''}`}
+              title={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
+              aria-label={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
             >
               <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-gold/35 bg-gold/10 text-gold shadow-gold-glow transition-transform duration-300 group-hover:-translate-y-0.5">
                 <Sparkles size={20} strokeWidth={1.8} />
@@ -174,7 +176,7 @@ export default function AdminLayout({ children }) {
                   {isAdmin ? 'Panel de administracion' : 'Panel del barbero'}
                 </span>
               </span>
-            </Link>
+            </button>
 
             <button
               type="button"
