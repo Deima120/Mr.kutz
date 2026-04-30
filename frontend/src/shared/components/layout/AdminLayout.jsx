@@ -321,14 +321,7 @@ export default function AdminLayout({ children }) {
         <header className="shrink-0 border-b border-stone-200 bg-white/90 px-4 py-3 shadow-card backdrop-blur sm:px-6 md:px-8">
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(true)}
-                className="rounded-xl border border-stone-200 bg-white p-2 text-stone-700 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:hidden"
-                aria-label="Abrir menu"
-              >
-                <Menu size={21} />
-              </button>
+              
               <button
                 type="button"
                 onClick={() => setSidebarCollapsed((current) => !current)}
