@@ -1,32 +1,92 @@
 /**
- * Layout administrativo - Sidebar + contenido
- * Admin: acceso completo. Barber: solo Dashboard, Citas, Clientes (consulta).
+ * Layout administrativo - Sidebar + contenido.
+ * Admin: acceso completo. Barber: acceso operativo.
  */
 
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  BarChart3,
+  Boxes,
+  CalendarCheck,
+  CalendarDays,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  CreditCard,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  PackageCheck,
+  Scissors,
+  Settings,
+  Sparkles,
+  Star,
+  TrendingUp,
+  UserRound,
+  UsersRound,
+  X,
+} from 'lucide-react';
+import { useAuth } from '@/shared/contexts/AuthContext';
+import { useSettings } from '@/shared/contexts/SettingsContext';
 
-const adminNavItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { path: '/appointments', label: 'Citas', icon: '📅' },
-  { path: '/clients', label: 'Clientes', icon: '👥' },
-  { path: '/services', label: 'Servicios', icon: '✂️' },
-  { path: '/barbers', label: 'Barberos', icon: '🧔' },
-  { path: '/testimonials', label: 'Satisfacción', icon: '⭐' },
-  { path: '/payments', label: 'Pagos', icon: '💳' },
-  { path: '/purchases', label: 'Compras', icon: '🧾' },
-  { path: '/inventory', label: 'Inventario', icon: '📦' },
-  { path: '/reports', label: 'Reportes', icon: '📈' },
-  { path: '/settings', label: 'Configuración', icon: '⚙️' },
+const adminNavSections = [
+  {
+    id: 'center',
+    label: 'Centro de control',
+    items: [
+      { path: '/dashboard', label: 'Dashboard', description: 'Vista general', Icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: 'operation',
+    label: 'Operacion',
+    items: [
+      { path: '/appointments', label: 'Citas', description: 'Agenda y estados', Icon: CalendarCheck },
+      { path: '/clients', label: 'Clientes', description: 'Historial y perfiles', Icon: UsersRound },
+      { path: '/services', label: 'Servicios', description: 'Catalogo de cortes', Icon: Scissors },
+      { path: '/barbers', label: 'Barberos', description: 'Equipo y horarios', Icon: UserRound },
+      { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
+    ],
+  },
+  {
+    id: 'business',
+    label: 'Negocio',
+    items: [
+      { path: '/payments', label: 'Pagos', description: 'Ventas cobradas', Icon: CreditCard },
+      { path: '/purchases', label: 'Compras', description: 'Entradas de stock', Icon: PackageCheck },
+      { path: '/inventory', label: 'Inventario', description: 'Productos y alertas', Icon: Boxes },
+      { path: '/reports', label: 'Reportes', description: 'Metricas clave', Icon: TrendingUp },
+    ],
+  },
+  {
+    id: 'system',
+    label: 'Sistema',
+    items: [
+      { path: '/settings', label: 'Configuracion', description: 'Marca y negocio', Icon: Settings },
+    ],
+  },
 ];
 
-const barberNavItems = [
-  { path: '/dashboard', label: 'Mi día', icon: '📊' },
-  { path: '/appointments', label: 'Mis citas', icon: '📅' },
-  { path: '/agenda', label: 'Agenda', icon: '📆' },
-  { path: '/history', label: 'Historial', icon: '📋' },
-  { path: '/clients', label: 'Clientes', icon: '👥' },
+const barberNavSections = [
+  {
+    id: 'center',
+    label: 'Centro de control',
+    items: [
+      { path: '/dashboard', label: 'Mi dia', description: 'Resumen diario', Icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: 'operation',
+    label: 'Operacion',
+    items: [
+      { path: '/appointments', label: 'Mis citas', description: 'Servicios asignados', Icon: CalendarCheck },
+      { path: '/agenda', label: 'Agenda', description: 'Semana de trabajo', Icon: CalendarDays },
+      { path: '/history', label: 'Historial', description: 'Servicios realizados', Icon: BarChart3 },
+      { path: '/clients', label: 'Clientes', description: 'Consulta rapida', Icon: UsersRound },
+    ],
+  },
 ];
 
 function isActiveRoute(pathname, path) {
@@ -74,33 +134,35 @@ export default function AdminLayout({ children }) {
     setOpenSections((current) => ({ ...current, [sectionId]: !current[sectionId] }));
   };
 
+  const userInitial = (user?.firstName || user?.email || 'U').trim().charAt(0).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-stone-100 overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-stone-100">
       {mobileSidebarOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-30 bg-stone-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-stone-950/65 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
           aria-label="Cerrar menu"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#070605_0%,#11100f_48%,#070605_100%)] text-white shadow-2xl transition-all duration-500 ease-out ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#080706_0%,#11100f_45%,#080706_100%)] text-white shadow-2xl transition-all duration-500 ease-out ${
           sidebarCollapsed ? 'lg:w-[5.75rem]' : 'lg:w-72'
-        } ${mobileSidebarOpen ? 'translate-x-0 w-[19rem]' : '-translate-x-full w-[19rem] lg:translate-x-0'}`}
+        } ${mobileSidebarOpen ? 'w-[19rem] translate-x-0' : 'w-[19rem] -translate-x-full lg:translate-x-0'}`}
       >
         <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-gold to-transparent" aria-hidden />
 
         <div className="relative border-b border-white/10 px-4 py-5">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-gold/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-gold/12 blur-3xl" />
           <div className={`relative flex items-start gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
             <Link
               to="/dashboard"
               className={`group min-w-0 flex-1 ${sidebarCollapsed ? 'lg:flex lg:justify-center' : ''}`}
               title={businessName}
             >
-              <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-gold/30 bg-gold/10 text-gold shadow-gold-glow transition-transform duration-300 group-hover:-translate-y-0.5">
+              <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-gold/35 bg-gold/10 text-gold shadow-gold-glow transition-transform duration-300 group-hover:-translate-y-0.5">
                 <Sparkles size={20} strokeWidth={1.8} />
               </span>
               <span className={`${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
@@ -125,35 +187,94 @@ export default function AdminLayout({ children }) {
           </div>
         </div>
 
-        <nav className="flex-1 py-4 overflow-y-auto">
-          <ul className="space-y-0.5 px-3">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path ||
-                location.pathname.startsWith(item.path + '/');
-              return (
-                <li key={item.path}>
-                  <Link
-                    to={item.path}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-white text-barber-dark shadow-sm border border-stone-100'
-                        : 'text-stone-400 hover:bg-stone-800 hover:text-white'
-                    }`}
-                  >
-                    <span className="text-lg">{item.icon}</span>
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className="admin-sidebar-scroll relative flex-1 overflow-y-auto px-3 py-4">
+          <div className="pointer-events-none sticky top-0 z-10 h-3 bg-gradient-to-b from-[#090807] to-transparent" />
+
+          {navSections.map((section) => {
+            const sectionActive = section.items.some((item) => isActiveRoute(location.pathname, item.path));
+            const isOpen = sidebarCollapsed || openSections[section.id];
+
+            return (
+              <div key={section.id} className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.id)}
+                  className={`mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+                    sectionActive ? 'text-gold' : 'text-stone-600 hover:text-stone-400'
+                  } ${sidebarCollapsed ? 'lg:hidden' : ''}`}
+                  aria-expanded={isOpen}
+                >
+                  <span>{section.label}</span>
+                  <ChevronDown
+                    size={15}
+                    className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                <div
+                  className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                    isOpen ? 'grid-rows-[1fr] translate-y-0 opacity-100' : 'grid-rows-[0fr] -translate-y-1 opacity-0'
+                  }`}
+                >
+                  <ul className="min-h-0 space-y-1 overflow-hidden">
+                    {section.items.map((item) => {
+                      const active = isActiveRoute(location.pathname, item.path);
+                      const Icon = item.Icon;
+
+                      return (
+                        <li key={item.path}>
+                          <Link
+                            to={item.path}
+                            title={sidebarCollapsed ? item.label : undefined}
+                            className={`group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-300 ${
+                              active
+                                ? 'bg-white text-barber-dark shadow-[0_18px_44px_rgba(255,255,255,0.12)]'
+                                : 'text-stone-400 hover:bg-white/[0.07] hover:text-white'
+                            } ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
+                          >
+                            {active && (
+                              <span
+                                className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gold"
+                                aria-hidden
+                              />
+                            )}
+                            <span
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
+                                active
+                                  ? 'bg-barber-dark text-gold'
+                                  : 'bg-white/[0.04] text-stone-400 group-hover:bg-gold/15 group-hover:text-gold'
+                              }`}
+                            >
+                              <Icon size={20} strokeWidth={1.8} />
+                            </span>
+                            <span className={`min-w-0 flex-1 ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+                              <span className="block truncate">{item.label}</span>
+                              <span
+                                className={`block truncate text-xs font-medium ${
+                                  active ? 'text-stone-500' : 'text-stone-600 group-hover:text-stone-400'
+                                }`}
+                              >
+                                {item.description}
+                              </span>
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="pointer-events-none sticky bottom-0 h-6 bg-gradient-to-t from-[#090807] to-transparent" />
         </nav>
 
         <div className="border-t border-white/10 p-3">
-          <div className={`mb-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3 ${sidebarCollapsed ? 'lg:p-2' : ''}`}>
+          <div className={`mb-2 rounded-xl border border-white/10 bg-white/[0.04] p-3 ${sidebarCollapsed ? 'lg:p-2' : ''}`}>
             <div className={`flex items-center gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-sm font-bold text-gold">
-                {(user?.firstName || user?.email || 'U').trim().charAt(0).toUpperCase()}
+                {userInitial}
               </span>
               <div className={`min-w-0 ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
                 <p className="truncate text-sm font-semibold text-white" title={user?.email}>
@@ -163,23 +284,70 @@ export default function AdminLayout({ children }) {
               </div>
             </div>
           </div>
-          <div className="px-2 mt-2 space-y-0.5">
-            <Link to="/" className="block px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors">
-              ← Inicio
+
+          <div className="grid gap-1">
+            <Link
+              to="/"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-400 transition hover:bg-white/[0.07] hover:text-white ${
+                sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''
+              }`}
+              title={sidebarCollapsed ? 'Inicio' : undefined}
+            >
+              <Home size={18} />
+              <span className={sidebarCollapsed ? 'lg:hidden' : ''}>Inicio</span>
             </Link>
-            <button type="button" onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors">
-              Cerrar sesión
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-stone-400 transition hover:bg-red-500/10 hover:text-red-200 ${
+                sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''
+              }`}
+              title={sidebarCollapsed ? 'Cerrar sesion' : undefined}
+            >
+              <LogOut size={18} />
+              <span className={sidebarCollapsed ? 'lg:hidden' : ''}>Cerrar sesion</span>
             </button>
           </div>
         </div>
       </aside>
 
-      <div className="flex-1 ml-64 min-w-0 w-0 max-w-full h-screen min-h-0 flex flex-col overflow-hidden">
-        <header className="shrink-0 bg-white/95 backdrop-blur border-b border-stone-200 px-4 sm:px-6 md:px-8 py-3 md:py-4 z-10 shadow-card min-w-0">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif text-xl font-medium text-stone-900">
-              {navItems.find((n) => location.pathname === n.path || location.pathname.startsWith(n.path + '/'))?.label || businessName}
-            </h2>
+      <div
+        className={`flex h-screen min-h-0 min-w-0 flex-col overflow-hidden transition-[margin] duration-500 ${
+          sidebarCollapsed ? 'lg:ml-[5.75rem]' : 'lg:ml-72'
+        }`}
+      >
+        <header className="shrink-0 border-b border-stone-200 bg-white/90 px-4 py-3 shadow-card backdrop-blur sm:px-6 md:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="rounded-xl border border-stone-200 bg-white p-2 text-stone-700 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:hidden"
+                aria-label="Abrir menu"
+              >
+                <Menu size={21} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((current) => !current)}
+                className="hidden rounded-xl border border-stone-200 bg-white p-2 text-stone-600 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:inline-flex"
+                aria-label={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
+              >
+                {sidebarCollapsed ? <ChevronsRight size={21} /> : <ChevronsLeft size={21} />}
+              </button>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold-dark">
+                  {isAdmin ? 'Administracion' : 'Operacion'}
+                </p>
+                <h2 className="truncate font-serif text-xl font-medium text-stone-900">
+                  {activeItem?.label || businessName}
+                </h2>
+              </div>
+            </div>
+
+            <span className="hidden rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-500 sm:inline-flex">
+              {activeItem?.description || 'Panel'}
+            </span>
           </div>
         </header>
 
