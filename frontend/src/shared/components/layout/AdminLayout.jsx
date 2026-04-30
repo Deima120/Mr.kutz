@@ -11,8 +11,6 @@ import {
   CalendarCheck,
   CalendarDays,
   ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
   CreditCard,
   Home,
   LayoutDashboard,
@@ -321,14 +319,13 @@ export default function AdminLayout({ children }) {
         <header className="shrink-0 border-b border-stone-200 bg-white/90 px-4 py-3 shadow-card backdrop-blur sm:px-6 md:px-8">
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              
               <button
                 type="button"
-                onClick={() => setSidebarCollapsed((current) => !current)}
-                className="hidden rounded-xl border border-stone-200 bg-white p-2 text-stone-600 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:inline-flex"
-                aria-label={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
+                onClick={() => setMobileSidebarOpen(true)}
+                className="rounded-xl border border-stone-200 bg-white p-2 text-stone-700 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:hidden"
+                aria-label="Abrir menu"
               >
-                {sidebarCollapsed ? <ChevronsRight size={21} /> : <ChevronsLeft size={21} />}
+                <Menu size={21} />
               </button>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold-dark">
