@@ -1,6 +1,6 @@
 /**
  * Cliente Redis (rate-limit, blacklist JWT).
- * Producción: REDIS_URL obligatorio (validado en index.js).
+ * Opcional: si REDIS_URL no existe, se usa fallback en Postgres.
  */
 
 import Redis from 'ioredis';
@@ -8,12 +8,8 @@ import Redis from 'ioredis';
 let client = null;
 
 export function assertRedisConfiguredForProduction() {
-  if (process.env.NODE_ENV !== 'production') return;
-  const url = process.env.REDIS_URL?.trim();
-  if (!url) {
-    console.error('En producción define REDIS_URL para rate-limit y cierre de sesión seguro.');
-    process.exit(1);
-  }
+  // Compatibilidad: Redis dejó de ser obligatorio en producción.
+  // Si no existe REDIS_URL, el sistema usa fallback en Postgres.
 }
 
 export function getRedisClient() {

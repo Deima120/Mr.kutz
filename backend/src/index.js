@@ -10,7 +10,6 @@ import helmet from 'helmet';
 
 import { connectDatabase } from './config/database.js';
 import { getJwtSecret } from './config/jwt.js';
-import { assertRedisConfiguredForProduction } from './lib/redis.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import routes from './routes/index.js';
 
@@ -23,7 +22,6 @@ try {
       );
       process.exit(1);
     }
-    assertRedisConfiguredForProduction();
   }
 } catch (e) {
   console.error(e?.message || e);
