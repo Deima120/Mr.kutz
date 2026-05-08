@@ -130,11 +130,11 @@ Variables importantes:
 
 - `JWT_SECRET` (obligatoria)
 - `JWT_EXPIRES_IN`
-- `REDIS_URL` (opcional, recomendado para rendimiento)
+- `REDIS_URL` (obligatoria en producción para blacklist/rate-limit seguro)
 
 Render:
 
-- Se añadió `REDIS_URL` en `backend/render.yaml` como variable opcional.
+- Se añadió `REDIS_URL` en `backend/render.yaml`.
 
 ---
 

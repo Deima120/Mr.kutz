@@ -146,10 +146,13 @@ export async function getRoleById(id) {
       },
     },
   });
+
   if (!role) return null;
+
+  const { roleModules, ...roleData } = role;
   return {
-    ...role,
-    modules: role.roleModules.map((rm) => rm.module),
+    ...roleData,
+    modules: roleModules.map(({ module }) => module),
   };
 }
 
