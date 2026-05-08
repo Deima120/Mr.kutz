@@ -14,7 +14,7 @@ model Role {
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   users       User[]
-  modules     Module[] @relation("RoleModule")
+  roleModules RoleModule[]
 }
 
 model Module {
@@ -23,7 +23,7 @@ model Module {
   description String?  @db.VarChar(255)
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
-  roles       Role[]   @relation("RoleModule")
+  roleModules RoleModule[]
 }
 
 // Join table for Role and Module many-to-many relationship
@@ -52,6 +52,7 @@ model User {
   inventoryMovements InventoryMovement[]
   paymentsCreated    Payment[]           @relation("PaymentsCreated")
   purchasesCreated   Purchase[]          @relation("PurchasesCreated")
+  auditLogs          AuditLog[]          @relation("AuditActor")
   role               Role                @relation(fields: [roleId], references: [id])
 }
 
@@ -302,5 +303,30 @@ model AuditLog {
   details    Json?    
   createdAt  DateTime @default(now()) @map("created_at")
   
-  actor      User?    @relation(fields: [actorId], references: [id])
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+}
+
+model TokenBlacklist {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("token_blacklist")
+}
+
+model RateLimitEntry {
+  id         Int      @id @default(autoincrement())
+  scope      String   @db.VarChar(30)
+  key        String   @db.VarChar(320)
+  count      Int      @default(0)
+  windowStart DateTime @map("window_start")
+  lockedUntil DateTime? @map("locked_until")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([scope, key])
+  @@index([scope, lockedUntil])
+  @@map("rate_limit_entries")
 }

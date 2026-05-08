@@ -137,12 +137,20 @@ export async function setRoleState(id, isActive, actor) {
 
 export async function getRoleById(id) {
   const roleId = Number(id);
-  return prisma.role.findUnique({
+  const role = await prisma.role.findUnique({
     where: { id: roleId },
     include: {
-      modules: true,
+      roleModules: {
+        include: { module: true },
+        orderBy: { moduleId: 'asc' },
+      },
     },
   });
+  if (!role) return null;
+  return {
+    ...role,
+    modules: role.roleModules.map((rm) => rm.module),
+  };
 }
 
 export async function assignModules(roleIdParam, moduleIds, actor) {
