@@ -41,7 +41,6 @@ export default function MainLayout() {
   const navLinks = [
     { to: '/', label: 'Inicio' },
     { to: '/#servicios', label: 'Servicios' },
-    { to: '/reservar', label: 'Reservar' },
     { to: '/#satisfaccion', label: 'Satisfacción' },
     { to: '/#ubicacion', label: 'Ubicación' },
   ];
@@ -206,7 +205,7 @@ export default function MainLayout() {
                     to="/appointments"
                     className="ml-2 px-5 py-2.5 bg-white text-barber-dark font-semibold text-sm hover:bg-stone-100 transition-colors duration-200"
                   >
-                    Agenda tu cita
+                    Reserva
                   </Link>
                   <Link to="/register" className="px-4 py-2 text-stone-400 hover:text-white text-sm font-medium transition-colors">
                     Registrarse
@@ -278,7 +277,7 @@ export default function MainLayout() {
                     Iniciar sesión
                   </Link>
                   <Link to="/appointments" onClick={closeMobile} className="px-4 py-3 bg-gold text-barber-dark font-semibold rounded-lg text-sm text-center mt-2">
-                    Agenda tu cita
+                    Reserva
                   </Link>
                   <Link to="/register" onClick={closeMobile} className="px-4 py-3 text-gold hover:text-gold-light rounded-lg text-sm text-center">
                     Registrarse

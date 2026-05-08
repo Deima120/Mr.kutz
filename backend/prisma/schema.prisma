@@ -28,11 +28,11 @@ model Module {
 
 // Join table for Role and Module many-to-many relationship
 model RoleModule {
-  roleId   Int
-  moduleId Int
-  role     Role @relation(fields: [roleId], references: [id])
-  module   Module @relation(fields: [moduleId], references: [id])
-  
+  roleId   Int    @map("role_id")
+  moduleId Int    @map("module_id")
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
   @@id([roleId, moduleId])
   @@map("role_modules")
 }
@@ -50,6 +50,7 @@ model User {
   barber             Barber?
   client             Client?
   inventoryMovements InventoryMovement[]
+  auditLogs          AuditLog[]
   paymentsCreated    Payment[]           @relation("PaymentsCreated")
   purchasesCreated   Purchase[]          @relation("PurchasesCreated")
   auditLogs          AuditLog[]          @relation("AuditActor")
