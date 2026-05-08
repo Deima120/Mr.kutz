@@ -123,9 +123,9 @@ export default function AdminLayout({ children }) {
     setMobileSidebarOpen(false);
   }, [location.pathname, navSections]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   const toggleSection = (sectionId) => {

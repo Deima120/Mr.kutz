@@ -2,15 +2,18 @@
  * Auth Service - Lógica de autenticación (Prisma)
  */
 
+import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
 import { sendPasswordResetCode } from '../lib/mailer.js';
 import { canonicalEmail } from '../utils/emailCanonical.js';
 import * as settingsService from './settings.service.js';
+import { getJwtSecret } from '../config/jwt.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
+const RESET_CODE_EXPIRES_MS = 15 * 60 * 1000;
 
 export const register = async (userData) => {
   const {
@@ -92,11 +95,12 @@ export const register = async (userData) => {
     return userWithRole;
   });
 
-  const token = generateToken(result.id);
+  const { token, expiresAt } = generateToken(result.id);
   const user = await getProfile(result.id);
   return {
     user: user || formatUserResponse(result, { firstName, lastName, role }),
     token,
+    expiresAt,
   };
 };
 
@@ -152,9 +156,9 @@ export const login = async (email, password) => {
     throw error;
   }
 
-  const token = generateToken(dbUser.id);
+  const { token, expiresAt } = generateToken(dbUser.id);
   const user = await getProfile(dbUser.id);
-  return { user: user || formatUserResponse(dbUser), token };
+  return { user: user || formatUserResponse(dbUser), token, expiresAt };
 };
 
 // Solicitar recuperación de contraseña
@@ -169,14 +173,15 @@ export const forgotPassword = async (email) => {
     return { message: 'Si el correo existe, recibirás instrucciones en breve.' };
   }
 
-  // Generar código de recuperación (6 dígitos)
+  // Generar código de recuperación (6 dígitos); en BD solo el hash
   const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const resetExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+  const resetCodeHash = await bcrypt.hash(resetCode, SALT_ROUNDS);
+  const resetExpires = new Date(Date.now() + RESET_CODE_EXPIRES_MS);
 
   await prisma.user.update({
     where: { id: dbUser.id },
     data: {
-      resetCode,
+      resetCode: resetCodeHash,
       resetCodeExpires: resetExpires,
     },
   });
@@ -224,7 +229,8 @@ export const verifyResetCode = async (email, code) => {
     throw error;
   }
 
-  if (dbUser.resetCode !== String(code).trim()) {
+  const codeOk = await bcrypt.compare(String(code).trim(), dbUser.resetCode);
+  if (!codeOk) {
     const error = new Error('El código no es correcto.');
     error.statusCode = 400;
     throw error;
@@ -291,11 +297,15 @@ export const getProfile = async (userId) => {
 };
 
 const generateToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || 'dev-secret-change-in-production',
-    { expiresIn: TOKEN_EXPIRES }
-  );
+  const secret = getJwtSecret();
+  const jti = randomUUID();
+  const token = jwt.sign({ userId, jti }, secret, { expiresIn: TOKEN_EXPIRES });
+  const decoded = jwt.decode(token);
+  const expiresAt =
+    decoded?.exp && typeof decoded.exp === 'number'
+      ? new Date(decoded.exp * 1000).toISOString()
+      : null;
+  return { token, expiresAt };
 };
 
 const formatUserResponse = (dbUser, extra = {}) => {
