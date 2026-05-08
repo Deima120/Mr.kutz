@@ -20,8 +20,8 @@ export default function MainLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
     setMobileMenuOpen(false);
     setProfileMenuOpen(false);

@@ -6,6 +6,8 @@
 
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
+import { getJwtSecret } from '../config/jwt.js';
+import { isTokenBlacklisted } from '../services/tokenBlacklist.service.js';
 
 /**
  * Verifica que el token JWT sea válido
@@ -20,8 +22,15 @@ export const auth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+    const secret = getJwtSecret();
     const decoded = jwt.verify(token, secret);
+
+    if (await isTokenBlacklisted(token)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Sesión cerrada o token inválido.',
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },

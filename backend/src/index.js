@@ -6,19 +6,28 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 
 import { connectDatabase } from './config/database.js';
+import { getJwtSecret } from './config/jwt.js';
+import { assertRedisConfiguredForProduction } from './lib/redis.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import routes from './routes/index.js';
 
-if (process.env.NODE_ENV === 'production') {
-  const secret = String(process.env.JWT_SECRET || '').trim();
-  if (secret.length < 32) {
-    console.error(
-      'En producción define JWT_SECRET en el entorno (cadena aleatoria de al menos 32 caracteres).'
-    );
-    process.exit(1);
+try {
+  const secret = getJwtSecret();
+  if (process.env.NODE_ENV === 'production') {
+    if (secret.length < 32) {
+      console.error(
+        'En producción JWT_SECRET debe ser una cadena aleatoria de al menos 32 caracteres.'
+      );
+      process.exit(1);
+    }
+    assertRedisConfiguredForProduction();
   }
+} catch (e) {
+  console.error(e?.message || e);
+  process.exit(1);
 }
 
 const app = express();
@@ -79,8 +88,9 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+app.use(helmet());
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ========== RUTAS API ==========

@@ -1,14 +1,14 @@
 /**
- * Rutas de autenticación
- * POST /api/auth/register
- * POST /api/auth/login
- * GET  /api/auth/me (protegida)
+ * Rutas de autenticación (/api/auth)
+ * POST register, login, forgot-password, verify-code, reset-password
+ * POST logout (Bearer), GET me (Bearer)
  */
 
 import express from 'express';
 import { body } from 'express-validator';
 import { auth } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { forgotPasswordThrottle } from '../middlewares/forgotPasswordThrottle.js';
 import { loginThrottle } from '../middlewares/loginThrottle.js';
 import * as authController from '../controllers/auth.controller.js';
 
@@ -89,7 +89,14 @@ const resetPasswordValidation = [
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);
-router.post('/forgot-password', forgotPasswordValidation, validate, authController.forgotPassword);
+router.post('/logout', auth, authController.logout);
+router.post(
+  '/forgot-password',
+  forgotPasswordValidation,
+  validate,
+  forgotPasswordThrottle,
+  authController.forgotPassword
+);
 router.post('/verify-code', verifyCodeValidation, validate, authController.verifyResetCode);
 router.post('/reset-password', resetPasswordValidation, validate, authController.resetPassword);
 
