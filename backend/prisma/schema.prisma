@@ -14,7 +14,7 @@ model Role {
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   users       User[]
-  modules     Module[] @relation("RoleModule")
+  roleModules RoleModule[]
 }
 
 model Module {
@@ -23,16 +23,16 @@ model Module {
   description String?  @db.VarChar(255)
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
-  roles       Role[]   @relation("RoleModule")
+  roleModules RoleModule[]
 }
 
 // Join table for Role and Module many-to-many relationship
 model RoleModule {
-  roleId   Int
-  moduleId Int
-  role     Role @relation(fields: [roleId], references: [id])
-  module   Module @relation(fields: [moduleId], references: [id])
-  
+  roleId   Int    @map("role_id")
+  moduleId Int    @map("module_id")
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
   @@id([roleId, moduleId])
   @@map("role_modules")
 }
@@ -50,6 +50,7 @@ model User {
   barber             Barber?
   client             Client?
   inventoryMovements InventoryMovement[]
+  auditLogs          AuditLog[]
   paymentsCreated    Payment[]           @relation("PaymentsCreated")
   purchasesCreated   Purchase[]          @relation("PurchasesCreated")
   role               Role                @relation(fields: [roleId], references: [id])
@@ -302,5 +303,5 @@ model AuditLog {
   details    Json?    
   createdAt  DateTime @default(now()) @map("created_at")
   
-  actor      User?    @relation(fields: [actorId], references: [id])
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
 }
