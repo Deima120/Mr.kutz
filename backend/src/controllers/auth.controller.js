@@ -7,6 +7,7 @@ import {
   clearLoginAttempts,
   registerFailedLogin,
 } from '../middlewares/loginThrottle.js';
+import { blacklistToken } from '../services/tokenBlacklist.service.js';
 
 /**
  * POST /api/auth/register
@@ -33,7 +34,7 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const result = await authService.login(email, password);
-    clearLoginAttempts(req);
+    await clearLoginAttempts(req);
     res.json({
       success: true,
       message: 'Sesión iniciada correctamente.',
@@ -41,7 +42,7 @@ export const login = async (req, res, next) => {
     });
   } catch (error) {
     if (error?.statusCode === 401) {
-      registerFailedLogin(req);
+      await registerFailedLogin(req);
     }
     next(error);
   }
@@ -60,6 +61,27 @@ export const getProfile = async (req, res, next) => {
     res.json({
       success: true,
       data: profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/logout
+ * Invalida el JWT actual (lista negra en Redis).
+ */
+export const logout = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Acceso denegado.' });
+    }
+    await blacklistToken(token);
+    res.json({
+      success: true,
+      message: 'Sesión cerrada correctamente.',
     });
   } catch (error) {
     next(error);

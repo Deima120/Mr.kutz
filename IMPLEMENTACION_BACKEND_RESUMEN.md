@@ -54,7 +54,11 @@ Este documento resume lo realizado en la API para **Gestión de Acceso**, **Gest
 
 ## 2) Gestión de Roles
 
+<<<<<<< Updated upstream
 ### Implementado.
+=======
+### Implementado
+>>>>>>> Stashed changes
 
 Rutas protegidas (admin):
 

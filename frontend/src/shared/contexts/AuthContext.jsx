@@ -31,7 +31,12 @@ export function AuthProvider({ children }) {
     } catch (_) {}
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch (_) {
+      // Limpiar sesión local aunque falle la lista negra en servidor
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);

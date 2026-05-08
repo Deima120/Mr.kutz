@@ -12,6 +12,7 @@ import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import * as authController from '../controllers/auth.controller.js';
+import { loginThrottle } from '../middlewares/loginThrottle.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 
 const router = express.Router();
@@ -30,8 +31,9 @@ const loginValidation = [
   body('password').notEmpty().withMessage('La contraseña es obligatoria.'),
 ];
 
-router.post('/auth/login', loginValidation, validate, authController.login);
+router.post('/auth/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/auth/me', auth, authController.getProfile);
+router.post('/auth/logout', auth, authController.logout);
 
 // ====== CLIENTE (requiere rol client) ======
 

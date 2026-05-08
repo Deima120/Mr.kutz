@@ -27,6 +27,10 @@ export const login = async (email, password) => {
   return data?.data ?? data;
 };
 
+export const logout = async () => {
+  await api.post(`${AUTH_BASE}/logout`);
+};
+
 /**
  * Obtiene el perfil del usuario autenticado
  */

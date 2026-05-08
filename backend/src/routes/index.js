@@ -18,6 +18,8 @@ import purchaseRoutes from './purchase.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import settingsRoutes from './settings.routes.js';
 import mobileRoutes from './mobile.routes.js';
+import roleRoutes from './role.routes.js';
+import userRoutes from './user.routes.js';
 
 const router = express.Router();
 
@@ -41,6 +43,8 @@ router.get('/', (req, res) => {
       dashboard: '/api/dashboard',
       settings: '/api/settings',
       mobile: '/api/mobile',
+      roles: '/api/roles',
+      usuarios: '/api/usuarios',
     },
   });
 });
@@ -58,5 +62,7 @@ router.use('/purchases', purchaseRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/mobile', mobileRoutes);
+router.use('/roles', roleRoutes);
+router.use('/usuarios', userRoutes);
 
 export default router;
