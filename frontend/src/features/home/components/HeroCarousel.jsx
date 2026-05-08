@@ -86,7 +86,7 @@ export default function HeroCarousel() {
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-4 pt-2">
-              <Link to="/appointments" className="btn-primary group">
+              <Link to="/reservar" className="btn-primary group">
                 Agenda tu cita
                 <span className="group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
               </Link>

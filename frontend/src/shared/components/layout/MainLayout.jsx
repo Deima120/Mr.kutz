@@ -202,7 +202,7 @@ export default function MainLayout() {
                     Iniciar sesión
                   </Link>
                   <Link
-                    to="/appointments"
+                    to="/reservar"
                     className="ml-2 px-5 py-2.5 bg-white text-barber-dark font-semibold text-sm hover:bg-stone-100 transition-colors duration-200"
                   >
                     Reserva
@@ -276,7 +276,7 @@ export default function MainLayout() {
                   <Link to="/login" onClick={closeMobile} className="px-4 py-3 text-stone-300 hover:text-white rounded-lg text-sm">
                     Iniciar sesión
                   </Link>
-                  <Link to="/appointments" onClick={closeMobile} className="px-4 py-3 bg-gold text-barber-dark font-semibold rounded-lg text-sm text-center mt-2">
+                  <Link to="/reservar" onClick={closeMobile} className="px-4 py-3 bg-gold text-barber-dark font-semibold rounded-lg text-sm text-center mt-2">
                     Reserva
                   </Link>
                   <Link to="/register" onClick={closeMobile} className="px-4 py-3 text-gold hover:text-gold-light rounded-lg text-sm text-center">
@@ -309,7 +309,7 @@ export default function MainLayout() {
             <div>
               <h3 className="text-white font-semibold text-xs tracking-widest mb-3">Contacto</h3>
               <p className="text-sm mb-2">¿Preguntas? Te esperamos.</p>
-              <Link to="/appointments" className="inline-flex items-center gap-1 text-gold hover:text-gold-light text-sm font-medium transition-colors">
+              <Link to="/reservar" className="inline-flex items-center gap-1 text-gold hover:text-gold-light text-sm font-medium transition-colors">
                 Agenda en línea
                 <span aria-hidden>→</span>
               </Link>
