@@ -6,19 +6,66 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  CalendarDays,
+  BarChart3,
+  UsersRound,
+  Sparkles,
+  ChevronDown,
+  Home,
+  LogOut,
+  X,
+  Menu,
+  Calendar,
+  User,
+  Scissors,
+  UserCog,
+  Star,
+  CreditCard,
+  ShoppingCart,
+  Package,
+  FileBarChart,
+  Settings,
+} from 'lucide-react';
 
-const adminNavItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { path: '/appointments', label: 'Citas', icon: '📅' },
-  { path: '/clients', label: 'Clientes', icon: '👥' },
-  { path: '/services', label: 'Servicios', icon: '✂️' },
-  { path: '/barbers', label: 'Barberos', icon: '🧔' },
-  { path: '/testimonials', label: 'Satisfacción', icon: '⭐' },
-  { path: '/payments', label: 'Pagos', icon: '💳' },
-  { path: '/purchases', label: 'Compras', icon: '🧾' },
-  { path: '/inventory', label: 'Inventario', icon: '📦' },
-  { path: '/reports', label: 'Reportes', icon: '📈' },
-  { path: '/settings', label: 'Configuración', icon: '⚙️' },
+const adminNavSections = [
+  {
+    id: 'center',
+    label: 'Centro de control',
+    items: [
+      { path: '/dashboard', label: 'Dashboard', description: 'Panel general', Icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: 'operation',
+    label: 'Operacion',
+    items: [
+      { path: '/appointments', label: 'Citas', description: 'Gestionar citas', Icon: Calendar },
+      { path: '/clients', label: 'Clientes', description: 'Base de datos', Icon: UsersRound },
+      { path: '/services', label: 'Servicios', description: 'Servicios y precios', Icon: Scissors },
+      { path: '/barbers', label: 'Barberos', description: 'Equipo de trabajo', Icon: UserCog },
+    ],
+  },
+  {
+    id: 'business',
+    label: 'Negocio',
+    items: [
+      { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
+      { path: '/payments', label: 'Pagos', description: 'Registro de pagos', Icon: CreditCard },
+      { path: '/purchases', label: 'Compras', description: 'Proveedores', Icon: ShoppingCart },
+      { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
+    ],
+  },
+  {
+    id: 'system',
+    label: 'Sistema',
+    items: [
+      { path: '/reports', label: 'Reportes', description: 'Estadisticas', Icon: FileBarChart },
+      { path: '/settings', label: 'Configuracion', description: 'Ajustes', Icon: Settings },
+    ],
+  },
 ];
 
 const barberNavSections = [
