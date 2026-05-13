@@ -4,8 +4,8 @@
  */
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const adminNavItems = [
   { path: '/dashboard', label: 'Dashboard', icon: '📊' },
