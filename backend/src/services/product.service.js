@@ -68,20 +68,20 @@ export const getById = async (id) => {
 };
 
 export const getLowStock = async () => {
-  const products = await prisma.$queryRaw`
-    SELECT p.id, p.name, p."minStock" as min_stock, COALESCE(i.quantity, 0) as quantity
-    FROM "Product" p
-    LEFT JOIN "Inventory" i ON i."productId" = p.id
-    WHERE p."isActive" = true
-      AND COALESCE(i.quantity, 0) <= p."minStock"
-    ORDER BY COALESCE(i.quantity, 0) ASC, p.name ASC
-  `;
-  return products.map((p) => ({
-    id: p.id,
-    name: p.name,
-    min_stock: Number(p.min_stock),
-    quantity: Number(p.quantity),
-  }));
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    include: { inventory: true },
+    orderBy: { name: 'asc' },
+  });
+  return products
+    .filter((p) => (p.inventory?.quantity ?? 0) <= (p.minStock ?? 0))
+    .sort((a, b) => (a.inventory?.quantity ?? 0) - (b.inventory?.quantity ?? 0))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      min_stock: p.minStock,
+      quantity: p.inventory?.quantity ?? 0,
+    }));
 };
 
 export const create = async (data) => {
