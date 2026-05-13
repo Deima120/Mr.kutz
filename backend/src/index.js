@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 
 import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
@@ -23,6 +24,11 @@ if (process.env.NODE_ENV === 'production') {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ========== SEGURIDAD ==========
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use(helmet());
 
 // ========== MIDDLEWARES GLOBALES ==========
 // Orígenes permitidos (frontend web + app Flutter)
