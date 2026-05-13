@@ -2,6 +2,7 @@
  * Appointment Controller
  */
 
+import prisma from '../lib/prisma.js';
 import * as appointmentService from '../services/appointment.service.js';
 
 export const getAll = async (req, res, next) => {
@@ -143,24 +144,32 @@ export const submitClientRating = async (req, res, next) => {
 export const update = async (req, res, next) => {
   try {
     let body = { ...req.body };
-    const existingForRole = await appointmentService.getById(req.params.id);
-    if (!existingForRole) {
+    const apptId = parseInt(req.params.id, 10);
+    const existing = await prisma.appointment.findUnique({
+      where: { id: apptId },
+      select: {
+        id: true,
+        clientId: true,
+        barberId: true,
+        status: true,
+      },
+    });
+    if (!existing) {
       return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
 
     if (req.user.role_name === 'barber' && req.user.barber_id) {
-      if (Number(existingForRole.barber_id) !== Number(req.user.barber_id)) {
+      if (Number(existing.barberId) !== Number(req.user.barber_id)) {
         return res.status(403).json({ success: false, message: 'Solo puedes editar citas asignadas a ti.' });
       }
     }
 
     if (req.user.role_name === 'client' && req.user.client_id) {
-      const ownerClientId = existingForRole.client_id ?? existingForRole.clientId;
-      if (Number(ownerClientId) !== Number(req.user.client_id)) {
+      if (Number(existing.clientId) !== Number(req.user.client_id)) {
         return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propias citas.' });
       }
       const terminal = ['cancelled', 'no_show', 'completed'];
-      if (terminal.includes(existingForRole.status)) {
+      if (terminal.includes(existing.status)) {
         return res.status(400).json({
           success: false,
           message: 'No se puede editar una cita cancelada, completada o marcada como no asistió.',

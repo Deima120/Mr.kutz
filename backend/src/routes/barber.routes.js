@@ -7,21 +7,14 @@ import express from 'express';
 import { body, param } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { strongPassword } from '../utils/validation.js';
 import * as barberController from '../controllers/barber.controller.js';
 
 const router = express.Router();
 
 const createValidation = [
   body('email').isEmail().normalizeEmail(),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('La contraseña debe tener al menos 8 caracteres.')
-    .matches(/[A-Z]/)
-    .withMessage('La contraseña debe incluir al menos una mayúscula.')
-    .matches(/[a-z]/)
-    .withMessage('La contraseña debe incluir al menos una minúscula.')
-    .matches(/\d/)
-    .withMessage('La contraseña debe incluir al menos un número.'),
+  ...strongPassword('password'),
   body('firstName').trim().notEmpty().isLength({ max: 100 }),
   body('lastName').trim().notEmpty().isLength({ max: 100 }),
   body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),

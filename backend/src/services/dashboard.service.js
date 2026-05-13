@@ -8,8 +8,10 @@ export const getStats = async (dateFrom, dateTo) => {
   const from = dateFrom || new Date().toISOString().slice(0, 10);
   const to = dateTo || from;
 
-  const fromDate = new Date(from);
-  const toDate = new Date(to + 'T23:59:59.999Z');
+  const [fy, fm, fd] = from.split('-').map(Number);
+  const [ty, tm, td] = to.split('-').map(Number);
+  const fromDate = new Date(fy, (fm || 1) - 1, fd || 1, 0, 0, 0, 0);
+  const toDate = new Date(ty, (tm || 1) - 1, td || 1, 23, 59, 59, 999);
 
   const [sales, appointments, servicesTop, barbersTop, lowStock, clientsCount] = await Promise.all([
     prisma.payment.aggregate({
