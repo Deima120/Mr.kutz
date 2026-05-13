@@ -5,7 +5,7 @@
 import prisma from '../lib/prisma.js';
 
 export const getSettings = async () => {
-let settings = await prisma.businessSetting.findFirst({ where: { id: 1 } });
+let settings = await prisma.businessSetting.findFirst({ orderBy: { id: 'asc' } });
   if (!settings) {
     settings = await prisma.businessSetting.create({
       data: { id: 1, businessName: 'Mr. Kutz' },
@@ -72,7 +72,7 @@ const DEFAULT_PUBLIC = {
 export const getPublicSettings = async () => {
   try {
     const settings = await prisma.businessSetting.findFirst({
-      where: { id: 1 },
+      orderBy: { id: 'asc' },
       select: {
         businessName: true,
         logoUrl: true,

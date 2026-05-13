@@ -159,9 +159,18 @@ export const update = async (id, data) => {
 };
 
 export const remove = async (id) => {
-  await prisma.client.delete({
-    where: { id: parseInt(id, 10) },
+  const clientId = parseInt(id, 10);
+  const appointmentCount = await prisma.appointment.count({
+    where: { clientId },
   });
+  if (appointmentCount > 0) {
+    const err = new Error(
+      `No se puede eliminar el cliente porque tiene ${appointmentCount} cita(s) registrada(s).`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+  await prisma.client.delete({ where: { id: clientId } });
   return true;
 };
 

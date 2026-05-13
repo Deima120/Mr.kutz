@@ -43,12 +43,15 @@ async function assertNoOverlap({ barberId, appointmentDate, startMin, endMin, ex
   }
 }
 
-/** Convierte Date o string de tiempo a "HH:MM" (misma zona que al guardar horarios del barbero) */
+/** Convierte Date o string de tiempo a "HH:MM" */
 function toTimeStr(d) {
-  if (!d) return '09:00';
+  if (!d) {
+    throw new Error('Valor de tiempo inválido.');
+  }
   if (typeof d === 'string') {
     const match = d.match(/^(\d{1,2}):(\d{2})/);
-    return match ? `${String(match[1]).padStart(2, '0')}:${match[2]}` : '09:00';
+    if (match) return `${String(match[1]).padStart(2, '0')}:${match[2]}`;
+    throw new Error(`Formato de hora inválido: "${d}"`);
   }
   if (d instanceof Date) {
     const h = d.getHours();
@@ -57,7 +60,8 @@ function toTimeStr(d) {
   }
   const s = String(d);
   const match = s.match(/(\d{1,2}):(\d{2})/);
-  return match ? `${String(match[1]).padStart(2, '0')}:${match[2]}` : '09:00';
+  if (match) return `${String(match[1]).padStart(2, '0')}:${match[2]}`;
+  throw new Error(`Valor de tiempo no reconocido: "${s}"`);
 }
 
 export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
@@ -358,9 +362,9 @@ export const create = async (data) => {
   return full;
 };
 
-export const update = async (id, data) => {
+export const update = async (id, data, existingAppointment = null) => {
   const apptId = parseInt(id, 10);
-  const existing = await prisma.appointment.findUnique({
+  const existing = existingAppointment || await prisma.appointment.findUnique({
     where: { id: apptId },
     include: { service: true },
   });
