@@ -7,8 +7,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
-import prisma from './lib/prisma.js';
 
 import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
@@ -87,7 +85,6 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-app.use(morgan('dev'));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -102,15 +99,6 @@ app.get('/health', (req, res) => {
 
 // ========== MANEJO DE ERRORES ==========
 app.use(errorHandler);
-
-// ========== GRACEFUL SHUTDOWN ==========
-const gracefulShutdown = async (signal) => {
-  console.log(`\n${signal} recibida. Cerrando servidor...`);
-  await prisma.$disconnect();
-  process.exit(0);
-};
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // ========== INICIAR SERVIDOR ==========
 const startServer = async () => {

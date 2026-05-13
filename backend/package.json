@@ -18,9 +18,6 @@
     "remove-demo-users": "node scripts/remove-demo-users.mjs",
     "mail:test": "node scripts/probar-correo.mjs"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
@@ -30,14 +27,14 @@
     "express-validator": "^7.0.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.1",
     "nodemailer": "^8.0.4",
     "pg": "^8.11.3",
+    "prisma": "^5.22.0",
     "resend": "^6.10.0",
     "validator": "^13.12.0"
   },
   "devDependencies": {
-    "prisma": "^5.22.0"
+    "nodemon": "^3.0.2"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

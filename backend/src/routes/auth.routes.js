@@ -10,8 +10,19 @@ import { body } from 'express-validator';
 import { auth } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { loginThrottle } from '../middlewares/loginThrottle.js';
-import { strongPassword } from '../utils/validation.js';
 import * as authController from '../controllers/auth.controller.js';
+
+const strongPassword = (field) => [
+  body(field)
+    .isLength({ min: 8 })
+    .withMessage('La contraseña debe tener al menos 8 caracteres.')
+    .matches(/[A-Z]/)
+    .withMessage('La contraseña debe incluir al menos una mayúscula.')
+    .matches(/[a-z]/)
+    .withMessage('La contraseña debe incluir al menos una minúscula.')
+    .matches(/\d/)
+    .withMessage('La contraseña debe incluir al menos un número.'),
+];
 
 const router = express.Router();
 
