@@ -391,7 +391,7 @@ export default function HomePage() {
 
           <div className="text-center mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/appointments"
+              to="/reservar"
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-gold text-barber-dark font-semibold text-sm uppercase tracking-widest hover:bg-gold/90 transition-colors rounded-sm"
             >
               Agendar cita
@@ -472,7 +472,7 @@ export default function HomePage() {
           <p className="text-stone-400 mb-12 max-w-lg mx-auto text-lg md:text-xl">
             Agenda en línea en segundos. Elige fecha, barbero y servicio.
           </p>
-          <Link to="/appointments" className="btn-primary">
+          <Link to="/reservar" className="btn-primary">
             Agenda tu cita ahora
             <span className="inline-block ml-1" aria-hidden>
               →
@@ -523,7 +523,7 @@ export default function HomePage() {
 
       <div className="fixed bottom-5 right-5 z-40">
         <Link
-          to="/appointments/new"
+          to="/reservar"
           className="inline-flex items-center gap-2 px-4 sm:px-5 py-3 rounded-full bg-gold text-barber-dark font-semibold shadow-[0_14px_32px_rgba(0,0,0,0.28)] hover:bg-gold-light transition-colors"
         >
           Reservar ahora
