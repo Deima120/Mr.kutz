@@ -3,68 +3,22 @@
  * Admin: acceso completo. Barber: acceso operativo.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  BarChart3,
-  Boxes,
-  CalendarCheck,
-  CalendarDays,
-  ChevronDown,
-  CreditCard,
-  Home,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  PackageCheck,
-  Scissors,
-  Settings,
-  Sparkles,
-  Star,
-  TrendingUp,
-  UserRound,
-  UsersRound,
-  X,
-} from 'lucide-react';
-import { useAuth } from '@/shared/contexts/AuthContext';
-import { useSettings } from '@/shared/contexts/SettingsContext';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 
-const adminNavSections = [
-  {
-    id: 'center',
-    label: 'Centro de control',
-    items: [
-      { path: '/dashboard', label: 'Dashboard', description: 'Vista general', Icon: LayoutDashboard },
-    ],
-  },
-  {
-    id: 'operation',
-    label: 'Operacion',
-    items: [
-      { path: '/appointments', label: 'Citas', description: 'Agenda y estados', Icon: CalendarCheck },
-      { path: '/clients', label: 'Clientes', description: 'Historial y perfiles', Icon: UsersRound },
-      { path: '/services', label: 'Servicios', description: 'Catalogo de cortes', Icon: Scissors },
-      { path: '/barbers', label: 'Barberos', description: 'Equipo y horarios', Icon: UserRound },
-      { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
-    ],
-  },
-  {
-    id: 'business',
-    label: 'Negocio',
-    items: [
-      { path: '/payments', label: 'Pagos', description: 'Ventas cobradas', Icon: CreditCard },
-      { path: '/purchases', label: 'Compras', description: 'Entradas de stock', Icon: PackageCheck },
-      { path: '/inventory', label: 'Inventario', description: 'Productos y alertas', Icon: Boxes },
-      { path: '/reports', label: 'Reportes', description: 'Metricas clave', Icon: TrendingUp },
-    ],
-  },
-  {
-    id: 'system',
-    label: 'Sistema',
-    items: [
-      { path: '/settings', label: 'Configuracion', description: 'Marca y negocio', Icon: Settings },
-    ],
-  },
+const adminNavItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
+  { path: '/appointments', label: 'Citas', icon: '📅' },
+  { path: '/clients', label: 'Clientes', icon: '👥' },
+  { path: '/services', label: 'Servicios', icon: '✂️' },
+  { path: '/barbers', label: 'Barberos', icon: '🧔' },
+  { path: '/testimonials', label: 'Satisfacción', icon: '⭐' },
+  { path: '/payments', label: 'Pagos', icon: '💳' },
+  { path: '/purchases', label: 'Compras', icon: '🧾' },
+  { path: '/inventory', label: 'Inventario', icon: '📦' },
+  { path: '/reports', label: 'Reportes', icon: '📈' },
+  { path: '/settings', label: 'Configuración', icon: '⚙️' },
 ];
 
 const barberNavSections = [

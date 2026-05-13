@@ -10,7 +10,7 @@ import { canonicalEmail } from '../utils/emailCanonical.js';
 import * as settingsService from './settings.service.js';
 
 const SALT_ROUNDS = 10;
-const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
+const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '24h';
 
 export const register = async (userData) => {
   const {
@@ -108,25 +108,21 @@ export const login = async (email, password) => {
   });
 
   if (!dbUser) {
-    const error = new Error(
-      'No existe una cuenta con este correo electrónico. Verifica que esté bien escrito o regístrate si aún no tienes cuenta.'
-    );
+    const error = new Error('Credenciales inválidas.');
     error.statusCode = 401;
     error.reason = 'USER_NOT_FOUND';
     throw error;
   }
 
   if (!dbUser.isActive) {
-    const error = new Error('Tu cuenta está desactivada. Contacta al administrador.');
+    const error = new Error('Credenciales inválidas.');
     error.statusCode = 401;
     error.reason = 'ACCOUNT_DISABLED';
     throw error;
   }
 
   if (!dbUser.passwordHash) {
-    const error = new Error(
-      'Esta cuenta no puede iniciar sesión de forma habitual. Contacta al administrador.'
-    );
+    const error = new Error('Credenciales inválidas.');
     error.statusCode = 401;
     error.reason = 'NO_PASSWORD';
     throw error;
@@ -137,16 +133,14 @@ export const login = async (email, password) => {
     isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
   } catch (bcryptError) {
     console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
-    const error = new Error('No pudimos verificar la contraseña. Intenta de nuevo.');
+    const error = new Error('Credenciales inválidas.');
     error.statusCode = 401;
     error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 
   if (!isValidPassword) {
-    const error = new Error(
-      'La contraseña no es correcta. Comprueba mayúsculas y números, o usa «¿Olvidaste tu contraseña?» si la olvidaste.'
-    );
+    const error = new Error('Credenciales inválidas.');
     error.statusCode = 401;
     error.reason = 'INVALID_PASSWORD';
     throw error;
@@ -207,7 +201,6 @@ export const forgotPassword = async (email) => {
   return {
     message: 'Si el correo existe, recibirás instrucciones en breve.',
     emailSent: !!delivery?.sent,
-    ...(process.env.NODE_ENV !== 'production' && { resetCode }),
   };
 };
 
@@ -291,9 +284,12 @@ export const getProfile = async (userId) => {
 };
 
 const generateToken = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET no está configurado en el entorno.');
+  }
   return jwt.sign(
     { userId },
-    process.env.JWT_SECRET || 'dev-secret-change-in-production',
+    process.env.JWT_SECRET,
     { expiresIn: TOKEN_EXPIRES }
   );
 };
