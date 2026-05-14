@@ -78,6 +78,7 @@ export const forgotPassword = async (req, res, next) => {
       success: true,
       message: result.message,
       emailSent: result.emailSent ?? null,
+      ...(result.resetCode ? { resetCode: result.resetCode } : {}),
     });
   } catch (error) {
     next(error);

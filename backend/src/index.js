@@ -27,11 +27,6 @@ if (process.env.NODE_ENV === 'production') {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ========== SEGURIDAD ==========
-app.set('trust proxy', 1);
-app.disable('x-powered-by');
-app.use(helmet());
-
 // ========== MIDDLEWARES GLOBALES ==========
 // Orígenes permitidos (frontend web + app Flutter)
 const allowedOrigins = [
