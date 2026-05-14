@@ -14,6 +14,7 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
 import AppointmentRatingsPanel from '@/shared/components/admin/AppointmentRatingsPanel';
+import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -36,7 +37,7 @@ function BarberDashboard() {
   const [ratingLoading, setRatingLoading] = useState(true);
   const [ratingError, setRatingError] = useState('');
   const [ratingPeriod, setRatingPeriod] = useState('30');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateToday();
 
   const refreshAll = async () => {
     if (!user?.barberId) return;
@@ -332,12 +333,12 @@ function AdminDashboard() {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
-  const [dateFrom, setDateFrom] = useState(new Date(new Date().setDate(1)).toISOString().slice(0, 10));
-  const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfMonth());
+  const [dateTo, setDateTo] = useState(getLocalDateToday());
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState('');
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateToday();
   const [appointments, setAppointments] = useState([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState('');

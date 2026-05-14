@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
-import { formatAppointmentCalendarDate, appointmentNotesOf } from '@/shared/utils/appointmentTime';
+import { formatAppointmentCalendarDate, appointmentNotesOf, getLocalDateToday, getLocalFirstDayOfPreviousMonth } from '@/shared/utils/appointmentTime';
 import { AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
 
 export default function HistoryPage() {
@@ -13,10 +13,8 @@ export default function HistoryPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [dateFrom, setDateFrom] = useState(
-    new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 10)
-  );
-  const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfPreviousMonth());
+  const [dateTo, setDateTo] = useState(getLocalDateToday());
 
   useEffect(() => {
     if (!user?.barberId) return;

@@ -37,7 +37,7 @@ export function extractAppointmentDateYmd(raw) {
     if (head) return `${head[1]}-${head[2]}-${head[3]}`;
   }
   if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
-    return raw.toISOString().slice(0, 10);
+    return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}-${String(raw.getDate()).padStart(2, '0')}`;
   }
   const s = String(raw).trim();
   const head = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -62,6 +62,25 @@ export function formatAppointmentCalendarDate(
     month: 'short',
     ...dateStyleOpts,
   });
+}
+
+/** Fecha local de hoy en formato YYYY-MM-DD */
+export function getLocalDateToday() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+/** Primer día del mes local en formato YYYY-MM-DD */
+export function getLocalFirstDayOfMonth() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/** Primer día del mes anterior local en formato YYYY-MM-DD */
+export function getLocalFirstDayOfPreviousMonth() {
+  const today = new Date();
+  const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  return `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
 /** Notas de la cita tal como las devuelve la API (`notes`); texto recortado o null si no hay. */

@@ -17,6 +17,8 @@
 import { useMemo, useRef, useState } from 'react';
 
 const START_HOUR = 8;
+import { getLocalDateToday } from '@/shared/utils/appointmentTime';
+
 const END_HOUR = 21;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 30;
@@ -86,7 +88,7 @@ export default function WeeklyAgendaGrid({
   loading = false,
 }) {
   const days = useMemo(() => weekDays(dateFrom), [dateFrom]);
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = getLocalDateToday();
 
   /** agrupa por día ISO */
   const byDay = useMemo(() => {

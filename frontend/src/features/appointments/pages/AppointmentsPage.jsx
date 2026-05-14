@@ -20,6 +20,7 @@ import {
   formatAppointmentCalendarDate,
   extractAppointmentDateYmd,
   appointmentNotesOf,
+  getLocalDateToday,
 } from '@/shared/utils/appointmentTime';
 
 const STATUS_LABELS = {
@@ -131,7 +132,7 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [filterDate, setFilterDate] = useState(
-    new Date().toISOString().slice(0, 10)
+    getLocalDateToday()
   );
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as bookingService from '@/features/booking/services/publicBookingService';
+import { getLocalDateToday } from '@/shared/utils/appointmentTime';
 
 function formatPrice(v) {
   const n = Number(v || 0);
@@ -15,13 +16,6 @@ function formatPrice(v) {
   }
 }
 
-function todayISO() {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
 export default function BookingPage() {
   const [barbers, setBarbers] = useState([]);
   const [services, setServices] = useState([]);
@@ -31,7 +25,7 @@ export default function BookingPage() {
   const [form, setForm] = useState({
     serviceId: '',
     barberId: '',
-    appointmentDate: todayISO(),
+    appointmentDate: getLocalDateToday(),
     startTime: '',
     firstName: '',
     lastName: '',
@@ -98,6 +92,7 @@ export default function BookingPage() {
       cancelled = true;
     };
   }, [form.barberId, form.appointmentDate]);
+
 
   const selectedService = useMemo(
     () => services.find((s) => String(s.id) === String(form.serviceId)) || null,
@@ -280,7 +275,7 @@ export default function BookingPage() {
                 id="appointmentDate"
                 name="appointmentDate"
                 type="date"
-                min={todayISO()}
+                min={getLocalDateToday()}
                 value={form.appointmentDate}
                 onChange={onChange}
                 className="input-premium"

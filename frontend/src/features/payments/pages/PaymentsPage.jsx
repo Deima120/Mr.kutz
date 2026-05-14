@@ -9,14 +9,13 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
   const [total, setTotal] = useState({ total: 0, count: 0 });
-  const [dateFrom, setDateFrom] = useState(
-    new Date(new Date().setDate(1)).toISOString().slice(0, 10)
-  );
-  const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfMonth());
+  const [dateTo, setDateTo] = useState(getLocalDateToday());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

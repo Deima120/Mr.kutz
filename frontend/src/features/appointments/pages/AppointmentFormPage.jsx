@@ -18,7 +18,7 @@ import AdminFormShell, {
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
 } from '@/shared/components/admin/AdminFormShell';
-import { formatAppointmentClockTime, extractAppointmentDateYmd, formatAppointmentCalendarDate } from '@/shared/utils/appointmentTime';
+import { formatAppointmentClockTime, extractAppointmentDateYmd, formatAppointmentCalendarDate, getLocalDateToday } from '@/shared/utils/appointmentTime';
 
 
 const stepKickerClass =
@@ -35,14 +35,14 @@ export default function AppointmentFormPage() {
   const [barbers, setBarbers] = useState([]);
   const [services, setServices] = useState([]);
   const [slots, setSlots] = useState([]);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     clientId: isClient ? String(user?.clientId ?? '') : '',
     barberId: '',
     serviceId: '',
-    appointmentDate: new Date().toISOString().slice(0, 10),
+    appointmentDate: getLocalDateToday(),
     startTime: '',
     notes: '',
-  });
+  }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -51,7 +51,7 @@ export default function AppointmentFormPage() {
   const [loadError, setLoadError] = useState('');
 
   const dateInputMin = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalDateToday();
     if (!isEdit || !formData.appointmentDate) return today;
     return formData.appointmentDate < today ? formData.appointmentDate : today;
   }, [isEdit, formData.appointmentDate]);
