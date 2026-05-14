@@ -18,7 +18,8 @@ import AdminFormShell, {
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
 } from '@/shared/components/admin/AdminFormShell';
-import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
+import { formatAppointmentClockTime, extractAppointmentDateYmd, formatAppointmentCalendarDate } from '@/shared/utils/appointmentTime';
+
 
 const stepKickerClass =
   'text-[10px] font-semibold tracking-[0.28em] text-gold mb-3';
