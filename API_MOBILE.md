@@ -93,7 +93,7 @@ Todas las respuestas siguen el formato:
   - `date` (string, formato `YYYY-MM-DD`, requerido)
 
 - **Ejemplo**:
-  - `GET /client/availability?barberId=1&date=2026-03-20`
+  - `GET /client/availability?barberId=1&date=2026-05-13`
 
 - **Respuesta 200 (ejemplo)**:
 
@@ -120,7 +120,7 @@ Todas las respuestas siguen el formato:
   - `limit`, `offset` (paginación, por defecto `limit=100`)
 
 - **Ejemplo**:
-  - `GET /client/appointments?dateFrom=2026-03-01&dateTo=2026-03-31&status=completed`
+  - `GET /client/appointments?dateFrom=2026-05-01&dateTo=2026-05-31&status=completed`
 
 - **Respuesta 200 (ejemplo simplificado)**:
 
@@ -130,7 +130,7 @@ Todas las respuestas siguen el formato:
   "data": [
     {
       "id": 10,
-      "appointment_date": "2026-03-20T00:00:00.000Z",
+      "appointment_date": "2026-05-13T00:00:00.000Z",
       "start_time": "1970-01-01T10:00:00.000Z",
       "status": "completed",
       "client_first_name": "María",
@@ -140,7 +140,7 @@ Todas las respuestas siguen el formato:
       "service_name": "Corte + Barba",
       "clientRating": 5,
       "clientRatingComment": "Excelente servicio",
-      "clientRatedAt": "2026-04-07T15:30:00.000Z"
+      "clientRatedAt": "2026-05-13T15:30:00.000Z"
     }
   ]
 }
@@ -158,7 +158,7 @@ Todas las respuestas siguen el formato:
 {
   "barberId": 1,
   "serviceId": 3,
-  "appointmentDate": "2026-03-20",
+  "appointmentDate": "2026-05-13",
   "startTime": "10:00",
   "notes": "Corte antes de evento"
 }
@@ -177,7 +177,7 @@ Todas las respuestas siguen el formato:
     "barberId": 1,
     "clientId": 5,
     "serviceId": 3,
-    "appointmentDate": "2026-03-20",
+    "appointmentDate": "2026-05-13",
     "startTime": "10:00",
     "status": "scheduled"
   }
@@ -223,7 +223,7 @@ Usar la API principal (no el prefijo `/mobile`), con JWT de rol **barber** u **a
       "clientName": "María García",
       "rating": 5,
       "comment": "Muy bien",
-      "date": "2026-04-07T12:00:00.000Z",
+      "date": "2026-05-13T12:00:00.000Z",
       "serviceName": "Corte + barba",
       "barberName": "Carlos López"
     }
