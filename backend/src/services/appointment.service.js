@@ -217,9 +217,9 @@ export const submitClientRating = async (appointmentId, clientId, { rating, comm
 
 /**
  * Resumen agregado de valoraciones (barbero concreto o global si barberId es null).
- * @param {{ barberId: number | null, days: number | null, recentTake?: number }} opts — days null = sin límite temporal
+ * @param {{ barberId: number | null, days: number | null, recentTake?: number, minRating?: number }} opts — days null = sin límite temporal
  */
-export const getRatingSummary = async ({ barberId = null, days = null, recentTake = 50 } = {}) => {
+export const getRatingSummary = async ({ barberId = null, days = null, recentTake = 50, minRating = null } = {}) => {
   const where = {
     status: 'completed',
     clientRating: { not: null },
@@ -232,6 +232,9 @@ export const getRatingSummary = async ({ barberId = null, days = null, recentTak
     since.setUTCDate(since.getUTCDate() - days);
     since.setUTCHours(0, 0, 0, 0);
     where.clientRatedAt = { gte: since };
+  }
+  if (minRating != null && minRating > 0) {
+    where.clientRating = { gte: minRating };
   }
 
   const takeRecent = Math.min(Math.max(1, recentTake), 50);
@@ -296,7 +299,7 @@ export const getRatingSummary = async ({ barberId = null, days = null, recentTak
 
 /**
  * Resumen público para la landing (sin autenticación): mismas métricas que rating-summary global,
- * con la lista `recent` acotada por privacidad y rendimiento.
+ * con la lista `recent` acotada por privacidad y rendimiento. Solo muestra reseñas de 4+ estrellas.
  */
 export const getPublicRatingSummary = async ({ recentLimit = 24 } = {}) => {
   const cap = Math.min(Math.max(1, recentLimit), 48);
@@ -304,6 +307,7 @@ export const getPublicRatingSummary = async ({ recentLimit = 24 } = {}) => {
     barberId: null,
     days: null,
     recentTake: cap,
+    minRating: 4,
   });
   return {
     average: full.average,
