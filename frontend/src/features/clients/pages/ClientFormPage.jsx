@@ -116,7 +116,21 @@ export default function ClientFormPage() {
       backTo="/clients"
       backLabel="Clientes"
       modeBadge={isEdit ? 'Edición' : 'Alta'}
-      aside={{stone-100/70 border border-stone-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] overflow-hidden"
+      aside={{
+        kicker: 'Experiencia',
+        title: 'Cada dato suma al servicio',
+        bullets: [
+          'Primero identifica al cliente con tipo y número de documento.',
+          'Correo y teléfono sirven para confirmar citas y enviar avisos.',
+          'Las notas son internas (máx. 500 caracteres) y el cliente no las ve.',
+        ],
+        statusLabel: 'Estado',
+        statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-stone-100/70 border border-stone-200/80 overflow-hidden"
       >
         <div
           className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
@@ -133,20 +147,6 @@ export default function ClientFormPage() {
               <span>{isEdit ? '✓ Cliente actualizado correctamente' : '✓ Cliente registrado correctamente'}</span>
             </div>
           )}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
-      >
-        <div
-          className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
-          aria-hidden
-        />
-        <div className="px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto">
-          <AdminFormCardHeader
-            eyebrow="Ficha de cliente"
-            title={isEdit ? 'Actualizar datos' : 'Registrar cliente'}
-          />
 
           {error && (
             <div className="alert-error shrink-0 text-xs py-2" role="alert">
