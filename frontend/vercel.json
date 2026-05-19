@@ -4,14 +4,8 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html",
-      "has": [
-        {
-          "type": "query",
-          "key": "__spa__"
-        }
-      ]
+      "source": "/(?!assets|.*\\.(?:js|css|svg|png|jpg|jpeg|webp|gif|woff2?|map|json)$)(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -23,3 +17,4 @@
     }
   ]
 }
+
