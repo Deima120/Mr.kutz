@@ -32,6 +32,7 @@ export default function ClientFormPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (isEdit) {
@@ -70,6 +71,18 @@ export default function ClientFormPage() {
       return;
     }
 
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('Nombre y apellido son obligatorios.');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.email && !formData.email.includes('@')) {
+      setError('Correo inválido.');
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -83,10 +96,12 @@ export default function ClientFormPage() {
     try {
       if (isEdit) {
         await clientService.updateClient(id, payload);
-        navigate(`/clients/${id}`, { replace: true });
+        setSuccess(true);
+        setTimeout(() => navigate('/clients', { replace: true }), 1500);
       } else {
         const client = await clientService.createClient(payload);
-        navigate(`/clients/${client.id}`, { replace: true });
+        setSuccess(true);
+        setTimeout(() => navigate('/clients', { replace: true }), 1500);
       }
     } catch (err) {
       const msg = err?.errors?.[0]?.message || err?.message || 'Error al guardar';
@@ -101,17 +116,23 @@ export default function ClientFormPage() {
       backTo="/clients"
       backLabel="Clientes"
       modeBadge={isEdit ? 'Edición' : 'Alta'}
-      aside={{
-        kicker: 'Experiencia',
-        title: 'Cada dato suma al servicio',
-        bullets: [
-          'Primero identifica al cliente con tipo y número de documento.',
-          'Correo y teléfono sirven para confirmar citas y enviar avisos.',
-          'Las notas son internas (máx. 500 caracteres) y el cliente no las ve.',
-        ],
-        statusLabel: 'Estado',
-        statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
-      }}
+      aside={{stone-100/70 border border-stone-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] overflow-hidden"
+      >
+        <div
+          className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
+          aria-hidden
+        />
+        <div className="px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto">
+          <AdminFormCardHeader
+            eyebrow="Ficha de cliente"
+            title={isEdit ? 'Actualizar datos' : 'Registrar cliente'}
+          />
+
+          {success && (
+            <div className="alert-success shrink-0 text-xs py-2 flex items-center justify-between" role="status">
+              <span>{isEdit ? '✓ Cliente actualizado correctamente' : '✓ Cliente registrado correctamente'}</span>
+            </div>
+          )}
     >
       <form
         onSubmit={handleSubmit}
@@ -207,7 +228,7 @@ export default function ClientFormPage() {
             </div>
             <div className="group">
               <label htmlFor="email" className={ADMIN_FORM_LABEL_CLASS}>
-                Correo
+                Correo <span className="text-red-600 normal-case">*</span>
               </label>
               <input
                 id="email"
@@ -217,6 +238,7 @@ export default function ClientFormPage() {
                 onChange={handleChange}
                 className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
                 placeholder="correo@ejemplo.com"
+                required
               />
             </div>
             <div className="group">

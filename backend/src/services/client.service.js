@@ -117,12 +117,44 @@ export const create = async (data) => {
     err.statusCode = 400;
     throw err;
   }
+
+  if (!data.email || !String(data.email).trim()) {
+    const err = new Error('El correo es obligatorio.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Validar que el documento sea único
+  const existingDocClient = await prisma.client.findFirst({
+    where: {
+      documentType: docType,
+      documentNumber: docNum,
+    },
+  });
+  if (existingDocClient) {
+    const err = new Error('Ya existe un cliente con este documento.');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // Validar que el correo sea único
+  const existingEmailClient = await prisma.client.findFirst({
+    where: {
+      email: String(data.email).trim().toLowerCase(),
+    },
+  });
+  if (existingEmailClient) {
+    const err = new Error('Ya existe un cliente con este correo.');
+    err.statusCode = 409;
+    throw err;
+  }
+
   const client = await prisma.client.create({
     data: {
       firstName: data.firstName,
       lastName: data.lastName,
       phone: data.phone || null,
-      email: data.email || null,
+      email: String(data.email).trim().toLowerCase(),
       documentType: docType,
       documentNumber: docNum,
       notes: normNotes(data.notes),
@@ -133,11 +165,32 @@ export const create = async (data) => {
 };
 
 export const update = async (id, data) => {
+  const clientId = parseInt(id, 10);
   const patch = {};
   if (data.firstName !== undefined) patch.firstName = data.firstName;
   if (data.lastName !== undefined) patch.lastName = data.lastName;
   if (data.phone !== undefined) patch.phone = data.phone || null;
-  if (data.email !== undefined) patch.email = data.email || null;
+  if (data.email !== undefined) {
+    if (!data.email || !String(data.email).trim()) {
+      const err = new Error('El correo es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    const emailLower = String(data.email).trim().toLowerCase();
+    // Validar que el correo no exista en otro cliente
+    const existingEmailClient = await prisma.client.findFirst({
+      where: {
+        email: emailLower,
+        NOT: { id: clientId },
+      },
+    });
+    if (existingEmailClient) {
+      const err = new Error('Ya existe otro cliente con este correo.');
+      err.statusCode = 409;
+      throw err;
+    }
+    patch.email = emailLower;
+  }
   if (data.documentType !== undefined || data.documentNumber !== undefined) {
     const docType = normDocType(data.documentType);
     const docNum = normDocNumber(data.documentNumber);
@@ -146,13 +199,26 @@ export const update = async (id, data) => {
       err.statusCode = 400;
       throw err;
     }
+    // Validar que el documento no exista en otro cliente
+    const existingDocClient = await prisma.client.findFirst({
+      where: {
+        documentType: docType,
+        documentNumber: docNum,
+        NOT: { id: clientId },
+      },
+    });
+    if (existingDocClient) {
+      const err = new Error('Ya existe otro cliente con este documento.');
+      err.statusCode = 409;
+      throw err;
+    }
     patch.documentType = docType;
     patch.documentNumber = docNum;
   }
   if (data.notes !== undefined) patch.notes = normNotes(data.notes);
 
   const client = await prisma.client.update({
-    where: { id: parseInt(id, 10) },
+    where: { id: clientId },
     data: patch,
   });
   return toSnake(client);
