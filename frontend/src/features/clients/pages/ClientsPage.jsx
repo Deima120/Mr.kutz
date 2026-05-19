@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Eye, Edit2, Trash2 } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as clientService from '@/features/clients/services/clientService';
 import PageHeader from '@/shared/components/admin/PageHeader';
@@ -248,18 +248,20 @@ export default function ClientsPage() {
                     <TableCell>{client.email || '-'}</TableCell>
                     <TableCell>{client.phone || '-'}</TableCell>
                     <TableCell>
-                      <div className="flex gap-3">
+                      <div className="flex gap-2">
                         <Link
                           to={`/clients/${client.id}`}
-                          className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
+                          title="Ver cliente"
+                          className="p-2 text-barber-dark hover:text-gold hover:bg-stone-100 rounded-lg transition-colors"
                         >
-                          Ver
+                          <Eye className="w-5 h-5" strokeWidth={2} />
                         </Link>
                         <Link
                           to={`/clients/${client.id}/edit`}
-                          className="text-sm text-stone-700 hover:text-gold font-medium"
+                          title="Editar cliente"
+                          className="p-2 text-stone-700 hover:text-gold hover:bg-stone-100 rounded-lg transition-colors"
                         >
-                          Editar
+                          <Edit2 className="w-5 h-5" strokeWidth={2} />
                         </Link>
                         <button
                           onClick={() =>
@@ -268,9 +270,10 @@ export default function ClientsPage() {
                               `${client.first_name} ${client.last_name}`
                             )
                           }
-                          className="text-sm text-red-600 hover:text-red-700 font-medium"
+                          title="Eliminar cliente"
+                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                         >
-                          Eliminar
+                          <Trash2 className="w-5 h-5" strokeWidth={2} />
                         </button>
                       </div>
                     </TableCell>
