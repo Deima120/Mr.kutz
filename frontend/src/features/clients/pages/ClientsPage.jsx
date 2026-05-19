@@ -173,11 +173,11 @@ export default function ClientsPage() {
                   documento_tipo: c.document_type || '',
                   documento_numero: c.document_number || '',
                 })))}
-                className="btn-admin-outline hover:bg-barber-dark hover:text-white hover:border-barber-dark transition-all duration-200"
+                className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors"
               >
                 Exportar CSV
               </button>
-              <button type="button" onClick={printAsPDF} className="btn-admin-outline hover:bg-barber-dark hover:text-white hover:border-barber-dark transition-all duration-200">
+              <button type="button" onClick={printAsPDF} className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors">
                 Exportar PDF
               </button>
               <Link to="/clients/new" className="btn-admin">
