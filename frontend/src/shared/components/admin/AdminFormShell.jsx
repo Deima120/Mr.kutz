@@ -127,9 +127,6 @@ export default function AdminFormShell({
             {backLabel}
           </Link>
           <span className="h-px flex-1 min-w-[3rem] bg-gradient-to-r from-gold/55 to-stone-300/40 rounded-full" />
-          {modeBadge && (
-            <span className="text-[10px] font-bold tracking-[0.28em] text-gold">{modeBadge}</span>
-          )}
         </div>
 
         <div
