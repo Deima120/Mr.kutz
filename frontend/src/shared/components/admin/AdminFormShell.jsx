@@ -86,7 +86,7 @@ export default function AdminFormShell({
   children,
   fullBleed = true,
 }) {
-  const asideVisible = showAside && aside && Array.isArray(aside.bullets) && aside.bullets.length > 0;
+  const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
 
   const bleedWidth =
     fullBleed
@@ -159,14 +159,18 @@ export default function AdminFormShell({
                   {aside.subtitle ? (
                     <p className="text-sm text-stone-500 -mt-3 mb-4">{aside.subtitle}</p>
                   ) : null}
-                  <ul className="text-sm text-stone-400 space-y-4 flex-1">
-                    {aside.bullets.map((line, i) => (
-                      <li key={i} className="flex gap-3">
-                        <span className="text-gold mt-0.5">●</span>
-                        <span>{line}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {aside.children ? (
+                    <div className="flex-1">{aside.children}</div>
+                  ) : (
+                    <ul className="text-sm text-stone-400 space-y-4 flex-1">
+                      {aside.bullets && aside.bullets.map((line, i) => (
+                        <li key={i} className="flex gap-3">
+                          <span className="text-gold mt-0.5">●</span>
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {(aside.statusLabel || aside.statusValue) && (
                     <div className="mt-6 pt-5 border-t border-stone-700/80">
                       {aside.statusLabel && (

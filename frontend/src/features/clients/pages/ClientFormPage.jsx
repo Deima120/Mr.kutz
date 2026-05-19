@@ -117,15 +117,46 @@ export default function ClientFormPage() {
       backLabel="Clientes"
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       aside={{
-        kicker: 'Experiencia',
-        title: 'Cada dato suma al servicio',
-        bullets: [
-          'Primero identifica al cliente con tipo y número de documento.',
-          'Correo y teléfono sirven para confirmar citas y enviar avisos.',
-          'Las notas son internas (máx. 500 caracteres) y el cliente no las ve.',
-        ],
+        kicker: 'Vista previa',
+        title: isEdit ? 'Datos actualizados' : 'Nuevo cliente',
+        subtitle: isEdit ? formData.firstName || 'Cliente' : 'Completa los datos',
+        bullets: [],
         statusLabel: 'Estado',
         statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+        children: (
+          <div className="space-y-4 mt-6">
+            <div>
+              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Nombre</p>
+              <p className="text-white font-medium">{formData.firstName || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Apellido</p>
+              <p className="text-white font-medium">{formData.lastName || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Documento</p>
+              <p className="text-white font-medium">
+                {formData.documentType && formData.documentNumber
+                  ? `${formData.documentType} · ${formData.documentNumber}`
+                  : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Correo</p>
+              <p className="text-white font-medium text-sm break-all">{formData.email || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Teléfono</p>
+              <p className="text-white font-medium">{formData.phone || '—'}</p>
+            </div>
+            {formData.notes && (
+              <div>
+                <p className="text-[10px] tracking-widest text-stone-500 mb-1">Notas</p>
+                <p className="text-stone-400 text-sm leading-relaxed">{formData.notes}</p>
+              </div>
+            )}
+          </div>
+        ),
       }}
     >
       <form
