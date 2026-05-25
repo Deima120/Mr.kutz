@@ -201,16 +201,7 @@ export default function ClientDetailPage() {
 
           {/* Botones de Acción */}
           <div className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto">
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(true)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white hover:bg-rose-50/50 text-rose-600 hover:text-rose-700 border border-stone-200 hover:border-rose-250 rounded-xl font-semibold shadow-sm transition-all duration-300 transform active:scale-95 group text-sm shrink-0"
-              >
-                <Trash2 className="w-4 h-4 transition-transform group-hover:scale-110" />
-                Eliminar cliente
-              </button>
-            )}
+            
             <Link
               to={`/clients/${id}/edit`}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-gold hover:text-gold-light border border-stone-800 hover:border-gold/45 rounded-xl font-semibold shadow-sm transition-all duration-300 transform active:scale-95 group text-sm shrink-0"
