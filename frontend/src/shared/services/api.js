@@ -49,7 +49,12 @@ function normalizeError(error) {
 
   // El servidor respondió con JSON (ej. 400, 404, 500)
   if (data && typeof data === 'object') {
-    return { ...data, message: data.message || 'Algo salió mal', status };
+    const validationMsg = Array.isArray(data.errors) && data.errors[0]?.message;
+    return {
+      ...data,
+      message: validationMsg || data.message || 'Algo salió mal',
+      status,
+    };
   }
 
   // Sin respuesta (red caída, CORS, servidor apagado)

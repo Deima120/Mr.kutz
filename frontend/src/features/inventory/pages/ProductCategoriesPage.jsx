@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Pencil, Trash2, Power, PowerOff, Check, X } from 'lucide-react';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import * as categoryService from '@/features/inventory/services/productCategoryService';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 
@@ -196,21 +198,24 @@ export default function ProductCategoriesPage() {
                           />
                         </div>
                       </TableCell>
+                      <TableCell compact className="text-xs tabular-nums">
+                        {getProductCount(r)}
+                      </TableCell>
                       <TableCell compact className="text-xs whitespace-nowrap">
                         {isCategoryActive(r) ? 'Activa' : 'Inactiva'}
                       </TableCell>
                       <TableCell compact className="text-right">
-                        <div className="flex flex-wrap justify-end gap-1.5">
-                          <button
-                            type="button"
+                        <div className="inline-flex justify-end gap-1.5">
+                          <AdminIconButton
+                            icon={Check}
+                            label="Guardar categoría"
                             onClick={() => saveEdit(r)}
-                            className="text-[11px] font-medium text-barber-dark hover:text-gold"
-                          >
-                            Guardar
-                          </button>
-                          <button type="button" onClick={cancelEdit} className="text-[11px] text-stone-500 hover:text-stone-700">
-                            Cancelar
-                          </button>
+                          />
+                          <AdminIconButton
+                            icon={X}
+                            label="Cancelar edición"
+                            onClick={cancelEdit}
+                          />
                         </div>
                       </TableCell>
                     </>
@@ -237,16 +242,23 @@ export default function ProductCategoriesPage() {
                         )}
                       </TableCell>
                       <TableCell compact>
-                        <div className="flex flex-wrap justify-end gap-x-2 gap-y-1 text-[11px]">
-                          <button type="button" onClick={() => startEdit(r)} className="font-medium text-barber-dark hover:text-gold">
-                            Editar
-                          </button>
-                          <button type="button" onClick={() => toggle(r)} className="text-stone-600 hover:text-stone-900">
-                            {isCategoryActive(r) ? 'Desactivar' : 'Activar'}
-                          </button>
-                          <button type="button" onClick={() => remove(r)} className="text-red-600 hover:text-red-700">
-                            Eliminar
-                          </button>
+                        <div className="inline-flex justify-end gap-1.5">
+                          <AdminIconButton
+                            icon={Pencil}
+                            label="Editar categoría"
+                            onClick={() => startEdit(r)}
+                          />
+                          <AdminIconButton
+                            icon={isCategoryActive(r) ? PowerOff : Power}
+                            label={isCategoryActive(r) ? 'Desactivar categoría' : 'Activar categoría'}
+                            onClick={() => toggle(r)}
+                          />
+                          <AdminIconButton
+                            icon={Trash2}
+                            label="Eliminar categoría"
+                            variant="danger"
+                            onClick={() => remove(r)}
+                          />
                         </div>
                       </TableCell>
                     </>

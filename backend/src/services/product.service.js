@@ -40,10 +40,10 @@ function buildProductWhere({ activeOnly, search, categoryId }) {
 }
 
 async function getLowStockPaginated({ activeOnly, search, categoryId, take, skip }) {
-  const parts = [Prisma.sql`COALESCE(i.quantity, 0) <= p."minStock"`];
-  if (activeOnly) parts.push(Prisma.sql`p."isActive" = true`);
+  const parts = [Prisma.sql`COALESCE(i.quantity, 0) <= p."min_stock"`];
+  if (activeOnly) parts.push(Prisma.sql`p."is_active" = true`);
   const cid = categoryId != null && categoryId !== '' ? parseInt(categoryId, 10) : null;
-  if (Number.isFinite(cid) && cid > 0) parts.push(Prisma.sql`p."categoryId" = ${cid}`);
+  if (Number.isFinite(cid) && cid > 0) parts.push(Prisma.sql`p."category_id" = ${cid}`);
   if (search?.trim()) {
     const term = `%${search.trim()}%`;
     parts.push(Prisma.sql`(p.name ILIKE ${term} OR p.sku ILIKE ${term})`);
@@ -53,7 +53,7 @@ async function getLowStockPaginated({ activeOnly, search, categoryId, take, skip
   const countRows = await prisma.$queryRaw`
     SELECT COUNT(*)::int AS count
     FROM "Product" p
-    LEFT JOIN "Inventory" i ON i."productId" = p.id
+    LEFT JOIN "Inventory" i ON i."product_id" = p.id
     ${whereClause}
   `;
   const total = Number(countRows[0]?.count ?? 0);
@@ -61,7 +61,7 @@ async function getLowStockPaginated({ activeOnly, search, categoryId, take, skip
   const idRows = await prisma.$queryRaw`
     SELECT p.id
     FROM "Product" p
-    LEFT JOIN "Inventory" i ON i."productId" = p.id
+    LEFT JOIN "Inventory" i ON i."product_id" = p.id
     ${whereClause}
     ORDER BY COALESCE(i.quantity, 0) ASC, p.name ASC
     LIMIT ${take} OFFSET ${skip}
@@ -86,32 +86,42 @@ async function getLowStockPaginated({ activeOnly, search, categoryId, take, skip
   };
 }
 
+async function getInventoryValuation() {
+  try {
+    const valuationRows = await prisma.$queryRaw`
+      SELECT COALESCE(SUM(COALESCE(i.quantity, 0) * COALESCE(p."cost_price", 0)), 0)::float AS value
+      FROM "Product" p
+      LEFT JOIN "Inventory" i ON i."product_id" = p.id
+      WHERE p."is_active" = true
+    `;
+    return Number(valuationRows[0]?.value ?? 0);
+  } catch (err) {
+    console.error('[inventory] Valuation query failed:', err.message);
+    return 0;
+  }
+}
+
 async function getInventorySummary() {
-  const [unitRows, lowStockCount, valuationRows] = await Promise.all([
+  const [unitRows, lowStockCount, inventoryValue] = await Promise.all([
     prisma.$queryRaw`
       SELECT COALESCE(SUM(COALESCE(i.quantity, 0)), 0)::int AS total
       FROM "Product" p
-      LEFT JOIN "Inventory" i ON i."productId" = p.id
-      WHERE p."isActive" = true
+      LEFT JOIN "Inventory" i ON i."product_id" = p.id
+      WHERE p."is_active" = true
     `,
     prisma.$queryRaw`
       SELECT COUNT(*)::int AS count
       FROM "Product" p
-      LEFT JOIN "Inventory" i ON i."productId" = p.id
-      WHERE p."isActive" = true
-        AND COALESCE(i.quantity, 0) <= p."minStock"
+      LEFT JOIN "Inventory" i ON i."product_id" = p.id
+      WHERE p."is_active" = true
+        AND COALESCE(i.quantity, 0) <= p."min_stock"
     `,
-    prisma.$queryRaw`
-      SELECT COALESCE(SUM(COALESCE(i.quantity, 0) * COALESCE(p."costPrice", 0)), 0)::float AS value
-      FROM "Product" p
-      LEFT JOIN "Inventory" i ON i."productId" = p.id
-      WHERE p."isActive" = true
-    `,
+    getInventoryValuation(),
   ]);
   return {
     totalUnits: Number(unitRows[0]?.total ?? 0),
     lowStockCount: Number(lowStockCount[0]?.count ?? 0),
-    inventoryValue: Number(valuationRows[0]?.value ?? 0),
+    inventoryValue,
   };
 }
 
@@ -180,11 +190,11 @@ export const getById = async (id) => {
 
 export const getLowStock = async () => {
   const products = await prisma.$queryRaw`
-    SELECT p.id, p.name, p."minStock" as min_stock, COALESCE(i.quantity, 0) as quantity
+    SELECT p.id, p.name, p."min_stock" as min_stock, COALESCE(i.quantity, 0) as quantity
     FROM "Product" p
-    LEFT JOIN "Inventory" i ON i."productId" = p.id
-    WHERE p."isActive" = true
-      AND COALESCE(i.quantity, 0) <= p."minStock"
+    LEFT JOIN "Inventory" i ON i."product_id" = p.id
+    WHERE p."is_active" = true
+      AND COALESCE(i.quantity, 0) <= p."min_stock"
     ORDER BY COALESCE(i.quantity, 0) ASC, p.name ASC
   `;
   return products.map((p) => ({
@@ -201,18 +211,20 @@ export const create = async (data) => {
   const result = await prisma.$transaction(async (tx) => {
     await assertCategoryAssignable(tx, categoryId);
     const sku = await generateUniqueSku(tx);
-    const product = await tx.product.create({
-      data: {
+    const productData = {
         name,
         description: description || null,
         sku,
         unit: unit || 'unit',
         minStock: minStock ?? 0,
         categoryId: categoryId ? parseInt(categoryId, 10) : null,
-        retailPrice: parseOptionalPrice(retailPrice),
-        costPrice: parseOptionalPrice(costPrice),
-      },
-    });
+      };
+      const retail = parseOptionalPrice(retailPrice);
+      const cost = parseOptionalPrice(costPrice);
+      if (retail != null) productData.retailPrice = retail;
+      if (cost != null) productData.costPrice = cost;
+
+      const product = await tx.product.create({ data: productData });
     await tx.inventory.create({
       data: { productId: product.id, quantity: 0 },
     });

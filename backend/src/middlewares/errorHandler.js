@@ -55,7 +55,13 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
   if (err.code && String(err.code).startsWith('P2')) {
-    return res.status(400).json({ success: false, message: 'Error en los datos enviados' });
+    const hint =
+      err.message?.includes('costPrice') || err.message?.includes('cost_price')
+        ? 'La base de datos necesita la migración de inventario. Ejecuta «npx prisma migrate deploy» en backend.'
+        : err.message && !String(err.message).includes('invocation')
+          ? err.message
+          : 'Error en los datos enviados';
+    return res.status(400).json({ success: false, message: hint });
   }
 
   // Errores con statusCode ya definido (p. ej. 400, 403)

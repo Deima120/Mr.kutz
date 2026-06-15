@@ -12,12 +12,19 @@ const router = express.Router();
 
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
-  body('description').optional().trim(),
+  body('description').optional({ nullable: true }).trim(),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
-  body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
-  body('retailPrice').optional().isFloat({ min: 0 }),
-  body('costPrice').optional().isFloat({ min: 0 }),
+  body('categoryId')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      const n = parseInt(value, 10);
+      if (!Number.isFinite(n) || n < 1) throw new Error('Categoría no válida.');
+      return true;
+    }),
+  body('retailPrice').optional({ nullable: true }).isFloat({ min: 0 }),
+  body('costPrice').optional({ nullable: true }).isFloat({ min: 0 }),
 ];
 
 const updateValidation = [
@@ -25,7 +32,14 @@ const updateValidation = [
   body('description').optional().trim(),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
-  body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
+  body('categoryId')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      const n = parseInt(value, 10);
+      if (!Number.isFinite(n) || n < 1) throw new Error('Categoría no válida.');
+      return true;
+    }),
   body('isActive').optional().isBoolean(),
   body('retailPrice').optional({ nullable: true }).isFloat({ min: 0 }),
   body('costPrice').optional({ nullable: true }).isFloat({ min: 0 }),

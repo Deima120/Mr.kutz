@@ -103,20 +103,18 @@ export function ProductForm({
     setError('');
     try {
       const payload = {
-        name: formData.name,
-        description: formData.description || undefined,
+        name: formData.name.trim(),
         unit: formData.unit || 'unit',
-        minStock: formData.minStock,
-        categoryId: formData.categoryId ? Number(formData.categoryId) : null,
-        retailPrice:
-          formData.retailPrice === '' || formData.retailPrice == null
-            ? null
-            : Number(formData.retailPrice),
-        costPrice:
-          formData.costPrice === '' || formData.costPrice == null
-            ? null
-            : Number(formData.costPrice),
+        minStock: Number.isFinite(formData.minStock) ? formData.minStock : 0,
       };
+      if (formData.description?.trim()) payload.description = formData.description.trim();
+      if (formData.categoryId) payload.categoryId = Number(formData.categoryId);
+      if (formData.retailPrice !== '' && formData.retailPrice != null && !Number.isNaN(Number(formData.retailPrice))) {
+        payload.retailPrice = Number(formData.retailPrice);
+      }
+      if (formData.costPrice !== '' && formData.costPrice != null && !Number.isNaN(Number(formData.costPrice))) {
+        payload.costPrice = Number(formData.costPrice);
+      }
       if (isEdit) payload.isActive = formData.isActive;
 
       if (isEdit) {
