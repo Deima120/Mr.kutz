@@ -163,7 +163,8 @@ function LandingBlockFallback({ text = 'Cargando...' }) {
 export default function HomePage() {
   const { user } = useAuth();
   const { businessName, address, openingHours } = useSettings();
-  const canManage = user?.role === 'admin' || user?.role === 'barber';
+  const isAdmin = user?.role === 'admin';
+  const canManage = isAdmin || user?.role === 'barber';
   const locationAddress = (address || '').trim();
   const mapLink = locationAddress
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationAddress)}`
@@ -504,6 +505,8 @@ export default function HomePage() {
               >
                 Citas
               </Link>
+              {isAdmin && (
+                <>
               <Link
                 to="/clients"
                 className="px-4 py-2.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium rounded-xl hover:border-gold hover:text-gold transition-colors"
@@ -522,6 +525,8 @@ export default function HomePage() {
               >
                 Barberos
               </Link>
+                </>
+              )}
             </div>
           </div>
         </section>

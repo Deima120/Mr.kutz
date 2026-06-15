@@ -149,7 +149,7 @@ router.post(
   appointmentController.submitClientRating,
 );
 router.get('/:id', idParam, validate, appointmentController.getById);
-router.post('/', createValidation, validate, appointmentController.create);
-router.put('/:id', [idParam, ...updateValidation], validate, appointmentController.update);
+router.post('/', authorize('admin', 'client'), createValidation, validate, appointmentController.create);
+router.put('/:id', authorize('admin', 'client'), [idParam, ...updateValidation], validate, appointmentController.update);
 
 export default router;

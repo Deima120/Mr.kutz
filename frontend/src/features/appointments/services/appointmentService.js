@@ -7,14 +7,13 @@ import api from '@/shared/services/api';
 const APPOINTMENTS_BASE = '/appointments';
 
 export const getAppointments = async (params = {}) => {
-  const response = await api.get(APPOINTMENTS_BASE, { params });
-  const res = response?.data ?? response;
-  const list = res?.data ?? res;
+  const res = await api.get(APPOINTMENTS_BASE, { params });
+  const rows = Array.isArray(res?.data) ? res.data : [];
   return {
-    appointments: Array.isArray(list) ? list : (list?.appointments ?? []),
-    total: res?.total ?? (Array.isArray(list) ? list.length : 0),
+    appointments: rows,
+    total: typeof res?.total === 'number' ? res.total : rows.length,
     limit: res?.limit,
-    offset: res?.offset,
+    offset: res?.offset ?? 0,
   };
 };
 

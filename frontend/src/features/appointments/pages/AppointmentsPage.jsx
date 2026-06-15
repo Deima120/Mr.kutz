@@ -333,7 +333,7 @@ export default function AppointmentsPage() {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
       setCancelConfirmId(null);
-      if ((isAdmin || isBarber) && newStatus === 'completed') {
+      if ((isAdmin) && newStatus === 'completed') {
         navigate(`/payments/new?appointmentId=${id}`);
         return;
       }
@@ -545,7 +545,7 @@ export default function AppointmentsPage() {
     );
   }
 
-  // ——— Vista barbero: diseño premium, cards y filtro por fecha ———
+  // ——— Vista barbero: solo consulta (listar y ver detalle) ———
   if (isBarber) {
     return (
       <div className="space-y-8">
@@ -553,44 +553,27 @@ export default function AppointmentsPage() {
           <div>
             <p className="section-label text-gold">Citas</p>
             <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
-              {formHeaderTitle}
+              {pageTitle}
             </h1>
-            <p className="text-stone-500">
-              {formHeaderSubtitle}
-            </p>
+            <p className="text-stone-500">{pageSubtitle}</p>
           </div>
-          {!isFormOpen && (
-          <div className="flex flex-wrap items-center gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-stone-600 mb-1">Fecha</label>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setFormView('create')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
-            >
-              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-              Nueva cita
-            </button>
+          <div>
+            <label className="block text-xs font-semibold text-stone-600 mb-1">Fecha</label>
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
+            />
           </div>
-          )}
         </div>
 
-        {inlineForm}
-
-        {!isFormOpen && error && (
+        {error && (
           <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
             {error}
           </div>
         )}
 
-        {!isFormOpen && (
         <AppointmentsPagination
           total={total}
           page={page}
@@ -598,77 +581,57 @@ export default function AppointmentsPage() {
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
-        )}
 
-        {!isFormOpen && loading ? (
+        {loading ? (
           <div className="py-16 text-center text-stone-500">Cargando citas...</div>
-        ) : !isFormOpen && appointments.length === 0 ? (
+        ) : appointments.length === 0 ? (
           <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-12 text-center">
-            <p className="text-stone-500 mb-4">No hay citas para esta fecha.</p>
-            <button
-              type="button"
-              onClick={() => setFormView('create')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
-            >
-              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-              Crear cita
-              <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-            </button>
+            <p className="text-stone-500">No hay citas para esta fecha.</p>
           </div>
-        ) : !isFormOpen ? (
+        ) : (
           <ul className="space-y-4">
             {appointments.map((a) => {
               const noteText = appointmentNotesOf(a);
               return (
               <li key={a.id}>
-                <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:shadow-card-hover transition-shadow">
-                  <div className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border mb-2 ${STATUS_STYLE[a.status] || 'bg-stone-100 text-stone-700'}`}>
-                        {STATUS_LABELS[a.status] || a.status}
-                      </span>
-                      <p className="font-serif text-lg text-stone-900 font-medium">
-                        {formatTime(a.start_time)} — {a.service_name}
-                      </p>
-                      <p className="text-stone-600 text-sm mt-0.5">
-                        {a.client_first_name} {a.client_last_name}
-                      </p>
-                      {noteText ? (
-                        <AppointmentNoteBlock
-                          text={noteText}
-                          maxLength={160}
-                          className="text-stone-600 text-sm mt-2 pl-3 border-l-2 border-gold/35 max-w-xl"
-                        />
-                      ) : null}
-                      {a.status === 'completed' && clientRatingOf(a) != null && (
-                        <p className="text-sm mt-2 text-amber-700">
-                          <span className="font-medium text-stone-600">Valoración del cliente: </span>
-                          <span className="tabular-nums inline-flex items-center" title={`${clientRatingOf(a)} de 5 estrellas`} aria-label={`${clientRatingOf(a)} de 5 estrellas`}>
-                            <RatingStars value={clientRatingOf(a)} sizeClass="w-4 h-4" />
-                          </span>
-                          {clientRatingCommentOf(a) ? (
-                            <span className="block text-stone-500 font-normal mt-1 italic text-xs">
-                              "{clientRatingCommentOf(a)}"
-                            </span>
-                          ) : null}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center shrink-0 self-center">
-                      <AppointmentRowActions
-                        appointmentId={a.id}
-                        status={a.status}
-                        onEdit={openEditForm}
-                        onStatusChange={handleStatusChange}
+                <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
+                  <div className="p-5 sm:p-6">
+                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border mb-2 ${STATUS_STYLE[a.status] || 'bg-stone-100 text-stone-700'}`}>
+                      {STATUS_LABELS[a.status] || a.status}
+                    </span>
+                    <p className="font-serif text-lg text-stone-900 font-medium">
+                      {formatTime(a.start_time)} — {a.service_name}
+                    </p>
+                    <p className="text-stone-600 text-sm mt-0.5">
+                      {a.client_first_name} {a.client_last_name}
+                    </p>
+                    {noteText ? (
+                      <AppointmentNoteBlock
+                        text={noteText}
+                        maxLength={160}
+                        className="text-stone-600 text-sm mt-2 pl-3 border-l-2 border-gold/35 max-w-xl"
                       />
-                    </div>
+                    ) : null}
+                    {a.status === 'completed' && clientRatingOf(a) != null && (
+                      <p className="text-sm mt-2 text-amber-700">
+                        <span className="font-medium text-stone-600">Valoración del cliente: </span>
+                        <span className="tabular-nums inline-flex items-center" title={`${clientRatingOf(a)} de 5 estrellas`} aria-label={`${clientRatingOf(a)} de 5 estrellas`}>
+                          <RatingStars value={clientRatingOf(a)} sizeClass="w-4 h-4" />
+                        </span>
+                        {clientRatingCommentOf(a) ? (
+                          <span className="block text-stone-500 font-normal mt-1 italic text-xs">
+                            "{clientRatingCommentOf(a)}"
+                          </span>
+                        ) : null}
+                      </p>
+                    )}
                   </div>
                 </article>
               </li>
             );
             })}
           </ul>
-        ) : null}
+        )}
         {successToast}
       </div>
     );

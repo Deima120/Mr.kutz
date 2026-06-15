@@ -71,6 +71,9 @@ export const getAvailableSlots = async (req, res, next) => {
 
 export const create = async (req, res, next) => {
   try {
+    if (req.user.role_name === 'barber') {
+      return res.status(403).json({ success: false, message: 'Los barberos no pueden crear citas.' });
+    }
     const body = { ...req.body };
     if (!body.serviceId && (!Array.isArray(body.serviceIds) || body.serviceIds.length === 0)) {
       return res.status(400).json({ success: false, message: 'Indica al menos un servicio.' });
@@ -151,6 +154,9 @@ export const submitClientRating = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
+    if (req.user.role_name === 'barber') {
+      return res.status(403).json({ success: false, message: 'Los barberos no pueden modificar citas.' });
+    }
     let body = { ...req.body };
     const apptId = parseInt(req.params.id, 10);
     const existing = await prisma.appointment.findUnique({
@@ -164,12 +170,6 @@ export const update = async (req, res, next) => {
     });
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
-    }
-
-    if (req.user.role_name === 'barber' && req.user.barber_id) {
-      if (Number(existing.barberId) !== Number(req.user.barber_id)) {
-        return res.status(403).json({ success: false, message: 'Solo puedes editar citas asignadas a ti.' });
-      }
     }
 
     if (req.user.role_name === 'client' && req.user.client_id) {

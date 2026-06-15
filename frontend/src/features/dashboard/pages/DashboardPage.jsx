@@ -27,7 +27,6 @@ const STATUS_LABELS = {
 
 function BarberDashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,15 +105,6 @@ function BarberDashboard() {
   useEffect(() => {
     if (user?.barberId) fetchRatingSummary();
   }, [user?.barberId, ratingPeriod]);
-
-  const handleMarkCompleted = async (id) => {
-    try {
-      await appointmentService.updateAppointment(id, { status: 'completed' });
-      navigate(`/payments/new?appointmentId=${id}`);
-    } catch (err) {
-      setError(err?.message || 'Error al actualizar');
-    }
-  };
 
   const activeAppointments = appointments.filter(
     (a) => !['cancelled', 'no_show', 'completed'].includes(a.status)
@@ -248,13 +238,6 @@ function BarberDashboard() {
                   />
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => handleMarkCompleted(nextAppointment.id)}
-                className="px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
-              >
-                Marcar completada
-              </button>
             </div>
           </div>
         </div>
@@ -306,15 +289,6 @@ function BarberDashboard() {
                     >
                       {STATUS_LABELS[a.status] || a.status}
                     </span>
-                    {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkCompleted(a.id)}
-                        className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
-                      >
-                        Completada
-                      </button>
-                    )}
                   </div>
                 </li>
               );

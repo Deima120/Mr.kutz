@@ -85,7 +85,6 @@ const barberNavSections = [
       { path: '/appointments', label: 'Mis citas', description: 'Servicios asignados', Icon: CalendarCheck },
       { path: '/agenda', label: 'Agenda', description: 'Semana de trabajo', Icon: CalendarDays },
       { path: '/history', label: 'Historial', description: 'Servicios realizados', Icon: BarChart3 },
-      { path: '/clients', label: 'Clientes', description: 'Consulta rapida', Icon: UsersRound },
     ],
   },
 ];

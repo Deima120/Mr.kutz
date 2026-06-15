@@ -47,7 +47,7 @@ const clientValidation = [
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');
 
 router.use(auth);
-router.use(authorize('admin', 'barber'));
+router.use(authorize('admin'));
 
 router.get('/', clientController.getAll);
 router.get('/:id/history', idParam, validate, clientController.getHistory);
