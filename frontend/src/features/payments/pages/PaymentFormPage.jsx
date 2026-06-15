@@ -88,7 +88,7 @@ export function PaymentForm({
     if (paymentMode !== 'product') return;
     productService
       .getProducts({ limit: 200 })
-      .then((data) => setProducts(data?.products ?? data ?? []))
+      .then((result) => setProducts(result?.data ?? []))
       .catch(() => setProducts([]));
   }, [paymentMode]);
 

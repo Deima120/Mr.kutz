@@ -3,8 +3,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSettings } from '@/shared/contexts/SettingsContext';
 import * as dashboardService from '@/features/dashboard/services/dashboardService';
+import { formatInventoryValue } from '@/features/inventory/utils/productFormatters';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
@@ -221,6 +223,49 @@ export default function ReportsPage() {
           sublabel={<TrendBadge value={cmp.appointmentsTotal} />}
         />
         <StatsCard label="Stock bajo" value={c.lowStockCount ?? 0} positiveIsGood={false} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <DataCard title="Valorización de inventario">
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-stone-600">Valor total a costo</span>
+              <span className="font-semibold text-gold text-base">
+                {formatInventoryValue(c.inventoryValue ?? 0)}
+              </span>
+            </div>
+            <p className="text-xs text-stone-500">
+              Suma de (cantidad × precio de costo) en productos activos con costo registrado.
+            </p>
+            <Link to="/inventory" className="inline-block text-gold text-xs font-semibold hover:underline">
+              Ir a inventario →
+            </Link>
+          </div>
+        </DataCard>
+        <DataCard title="Alertas de stock bajo">
+          {(c.lowStockAlerts?.length ?? 0) > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {c.lowStockAlerts.map((p) => (
+                <li key={p.id} className="flex justify-between items-center gap-2">
+                  <span className="text-stone-700 truncate">{p.name}</span>
+                  <span className="text-amber-700 font-semibold shrink-0">
+                    {p.quantity ?? 0} / mín. {p.min_stock ?? p.minStock ?? 0}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-stone-500 text-sm">Sin productos con stock bajo en este momento.</p>
+          )}
+          {(c.lowStockCount ?? 0) > 0 && (
+            <Link
+              to="/inventory?lowStock=true"
+              className="inline-block mt-3 text-gold text-xs font-semibold hover:underline"
+            >
+              Filtrar stock bajo →
+            </Link>
+          )}
+        </DataCard>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

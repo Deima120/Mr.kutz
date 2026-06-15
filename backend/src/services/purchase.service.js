@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma.js';
+import { changeStockAtomic } from './inventory.helpers.js';
 
 const toDto = (p) => ({
   id: p.id,
@@ -11,6 +12,7 @@ const toDto = (p) => ({
   voided_by: p.voidedBy,
   created_at: p.createdAt,
   created_by_email: p.creator?.email,
+  items_count: p._count?.items ?? p.items?.length ?? 0,
   items: (p.items || []).map((i) => ({
     id: i.id,
     product_id: i.productId,
@@ -21,26 +23,100 @@ const toDto = (p) => ({
   })),
 });
 
-export const getAll = async () => {
-  const rows = await prisma.purchase.findMany({
-    include: {
-      creator: { select: { email: true } },
-      items: { include: { product: { select: { name: true } } } },
-    },
-    orderBy: { createdAt: 'desc' },
+function buildPurchasesWhere({ dateFrom, dateTo, status, search }) {
+  const where = {};
+
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+    if (dateTo) where.createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
+  }
+
+  if (status === 'active') where.voidedAt = null;
+  if (status === 'voided') where.voidedAt = { not: null };
+
+  const term = String(search || '').trim();
+  if (term) {
+    where.OR = [
+      { supplierName: { contains: term, mode: 'insensitive' } },
+      { invoiceNumber: { contains: term, mode: 'insensitive' } },
+      { notes: { contains: term, mode: 'insensitive' } },
+    ];
+  }
+
+  return where;
+}
+
+const purchaseListInclude = {
+  creator: { select: { email: true } },
+  _count: { select: { items: true } },
+};
+
+const purchaseDetailInclude = {
+  creator: { select: { email: true } },
+  items: { include: { product: { select: { name: true } } } },
+};
+
+export const getAll = async ({
+  dateFrom,
+  dateTo,
+  status,
+  search,
+  limit = 20,
+  offset = 0,
+}) => {
+  const where = buildPurchasesWhere({ dateFrom, dateTo, status, search });
+  const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+  const skip = Math.max(parseInt(offset, 10) || 0, 0);
+
+  const [rows, total] = await Promise.all([
+    prisma.purchase.findMany({
+      where,
+      include: purchaseListInclude,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+    }),
+    prisma.purchase.count({ where }),
+  ]);
+
+  return {
+    purchases: rows.map(toDto),
+    total,
+    limit: take,
+    offset: skip,
+  };
+};
+
+export const getTotalByDateRange = async (dateFrom, dateTo) => {
+  const where = { voidedAt: null };
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+    if (dateTo) where.createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
+  }
+
+  const result = await prisma.purchase.aggregate({
+    where,
+    _sum: { totalAmount: true },
+    _count: true,
   });
-  return rows.map(toDto);
+
+  return {
+    total: result._sum?.totalAmount ?? 0,
+    count: result._count ?? 0,
+  };
 };
 
 export const getById = async (id) => {
   const row = await prisma.purchase.findUnique({
     where: { id: parseInt(id, 10) },
-    include: {
-      creator: { select: { email: true } },
-      items: { include: { product: { select: { name: true } } } },
-    },
+    include: purchaseDetailInclude,
   });
-  return row ? toDto(row) : null;
+  if (!row) return null;
+  const dto = toDto(row);
+  dto.items_count = dto.items.length;
+  return dto;
 };
 
 export const create = async (data, userId) => {
@@ -87,24 +163,12 @@ export const create = async (data, userId) => {
         },
       });
 
-      const currentInv = await tx.inventory.findUnique({ where: { productId: item.productId } });
-      if (!currentInv) {
-        await tx.inventory.create({ data: { productId: item.productId, quantity: item.quantity } });
-      } else {
-        await tx.inventory.update({
-          where: { productId: item.productId },
-          data: { quantity: { increment: item.quantity } },
-        });
-      }
-
-      await tx.inventoryMovement.create({
-        data: {
-          productId: item.productId,
-          quantityChange: item.quantity,
-          movementType: 'purchase',
-          notes: data.notes || 'Ingreso por compra',
-          createdBy: userId || null,
-        },
+      await changeStockAtomic(tx, {
+        productId: item.productId,
+        quantityChange: item.quantity,
+        movementType: 'purchase',
+        notes: data.notes || `Ingreso por compra #${purchase.id}`,
+        createdBy: userId || null,
       });
     }
 
@@ -149,27 +213,13 @@ export const voidPurchase = async (id, { voidReason, voidedBy } = {}) => {
     const voidedById = voidedBy != null ? parseInt(voidedBy, 10) : null;
 
     for (const item of existing.items) {
-      const inv = await tx.inventory.findUnique({ where: { productId: item.productId } });
-      const current = inv?.quantity ?? 0;
-      if (current < item.quantity) {
-        const err = new Error(
-          `No hay stock suficiente para anular esta compra (producto #${item.productId}: hay ${current}, se requieren ${item.quantity}).`
-        );
-        err.statusCode = 400;
-        throw err;
-      }
-      await tx.inventory.update({
-        where: { productId: item.productId },
-        data: { quantity: { decrement: item.quantity } },
-      });
-      await tx.inventoryMovement.create({
-        data: {
-          productId: item.productId,
-          quantityChange: -item.quantity,
-          movementType: 'adjustment',
-          notes: `Salida por anulación de compra #${pid}`,
-          createdBy: Number.isFinite(voidedById) ? voidedById : null,
-        },
+      await changeStockAtomic(tx, {
+        productId: item.productId,
+        quantityChange: -item.quantity,
+        movementType: 'adjustment',
+        notes: `Salida por anulación de compra #${pid}`,
+        createdBy: Number.isFinite(voidedById) ? voidedById : null,
+        insufficientMessage: `No hay stock suficiente para anular esta compra (producto #${item.productId}).`,
       });
     }
 

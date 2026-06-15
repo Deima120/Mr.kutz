@@ -27,7 +27,8 @@ model User {
   updatedAt          DateTime            @updatedAt @map("updated_at")
   barber             Barber?
   client             Client?
-  inventoryMovements InventoryMovement[]
+  inventoryMovements       InventoryMovement[] @relation("MovementsCreated")
+  inventoryMovementsVoided InventoryMovement[] @relation("MovementsVoided")
   paymentsCreated    Payment[]           @relation("PaymentsCreated")
   purchasesCreated   Purchase[]          @relation("PurchasesCreated")
   role               Role                @relation(fields: [roleId], references: [id])
@@ -165,6 +166,7 @@ model Product {
   description        String?
   sku                String?             @unique @db.VarChar(50)
   retailPrice        Decimal?            @map("retail_price") @db.Decimal(10, 2)
+  costPrice          Decimal?            @map("cost_price") @db.Decimal(10, 2)
   unit               String              @default("unit") @db.VarChar(20)
   minStock           Int                 @default(0) @map("min_stock")
   isActive           Boolean             @default(true) @map("is_active")
@@ -186,15 +188,19 @@ model Inventory {
 }
 
 model InventoryMovement {
-  id             Int      @id @default(autoincrement())
-  productId      Int      @map("product_id")
-  quantityChange Int      @map("quantity_change")
-  movementType   String?  @map("movement_type") @db.VarChar(20)
+  id             Int       @id @default(autoincrement())
+  productId      Int       @map("product_id")
+  quantityChange Int       @map("quantity_change")
+  movementType   String?   @map("movement_type") @db.VarChar(20)
   notes          String?
-  createdBy      Int?     @map("created_by")
-  createdAt      DateTime @default(now()) @map("created_at")
-  creator        User?    @relation(fields: [createdBy], references: [id])
-  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  voidedAt       DateTime? @map("voided_at")
+  voidReason     String?   @map("void_reason")
+  voidedBy       Int?      @map("voided_by")
+  creator        User?     @relation("MovementsCreated", fields: [createdBy], references: [id])
+  voider         User?     @relation("MovementsVoided", fields: [voidedBy], references: [id])
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ProductCategory {

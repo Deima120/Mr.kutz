@@ -1,45 +1,82 @@
 /**
- * Inventario: listado, edición (sin eliminar), venta → pagos con descuento de stock
+ * Inventario: listado paginado, edición inline, ajustes y venta vía pagos.
  */
 
-import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, ShoppingCart, History, SlidersHorizontal } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
+import * as productCategoryService from '@/features/inventory/services/productCategoryService';
 import { ProductForm } from '@/features/inventory/pages/ProductFormPage';
+import AdjustStockModal from '@/features/inventory/components/AdjustStockModal';
+import MovementHistoryModal from '@/features/inventory/components/MovementHistoryModal';
+import VoidMovementModal from '@/features/inventory/components/VoidMovementModal';
+import ImportProductsModal from '@/features/inventory/components/ImportProductsModal';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import SuccessToast from '@/shared/components/SuccessToast';
+import {
+  formatProductRetailPrice,
+  formatProductCostPrice,
+  formatProductMargin,
+  formatInventoryValue,
+  getProductMinStock,
+  getProductRetailPrice,
+  getProductCostPrice,
+  isLowStock,
+  isProductActive,
+} from '@/features/inventory/utils/productFormatters';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 
-const MOVEMENT_LABELS = {
-  purchase: 'Compra',
-  sale: 'Venta',
-  adjustment: 'Ajuste',
-  damage: 'Daño o pérdida',
-};
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 export default function InventoryPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [products, setProducts] = useState([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [summary, setSummary] = useState({ totalUnits: 0, lowStockCount: 0, inventoryValue: 0 });
   const [lowStock, setLowStock] = useState([]);
+  const [categories, setCategories] = useState([]);
+
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [formView, setFormView] = useState(null);
 
+  const [adjustModal, setAdjustModal] = useState(null);
+  const [adjustQty, setAdjustQty] = useState(1);
+  const [adjustSaving, setAdjustSaving] = useState(false);
+
+  const [historyModal, setHistoryModal] = useState(null);
+  const [movements, setMovements] = useState([]);
+  const [movementsLoading, setMovementsLoading] = useState(false);
+  const [movementsError, setMovementsError] = useState('');
+
+  const [quickUpdating, setQuickUpdating] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [voidMovement, setVoidMovement] = useState(null);
+  const [isVoiding, setIsVoiding] = useState(false);
+
   const isCreating = formView === 'create';
   const editingId = typeof formView === 'number' ? formView : null;
   const isFormOpen = isCreating || editingId != null;
+  const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
 
   useEffect(() => {
     const editMatch = location.pathname.match(/^\/inventory\/(\d+)\/edit$/);
@@ -54,80 +91,83 @@ export default function InventoryPage() {
     }
   }, [location.pathname, navigate]);
 
-  const handleFormSuccess = ({ created, updated } = {}) => {
-    setFormView(null);
-    if (created) setSuccessMessage('Producto creado correctamente.');
-    if (updated) setSuccessMessage('Producto actualizado correctamente.');
-    fetchProducts();
-  };
-
-  const openEditForm = (id) => setFormView(id);
-
-  const formHeaderTitle = isCreating ? 'Nuevo producto' : editingId ? 'Editar producto' : 'Inventario';
-  const formHeaderSubtitle = isCreating
-    ? 'Registra un producto en el catálogo'
-    : editingId
-    ? 'Modifica los datos del producto'
-    : 'Productos, alertas, movimientos y venta en caja (pagos)';
-
-  const inlineForm = isFormOpen ? (
-    <ProductForm
-      embedded
-      editId={editingId}
-      onSuccess={handleFormSuccess}
-      onCancel={() => setFormView(null)}
-    />
-  ) : null;
-
-  const successToast = (
-    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
-  );
-
-  const [adjustModal, setAdjustModal] = useState(null);
-  const [adjustQty, setAdjustQty] = useState(1);
-  const [adjustSaving, setAdjustSaving] = useState(false);
-
-  const [historyModal, setHistoryModal] = useState(null);
-  const [movements, setMovements] = useState([]);
-  const [movementsLoading, setMovementsLoading] = useState(false);
-
-  const [quickUpdating, setQuickUpdating] = useState(null);
+  useEffect(() => {
+    if (searchParams.get('lowStock') === 'true') {
+      setShowLowStockOnly(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('lowStock');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchProducts = async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError('');
-    try {
-      const params = { active: showInactive ? 'false' : undefined };
-      if (showLowStockOnly) params.lowStock = 'true';
-      if (searchDebounced.trim()) params.search = searchDebounced.trim();
-      const [data, lowData] = await Promise.all([
-        productService.getProducts(params),
-        productService.getLowStock(),
-      ]);
-      const list = Array.isArray(data) ? data : (data?.data ?? []);
-      setProducts(list);
-      setLowStock(Array.isArray(lowData) ? lowData : (lowData?.data ?? []));
-    } catch (err) {
-      setError(err?.message || 'Error al cargar inventario');
-      if (!silent) {
-        setProducts([]);
-        setLowStock([]);
-      }
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
+  useEffect(() => {
+    productCategoryService
+      .getCategories()
+      .then((rows) => setCategories(Array.isArray(rows) ? rows : (rows?.data ?? [])))
+      .catch(() => setCategories([]));
+  }, []);
 
   useEffect(() => {
-    fetchProducts();
-  }, [showInactive, showLowStockOnly, searchDebounced]);
+    setPage(1);
+  }, [showInactive, showLowStockOnly, searchDebounced, categoryFilter, pageSize]);
 
-  /** Entrada rápida (+1): movimiento tipo compra */
+  const fetchProducts = useCallback(
+    async (targetPage = page, silent = false) => {
+      if (!silent) setLoading(true);
+      setError('');
+      try {
+        const params = {
+          limit: pageSize,
+          offset: (targetPage - 1) * pageSize,
+          active: showInactive ? 'false' : undefined,
+        };
+        if (showLowStockOnly) params.lowStock = 'true';
+        if (searchDebounced.trim()) params.search = searchDebounced.trim();
+        if (categoryFilter) params.categoryId = categoryFilter;
+
+        const [listResult, lowData] = await Promise.all([
+          productService.getProducts(params),
+          productService.getLowStock(),
+        ]);
+
+        setProducts(listResult.data ?? []);
+        setListTotal(listResult.total ?? 0);
+        setSummary(listResult.summary ?? { totalUnits: 0, lowStockCount: 0 });
+        setLowStock(Array.isArray(lowData) ? lowData : (lowData?.data ?? []));
+      } catch (err) {
+        setError(err?.message || 'Error al cargar inventario');
+        if (!silent) {
+          setProducts([]);
+          setListTotal(0);
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [page, pageSize, showInactive, showLowStockOnly, searchDebounced, categoryFilter]
+  );
+
+  useEffect(() => {
+    if (!isFormOpen) fetchProducts(page);
+  }, [fetchProducts, isFormOpen, page]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const handleFormSuccess = ({ created, updated } = {}) => {
+    setFormView(null);
+    if (created) setSuccessMessage('Producto creado correctamente.');
+    if (updated) setSuccessMessage('Producto actualizado correctamente.');
+    setPage(1);
+    fetchProducts(1);
+  };
+
   const handleQuickStock = async (product, delta) => {
     if (delta <= 0) return;
     setQuickUpdating(product.id);
@@ -135,13 +175,13 @@ export default function InventoryPage() {
     try {
       await productService.updateStock(product.id, {
         quantityChange: delta,
-        movementType: 'purchase',
+        movementType: 'adjustment',
         notes: 'Entrada rápida desde inventario',
       });
-      await fetchProducts(true);
+      await fetchProducts(page, true);
     } catch (err) {
       setError(err?.message || 'Error al actualizar');
-      fetchProducts();
+      fetchProducts(page, true);
     } finally {
       setQuickUpdating(null);
     }
@@ -155,16 +195,20 @@ export default function InventoryPage() {
   const handleSaveAdjust = async (isEntrada) => {
     if (!adjustModal) return;
     const qty = isEntrada ? Math.abs(adjustQty) : -Math.abs(adjustQty);
+    if (!isEntrada && Math.abs(qty) > (adjustModal.quantity ?? 0)) {
+      setError('El stock no puede ser negativo.');
+      return;
+    }
     setAdjustSaving(true);
     setError('');
     try {
       await productService.updateStock(adjustModal.id, {
         quantityChange: qty,
-        movementType: qty > 0 ? 'purchase' : 'adjustment',
+        movementType: 'adjustment',
         notes: qty > 0 ? 'Ajuste de entrada' : 'Ajuste de salida',
       });
       setAdjustModal(null);
-      fetchProducts();
+      fetchProducts(page);
     } catch (err) {
       setError(err?.message || 'Error al actualizar stock');
     } finally {
@@ -175,14 +219,46 @@ export default function InventoryPage() {
   const handleOpenHistory = async (product) => {
     setHistoryModal(product);
     setMovements([]);
+    setMovementsError('');
     setMovementsLoading(true);
     try {
       const data = await productService.getProductMovements(product.id);
       setMovements(Array.isArray(data) ? data : (data?.data ?? []));
-    } catch {
+    } catch (err) {
       setMovements([]);
+      setMovementsError(err?.message || 'No se pudo cargar el historial.');
     } finally {
       setMovementsLoading(false);
+    }
+  };
+
+  const reloadMovements = async (productId) => {
+    const data = await productService.getProductMovements(productId);
+    setMovements(Array.isArray(data) ? data : (data?.data ?? []));
+  };
+
+  const confirmVoidMovement = async (voidReason) => {
+    if (!voidMovement || !historyModal) return;
+    setIsVoiding(true);
+    setMovementsError('');
+    try {
+      await productService.voidMovement(voidMovement.id, { voidReason });
+      setVoidMovement(null);
+      setSuccessMessage('Ajuste anulado correctamente.');
+      await reloadMovements(historyModal.id);
+      fetchProducts(page, true);
+    } catch (err) {
+      setMovementsError(err?.message || 'Error al anular el ajuste');
+    } finally {
+      setIsVoiding(false);
+    }
+  };
+
+  const handleImportSuccess = (result) => {
+    if ((result?.created ?? 0) > 0) {
+      setSuccessMessage(`Importación: ${result.created} producto(s) creado(s).`);
+      setPage(1);
+      fetchProducts(1);
     }
   };
 
@@ -190,61 +266,74 @@ export default function InventoryPage() {
     navigate(`/payments/new?productId=${product.id}`);
   };
 
-  const isLowStock = (p) => (p.quantity ?? 0) <= (p.min_stock ?? p.minStock ?? 0);
-  /** API Prisma usa `isActive`; toleramos `is_active` por compatibilidad */
-  const isProductActive = (p) => {
-    const v = p.isActive ?? p.is_active;
-    return v !== false;
-  };
-  const totalUnits = products.reduce((sum, p) => sum + (p.quantity ?? 0), 0);
+  const exportRows = products.map((p) => ({
+    id: p.id,
+    nombre: p.name,
+    categoria: p.category_name || '',
+    sku: p.sku || '',
+    stock: p.quantity ?? 0,
+    min_stock: getProductMinStock(p),
+    precio_venta: getProductRetailPrice(p) ?? '',
+    precio_costo: getProductCostPrice(p) ?? '',
+    activo: isProductActive(p) ? 'Sí' : 'No',
+  }));
+
+  const formHeaderTitle = isCreating ? 'Nuevo producto' : editingId ? 'Editar producto' : 'Inventario';
+  const formHeaderSubtitle = isCreating
+    ? 'Registra un producto en el catálogo'
+    : editingId
+      ? 'Modifica los datos del producto'
+      : 'Productos, alertas, movimientos y venta en caja';
+
+  const inlineForm = isFormOpen ? (
+    <ProductForm
+      embedded
+      editId={editingId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => setFormView(null)}
+    />
+  ) : null;
 
   return (
     <div className="page-shell">
       <PageHeader
-        title={isFormOpen ? formHeaderTitle : null}
-        subtitle={isFormOpen ? formHeaderSubtitle : null}
+        title={isFormOpen ? formHeaderTitle : 'Inventario'}
+        subtitle={isFormOpen ? formHeaderSubtitle : 'Productos, stock, movimientos y venta en caja'}
         actions={
           !isFormOpen ? (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                downloadCSV(
-                  'inventario.csv',
-                  products.map((p) => ({
-                    id: p.id,
-                    nombre: p.name,
-                    categoria: p.category_name || '',
-                    sku: p.sku || '',
-                    stock: p.quantity ?? 0,
-                    min_stock: p.min_stock ?? p.minStock ?? 0,
-                    precio_venta: p.retail_price ?? '',
-                    activo: isProductActive(p) ? 'Sí' : 'No',
-                  }))
-                )
-              }
-              className="btn-admin-outline w-full sm:w-auto"
-            >
-              Exportar CSV
-            </button>
-            <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto">
-              Exportar PDF
-            </button>
-            <Link to="/purchases" className="btn-admin-outline w-full sm:w-auto">
-              Compras (abastecimiento)
-            </Link>
-            <Link to="/inventory/categories" className="btn-admin-outline w-full sm:w-auto">
-              Categorías
-            </Link>
-            <button
-              type="button"
-              onClick={() => setFormView('create')}
-              className="btn-admin inline-flex items-center gap-2 w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-              Nuevo producto
-            </button>
-          </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => downloadCSV('inventario.csv', exportRows)}
+                className="btn-admin-outline w-full sm:w-auto text-sm"
+              >
+                Exportar CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="btn-admin-outline w-full sm:w-auto text-sm"
+              >
+                Importar CSV
+              </button>
+              <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto text-sm">
+                Exportar PDF
+              </button>
+              <Link to="/purchases" className="btn-admin-outline w-full sm:w-auto text-sm">
+                Compras
+              </Link>
+              <Link to="/inventory/categories" className="btn-admin-outline w-full sm:w-auto text-sm">
+                Categorías
+              </Link>
+              <button
+                type="button"
+                onClick={() => setFormView('create')}
+                className="btn-admin inline-flex items-center gap-2 w-full sm:w-auto text-sm"
+              >
+                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Nuevo producto
+              </button>
+            </div>
           ) : null
         }
       />
@@ -252,303 +341,302 @@ export default function InventoryPage() {
       {inlineForm}
 
       {!isFormOpen && (
-      <>
-      {/* Resumen */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatsCard label="Total productos" value={products.length} />
-        <StatsCard
-          label="Stock bajo"
-          value={lowStock.length}
-          sublabel={lowStock.length > 0 ? 'Revisar alertas' : undefined}
-        />
-        <StatsCard label="Unidades en stock" value={totalUnits} />
-      </div>
-
-      {lowStock.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <h3 className="font-medium text-amber-800 mb-2">
-            {lowStock.length} producto(s) con stock bajo o agotado
-          </h3>
-          <ul className="text-sm text-amber-700 space-y-1">
-            {lowStock.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => openEditForm(p.id)}
-                  className="hover:underline font-medium text-left text-barber-dark hover:text-gold transition-colors"
-                >
-                  {p.name}
-                </button>
-                : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo {p.min_stock ?? p.minStock ?? 0})
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Filtros y búsqueda */}
-      <div className="flex flex-wrap gap-3 md:gap-4 items-center">
-        <div className="flex-1 min-w-[200px]">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o SKU…"
-            className="input-premium py-2.5 text-sm"
-          />
-        </div>
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="input-premium py-2.5 text-sm min-w-[180px]"
-        >
-          <option value="">Todas las categorías</option>
-          {[...new Set(products.map((p) => p.category_name).filter(Boolean))].map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2.5">
-          <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded border-stone-300 text-gold focus:ring-gold/40"
-          />
-          Mostrar inactivos
-        </label>
-        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2.5">
-          <input
-            type="checkbox"
-            checked={showLowStockOnly}
-            onChange={(e) => setShowLowStockOnly(e.target.checked)}
-            className="rounded border-stone-300 text-gold focus:ring-gold/40"
-          />
-          Solo stock bajo
-        </label>
-      </div>
-
-      {error && (
-        <div className="alert-error" role="alert">{error}</div>
-      )}
-
-      {loading ? (
-        <DataCard>
-          <div className="py-16 text-center text-stone-500">Cargando inventario...</div>
-        </DataCard>
-      ) : products.length === 0 ? (
-        <DataCard>
-          <div className="py-16 text-center text-stone-500">
-            {searchDebounced || showLowStockOnly
-              ? 'No hay productos que coincidan con los filtros.'
-              : 'No hay productos registrados.'}
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatsCard label="Total productos" value={listTotal} />
+            <StatsCard
+              label="Stock bajo"
+              value={summary.lowStockCount ?? lowStock.length}
+              sublabel={(summary.lowStockCount ?? lowStock.length) > 0 ? 'Revisar alertas' : undefined}
+            />
+            <StatsCard label="Unidades en stock" value={summary.totalUnits ?? 0} />
+            <StatsCard
+              label="Valor inventario"
+              value={formatInventoryValue(summary.inventoryValue ?? 0)}
+              sublabel="Costo × cantidad"
+            />
           </div>
-        </DataCard>
-      ) : (
-        <DataCard>
-          <Table>
-            <TableHead>
-              <TableHeader>Producto</TableHeader>
-              <TableHeader>Categoría</TableHeader>
-              <TableHeader>SKU</TableHeader>
-              <TableHeader>P. venta</TableHeader>
-              <TableHeader>Stock</TableHeader>
-              <TableHeader>Mínimo</TableHeader>
-              <TableHeader>Acciones</TableHeader>
-            </TableHead>
-            <TableBody>
-              {products.map((p) => (
-                (categoryFilter && p.category_name !== categoryFilter) ? null : (
-                <TableRow key={p.id}>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
+
+          {lowStock.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <h3 className="font-medium text-amber-800 mb-2">
+                {lowStock.length} producto(s) con stock bajo o agotado
+              </h3>
+              <ul className="text-sm text-amber-700 space-y-1">
+                {lowStock.map((p) => (
+                  <li key={p.id}>
                     <button
                       type="button"
-                      onClick={() => openEditForm(p.id)}
-                      className="font-medium text-barber-dark hover:text-gold transition-colors text-left"
+                      onClick={() => setFormView(p.id)}
+                      className="hover:underline font-medium text-left text-barber-dark hover:text-gold transition-colors"
                     >
                       {p.name}
                     </button>
-                    {!isProductActive(p) && (
-                      <span className="ml-2 text-xs text-stone-500">(inactivo)</span>
-                    )}
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    {p.category_name || '-'}
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    {p.sku || '-'}
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    {p.retail_price != null && Number(p.retail_price) > 0
-                      ? `$${Number(p.retail_price).toFixed(2)}`
-                      : '—'}
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
+                    : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo{' '}
+                    {p.min_stock ?? p.minStock ?? 0})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <DataCard compact>
+            <div className="flex flex-col gap-3 pb-3 border-b border-stone-100">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar por nombre o SKU…"
+                    className="input-premium py-2 text-sm w-full"
+                  />
+                </div>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="input-premium py-2 text-sm min-w-[180px]"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={showInactive}
+                    onChange={(e) => setShowInactive(e.target.checked)}
+                    className="rounded border-stone-300 text-gold focus:ring-gold/40"
+                  />
+                  Inactivos
+                </label>
+                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={showLowStockOnly}
+                    onChange={(e) => setShowLowStockOnly(e.target.checked)}
+                    className="rounded border-stone-300 text-gold focus:ring-gold/40"
+                  />
+                  Solo stock bajo
+                </label>
+              </div>
+            </div>
+
+            {error && (
+              <div className="alert-error text-sm py-2 mb-3" role="alert">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="py-10 text-center text-stone-500">
+                <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-sm">Cargando inventario…</p>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm text-stone-500 mb-3">
+                  {searchDebounced || showLowStockOnly || categoryFilter
+                    ? 'No hay productos que coincidan con los filtros.'
+                    : 'No hay productos registrados.'}
+                </p>
+                <button type="button" onClick={() => setFormView('create')} className="btn-admin text-sm">
+                  Registrar primer producto
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-xs text-stone-500">
+                    Página {safePage} de {totalPages} · {listTotal} producto{listTotal !== 1 ? 's' : ''}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
                     <div className="flex items-center gap-2">
-                      <span className={`font-semibold min-w-[2rem] ${isLowStock(p) ? 'text-amber-600' : ''}`}>
-                        {p.quantity ?? 0} {p.unit || 'u'}
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleQuickStock(p, 1)}
-                          disabled={quickUpdating === p.id}
-                          className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold text-sm disabled:opacity-50"
-                          title="+1 entrada"
-                        >
-                          +
-                        </button>
-                      </div>
+                      <label htmlFor="inventory-page-size" className="text-[11px] font-medium text-stone-500 whitespace-nowrap">
+                        Por página
+                      </label>
+                      <select
+                        id="inventory-page-size"
+                        value={pageSize}
+                        onChange={(e) => setPageSize(Number(e.target.value))}
+                        className="input-premium py-1.5 text-xs min-w-[4.5rem]"
+                      >
+                        {PAGE_SIZE_OPTIONS.map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => handleOpenAdjust(p)}
-                        className="text-xs text-stone-500 hover:text-stone-700"
-                        title="Ajustar cantidad"
+                        disabled={safePage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        className="btn-admin-outline text-xs px-3 py-1.5 disabled:opacity-40"
                       >
-                        ±
+                        Anterior
+                      </button>
+                      <button
+                        type="button"
+                        disabled={safePage >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        className="btn-admin-outline text-xs px-3 py-1.5 disabled:opacity-40"
+                      >
+                        Siguiente
                       </button>
                     </div>
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    {p.min_stock ?? p.minStock ?? 0}
-                  </TableCell>
-                  <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    <div className="inline-flex items-center gap-1.5">
-                      <AdminIconButton
-                        icon={Pencil}
-                        label="Editar producto"
-                        onClick={() => openEditForm(p.id)}
-                      />
-                      <AdminIconButton
-                        icon={ShoppingCart}
-                        label="Vender producto"
-                        onClick={() => goToSell(p)}
-                        disabled={(p.quantity ?? 0) <= 0}
-                      />
-                      <AdminIconButton
-                        icon={History}
-                        label="Historial de movimientos"
-                        onClick={() => handleOpenHistory(p)}
-                      />
-                      <AdminIconButton
-                        icon={SlidersHorizontal}
-                        label="Ajustar stock"
-                        onClick={() => handleOpenAdjust(p)}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-                )
-              ))}
-            </TableBody>
-          </Table>
-        </DataCard>
-      )}
-      </>
+                  </div>
+                </div>
+
+                <Table>
+                  <TableHead>
+                    <TableHeader>Producto</TableHeader>
+                    <TableHeader>Categoría</TableHeader>
+                    <TableHeader>SKU</TableHeader>
+                    <TableHeader>P. venta</TableHeader>
+                    <TableHeader>Costo</TableHeader>
+                    <TableHeader>Margen</TableHeader>
+                    <TableHeader>Stock</TableHeader>
+                    <TableHeader>Mínimo</TableHeader>
+                    <TableHeader>Acciones</TableHeader>
+                  </TableHead>
+                  <TableBody>
+                    {products.map((p) => {
+                      const low = isLowStock(p);
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            <button
+                              type="button"
+                              onClick={() => setFormView(p.id)}
+                              className="font-medium text-barber-dark hover:text-gold transition-colors text-left"
+                            >
+                              {p.name}
+                            </button>
+                            {!isProductActive(p) && (
+                              <span className="ml-2 text-xs text-stone-500">(inactivo)</span>
+                            )}
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            {p.category_name || '—'}
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>{p.sku || '—'}</TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            {formatProductRetailPrice(p)}
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            {formatProductCostPrice(p)}
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            {formatProductMargin(p)}
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-semibold min-w-[2rem] ${low ? 'text-amber-600' : ''}`}>
+                                {p.quantity ?? 0} {p.unit || 'u'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickStock(p, 1)}
+                                disabled={quickUpdating === p.id || !isProductActive(p)}
+                                className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold text-sm disabled:opacity-50"
+                                title="+1 entrada"
+                              >
+                                +
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAdjust(p)}
+                                disabled={!isProductActive(p)}
+                                className="text-xs text-stone-500 hover:text-stone-700 disabled:opacity-40"
+                                title="Ajustar cantidad"
+                              >
+                                ±
+                              </button>
+                            </div>
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            {getProductMinStock(p)}
+                          </TableCell>
+                          <TableCell className={low ? 'bg-amber-50/50' : ''}>
+                            <div className="inline-flex items-center gap-1.5">
+                              <AdminIconButton
+                                icon={Pencil}
+                                label="Editar producto"
+                                onClick={() => setFormView(p.id)}
+                              />
+                              <AdminIconButton
+                                icon={ShoppingCart}
+                                label="Vender producto"
+                                onClick={() => goToSell(p)}
+                                disabled={(p.quantity ?? 0) <= 0 || !isProductActive(p)}
+                              />
+                              <AdminIconButton
+                                icon={History}
+                                label="Historial de movimientos"
+                                onClick={() => handleOpenHistory(p)}
+                              />
+                              <AdminIconButton
+                                icon={SlidersHorizontal}
+                                label="Ajustar stock"
+                                onClick={() => handleOpenAdjust(p)}
+                                disabled={!isProductActive(p)}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </DataCard>
+        </>
       )}
 
-      {/* Modal ajuste rápido — cantidad + Sumar/Restar */}
-      {adjustModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !adjustSaving && setAdjustModal(null)}>
-          <div
-            className="landing-card max-w-sm w-full p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-serif text-lg font-medium text-stone-900">{adjustModal.name}</h3>
-            <p className="text-sm text-stone-500">
-              Stock actual: <strong className="text-gold">{adjustModal.quantity ?? 0}</strong> {adjustModal.unit || 'u'}
-            </p>
-            <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-1">Cantidad</label>
-              <input
-                type="number"
-                min="1"
-                value={adjustQty}
-                onChange={(e) => setAdjustQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSaveAdjust(true);
-                }}
-                className="input-premium text-center text-lg"
-                autoFocus
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={adjustSaving}
-                onClick={() => handleSaveAdjust(true)}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold disabled:opacity-50 transition-colors"
-              >
-                Sumar
-              </button>
-              <button
-                type="button"
-                disabled={adjustSaving}
-                onClick={() => handleSaveAdjust(false)}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold disabled:opacity-50 transition-colors"
-              >
-                Restar
-              </button>
-            </div>
-            <button
-              type="button"
-              disabled={adjustSaving}
-              onClick={() => setAdjustModal(null)}
-              className="w-full py-2 text-stone-500 hover:text-stone-700 text-sm font-medium"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
+      <AdjustStockModal
+        product={adjustModal}
+        adjustQty={adjustQty}
+        onQtyChange={setAdjustQty}
+        onAdd={() => handleSaveAdjust(true)}
+        onSubtract={() => handleSaveAdjust(false)}
+        onClose={() => setAdjustModal(null)}
+        isSaving={adjustSaving}
+      />
+
+      <MovementHistoryModal
+        product={historyModal}
+        movements={movements}
+        loading={movementsLoading}
+        error={movementsError}
+        onVoidClick={(m) => setVoidMovement(m)}
+        onClose={() => {
+          setHistoryModal(null);
+          setMovementsError('');
+          setVoidMovement(null);
+        }}
+      />
+
+      <VoidMovementModal
+        movement={voidMovement}
+        onClose={() => setVoidMovement(null)}
+        onConfirm={confirmVoidMovement}
+        isSubmitting={isVoiding}
+      />
+
+      {importOpen && (
+        <ImportProductsModal
+          onClose={() => setImportOpen(false)}
+          onSuccess={handleImportSuccess}
+        />
       )}
 
-      {/* Modal historial de movimientos */}
-      {historyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setHistoryModal(null)}>
-          <div
-            className="landing-card max-w-lg w-full max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-stone-200/80">
-              <h3 className="font-serif text-lg font-medium text-stone-900">Historial — {historyModal.name}</h3>
-              <p className="text-sm text-stone-500">Últimos movimientos de stock</p>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              {movementsLoading ? (
-                <div className="py-8 text-center text-stone-500">Cargando...</div>
-              ) : movements.length === 0 ? (
-                <p className="text-stone-500 text-sm">Sin movimientos registrados.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {movements.map((m) => (
-                    <li key={m.id} className="flex justify-between items-start text-sm border-b border-stone-100 pb-2">
-                      <div>
-                        <span className={`font-semibold ${m.quantity_change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {m.quantity_change >= 0 ? '+' : ''}{m.quantity_change}
-                        </span>
-                        <span className="text-stone-500 ml-2">{MOVEMENT_LABELS[m.movement_type] || m.movement_type}</span>
-                        {m.notes && <p className="text-stone-500 text-xs mt-0.5">{m.notes}</p>}
-                      </div>
-                      <span className="text-stone-400 text-xs">
-                        {m.created_at ? new Date(m.created_at).toLocaleString('es-ES') : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="p-4 border-t border-stone-200/80">
-              <button
-                type="button"
-                onClick={() => setHistoryModal(null)}
-                className="w-full px-4 py-2.5 btn-admin-outline"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {successToast}
+      <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>
   );
 }

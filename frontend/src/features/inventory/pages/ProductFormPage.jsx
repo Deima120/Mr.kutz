@@ -38,6 +38,7 @@ export function ProductForm({
     categoryId: '',
     isActive: true,
     retailPrice: '',
+    costPrice: '',
   });
   const [productSku, setProductSku] = useState('');
   const [productMeta, setProductMeta] = useState(null);
@@ -51,20 +52,27 @@ export function ProductForm({
         .getProductById(editId)
         .then((res) => {
           const p = res?.data ?? res;
+          const categoryId = p.categoryId ?? p.category_id;
+          const minStock = p.minStock ?? p.min_stock ?? 0;
+          const isActive = p.isActive ?? p.is_active;
+          const retailPrice = p.retailPrice ?? p.retail_price;
+          const costPrice = p.costPrice ?? p.cost_price;
           setProductSku(p.sku || '');
           setFormData({
             name: p.name || '',
             description: p.description || '',
             unit: p.unit || 'unit',
-            minStock: p.min_stock ?? 0,
-            categoryId: p.category_id ?? '',
-            isActive: p.is_active !== false,
+            minStock,
+            categoryId: categoryId != null && categoryId !== '' ? String(categoryId) : '',
+            isActive: isActive !== false,
             retailPrice:
-              p.retail_price != null && p.retail_price !== '' ? String(p.retail_price) : '',
+              retailPrice != null && retailPrice !== '' ? String(retailPrice) : '',
+            costPrice:
+              costPrice != null && costPrice !== '' ? String(costPrice) : '',
           });
           setProductMeta({
             quantity: p.quantity ?? 0,
-            stockUpdatedAt: p.stock_updated_at,
+            stockUpdatedAt: p.stock_updated_at ?? p.inventory?.lastUpdated ?? null,
           });
         })
         .catch(() => setError('Producto no encontrado'));
@@ -77,8 +85,8 @@ export function ProductForm({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === 'retailPrice') {
-      setFormData((prev) => ({ ...prev, retailPrice: value }));
+    if (name === 'retailPrice' || name === 'costPrice') {
+      setFormData((prev) => ({ ...prev, [name]: value }));
       setError('');
       return;
     }
@@ -104,6 +112,10 @@ export function ProductForm({
           formData.retailPrice === '' || formData.retailPrice == null
             ? null
             : Number(formData.retailPrice),
+        costPrice:
+          formData.costPrice === '' || formData.costPrice == null
+            ? null
+            : Number(formData.costPrice),
       };
       if (isEdit) payload.isActive = formData.isActive;
 
@@ -157,6 +169,16 @@ export function ProductForm({
               label="Precio venta"
               value={formData.retailPrice ? `$${Number(formData.retailPrice).toFixed(2)}` : ''}
             />
+            <AdminFormPreviewField
+              label="Precio costo"
+              value={formData.costPrice ? `$${Number(formData.costPrice).toFixed(2)}` : ''}
+            />
+            {formData.retailPrice && formData.costPrice ? (
+              <AdminFormPreviewField
+                label="Margen unitario"
+                value={`$${(Number(formData.retailPrice) - Number(formData.costPrice)).toFixed(2)}`}
+              />
+            ) : null}
             <AdminFormPreviewField
               label="Stock mínimo"
               value={formData.minStock != null ? String(formData.minStock) : ''}
@@ -244,6 +266,19 @@ export function ProductForm({
                 step="0.01"
                 min="0"
                 value={formData.retailPrice}
+                onChange={handleChange}
+                placeholder="Opcional"
+                className={ADMIN_FORM_FIELD_COMPACT}
+              />
+            </div>
+            <div className="group">
+              <label className={ADMIN_FORM_LABEL_CLASS}>Precio de costo ($)</label>
+              <input
+                name="costPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.costPrice}
                 onChange={handleChange}
                 placeholder="Opcional"
                 className={ADMIN_FORM_FIELD_COMPACT}

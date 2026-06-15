@@ -2,7 +2,10 @@
  * Product & Inventory Service (Prisma)
  */
 
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
+import { changeStockAtomic, assertCategoryAssignable } from './inventory.helpers.js';
+import { toProductDto, toMovementDto } from './product.dto.js';
 
 /** SKU único automático (prefijo MK + sufijo alfanumérico). */
 async function generateUniqueSku(tx) {
@@ -18,38 +21,152 @@ async function generateUniqueSku(tx) {
   throw err;
 }
 
-export const getAll = async ({ activeOnly = true, lowStockOnly = false, search = '' } = {}) => {
+function mapProductRow(p) {
+  return toProductDto(p);
+}
+
+function buildProductWhere({ activeOnly, search, categoryId }) {
   const where = {};
   if (activeOnly) where.isActive = true;
+  const cid = categoryId != null && categoryId !== '' ? parseInt(categoryId, 10) : null;
+  if (Number.isFinite(cid) && cid > 0) where.categoryId = cid;
   if (search?.trim()) {
     where.OR = [
       { name: { contains: search.trim(), mode: 'insensitive' } },
       { sku: { contains: search.trim(), mode: 'insensitive' } },
     ];
   }
+  return where;
+}
 
-  const products = await prisma.product.findMany({
-    where,
-    include: {
-      inventory: true,
-      category: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+async function getLowStockPaginated({ activeOnly, search, categoryId, take, skip }) {
+  const parts = [Prisma.sql`COALESCE(i.quantity, 0) <= p."minStock"`];
+  if (activeOnly) parts.push(Prisma.sql`p."isActive" = true`);
+  const cid = categoryId != null && categoryId !== '' ? parseInt(categoryId, 10) : null;
+  if (Number.isFinite(cid) && cid > 0) parts.push(Prisma.sql`p."categoryId" = ${cid}`);
+  if (search?.trim()) {
+    const term = `%${search.trim()}%`;
+    parts.push(Prisma.sql`(p.name ILIKE ${term} OR p.sku ILIKE ${term})`);
+  }
+  const whereClause = Prisma.sql`WHERE ${Prisma.join(parts, ' AND ')}`;
 
-  let results = products.map((p) => ({
-    ...p,
-    quantity: p.inventory?.quantity ?? 0,
-    stock_updated_at: p.inventory?.lastUpdated ?? null,
-    category_name: p.category?.name ?? null,
-    retail_price: p.retailPrice,
-  }));
+  const countRows = await prisma.$queryRaw`
+    SELECT COUNT(*)::int AS count
+    FROM "Product" p
+    LEFT JOIN "Inventory" i ON i."productId" = p.id
+    ${whereClause}
+  `;
+  const total = Number(countRows[0]?.count ?? 0);
 
-  if (lowStockOnly) {
-    results = results.filter((p) => (p.inventory?.quantity ?? 0) <= (p.minStock ?? 0));
+  const idRows = await prisma.$queryRaw`
+    SELECT p.id
+    FROM "Product" p
+    LEFT JOIN "Inventory" i ON i."productId" = p.id
+    ${whereClause}
+    ORDER BY COALESCE(i.quantity, 0) ASC, p.name ASC
+    LIMIT ${take} OFFSET ${skip}
+  `;
+  const ids = idRows.map((r) => r.id);
+  if (ids.length === 0) {
+    return { data: [], total, limit: take, offset: skip };
   }
 
-  return results;
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    include: { inventory: true, category: true },
+  });
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+
+  return {
+    data: ordered.map(mapProductRow),
+    total,
+    limit: take,
+    offset: skip,
+  };
+}
+
+async function getInventorySummary() {
+  const [unitRows, lowStockCount, valuationRows] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(COALESCE(i.quantity, 0)), 0)::int AS total
+      FROM "Product" p
+      LEFT JOIN "Inventory" i ON i."productId" = p.id
+      WHERE p."isActive" = true
+    `,
+    prisma.$queryRaw`
+      SELECT COUNT(*)::int AS count
+      FROM "Product" p
+      LEFT JOIN "Inventory" i ON i."productId" = p.id
+      WHERE p."isActive" = true
+        AND COALESCE(i.quantity, 0) <= p."minStock"
+    `,
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(COALESCE(i.quantity, 0) * COALESCE(p."costPrice", 0)), 0)::float AS value
+      FROM "Product" p
+      LEFT JOIN "Inventory" i ON i."productId" = p.id
+      WHERE p."isActive" = true
+    `,
+  ]);
+  return {
+    totalUnits: Number(unitRows[0]?.total ?? 0),
+    lowStockCount: Number(lowStockCount[0]?.count ?? 0),
+    inventoryValue: Number(valuationRows[0]?.value ?? 0),
+  };
+}
+
+export const getInventoryInsights = async () => {
+  const [summary, lowStockAlerts] = await Promise.all([
+    getInventorySummary(),
+    getLowStock(),
+  ]);
+  return {
+    ...summary,
+    lowStockAlerts: lowStockAlerts.slice(0, 10),
+  };
+};
+
+function parseOptionalPrice(value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+export const getAll = async ({
+  activeOnly = true,
+  lowStockOnly = false,
+  search = '',
+  categoryId,
+  limit = 20,
+  offset = 0,
+} = {}) => {
+  const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+  const skip = Math.max(parseInt(offset, 10) || 0, 0);
+
+  const result = lowStockOnly
+    ? await getLowStockPaginated({ activeOnly, search, categoryId, take, skip })
+    : await (async () => {
+        const where = buildProductWhere({ activeOnly, search, categoryId });
+        const [products, total] = await Promise.all([
+          prisma.product.findMany({
+            where,
+            include: { inventory: true, category: true },
+            orderBy: { name: 'asc' },
+            take,
+            skip,
+          }),
+          prisma.product.count({ where }),
+        ]);
+        return {
+          data: products.map(mapProductRow),
+          total,
+          limit: take,
+          offset: skip,
+        };
+      })();
+
+  const summary = await getInventorySummary();
+  return { ...result, summary };
 };
 
 export const getById = async (id) => {
@@ -58,13 +175,7 @@ export const getById = async (id) => {
     include: { inventory: true, category: true },
   });
   if (!product) return null;
-  return {
-    ...product,
-    quantity: product.inventory?.quantity ?? 0,
-    stock_updated_at: product.inventory?.lastUpdated ?? null,
-    category_name: product.category?.name ?? null,
-    retail_price: product.retailPrice,
-  };
+  return toProductDto(product);
 };
 
 export const getLowStock = async () => {
@@ -85,9 +196,10 @@ export const getLowStock = async () => {
 };
 
 export const create = async (data) => {
-  const { name, description, unit, minStock, categoryId, retailPrice } = data;
+  const { name, description, unit, minStock, categoryId, retailPrice, costPrice } = data;
 
   const result = await prisma.$transaction(async (tx) => {
+    await assertCategoryAssignable(tx, categoryId);
     const sku = await generateUniqueSku(tx);
     const product = await tx.product.create({
       data: {
@@ -97,10 +209,8 @@ export const create = async (data) => {
         unit: unit || 'unit',
         minStock: minStock ?? 0,
         categoryId: categoryId ? parseInt(categoryId, 10) : null,
-        retailPrice:
-          retailPrice != null && retailPrice !== '' && !Number.isNaN(Number(retailPrice))
-            ? Number(retailPrice)
-            : null,
+        retailPrice: parseOptionalPrice(retailPrice),
+        costPrice: parseOptionalPrice(costPrice),
       },
     });
     await tx.inventory.create({
@@ -113,6 +223,7 @@ export const create = async (data) => {
 };
 
 export const update = async (id, data) => {
+  const pid = parseInt(id, 10);
   const patch = {};
   if (data.name !== undefined) patch.name = data.name;
   if (data.description !== undefined) patch.description = data.description;
@@ -123,50 +234,35 @@ export const update = async (id, data) => {
     patch.categoryId = data.categoryId ? parseInt(data.categoryId, 10) : null;
   }
   if (data.retailPrice !== undefined) {
-    patch.retailPrice =
-      data.retailPrice != null && data.retailPrice !== '' && !Number.isNaN(Number(data.retailPrice))
-        ? Number(data.retailPrice)
-        : null;
+    patch.retailPrice = parseOptionalPrice(data.retailPrice);
+  }
+  if (data.costPrice !== undefined) {
+    patch.costPrice = parseOptionalPrice(data.costPrice);
   }
 
-  const product = await prisma.product.update({
-    where: { id: parseInt(id, 10) },
-    data: patch,
+  await prisma.$transaction(async (tx) => {
+    if (data.categoryId !== undefined) {
+      await assertCategoryAssignable(tx, data.categoryId);
+    }
+    await tx.product.update({
+      where: { id: pid },
+      data: patch,
+    });
   });
-  return getById(product.id);
+
+  return getById(pid);
 };
 
 export const updateStock = async (productId, quantityChange, movementType, notes, createdBy) => {
   await prisma.$transaction(async (tx) => {
-    let inv = await tx.inventory.findUnique({
-      where: { productId: parseInt(productId, 10) },
-    });
-    if (!inv) {
-      await tx.inventory.create({
-        data: { productId: parseInt(productId, 10), quantity: 0 },
-      });
-      inv = { quantity: 0 };
-    }
-
-    const updated = await tx.inventory.update({
-      where: { productId: parseInt(productId, 10) },
-      data: {
-        quantity: { increment: quantityChange },
-      },
-    });
-
-    if (updated.quantity < 0) {
-      throw new Error('El stock no puede ser negativo.');
-    }
-
-    await tx.inventoryMovement.create({
-      data: {
-        productId: parseInt(productId, 10),
-        quantityChange,
-        movementType: movementType || 'adjustment',
-        notes: notes || null,
-        createdBy: createdBy || null,
-      },
+    await changeStockAtomic(tx, {
+      productId,
+      quantityChange,
+      movementType,
+      notes,
+      createdBy,
+      validateActiveProduct: true,
+      insufficientMessage: 'El stock no puede ser negativo.',
     });
   });
 
@@ -176,17 +272,115 @@ export const updateStock = async (productId, quantityChange, movementType, notes
 export const getMovements = async (productId, limit = 50) => {
   const movements = await prisma.inventoryMovement.findMany({
     where: { productId: parseInt(productId, 10) },
-    include: { creator: { select: { email: true } } },
+    include: {
+      creator: { select: { email: true } },
+      voider: { select: { email: true } },
+    },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
-  return movements.map((m) => ({
-    id: m.id,
-    product_id: m.productId,
-    quantity_change: m.quantityChange,
-    movement_type: m.movementType,
-    notes: m.notes,
-    created_at: m.createdAt,
-    created_by_email: m.creator?.email,
-  }));
+  return movements.map(toMovementDto);
+};
+
+export const voidMovement = async (movementId, { voidReason, voidedBy } = {}) => {
+  const mid = parseInt(movementId, 10);
+
+  await prisma.$transaction(async (tx) => {
+    const movement = await tx.inventoryMovement.findUnique({
+      where: { id: mid },
+    });
+    if (!movement) {
+      const err = new Error('Movimiento no encontrado.');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (movement.voidedAt) {
+      const err = new Error('Este movimiento ya está anulado.');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!['adjustment', 'damage'].includes(movement.movementType)) {
+      const err = new Error('Solo se pueden anular ajustes manuales.');
+      err.statusCode = 400;
+      throw err;
+    }
+    const notes = movement.notes || '';
+    if (/pago #\d+/i.test(notes) || /compra #\d+/i.test(notes) || /anulación de ajuste/i.test(notes)) {
+      const err = new Error('Este movimiento no se puede anular desde inventario.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const voidedById = voidedBy != null ? parseInt(voidedBy, 10) : null;
+    await changeStockAtomic(tx, {
+      productId: movement.productId,
+      quantityChange: -movement.quantityChange,
+      movementType: 'adjustment',
+      notes: `Anulación de ajuste #${mid}`,
+      createdBy: Number.isFinite(voidedById) ? voidedById : null,
+      validateActiveProduct: true,
+      insufficientMessage: 'No hay stock suficiente para anular este ajuste.',
+    });
+
+    await tx.inventoryMovement.update({
+      where: { id: mid },
+      data: {
+        voidedAt: new Date(),
+        voidReason: voidReason || null,
+        voidedBy: Number.isFinite(voidedById) ? voidedById : null,
+      },
+    });
+  });
+
+  return { voided: true, movement_id: mid };
+};
+
+export const importProducts = async (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    const err = new Error('No hay filas para importar.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (rows.length > 200) {
+    const err = new Error('Máximo 200 productos por importación.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const results = { created: 0, failed: 0, errors: [] };
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    const line = i + 1;
+    try {
+      const name = String(row.name || '').trim();
+      if (!name) throw new Error('Nombre obligatorio.');
+
+      let categoryId = null;
+      const categoryName = String(row.categoryName || row.category || row.categoria || '').trim();
+      if (categoryName) {
+        const cat = await prisma.productCategory.findFirst({
+          where: { name: { equals: categoryName, mode: 'insensitive' }, isActive: true },
+        });
+        if (!cat) throw new Error(`Categoría "${categoryName}" no encontrada.`);
+        categoryId = cat.id;
+      }
+
+      await create({
+        name,
+        description: row.description || row.descripcion || undefined,
+        unit: row.unit || row.unidad || 'unit',
+        minStock: row.minStock ?? row.min_stock ?? 0,
+        categoryId,
+        retailPrice: row.retailPrice ?? row.retail_price ?? row.precio_venta,
+        costPrice: row.costPrice ?? row.cost_price ?? row.precio_costo,
+      });
+      results.created += 1;
+    } catch (e) {
+      results.failed += 1;
+      results.errors.push({ line, message: e.message || 'Error al importar fila.' });
+    }
+  }
+
+  return results;
 };

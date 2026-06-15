@@ -40,8 +40,16 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    await categoryService.remove(req.params.id);
-    res.json({ success: true, message: 'Categoría eliminada correctamente.' });
+    const result = await categoryService.remove(req.params.id);
+    const count = result?.product_count_affected ?? 0;
+    res.json({
+      success: true,
+      message:
+        count > 0
+          ? `Categoría eliminada. ${count} producto(s) quedaron sin categoría.`
+          : 'Categoría eliminada correctamente.',
+      data: result,
+    });
   } catch (error) {
     next(error);
   }

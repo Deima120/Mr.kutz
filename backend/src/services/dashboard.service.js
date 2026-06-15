@@ -3,6 +3,7 @@
  */
 
 import prisma from '../lib/prisma.js';
+import { getInventoryInsights } from './product.service.js';
 
 export const getStats = async (dateFrom, dateTo) => {
   const from = dateFrom || new Date().toISOString().slice(0, 10);
@@ -13,7 +14,7 @@ export const getStats = async (dateFrom, dateTo) => {
   const fromDate = new Date(fy, (fm || 1) - 1, fd || 1, 0, 0, 0, 0);
   const toDate = new Date(ty, (tm || 1) - 1, td || 1, 23, 59, 59, 999);
 
-  const [sales, appointments, servicesTop, barbersTop, lowStock, clientsCount] = await Promise.all([
+  const [sales, appointments, servicesTop, barbersTop, inventoryInsights, clientsCount] = await Promise.all([
     prisma.payment.aggregate({
       where: { createdAt: { gte: fromDate, lte: toDate } },
       _sum: { amount: true },
@@ -38,10 +39,7 @@ export const getStats = async (dateFrom, dateTo) => {
       },
       include: { barber: { select: { firstName: true, lastName: true } } },
     }),
-    prisma.product.findMany({
-      where: { isActive: true },
-      include: { inventory: true },
-    }),
+    getInventoryInsights(),
     prisma.client.count(),
   ]);
 
@@ -74,9 +72,7 @@ export const getStats = async (dateFrom, dateTo) => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  const lowStockCount = lowStock.filter(
-    (p) => (p.inventory?.quantity ?? 0) <= (p.minStock ?? 0)
-  ).length;
+  const lowStockCount = inventoryInsights.lowStockCount ?? 0;
 
   return {
     sales: {
@@ -87,6 +83,8 @@ export const getStats = async (dateFrom, dateTo) => {
     topServices,
     topBarbers,
     lowStockCount,
+    inventoryValue: inventoryInsights.inventoryValue ?? 0,
+    lowStockAlerts: inventoryInsights.lowStockAlerts ?? [],
     totalClients: clientsCount,
     period: { from, to },
   };

@@ -17,6 +17,7 @@ const createValidation = [
   body('minStock').optional().isInt({ min: 0 }),
   body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
   body('retailPrice').optional().isFloat({ min: 0 }),
+  body('costPrice').optional().isFloat({ min: 0 }),
 ];
 
 const updateValidation = [
@@ -27,21 +28,45 @@ const updateValidation = [
   body('categoryId').optional({ nullable: true }).isInt({ min: 1 }),
   body('isActive').optional().isBoolean(),
   body('retailPrice').optional({ nullable: true }).isFloat({ min: 0 }),
+  body('costPrice').optional({ nullable: true }).isFloat({ min: 0 }),
 ];
 
 const stockValidation = [
-  body('quantityChange').isInt().withMessage('Indica el cambio de cantidad.'),
+  body('quantityChange')
+    .isInt()
+    .withMessage('Indica el cambio de cantidad.')
+    .custom((value) => {
+      if (parseInt(value, 10) === 0) {
+        throw new Error('El cambio de cantidad no puede ser cero.');
+      }
+      return true;
+    }),
   body('movementType').optional().isIn(['purchase', 'sale', 'adjustment', 'damage']),
   body('notes').optional().trim(),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de producto no válido.');
 
-router.use(auth);
-router.use(authorize('admin', 'barber'));
+const movementIdParam = param('movementId').isInt({ min: 1 }).withMessage('ID de movimiento no válido.');
 
-router.get('/', productController.getAll);
+const voidMovementValidation = [
+  movementIdParam,
+  body('voidReason').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),
+];
+
+const importValidation = [
+  body('rows').isArray({ min: 1, max: 200 }).withMessage('Envía entre 1 y 200 filas.'),
+  body('rows.*.name').trim().notEmpty().withMessage('Cada fila debe tener nombre.'),
+];
+
+router.use(auth);
+router.use(authorize('admin'));
+
+router.get('/insights', productController.getInsights);
 router.get('/low-stock', productController.getLowStock);
+router.post('/import', importValidation, validate, productController.importProducts);
+router.post('/movements/:movementId/void', voidMovementValidation, validate, productController.voidMovement);
+router.get('/', productController.getAll);
 router.get('/:id/movements', idParam, validate, productController.getMovements);
 router.get('/:id', idParam, validate, productController.getById);
 router.post('/', createValidation, validate, productController.create);

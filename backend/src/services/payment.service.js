@@ -4,6 +4,7 @@
 
 import prisma from '../lib/prisma.js';
 import { randomBytes } from 'node:crypto';
+import { changeStockAtomic } from './inventory.helpers.js';
 
 const REFERENCE_PREFIX = 'MKP';
 
@@ -292,25 +293,27 @@ export const create = async (data) => {
     }
 
     if (productId) {
-      const inv = await tx.inventory.findUnique({ where: { productId } });
-      const current = inv?.quantity ?? 0;
-      if (current < productQuantity) {
-        const err = new Error('Stock insuficiente para registrar esta venta.');
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        select: { isActive: true },
+      });
+      if (!product) {
+        const err = new Error('Producto no encontrado.');
+        err.statusCode = 404;
+        throw err;
+      }
+      if (!product.isActive) {
+        const err = new Error('No se puede vender un producto inactivo.');
         err.statusCode = 400;
         throw err;
       }
-      await tx.inventory.update({
-        where: { productId },
-        data: { quantity: { decrement: productQuantity } },
-      });
-      await tx.inventoryMovement.create({
-        data: {
-          productId,
-          quantityChange: -productQuantity,
-          movementType: 'sale',
-          notes: data.notes || `Venta registrada (${productQuantity} uds.)`,
-          createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
-        },
+      await changeStockAtomic(tx, {
+        productId,
+        quantityChange: -productQuantity,
+        movementType: 'sale',
+        notes: data.notes || `Venta registrada (${productQuantity} uds.)`,
+        createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
+        insufficientMessage: 'Stock insuficiente para registrar esta venta.',
       });
     }
 
@@ -379,18 +382,12 @@ export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
     const { productId } = existing;
     const pq = existing.productQuantity;
     if (productId && pq && pq > 0) {
-      await tx.inventory.update({
-        where: { productId },
-        data: { quantity: { increment: pq } },
-      });
-      await tx.inventoryMovement.create({
-        data: {
-          productId,
-          quantityChange: pq,
-          movementType: 'adjustment',
-          notes: `Devolución por anulación de pago #${pid}`,
-          createdBy: voidedBy ? parseInt(voidedBy, 10) : null,
-        },
+      await changeStockAtomic(tx, {
+        productId,
+        quantityChange: pq,
+        movementType: 'adjustment',
+        notes: `Devolución por anulación de pago #${pid}`,
+        createdBy: voidedBy ? parseInt(voidedBy, 10) : null,
       });
     }
 

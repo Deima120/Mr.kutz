@@ -74,7 +74,7 @@ export default function ProductCategoriesPage() {
 
   const toggle = async (r) => {
     try {
-      await categoryService.updateCategory(r.id, { isActive: !r.isActive });
+      await categoryService.updateCategory(r.id, { isActive: !isCategoryActive(r) });
       load();
     } catch (err) {
       setError(err?.message || 'Error al actualizar categoría');
@@ -82,7 +82,12 @@ export default function ProductCategoriesPage() {
   };
 
   const remove = async (r) => {
-    if (!window.confirm(`¿Eliminar categoría "${r.name}"?`)) return;
+    const count = r.product_count ?? 0;
+    const message =
+      count > 0
+        ? `¿Eliminar categoría "${r.name}"?\n\n${count} producto(s) quedarán sin categoría.`
+        : `¿Eliminar categoría "${r.name}"?`;
+    if (!window.confirm(message)) return;
     try {
       await categoryService.deleteCategory(r.id);
       if (editingId === r.id) cancelEdit();
@@ -91,6 +96,9 @@ export default function ProductCategoriesPage() {
       setError(err?.message || 'Error al eliminar categoría');
     }
   };
+
+  const isCategoryActive = (r) => (r.isActive ?? r.is_active) !== false;
+  const getProductCount = (r) => r.product_count ?? 0;
 
   const btnToolbar = 'btn-admin-outline text-xs py-2 px-3';
 
@@ -108,7 +116,8 @@ export default function ProductCategoriesPage() {
                     id: r.id,
                     nombre: r.name,
                     descripcion: r.description || '',
-                    activo: r.isActive ? 'Sí' : 'No',
+                    productos: getProductCount(r),
+                    activo: isCategoryActive(r) ? 'Sí' : 'No',
                   }))
                 )
               }
@@ -160,6 +169,7 @@ export default function ProductCategoriesPage() {
             <TableHead>
               <TableHeader compact>Nombre</TableHeader>
               <TableHeader compact>Descripción</TableHeader>
+              <TableHeader compact>Productos</TableHeader>
               <TableHeader compact>Estado</TableHeader>
               <TableHeader compact className="text-right">
                 Acciones
@@ -187,7 +197,7 @@ export default function ProductCategoriesPage() {
                         </div>
                       </TableCell>
                       <TableCell compact className="text-xs whitespace-nowrap">
-                        {r.isActive ? 'Activa' : 'Inactiva'}
+                        {isCategoryActive(r) ? 'Activa' : 'Inactiva'}
                       </TableCell>
                       <TableCell compact className="text-right">
                         <div className="flex flex-wrap justify-end gap-1.5">
@@ -212,8 +222,11 @@ export default function ProductCategoriesPage() {
                       <TableCell compact className="text-xs text-stone-600 max-w-[14rem]">
                         <span className="line-clamp-2">{r.description || '—'}</span>
                       </TableCell>
+                      <TableCell compact className="text-xs tabular-nums">
+                        {getProductCount(r)}
+                      </TableCell>
                       <TableCell compact className="text-xs">
-                        {r.isActive ? (
+                        {isCategoryActive(r) ? (
                           <span className="inline-flex rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
                             Activa
                           </span>
@@ -229,7 +242,7 @@ export default function ProductCategoriesPage() {
                             Editar
                           </button>
                           <button type="button" onClick={() => toggle(r)} className="text-stone-600 hover:text-stone-900">
-                            {r.isActive ? 'Desactivar' : 'Activar'}
+                            {isCategoryActive(r) ? 'Desactivar' : 'Activar'}
                           </button>
                           <button type="button" onClick={() => remove(r)} className="text-red-600 hover:text-red-700">
                             Eliminar

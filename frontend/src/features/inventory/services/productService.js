@@ -13,7 +13,15 @@ const extract = (r) => {
 
 export const getProducts = async (params = {}) => {
   const response = await api.get(PRODUCTS_BASE, { params });
-  return extract(response);
+  const res = response?.data ?? response;
+  const data = Array.isArray(res?.data) ? res.data : [];
+  return {
+    data,
+    total: typeof res?.total === 'number' ? res.total : data.length,
+    limit: res?.limit ?? data.length,
+    offset: res?.offset ?? 0,
+    summary: res?.summary ?? null,
+  };
 };
 
 export const getLowStock = async () => {
@@ -44,4 +52,20 @@ export const updateStock = async (id, data) => {
 export const getProductMovements = async (id, limit = 50) => {
   const response = await api.get(`${PRODUCTS_BASE}/${id}/movements`, { params: { limit } });
   return extract(response);
+};
+
+export const getInventoryInsights = async () => {
+  const response = await api.get(`${PRODUCTS_BASE}/insights`);
+  return extract(response);
+};
+
+export const voidMovement = async (movementId, data = {}) => {
+  const response = await api.post(`${PRODUCTS_BASE}/movements/${movementId}/void`, data);
+  return extract(response);
+};
+
+export const importProducts = async (rows) => {
+  const response = await api.post(`${PRODUCTS_BASE}/import`, { rows });
+  const res = response?.data ?? response;
+  return res?.data ?? res;
 };
