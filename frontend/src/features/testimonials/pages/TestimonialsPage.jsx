@@ -63,7 +63,7 @@ export default function TestimonialsPage() {
         <div className="p-6 sm:p-8">
           <p className="section-label text-gold mb-2">Satisfacción</p>
           <h2 className="font-serif text-xl sm:text-2xl text-stone-900 font-medium tracking-tight mb-1">
-            Valoraciones reales (citas completadas)
+            Valoraciones
           </h2>
           <p className="text-stone-500 text-sm mb-6 max-w-2xl">
             Estrellas 1–5 y comentarios opcionales tras cada cita completada. La misma información se muestra en
