@@ -29,8 +29,7 @@ export default function HistoryPage() {
         limit: 200,
       })
       .then((data) => {
-        const list = Array.isArray(data) ? data : (data?.data ?? []);
-        setAppointments(list);
+        setAppointments(data.appointments ?? []);
       })
       .catch((err) => {
         setError(err?.message || 'Error al cargar historial');

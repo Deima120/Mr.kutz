@@ -24,7 +24,7 @@ export const getAll = async (req, res, next) => {
       limit: limit ? parseInt(limit, 10) : 100,
       offset: offset ? parseInt(offset, 10) : 0,
     });
-    res.json({ success: true, data: appointments });
+    res.json({ success: true, data: appointments.appointments, total: appointments.total, limit: appointments.limit, offset: appointments.offset });
   } catch (error) {
     next(error);
   }
@@ -53,11 +53,16 @@ export const getById = async (req, res, next) => {
 
 export const getAvailableSlots = async (req, res, next) => {
   try {
-    const { barberId, date, excludeAppointmentId } = req.query;
+    const { barberId, date, excludeAppointmentId, durationMinutes } = req.query;
     if (!barberId || !date) {
       return res.status(400).json({ success: false, message: 'Se requieren barbero y fecha.' });
     }
-    const slots = await appointmentService.getAvailableSlots(barberId, date, excludeAppointmentId);
+    const slots = await appointmentService.getAvailableSlots(
+      barberId,
+      date,
+      excludeAppointmentId,
+      durationMinutes ? parseInt(durationMinutes, 10) : 30,
+    );
     res.json({ success: true, data: slots });
   } catch (error) {
     next(error);
@@ -67,6 +72,9 @@ export const getAvailableSlots = async (req, res, next) => {
 export const create = async (req, res, next) => {
   try {
     const body = { ...req.body };
+    if (!body.serviceId && (!Array.isArray(body.serviceIds) || body.serviceIds.length === 0)) {
+      return res.status(400).json({ success: false, message: 'Indica al menos un servicio.' });
+    }
     if (req.user.role_name === 'client' && req.user.client_id) {
       body.clientId = req.user.client_id;
     }

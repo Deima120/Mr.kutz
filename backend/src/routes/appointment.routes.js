@@ -18,7 +18,15 @@ const createValidation = [
     .isInt({ min: 1 })
     .withMessage('Indica un cliente válido.'),
   body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
-  body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
+  body('serviceId')
+    .optional({ checkFalsy: true })
+    .isInt({ min: 1 })
+    .withMessage('Indica un servicio válido.'),
+  body('serviceIds')
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage('Indica al menos un servicio.'),
+  body('serviceIds.*').optional().isInt({ min: 1 }).withMessage('Servicio no válido.'),
   body('appointmentDate').isDate().withMessage('Indica una fecha válida.'),
   body('startTime')
     .optional({ checkFalsy: true })
@@ -117,7 +125,11 @@ router.use(authorize('admin', 'barber', 'client'));
  * "slots", "rating-summary" o `…/rating` como IDs.
  */
 router.get('/', appointmentController.getAll);
-router.get('/slots', appointmentController.getAvailableSlots);
+router.get('/slots', [
+  query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
+  query('date').isDate().withMessage('Indica una fecha válida.'),
+  query('durationMinutes').optional({ values: 'falsy' }).isInt({ min: 15, max: 480 }).withMessage('Duración no válida.'),
+], validate, appointmentController.getAvailableSlots);
 router.get(
   '/rating-summary',
   authorize('admin', 'barber'),

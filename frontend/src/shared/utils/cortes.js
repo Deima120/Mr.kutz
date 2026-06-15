@@ -11,7 +11,7 @@ export const MODEL_PATH = null;
 
 export const CORTES = [
   {
-    src: 'https://images.unsplash.com/photo-1622287162726-aa62de38d194?w=1200&q=85',
+    src: '/cortes/interior-barberia.png',
     nombre: 'Manos que marcan estilo',
     descripcion: 'Cada detalle importa en el espejo.',
   },

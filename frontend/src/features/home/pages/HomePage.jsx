@@ -20,10 +20,10 @@ const SERVICES_FALLBACK = [
   { name: 'Barba Premium', description: 'Barba + marcación y cuidado especial', price: 45000, durationMinutes: 30 },
 ];
 
-const STATS = [
-  { value: 'Tradición', label: 'en cada corte' },
-  { value: 'Estilo', label: 'a tu medida' },
-  { value: 'Detalle', label: 'que nos define' },
+const BARBERS = [
+  { name: 'Bryan Ramírez', image: '/barberos/bryan-ramirez.png' },
+  { name: 'Michael Ceballos', image: '/barberos/michael-ceballos.png' },
+  { name: 'Juan Vásquez', image: '/barberos/juan-vasquez.png' },
 ];
 
 const SERVICE_CATEGORIES = [
@@ -281,18 +281,24 @@ export default function HomePage() {
           <div className="max-w-4xl mx-auto">
             <p className="section-label text-gold text-center">Sobre nosotros</p>
             <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-stone-900 font-medium tracking-tight leading-[1.1] text-center mb-6">
-              Tradición y tendencia
+              Nuestros barberos
             </h2>
             <div className="gold-line mx-auto mb-10" />
             <p className="text-stone-600 leading-relaxed text-lg md:text-xl text-center max-w-2xl mx-auto">
               En {businessName} combinamos tradición y tendencia para ofrecerte cortes y barbas de alta calidad.
               Nuestro equipo se asegura de que cada visita sea memorable en un ambiente acogedor.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-16 pt-12 border-t border-stone-300/70">
-              {STATS.map((stat, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 mt-16 pt-12 border-t border-stone-300/70">
+              {BARBERS.map((barber, i) => (
                 <div key={i} className="text-center">
-                  <p className="font-serif text-2xl md:text-3xl text-gold font-medium mb-1">{stat.value}</p>
-                  <p className="text-stone-500 text-sm uppercase tracking-wider">{stat.label}</p>
+                  <div className="mx-auto mb-5 w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-2 border-gold/40 shadow-lg">
+                    <img
+                      src={barber.image}
+                      alt={barber.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                  <p className="font-serif text-xl md:text-2xl text-gold font-medium">{barber.name}</p>
                 </div>
               ))}
             </div>

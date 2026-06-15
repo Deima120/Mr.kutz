@@ -64,6 +64,18 @@ function toTimeStr(d) {
   throw new Error(`Valor de tiempo no reconocido: "${s}"`);
 }
 
+/** Extrae etiqueta de servicios múltiples guardada en notas al crear la cita. */
+function displayServiceName(notes, fallbackName) {
+  const match = String(notes || '').match(/^\[Servicios:\s*([^\]]+)\]/);
+  if (match) return match[1].trim();
+  return fallbackName;
+}
+
+/** Quita el prefijo de servicios múltiples de las notas para mostrar solo el texto del usuario. */
+function userNotesOnly(notes) {
+  return String(notes || '').replace(/^\[Servicios:[^\]]+\]\s*/, '').trim() || null;
+}
+
 export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
   const where = {};
 
@@ -76,48 +88,56 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
   if (clientId) where.clientId = parseInt(clientId, 10);
   if (status) where.status = status;
 
-  const appointments = await prisma.appointment.findMany({
-    where,
-    include: {
-      client: { select: { firstName: true, lastName: true } },
-      barber: { select: { firstName: true, lastName: true } },
-      service: { select: { name: true, price: true, durationMinutes: true } },
-      payments: {
-        where: { voidedAt: null },
-        select: { id: true },
-        take: 1,
+  const [appointments, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        client: { select: { firstName: true, lastName: true } },
+        barber: { select: { firstName: true, lastName: true } },
+        service: { select: { name: true, price: true, durationMinutes: true } },
+        payments: {
+          where: { voidedAt: null },
+          select: { id: true },
+          take: 1,
+        },
       },
-    },
-    orderBy: dateFrom && dateTo
-      ? [{ appointmentDate: 'asc' }, { startTime: 'asc' }]
-      : [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
-    take: limit,
-    skip: offset,
-  });
+      orderBy: dateFrom && dateTo
+        ? [{ appointmentDate: 'asc' }, { startTime: 'asc' }]
+        : [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
+      take: limit,
+      skip: offset,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
 
-  return appointments.map((a) => ({
-    id: a.id,
-    client_id: a.clientId,
-    barber_id: a.barberId,
-    service_id: a.serviceId,
-    appointment_date: a.appointmentDate,
-    start_time: a.startTime,
-    end_time: a.endTime,
-    status: a.status,
-    notes: a.notes,
-    created_at: a.createdAt,
-    client_first_name: a.client.firstName,
-    client_last_name: a.client.lastName,
-    barber_first_name: a.barber.firstName,
-    barber_last_name: a.barber.lastName,
-    service_name: a.service.name,
-    price: a.service.price,
-    duration_minutes: a.service.durationMinutes,
-    has_active_payment: (a.payments?.length || 0) > 0,
-    clientRating: a.clientRating,
-    clientRatingComment: a.clientRatingComment,
-    clientRatedAt: a.clientRatedAt,
-  }));
+  return {
+    appointments: appointments.map((a) => ({
+      id: a.id,
+      client_id: a.clientId,
+      barber_id: a.barberId,
+      service_id: a.serviceId,
+      appointment_date: a.appointmentDate,
+      start_time: a.startTime,
+      end_time: a.endTime,
+      status: a.status,
+      notes: userNotesOnly(a.notes),
+      created_at: a.createdAt,
+      client_first_name: a.client.firstName,
+      client_last_name: a.client.lastName,
+      barber_first_name: a.barber.firstName,
+      barber_last_name: a.barber.lastName,
+      service_name: displayServiceName(a.notes, a.service.name),
+      price: a.service.price,
+      duration_minutes: a.service.durationMinutes,
+      has_active_payment: (a.payments?.length || 0) > 0,
+      clientRating: a.clientRating,
+      clientRatingComment: a.clientRatingComment,
+      clientRatedAt: a.clientRatedAt,
+    })),
+    total,
+    limit,
+    offset,
+  };
 };
 
 export const getById = async (id) => {
@@ -144,7 +164,7 @@ export const getById = async (id) => {
     start_time: a.startTime,
     end_time: a.endTime,
     status: a.status,
-    notes: a.notes,
+    notes: userNotesOnly(a.notes),
     created_at: a.createdAt,
     updated_at: a.updatedAt,
     client_first_name: a.client.firstName,
@@ -153,7 +173,7 @@ export const getById = async (id) => {
     client_email: a.client.email,
     barber_first_name: a.barber.firstName,
     barber_last_name: a.barber.lastName,
-    service_name: a.service.name,
+    service_name: displayServiceName(a.notes, a.service.name),
     price: a.service.price,
     duration_minutes: a.service.durationMinutes,
     has_active_payment: (a.payments?.length || 0) > 0,
@@ -318,22 +338,37 @@ export const getPublicRatingSummary = async ({ recentLimit = 24 } = {}) => {
 };
 
 export const create = async (data) => {
-  const { clientId, barberId, serviceId, appointmentDate, startTime, notes } = data;
+  const { clientId, barberId, serviceId, serviceIds, appointmentDate, startTime, notes } = data;
 
-  const service = await prisma.service.findUnique({
-    where: { id: parseInt(serviceId, 10) },
-  });
-  if (!service) {
-    const err = new Error('Servicio no encontrado.');
+  const ids = Array.isArray(serviceIds) && serviceIds.length
+    ? [...new Set(serviceIds.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0))]
+    : [parseInt(serviceId, 10)];
+
+  if (!ids.length || !Number.isFinite(ids[0])) {
+    const err = new Error('Indica al menos un servicio válido.');
     err.statusCode = 400;
     throw err;
   }
+
+  const serviceRecords = await prisma.service.findMany({
+    where: { id: { in: ids } },
+  });
+  if (serviceRecords.length !== ids.length) {
+    const err = new Error('Uno o más servicios no existen.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const serviceById = new Map(serviceRecords.map((s) => [s.id, s]));
+  const orderedServices = ids.map((id) => serviceById.get(id));
+  const primaryService = orderedServices[0];
+  const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
+  const servicesLabel = orderedServices.map((s) => s.name).join(', ');
 
   const start = typeof startTime === 'string' && startTime ? startTime : '09:00';
   const parts = start.split(':');
   const h = parseInt(parts[0], 10) || 9;
   const m = parseInt(parts[1], 10) || 0;
-  const duration = Number(service.durationMinutes);
   const startMinutes = h * 60 + m;
   const endMinutes = startMinutes + duration;
   const endH = Math.floor(endMinutes / 60);
@@ -350,15 +385,20 @@ export const create = async (data) => {
     endMin: endMinutes,
   });
 
+  const userNotes = typeof notes === 'string' ? notes.trim() : '';
+  const storedNotes = ids.length > 1
+    ? `[Servicios: ${servicesLabel}]${userNotes ? ` ${userNotes}` : ''}`
+    : (userNotes || null);
+
   const created = await prisma.appointment.create({
     data: {
       clientId: parseInt(clientId, 10),
       barberId: parseInt(barberId, 10),
-      serviceId: parseInt(serviceId, 10),
+      serviceId: primaryService.id,
       appointmentDate: new Date(appointmentDate),
       startTime: startDate,
       endTime: endDate,
-      notes: notes || null,
+      notes: storedNotes,
     },
   });
   const full = await getById(created.id);
@@ -461,7 +501,7 @@ export const update = async (id, data, existingAppointment = null) => {
   return full;
 };
 
-export const getAvailableSlots = async (barberId, date, excludeAppointmentId = null) => {
+export const getAvailableSlots = async (barberId, date, excludeAppointmentId = null, durationMinutes = 30) => {
   const bid = parseInt(barberId, 10);
   let dateStr = String(date || '').trim();
   const dateOnlyMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -508,15 +548,22 @@ export const getAvailableSlots = async (barberId, date, excludeAppointmentId = n
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
 
+  const duration = Math.max(15, parseInt(durationMinutes, 10) || 30);
+
   const slots = [];
-  for (let mins = startMinutes; mins < endMinutes; mins += 30) {
+  for (let mins = startMinutes; mins + duration <= endMinutes; mins += 30) {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     const startStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const slotEnd = mins + duration;
     const isBusy = busy.some((b) => {
-      const busyStart = toTimeStr(b.startTime);
-      const busyEnd = toTimeStr(b.endTime);
-      return startStr >= busyStart && startStr < busyEnd;
+      const busyStartStr = toTimeStr(b.startTime);
+      const busyEndStr = toTimeStr(b.endTime);
+      const [bsh, bsm] = busyStartStr.split(':').map(Number);
+      const [beh, bem] = busyEndStr.split(':').map(Number);
+      const busyStart = bsh * 60 + bsm;
+      const busyEnd = beh * 60 + bem;
+      return mins < busyEnd && slotEnd > busyStart;
     });
     if (!isBusy) slots.push(startStr);
   }

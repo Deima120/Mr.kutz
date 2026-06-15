@@ -8,17 +8,27 @@ import { ArrowRight } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
 import * as productCategoryService from '@/features/inventory/services/productCategoryService';
 import AdminFormShell, {
+  AdminFormCard,
   AdminFormCardHeader,
-  ADMIN_FORM_FIELD_CLASS,
   ADMIN_FORM_LABEL_CLASS,
+  ADMIN_FORM_FIELD_COMPACT,
+  ADMIN_FORM_ERROR_CLASS,
+  ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
+  AdminFormPreviewField,
+  AdminFormPreviewPanel,
+  AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
 
-export default function ProductFormPage() {
-  const { id } = useParams();
-  const isEdit = !!id;
+export function ProductForm({
+  embedded = false,
+  editId = null,
+  onSuccess,
+  onCancel,
+}) {
+  const isEdit = Boolean(editId);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -36,9 +46,9 @@ export default function ProductFormPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isEdit) {
+    if (isEdit && editId) {
       productService
-        .getProductById(id)
+        .getProductById(editId)
         .then((res) => {
           const p = res?.data ?? res;
           setProductSku(p.sku || '');
@@ -63,7 +73,7 @@ export default function ProductFormPage() {
       .getCategories()
       .then((rows) => setCategories(Array.isArray(rows) ? rows : (rows?.data ?? [])))
       .catch(() => setCategories([]));
-  }, [id, isEdit]);
+  }, [editId, isEdit]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -98,11 +108,15 @@ export default function ProductFormPage() {
       if (isEdit) payload.isActive = formData.isActive;
 
       if (isEdit) {
-        await productService.updateProduct(id, payload);
+        await productService.updateProduct(editId, payload);
       } else {
         await productService.createProduct(payload);
       }
-      navigate('/inventory', { replace: true });
+      if (embedded) {
+        onSuccess?.({ created: !isEdit, updated: isEdit });
+      } else {
+        navigate('/inventory', { replace: true });
+      }
     } catch (err) {
       setError(err?.message || 'Error al guardar');
     } finally {
@@ -110,60 +124,85 @@ export default function ProductFormPage() {
     }
   };
 
+  const handleCancel = () => {
+    if (embedded) onCancel?.();
+    else navigate(-1);
+  };
+
+  const categoryName =
+    categories.find((c) => String(c.id) === String(formData.categoryId))?.name || '';
+
   return (
     <AdminFormShell
       backTo="/inventory"
       backLabel="Inventario"
+      onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
+      fullBleed={!embedded}
+      compact={embedded}
+      showBackNav={!embedded}
       aside={{
-        kicker: 'Stock',
-        title: 'Inventario ordenado',
-        bullets: [
-          'El SKU se genera al crear el producto; el precio de venta ayuda en cobros desde inventario.',
-          'El stock mínimo dispara alertas en el listado principal.',
-          'Los movimientos de cantidad se hacen desde inventario con «Ajustar»; las ventas en caja descuentan stock.',
-        ],
+        kicker: 'Vista previa',
+        title: isEdit ? 'Producto en edición' : 'Nuevo producto',
+        subtitle: formData.name || 'Completa los datos',
+        bullets: [],
         statusLabel: 'Estado',
-        statusValue: isEdit ? 'Modo edición' : 'Alta nueva',
+        statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+        children: (
+          <AdminFormPreviewPanel>
+            <AdminFormPreviewField label="Nombre" value={formData.name} />
+            <AdminFormPreviewField label="SKU" value={isEdit ? productSku : 'Automático'} />
+            <AdminFormPreviewField label="Categoría" value={categoryName} />
+            <AdminFormPreviewField
+              label="Precio venta"
+              value={formData.retailPrice ? `$${Number(formData.retailPrice).toFixed(2)}` : ''}
+            />
+            <AdminFormPreviewField
+              label="Stock mínimo"
+              value={formData.minStock != null ? String(formData.minStock) : ''}
+            />
+            {isEdit && productMeta ? (
+              <AdminFormPreviewField
+                label="Stock actual"
+                value={`${productMeta.quantity} ${formData.unit === 'unit' ? 'u' : formData.unit}`}
+              />
+            ) : null}
+          </AdminFormPreviewPanel>
+        ),
       }}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
-      >
-        <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+      <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader
             eyebrow="Producto"
             title={isEdit ? 'Editar producto' : 'Nuevo producto'}
           />
 
-          {error && <div className="alert-error text-sm py-2.5 shrink-0">{error}</div>}
+          {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
-          <div className="group">
+          <div className="group shrink-0">
             <label className={ADMIN_FORM_LABEL_CLASS}>Nombre *</label>
-            <input name="name" value={formData.name} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS} required />
+            <input name="name" value={formData.name} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT} required />
           </div>
 
-          <div className="group">
+          <div className="group shrink-0">
             <label className={ADMIN_FORM_LABEL_CLASS}>Descripción</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
               rows={2}
-              className={`${ADMIN_FORM_FIELD_CLASS} resize-none min-h-[3.5rem]`}
+              className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug`}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+          <div className={`${ADMIN_FORM_GRID_CLASS} sm:grid-cols-2 xl:grid-cols-3`}>
             {isEdit ? (
               <div className="group">
                 <label className={ADMIN_FORM_LABEL_CLASS}>SKU</label>
                 <input
                   readOnly
                   value={productSku}
-                  className={`${ADMIN_FORM_FIELD_CLASS} bg-stone-50 text-stone-600`}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} bg-stone-50 text-stone-600`}
                 />
               </div>
             ) : (
@@ -174,7 +213,7 @@ export default function ProductFormPage() {
             )}
             <div className="group">
               <label className={ADMIN_FORM_LABEL_CLASS}>Unidad</label>
-              <select name="unit" value={formData.unit} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS}>
+              <select name="unit" value={formData.unit} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT}>
                 <option value="unit">Unidad</option>
                 <option value="ml">ml</option>
                 <option value="g">g</option>
@@ -185,7 +224,7 @@ export default function ProductFormPage() {
             </div>
             <div className="group sm:col-span-2 xl:col-span-1">
               <label className={ADMIN_FORM_LABEL_CLASS}>Categoría</label>
-              <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS}>
+              <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT}>
                 <option value="">Sin categoría</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -196,28 +235,29 @@ export default function ProductFormPage() {
             </div>
           </div>
 
-          <div className="group max-w-xs">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Precio de venta ($)</label>
-            <input
-              name="retailPrice"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.retailPrice}
-              onChange={handleChange}
-              placeholder="Opcional"
-              className={ADMIN_FORM_FIELD_CLASS}
-            />
-          </div>
-
-          <div className="group max-w-xs">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Stock mínimo (alerta)</label>
-            <input name="minStock" type="number" min="0" value={formData.minStock} onChange={handleChange} className={ADMIN_FORM_FIELD_CLASS} />
+          <div className={`${ADMIN_FORM_GRID_CLASS} max-w-xl`}>
+            <div className="group">
+              <label className={ADMIN_FORM_LABEL_CLASS}>Precio de venta ($)</label>
+              <input
+                name="retailPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.retailPrice}
+                onChange={handleChange}
+                placeholder="Opcional"
+                className={ADMIN_FORM_FIELD_COMPACT}
+              />
+            </div>
+            <div className="group">
+              <label className={ADMIN_FORM_LABEL_CLASS}>Stock mínimo (alerta)</label>
+              <input name="minStock" type="number" min="0" value={formData.minStock} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT} />
+            </div>
           </div>
 
           {isEdit && productMeta && (
             <>
-              <div className="rounded-xl bg-stone-50/90 border border-stone-200/90 p-4 text-sm shadow-inner">
+              <div className="rounded-xl bg-stone-50/90 border border-stone-200/90 p-3 text-sm shrink-0">
                 <p className="text-stone-600">
                   Stock actual: <strong>{productMeta.quantity}</strong>{' '}
                   {formData.unit === 'unit' ? 'unidades' : formData.unit}
@@ -246,12 +286,20 @@ export default function ProductFormPage() {
             </>
           )}
 
-          <AdminFormFooterActions className="mt-auto">
-            <AdminFormPrimaryButton disabled={loading}>{loading ? 'Guardando…' : 'Guardar'}</AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
+          <AdminFormFooterActions className="mt-1">
+            <AdminFormPrimaryButton disabled={loading}>
+              <AdminFormLoadingButton loading={loading} loadingLabel="Guardando…">
+                Guardar producto
+              </AdminFormLoadingButton>
+            </AdminFormPrimaryButton>
+            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
-        </div>
-      </form>
+      </AdminFormCard>
     </AdminFormShell>
   );
+}
+
+export default function ProductFormPage() {
+  const { id } = useParams();
+  return <ProductForm editId={id ? parseInt(id, 10) : null} />;
 }

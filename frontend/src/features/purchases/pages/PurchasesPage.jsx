@@ -88,9 +88,6 @@ export default function PurchasesPage() {
   return (
     <div className="page-shell">
       <PageHeader
-        title="Compras"
-        label="Abastecimiento"
-        subtitle="Órdenes de compra y entrada de inventario"
         actions={
           <div className="flex gap-2">
             <button

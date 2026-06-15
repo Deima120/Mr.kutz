@@ -3,11 +3,14 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, ArrowRight } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Plus, ArrowRight, Pencil, Trash2 } from 'lucide-react';
 import * as serviceService from '@/features/services/services/serviceService';
+import { ServiceForm } from '@/features/services/pages/ServiceFormPage';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import SuccessToast from '@/shared/components/SuccessToast';
 
 const PAGE_SIZE_OPTIONS = [6, 9, 12, 18];
 
@@ -36,6 +39,58 @@ export default function ServicesPage() {
   const [pageSize, setPageSize] = useState(12);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [formView, setFormView] = useState(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isCreating = formView === 'create';
+  const editingId = typeof formView === 'number' ? formView : null;
+  const isFormOpen = isCreating || editingId != null;
+
+  useEffect(() => {
+    const editMatch = location.pathname.match(/^\/services\/(\d+)\/edit$/);
+    if (editMatch) {
+      setFormView(parseInt(editMatch[1], 10));
+      navigate('/services', { replace: true });
+      return;
+    }
+    if (location.pathname === '/services/new') {
+      setFormView('create');
+      navigate('/services', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  const handleFormSuccess = ({ created, updated } = {}) => {
+    setFormView(null);
+    if (created) setSuccessMessage('Servicio creado correctamente.');
+    if (updated) setSuccessMessage('Servicio actualizado correctamente.');
+    fetchServices();
+    setPage(1);
+  };
+
+  const openEditForm = (id) => setFormView(id);
+
+  const formHeaderTitle = isCreating ? 'Nuevo servicio' : editingId ? 'Editar servicio' : 'Servicios';
+  const formHeaderSubtitle = isCreating
+    ? 'Completa los datos del servicio'
+    : editingId
+    ? 'Modifica el servicio del catálogo'
+    : 'Activos visibles al agendar; puedes filtrar por categoría.';
+
+  const inlineForm = isFormOpen ? (
+    <ServiceForm
+      embedded
+      editId={editingId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => setFormView(null)}
+    />
+  ) : null;
+
+  const successToast = (
+    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
+  );
 
   const fetchServices = async () => {
     setLoading(true);
@@ -117,11 +172,10 @@ export default function ServicesPage() {
   return (
     <div className="min-w-0 max-w-full space-y-4">
       <PageHeader
-        compact
-        title="Servicios"
-        label="Catálogo"
-        subtitle="Activos visibles al agendar; puedes filtrar por categoría."
+        title={isFormOpen ? formHeaderTitle : null}
+        subtitle={isFormOpen ? formHeaderSubtitle : null}
         actions={
+          !isFormOpen ? (
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-lg px-2.5 py-1.5">
               <input
@@ -132,35 +186,47 @@ export default function ServicesPage() {
               />
               Inactivos
             </label>
-            <Link to="/services/new" className="btn-admin text-sm py-2 px-4">
-              + Nuevo
-            </Link>
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
+              className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
+            >
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Nuevo
+            </button>
           </div>
+          ) : null
         }
       />
 
-      {error && (
+      {inlineForm}
+
+      {!isFormOpen && error && (
         <div className="alert-error text-sm py-2.5" role="alert">
           {error}
         </div>
       )}
 
-      {loading ? (
+      {!isFormOpen && loading ? (
         <DataCard>
           <div className="py-12 text-center text-stone-500 text-sm">Cargando…</div>
         </DataCard>
-      ) : services.length === 0 ? (
+      ) : !isFormOpen && services.length === 0 ? (
         <DataCard>
           <div className="py-10 text-center">
             <p className="text-stone-500 text-sm mb-3">No hay servicios registrados.</p>
-            <Link to="/services/new" className="btn-admin-outline inline-flex items-center gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
+              className="btn-admin-outline inline-flex items-center gap-2 text-sm"
+            >
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Crear primero
               <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-            </Link>
+            </button>
           </div>
         </DataCard>
-      ) : (
+      ) : !isFormOpen ? (
         <>
           <DataCard className="max-w-full min-w-0">
             <div className="w-full min-w-0 max-w-full flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
@@ -277,20 +343,18 @@ export default function ServicesPage() {
                           ${parseFloat(s.price).toFixed(2)} · {s.duration_minutes} min
                         </p>
                       </div>
-                      <div className="flex flex-col gap-0.5 shrink-0 text-right">
-                        <Link
-                          to={`/services/${s.id}/edit`}
-                          className="text-xs sm:text-sm font-semibold text-barber-dark hover:text-gold transition-colors whitespace-nowrap"
-                        >
-                          Editar
-                        </Link>
-                        <button
-                          type="button"
+                      <div className="inline-flex items-center gap-1.5 shrink-0">
+                        <AdminIconButton
+                          icon={Pencil}
+                          label="Editar servicio"
+                          onClick={() => openEditForm(s.id)}
+                        />
+                        <AdminIconButton
+                          icon={Trash2}
+                          label="Eliminar servicio"
+                          variant="danger"
                           onClick={() => handleDelete(s.id, s.name)}
-                          className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium whitespace-nowrap"
-                        >
-                          Eliminar
-                        </button>
+                        />
                       </div>
                     </div>
                   </article>
@@ -299,7 +363,8 @@ export default function ServicesPage() {
             </>
           )}
         </>
-      )}
+      ) : null}
+      {successToast}
     </div>
   );
 }

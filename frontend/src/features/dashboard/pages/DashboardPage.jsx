@@ -48,8 +48,7 @@ function BarberDashboard() {
         date: today,
         barberId: user?.barberId,
       });
-      const list = Array.isArray(data) ? data : (data?.data ?? []);
-      setAppointments(list.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))));
+      setAppointments((data.appointments ?? []).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))));
     } catch (err) {
       setError(err?.message || 'Error al cargar citas');
       setAppointments([]);
@@ -348,8 +347,7 @@ function AdminDashboard() {
     setAppointmentsError('');
     try {
       const data = await appointmentService.getAppointments({ date: today });
-      const list = Array.isArray(data) ? data : data?.data ?? [];
-      setAppointments(list.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))));
+      setAppointments((data.appointments ?? []).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))));
     } catch (err) {
       setAppointmentsError(err?.message || 'Error al cargar citas');
       setAppointments([]);
@@ -719,7 +717,7 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="page-shell space-y-8">
+    <div className="page-shell space-y-4">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <p className="font-sans text-gold tracking-[0.3em] text-xs font-semibold mb-4">

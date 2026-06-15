@@ -6,19 +6,29 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as clientService from '@/features/clients/services/clientService';
 import AdminFormShell, {
+  AdminFormCard,
   AdminFormCardHeader,
-  ADMIN_FORM_FIELD_CLASS,
   ADMIN_FORM_LABEL_CLASS,
+  ADMIN_FORM_FIELD_COMPACT,
+  ADMIN_FORM_ERROR_CLASS,
+  ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
+  AdminFormPreviewField,
+  AdminFormPreviewPanel,
+  AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
 
 const NOTES_MAX = 500;
 
-export default function ClientFormPage() {
-  const { id } = useParams();
-  const isEdit = !!id;
+export function ClientForm({
+  embedded = false,
+  editId = null,
+  onSuccess,
+  onCancel,
+}) {
+  const isEdit = Boolean(editId);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -35,9 +45,9 @@ export default function ClientFormPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (isEdit) {
+    if (isEdit && editId) {
       clientService
-        .getClientById(id)
+        .getClientById(editId)
         .then((client) => {
           setFormData({
             firstName: client.first_name || '',
@@ -51,7 +61,7 @@ export default function ClientFormPage() {
         })
         .catch(() => setError('Cliente no encontrado'));
     }
-  }, [id, isEdit]);
+  }, [editId, isEdit]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -95,11 +105,13 @@ export default function ClientFormPage() {
 
     try {
       if (isEdit) {
-        await clientService.updateClient(id, payload);
-        setSuccess(true);
-        setTimeout(() => navigate('/clients', { replace: true }), 1500);
+        await clientService.updateClient(editId, payload);
       } else {
-        const client = await clientService.createClient(payload);
+        await clientService.createClient(payload);
+      }
+      if (embedded) {
+        onSuccess?.({ created: !isEdit, updated: isEdit });
+      } else {
         setSuccess(true);
         setTimeout(() => navigate('/clients', { replace: true }), 1500);
       }
@@ -111,11 +123,20 @@ export default function ClientFormPage() {
     }
   };
 
+  const handleCancel = () => {
+    if (embedded) onCancel?.();
+    else navigate(-1);
+  };
+
   return (
     <AdminFormShell
       backTo="/clients"
       backLabel="Clientes"
+      onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
+      fullBleed={!embedded}
+      compact={embedded}
+      showBackNav={!embedded}
       aside={{
         kicker: 'Vista previa',
         title: isEdit ? 'Datos actualizados' : 'Nuevo cliente',
@@ -124,68 +145,41 @@ export default function ClientFormPage() {
         statusLabel: 'Estado',
         statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
         children: (
-          <div className="space-y-4 mt-6">
-            <div>
-              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Nombre</p>
-              <p className="text-white font-medium">{formData.firstName || '—'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Apellido</p>
-              <p className="text-white font-medium">{formData.lastName || '—'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Documento</p>
-              <p className="text-white font-medium">
-                {formData.documentType && formData.documentNumber
+          <AdminFormPreviewPanel>
+            <AdminFormPreviewField label="Nombre" value={formData.firstName} />
+            <AdminFormPreviewField label="Apellido" value={formData.lastName} />
+            <AdminFormPreviewField
+              label="Documento"
+              value={
+                formData.documentType && formData.documentNumber
                   ? `${formData.documentType} · ${formData.documentNumber}`
-                  : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Correo</p>
-              <p className="text-white font-medium text-sm break-all">{formData.email || '—'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] tracking-widest text-stone-500 mb-1">Teléfono</p>
-              <p className="text-white font-medium">{formData.phone || '—'}</p>
-            </div>
-            {formData.notes && (
-              <div>
-                <p className="text-[10px] tracking-widest text-stone-500 mb-1">Notas</p>
-                <p className="text-stone-400 text-sm leading-relaxed">{formData.notes}</p>
-              </div>
-            )}
-          </div>
+                  : ''
+              }
+            />
+            <AdminFormPreviewField label="Correo" value={formData.email} breakAll />
+            <AdminFormPreviewField label="Teléfono" value={formData.phone} />
+            {formData.notes ? (
+              <AdminFormPreviewField label="Notas" value={formData.notes} multiline />
+            ) : null}
+          </AdminFormPreviewPanel>
         ),
       }}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-stone-100/70 border border-stone-200/80 overflow-hidden"
-      >
-        <div
-          className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
-          aria-hidden
-        />
-        <div className="px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto">
+      <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader
             eyebrow="Ficha de cliente"
             title={isEdit ? 'Actualizar datos' : 'Registrar cliente'}
           />
 
-          {success && (
+          {success && !embedded && (
             <div className="alert-success shrink-0 text-xs py-2 flex items-center justify-between" role="status">
               <span>{isEdit ? '✓ Cliente actualizado correctamente' : '✓ Cliente registrado correctamente'}</span>
             </div>
           )}
 
-          {error && (
-            <div className="alert-error shrink-0 text-xs py-2" role="alert">
-              {error}
-            </div>
-          )}
+          {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
+          <div className={ADMIN_FORM_GRID_CLASS}>
             <div className="group">
               <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
                 Tipo de documento <span className="text-red-600 normal-case">*</span>
@@ -196,7 +190,7 @@ export default function ClientFormPage() {
                 list="client-doc-types"
                 value={formData.documentType}
                 onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 placeholder="Ej. CC, CE, NIT…"
                 maxLength={40}
                 required
@@ -219,7 +213,7 @@ export default function ClientFormPage() {
                 name="documentNumber"
                 value={formData.documentNumber}
                 onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 placeholder="Sin puntos ni espacios, si aplica"
                 maxLength={80}
                 required
@@ -228,7 +222,7 @@ export default function ClientFormPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0">
+          <div className={ADMIN_FORM_GRID_CLASS}>
             <div className="group">
               <label htmlFor="firstName" className={ADMIN_FORM_LABEL_CLASS}>
                 Nombre <span className="text-red-600 normal-case">*</span>
@@ -239,7 +233,7 @@ export default function ClientFormPage() {
                 type="text"
                 value={formData.firstName}
                 onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 required
               />
             </div>
@@ -253,7 +247,7 @@ export default function ClientFormPage() {
                 type="text"
                 value={formData.lastName}
                 onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 required
               />
             </div>
@@ -267,7 +261,7 @@ export default function ClientFormPage() {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 placeholder="correo@ejemplo.com"
                 required
               />
@@ -282,7 +276,7 @@ export default function ClientFormPage() {
                 type="tel"
                 value={formData.phone}
                 onChange={handleChange}
-                className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 placeholder="Opcional"
               />
             </div>
@@ -304,26 +298,25 @@ export default function ClientFormPage() {
               onChange={handleChange}
               rows={2}
               maxLength={NOTES_MAX}
-              className={`${ADMIN_FORM_FIELD_CLASS} py-2 text-sm resize-none min-h-[3.25rem] max-h-24 leading-snug`}
+              className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug`}
               placeholder="Breve: preferencias, alergias…"
             />
           </div>
 
           <AdminFormFooterActions className="mt-1">
             <AdminFormPrimaryButton disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Guardando…
-                </>
-              ) : (
-                'Guardar cliente'
-              )}
+              <AdminFormLoadingButton loading={loading} loadingLabel="Guardando…">
+                Guardar cliente
+              </AdminFormLoadingButton>
             </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
+            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
-        </div>
-      </form>
+      </AdminFormCard>
     </AdminFormShell>
   );
+}
+
+export default function ClientFormPage() {
+  const { id } = useParams();
+  return <ClientForm editId={id ? parseInt(id, 10) : null} />;
 }

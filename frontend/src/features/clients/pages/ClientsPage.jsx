@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Eye, Edit2, Trash2, Search, Scissors } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as clientService from '@/features/clients/services/clientService';
+import { ClientForm } from '@/features/clients/pages/ClientFormPage';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import SuccessToast from '@/shared/components/SuccessToast';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
@@ -31,22 +34,35 @@ export default function ClientsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const resolveFormViewFromPath = (pathname) => {
+    if (pathname === '/clients/new') return 'create';
+    const editMatch = pathname.match(/^\/clients\/(\d+)\/edit$/);
+    if (editMatch) return parseInt(editMatch[1], 10);
+    return null;
+  };
+
+  const [formView, setFormView] = useState(() => resolveFormViewFromPath(location.pathname));
 
   useEffect(() => {
     if (location.state?.successMessage) {
       setSuccessMessage(location.state.successMessage);
       window.history.replaceState({}, document.title);
     }
-  }, [location]);
+  }, [location.state]);
+
+  const isCreating = formView === 'create';
+  const editingId = typeof formView === 'number' ? formView : null;
+  const isFormOpen = isCreating || editingId != null;
 
   useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage('');
-      }, 4000);
-      return () => clearTimeout(timer);
+    const fromPath = resolveFormViewFromPath(location.pathname);
+    if (fromPath != null) {
+      setFormView(fromPath);
+      navigate('/clients', { replace: true });
     }
-  }, [successMessage]);
+  }, [location.pathname, navigate]);
 
   const fetchClients = async (targetPage = page) => {
     setLoading(true);
@@ -105,6 +121,28 @@ export default function ClientsPage() {
       setIsDeleting(false);
     }
   };
+
+  const handleFormSuccess = ({ created, updated } = {}) => {
+    setFormView(null);
+    if (created) setSuccessMessage('Cliente registrado correctamente.');
+    if (updated) setSuccessMessage('Cliente actualizado correctamente.');
+    fetchClients(1);
+    setPage(1);
+  };
+
+  const openEditForm = (id) => setFormView(id);
+
+  const inlineForm = isFormOpen ? (
+    <ClientForm
+      embedded
+      editId={editingId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => setFormView(null)}
+    />
+  ) : null;
+
+  const dismissSuccessMessage = () => setSuccessMessage('');
+  const successToast = <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />;
 
   // Cálculos de paginación
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -263,72 +301,74 @@ export default function ClientsPage() {
   // ——— Vista admin ———
   return (
     <div className="page-shell animate-fade-in-up">
-      <PageHeader
-        compact={true}
-        title="Clientes"
-        label="Consulta"
-        subtitle={total > 0 ? `${total} cliente${total !== 1 ? 's' : ''} registrado${total !== 1 ? 's' : ''}` : 'Consulta de clientes'}
-        actions={
-          isAdmin ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => downloadCSV('clientes.csv', clients.map((c) => ({
-                  id: c.id,
-                  nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
-                  email: c.email || '',
-                  telefono: c.phone || '',
-                  documento_tipo: c.document_type || '',
-                  documento_numero: c.document_number || '',
-                })))}
-                className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm"
-              >
-                Exportar CSV
-              </button>
-              <button 
-                type="button" 
-                onClick={printAsPDF} 
-                className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm"
-              >
-                Exportar PDF
-              </button>
-              <Link to="/clients/new" className="btn-admin text-xs font-semibold py-2 px-4 sm:text-sm">
-                + Nuevo cliente
-              </Link>
-            </div>
-          ) : null
-        }
-      />
+      {isFormOpen ? (
+        inlineForm
+      ) : (
+        <>
+          <PageHeader
+            filters={
+              <form onSubmit={handleSearch} className="flex gap-2 min-w-0 flex-1 max-w-xl">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar por nombre, documento o correo..."
+                    className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm"
+                  />
+                </div>
+                <button type="submit" className="btn-admin shrink-0 px-4 text-sm">
+                  Buscar
+                </button>
+              </form>
+            }
+            actions={
+              isAdmin ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadCSV('clientes.csv', clients.map((c) => ({
+                      id: c.id,
+                      nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+                      email: c.email || '',
+                      telefono: c.phone || '',
+                      documento_tipo: c.document_type || '',
+                      documento_numero: c.document_number || '',
+                    })))}
+                    className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm"
+                  >
+                    Exportar CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={printAsPDF}
+                    className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm"
+                  >
+                    Exportar PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormView('create')}
+                    className="btn-admin inline-flex items-center gap-2 text-xs font-semibold py-2 px-4 sm:text-sm"
+                  >
+                    <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                    Nuevo cliente
+                  </button>
+                </div>
+              ) : null
+            }
+          />
 
-      <DataCard>
-        {/* Formulario de Búsqueda Unificado */}
-        <form onSubmit={handleSearch} className="mb-6 flex gap-3 max-w-2xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, documento o correo..."
-              className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm shadow-sm transition-all duration-200"
-            />
-          </div>
-          <button 
-            type="submit" 
-            className="btn-admin shrink-0 px-6 font-semibold rounded-xl text-sm transition-transform active:scale-95 duration-200"
-          >
-            Buscar
-          </button>
-        </form>
-
+          <DataCard compact>
         {error && (
-          <div className="mb-4 alert-error text-sm py-2.5" role="alert">
+          <div className="mb-3 alert-error text-sm py-2" role="alert">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="py-16 text-center text-stone-500">
+          <div className="py-10 text-center text-stone-500">
             <div className="inline-block animate-spin rounded-full h-7 w-7 border-3 border-gold border-t-transparent mb-2"></div>
             <p className="text-sm font-medium animate-pulse">Obteniendo listado de clientes...</p>
           </div>
@@ -339,6 +379,53 @@ export default function ClientsPage() {
           </div>
         ) : (
           <>
+            {total > 0 && (
+              <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-xs text-stone-500">
+                  Página {safePage} de {totalPages} · {total} cliente{total !== 1 ? 's' : ''}
+                </p>
+                <div className="flex flex-wrap items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="admin-page-size" className="text-[11px] font-medium text-stone-500 whitespace-nowrap">
+                      Por página
+                    </label>
+                    <select
+                      id="admin-page-size"
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none min-w-[4rem]"
+                    >
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5" role="navigation" aria-label="Cambiar página">
+                    <button
+                      type="button"
+                      disabled={safePage <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="inline-flex items-center justify-center rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-xs font-semibold text-stone-800 tabular-nums min-w-[2.5rem] text-center">
+                      {safePage}/{totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="inline-flex items-center justify-center rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-900 hover:bg-stone-50 disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <Table>
                 <TableHead>
@@ -365,33 +452,32 @@ export default function ClientsPage() {
                       <TableCell className="text-xs font-semibold text-stone-700">{client.email || '-'}</TableCell>
                       <TableCell className="text-xs font-semibold text-stone-700">{client.phone || '-'}</TableCell>
                       <TableCell>
-                        <div className="flex gap-1.5">
-                          <Link
+                        <div className="inline-flex items-center gap-1.5">
+                          <AdminIconButton
+                            icon={Eye}
+                            label="Ver cliente"
                             to={`/clients/${client.id}`}
-                            title="Ver cliente"
-                            className="p-1.5 text-stone-800 hover:text-gold-dark hover:bg-stone-50 rounded-lg transition-colors border border-transparent hover:border-stone-150"
-                          >
-                            <Eye className="w-4.5 h-4.5" strokeWidth={2.5} />
-                          </Link>
-                          <Link
-                            to={`/clients/${client.id}/edit`}
-                            title="Editar cliente"
-                            className="p-1.5 text-stone-700 hover:text-gold-dark hover:bg-stone-50 rounded-lg transition-colors border border-transparent hover:border-stone-150"
-                          >
-                            <Edit2 className="w-4.5 h-4.5" strokeWidth={2.5} />
-                          </Link>
-                          <button
+                          />
+                          {isAdmin && (
+                            <AdminIconButton
+                              icon={Pencil}
+                              label="Editar cliente"
+                              onClick={() => openEditForm(client.id)}
+                            />
+                          )}
+                          {isAdmin && (
+                          <AdminIconButton
+                            icon={Trash2}
+                            label="Eliminar cliente"
+                            variant="danger"
                             onClick={() =>
                               handleDelete(
                                 client.id,
                                 `${client.first_name} ${client.last_name}`
                               )
                             }
-                            title="Eliminar cliente"
-                            className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={2.5} />
-                          </button>
+                          />
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -399,60 +485,11 @@ export default function ClientsPage() {
                 </TableBody>
               </Table>
             </div>
-
-            {/* Paginación Vista Admin */}
-            {total > 0 && (
-              <div className="mt-6 pt-6 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <p className="text-xs sm:text-sm text-stone-500 font-bold">
-                  Mostrando {clients.length} de {total} cliente{total !== 1 ? 's' : ''}
-                </p>
-
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="admin-page-size" className="text-xs font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">
-                      Por página
-                    </label>
-                    <select
-                      id="admin-page-size"
-                      value={pageSize}
-                      onChange={(e) => setPageSize(Number(e.target.value))}
-                      className="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none w-auto min-w-[4.5rem] font-medium"
-                    >
-                      {PAGE_SIZE_OPTIONS.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
-                    <button
-                      type="button"
-                      disabled={safePage <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Anterior
-                    </button>
-                    <span className="text-xs sm:text-sm font-bold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
-                      {safePage}/{totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={safePage >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-900 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
-      </DataCard>
+          </DataCard>
+        </>
+      )}
 
       {/* Modal de Confirmación de Eliminación Premium */}
       {deleteTarget && (
@@ -504,23 +541,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Toast de Éxito Premium */}
-      {successMessage && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-stone-900 border border-gold/45 text-white px-4.5 py-3.5 rounded-xl shadow-2xl animate-fade-in-up transition-all duration-300 max-w-sm">
-          <div className="w-7 h-7 rounded-full bg-gold/15 text-gold flex items-center justify-center shrink-0">
-            <span className="text-sm font-bold">✓</span>
-          </div>
-          <div className="flex-1">
-            <p className="text-xs sm:text-sm font-medium pr-6">{successMessage}</p>
-          </div>
-          <button
-            onClick={() => setSuccessMessage('')}
-            className="absolute top-2.5 right-2.5 text-stone-400 hover:text-gold transition-colors text-xs font-bold p-1"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {successToast}
     </div>
   );
 }

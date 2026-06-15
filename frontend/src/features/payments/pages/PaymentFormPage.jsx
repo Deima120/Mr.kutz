@@ -8,12 +8,18 @@ import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
 import AdminFormShell, {
+  AdminFormCard,
   AdminFormCardHeader,
-  ADMIN_FORM_FIELD_CLASS,
+  ADMIN_FORM_FIELD_COMPACT,
   ADMIN_FORM_LABEL_CLASS,
+  ADMIN_FORM_ERROR_CLASS,
+  ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
+  AdminFormPreviewField,
+  AdminFormPreviewPanel,
+  AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
 
 function generatePaymentReference() {
@@ -25,11 +31,17 @@ function generatePaymentReference() {
   return `MKP-${yyyy}${mm}${dd}-${random}`;
 }
 
-export default function PaymentFormPage() {
+export function PaymentForm({
+  embedded = false,
+  onSuccess,
+  onCancel,
+  prefillProductId: prefillProductIdProp = null,
+  prefillAppointmentId: prefillAppointmentIdProp = null,
+}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const prefillProductId = searchParams.get('productId');
-  const prefillAppointmentId = prefillProductId ? null : searchParams.get('appointmentId');
+  const prefillProductId = prefillProductIdProp ?? searchParams.get('productId');
+  const prefillAppointmentId = prefillProductId ? null : (prefillAppointmentIdProp ?? searchParams.get('appointmentId'));
 
   const [methods, setMethods] = useState([]);
   const [completedAppointments, setCompletedAppointments] = useState([]);
@@ -151,8 +163,7 @@ export default function PaymentFormPage() {
       appointmentService
         .getAppointments({ status: 'completed', limit: 100 })
         .then((data) => {
-          const list = Array.isArray(data) ? data : [];
-          setCompletedAppointments(list);
+          setCompletedAppointments(data.appointments ?? []);
         })
         .catch(() => setCompletedAppointments([]));
     } else {
@@ -205,7 +216,11 @@ export default function PaymentFormPage() {
       }
 
       await paymentService.createPayment(payload);
-      navigate('/payments', { replace: true });
+      if (embedded) {
+        onSuccess?.({ created: true });
+      } else {
+        navigate('/payments', { replace: true });
+      }
     } catch (err) {
       setError(err?.message || 'Error al registrar pago');
     } finally {
@@ -213,54 +228,58 @@ export default function PaymentFormPage() {
     }
   };
 
-  const inventoryAside = saleProduct
-    ? {
-        kicker: 'Caja',
-        title: 'Venta de producto',
-        bullets: [
-          'Al registrar el pago se descuenta el stock y queda el movimiento en inventario.',
-          'Ajusta cantidad y monto si aplicas descuento o precio distinto al de venta.',
-          'Para cobrar un servicio ya agendado, abre Registrar pago desde el menú y vincula la cita completada.',
-        ],
-        statusLabel: 'Origen',
-        statusValue: 'Inventario',
-      }
-    : {
-        kicker: 'Finanzas',
-        title: appointmentFromUrl ? 'Cobro tras servicio' : 'Pagos alineados con citas',
-        bullets: appointmentFromUrl
-          ? [
-              'El monto se rellenó con el precio del servicio; ajústalo si aplicas descuento.',
-              'Elige el método de pago y confirma para dejar el ingreso registrado.',
-              'También puedes registrar pagos desde el menú Pagos sin pasar por citas.',
-            ]
-          : [
-              'Vincular a una cita completada ayuda a cuadrar ingresos con el servicio.',
-              'El método de pago queda registrado para reportes y auditoría.',
-              'La referencia es opcional pero útil en conciliación.',
-            ],
-        statusLabel: 'Flujo',
-        statusValue: appointmentFromUrl ? 'Servicio completado' : 'Caja / cobro',
-      };
+  const selectedMethod = methods.find((m) => String(m.id) === String(formData.paymentMethodId));
+
+  const paymentAside = {
+    kicker: 'Vista previa',
+    title: saleProduct ? 'Venta de producto' : appointmentFromUrl ? 'Cobro de servicio' : 'Registro de pago',
+    subtitle: saleProduct?.name || appointmentFromUrl?.service_name || 'Completa los datos',
+    bullets: [],
+    statusLabel: 'Origen',
+    statusValue: saleProduct ? 'Inventario' : linkToAppointment && formData.appointmentId ? 'Cita completada' : 'Caja',
+    children: (
+      <AdminFormPreviewPanel>
+        {saleProduct ? (
+          <AdminFormPreviewField label="Producto" value={saleProduct.name} />
+        ) : null}
+        {appointmentFromUrl && !saleProduct ? (
+          <AdminFormPreviewField
+            label="Cliente"
+            value={`${appointmentFromUrl.client_first_name || ''} ${appointmentFromUrl.client_last_name || ''}`.trim()}
+          />
+        ) : null}
+        <AdminFormPreviewField
+          label="Monto"
+          value={formData.amount ? `$${parseFloat(formData.amount).toFixed(2)}` : ''}
+        />
+        <AdminFormPreviewField label="Método" value={selectedMethod?.name} />
+        <AdminFormPreviewField label="Referencia" value={formData.reference} breakAll />
+      </AdminFormPreviewPanel>
+    ),
+  };
 
   const maxQty = saleProduct != null ? Math.max(0, Number(saleProduct.quantity) || 0) : undefined;
+
+  const handleCancel = () => {
+    if (embedded) onCancel?.();
+    else navigate(-1);
+  };
 
   return (
     <AdminFormShell
       backTo="/payments"
       backLabel="Pagos"
+      onBackClick={embedded ? handleCancel : undefined}
       modeBadge="Registro"
-      aside={inventoryAside}
+      fullBleed={!embedded}
+      compact={embedded}
+      showBackNav={!embedded}
+      aside={paymentAside}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
-      >
-        <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className="px-4 py-3 sm:px-6 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+      <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader eyebrow="Pago" title="Registrar pago" />
 
-          {error && <div className="alert-error text-xs py-2 shrink-0">{error}</div>}
+          {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
           {productLoadError && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
               {productLoadError}
@@ -310,7 +329,7 @@ export default function PaymentFormPage() {
                     setProductQty(e.target.value);
                     setError('');
                   }}
-                  className={ADMIN_FORM_FIELD_CLASS}
+                  className={ADMIN_FORM_FIELD_COMPACT}
                   required
                 />
               </div>
@@ -339,7 +358,7 @@ export default function PaymentFormPage() {
                 name="appointmentId"
                 value={formData.appointmentId}
                 onChange={handleAppointmentSelect}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
               >
                 <option value="">Seleccionar cita…</option>
                 {appointmentSelectRows.map((a) => (
@@ -378,7 +397,7 @@ export default function PaymentFormPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+          <div className={ADMIN_FORM_GRID_CLASS}>
             <div className="group">
               <label className={ADMIN_FORM_LABEL_CLASS}>Monto ($) *</label>
               <input
@@ -388,7 +407,7 @@ export default function PaymentFormPage() {
                 min="0"
                 value={formData.amount}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 required
               />
             </div>
@@ -398,7 +417,7 @@ export default function PaymentFormPage() {
                 name="paymentMethodId"
                 value={formData.paymentMethodId}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 required
               >
                 <option value="">Seleccionar…</option>
@@ -419,7 +438,7 @@ export default function PaymentFormPage() {
                 value={formData.reference}
                 onChange={handleChange}
                 placeholder="Nº operación, folio…"
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
               />
               <button
                 type="button"
@@ -437,14 +456,19 @@ export default function PaymentFormPage() {
             </p>
           </div>
 
-          <AdminFormFooterActions className="mt-auto">
+          <AdminFormFooterActions className="mt-1">
             <AdminFormPrimaryButton disabled={loading}>
-              {loading ? 'Registrando…' : 'Registrar pago'}
+              <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
+                Registrar pago
+              </AdminFormLoadingButton>
             </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
+            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
-        </div>
-      </form>
+      </AdminFormCard>
     </AdminFormShell>
   );
+}
+
+export default function PaymentFormPage() {
+  return <PaymentForm />;
 }

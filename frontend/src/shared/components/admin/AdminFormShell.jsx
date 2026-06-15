@@ -15,6 +15,76 @@ export const ADMIN_FORM_FIELD_CLASS =
 export const ADMIN_FORM_LABEL_CLASS =
   'block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5 group-focus-within:text-gold-dark transition-colors';
 
+/** Tarjeta del formulario (mismo estilo que ficha de cliente). */
+export const ADMIN_FORM_CARD_CLASS =
+  'relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-stone-100/70 border border-stone-200/80 overflow-hidden';
+
+export const ADMIN_FORM_INNER_CLASS =
+  'px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto';
+
+export const ADMIN_FORM_FIELD_COMPACT = `${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`;
+
+export const ADMIN_FORM_ERROR_CLASS = 'alert-error shrink-0 text-xs py-2';
+
+export const ADMIN_FORM_GRID_CLASS = 'grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0';
+
+export function AdminFormGoldBar() {
+  return (
+    <div
+      className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
+      aria-hidden
+    />
+  );
+}
+
+export function AdminFormCard({ onSubmit, children, className = '' }) {
+  return (
+    <form onSubmit={onSubmit} className={`${ADMIN_FORM_CARD_CLASS} ${className}`}>
+      <AdminFormGoldBar />
+      <div className={ADMIN_FORM_INNER_CLASS}>{children}</div>
+    </form>
+  );
+}
+
+export function AdminFormPreviewField({ label, value, multiline = false, breakAll = false }) {
+  if (!value && value !== 0) {
+    return (
+      <div>
+        <p className="text-[10px] tracking-widest text-stone-500 mb-1">{label}</p>
+        <p className="text-white font-medium">—</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p className="text-[10px] tracking-widest text-stone-500 mb-1">{label}</p>
+      <p
+        className={`font-medium ${
+          multiline ? 'text-stone-400 text-sm leading-relaxed' : 'text-white'
+        } ${breakAll ? 'text-sm break-all' : ''}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+export function AdminFormPreviewPanel({ children }) {
+  return <div className="space-y-4 mt-6">{children}</div>;
+}
+
+export function AdminFormLoadingButton({ loading, loadingLabel, children }) {
+  if (loading) {
+    return (
+      <>
+        <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        {loadingLabel}
+      </>
+    );
+  }
+  return children;
+}
+
 /** Cabecera interior de la tarjeta (debajo de la línea dorada). */
 export function AdminFormCardHeader({ eyebrow, title }) {
   return (
@@ -80,11 +150,14 @@ export function AdminFormSecondaryButton({ children, onClick, type = 'button', c
 export default function AdminFormShell({
   backTo,
   backLabel,
+  onBackClick,
   modeBadge,
   showAside = true,
   aside,
   children,
   fullBleed = true,
+  compact = false,
+  showBackNav = true,
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
 
@@ -92,7 +165,7 @@ export default function AdminFormShell({
     fullBleed
       ? 'w-[calc(100%+3rem)] md:w-[calc(100%+4rem)] -mx-6 md:-mx-8'
       : 'w-full min-w-0';
-  const rootMinHeight = fullBleed ? 'min-h-0' : 'min-h-[min(72vh,52rem)]';
+  const rootMinHeight = fullBleed ? 'min-h-0' : compact ? 'min-h-0' : 'min-h-[min(72vh,52rem)]';
 
   return (
     <div
@@ -113,53 +186,74 @@ export default function AdminFormShell({
       />
       <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-barber-dark/[0.06] blur-3xl -z-10 pointer-events-none" aria-hidden />
 
-      <div className="relative z-[1] flex-1 min-h-0 flex flex-col px-5 md:px-7 pt-1 pb-4 animate-fade-in-up">
-        <div className="flex flex-wrap items-center gap-3 mb-4 shrink-0">
-          <Link
-            to={backTo}
-            className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
-          >
-            <ChevronLeft
-              className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
-              strokeWidth={2}
-              aria-hidden
-            />
-            {backLabel}
-          </Link>
+      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${compact ? 'px-0 md:px-2 pt-0 pb-3' : 'px-5 md:px-7 pt-1 pb-4'} animate-fade-in-up`}>
+        {showBackNav && (
+        <div className={`flex flex-wrap items-center gap-2 shrink-0 ${compact ? 'mb-2' : 'mb-4 gap-3'}`}>
+          {onBackClick ? (
+            <button
+              type="button"
+              onClick={onBackClick}
+              className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
+            >
+              <ChevronLeft
+                className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
+                strokeWidth={2}
+                aria-hidden
+              />
+              {backLabel}
+            </button>
+          ) : (
+            <Link
+              to={backTo}
+              className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
+            >
+              <ChevronLeft
+                className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
+                strokeWidth={2}
+                aria-hidden
+              />
+              {backLabel}
+            </Link>
+          )}
           <span className="h-px flex-1 min-w-[3rem] bg-gradient-to-r from-gold/55 to-stone-300/40 rounded-full" />
         </div>
+        )}
 
         <div
-          className={`flex-1 min-h-0 grid gap-5 lg:gap-6 xl:gap-8 items-stretch max-w-[88rem] mx-auto w-full ${
+          className={`flex-1 min-h-0 grid items-stretch max-w-[88rem] mx-auto w-full ${
+            compact ? 'gap-4 lg:gap-5' : 'gap-5 lg:gap-6 xl:gap-8'
+          } ${
             asideVisible ? 'grid-cols-1 lg:grid-cols-12' : 'grid-cols-1'
           }`}
         >
-          <div className={asideVisible ? 'lg:col-span-7 xl:col-span-8 flex flex-col min-h-0' : 'flex flex-col min-h-0'}>
-            <div className="relative flex-1 min-h-0 rounded-[1.35rem] p-[1.5px] bg-gradient-to-br from-gold/65 via-stone-100/60 to-gold/35 shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
-              <div className="absolute -inset-2 bg-gradient-to-br from-gold/8 to-transparent rounded-3xl blur-xl -z-10 opacity-80" aria-hidden />
+          <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col min-h-0` : 'flex flex-col min-h-0'}>
+            <div className={`relative flex-1 min-h-0 ${compact ? 'rounded-2xl p-[1.5px]' : 'rounded-[1.35rem] p-[1.5px]'} bg-gradient-to-br from-gold/65 via-stone-100/60 to-gold/35 shadow-[0_20px_60px_rgba(0,0,0,0.12)]`}>
+              {!compact && (
+                <div className="absolute -inset-2 bg-gradient-to-br from-gold/8 to-transparent rounded-3xl blur-xl -z-10 opacity-80" aria-hidden />
+              )}
               {children}
             </div>
           </div>
 
           {asideVisible && (
-            <aside className="lg:col-span-5 xl:col-span-4 flex flex-col min-h-0 gap-4">
-              <div className="flex-1 min-h-0 rounded-[1.35rem] bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 p-6 sm:p-7 shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col">
+            <aside className={`${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'} flex flex-col min-h-0`}>
+              <div className={`min-h-0 rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}>
                 <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
-                <div className="relative flex-1 flex flex-col">
-                  <p className="text-[10px] tracking-[0.35em] text-gold/90 font-semibold">
+                <div className="relative flex flex-col">
+                  <p className={`tracking-[0.35em] text-gold/90 font-semibold ${compact ? 'text-[10px]' : 'text-[10px]'}`}>
                     {aside.kicker ?? 'Experiencia'}
                   </p>
-                  <h2 className="font-serif text-xl sm:text-2xl text-white font-medium mt-3 mb-5 leading-snug">
+                  <h2 className={`font-serif text-white font-medium leading-snug ${compact ? 'text-lg sm:text-xl mt-2 mb-4' : 'text-xl sm:text-2xl mt-3 mb-5'}`}>
                     {aside.title}
                   </h2>
                   {aside.subtitle ? (
-                    <p className="text-sm text-stone-500 -mt-3 mb-4">{aside.subtitle}</p>
+                    <p className={`text-stone-500 -mt-2 mb-4 ${compact ? 'text-xs' : 'text-sm'}`}>{aside.subtitle}</p>
                   ) : null}
                   {aside.children ? (
-                    <div className="flex-1">{aside.children}</div>
+                    <div>{aside.children}</div>
                   ) : (
-                    <ul className="text-sm text-stone-400 space-y-4 flex-1">
+                    <ul className={`text-sm text-stone-400 flex-1 ${compact ? 'space-y-2' : 'space-y-4'}`}>
                       {aside.bullets && aside.bullets.map((line, i) => (
                         <li key={i} className="flex gap-3">
                           <span className="text-gold mt-0.5">●</span>
@@ -169,11 +263,11 @@ export default function AdminFormShell({
                     </ul>
                   )}
                   {(aside.statusLabel || aside.statusValue) && (
-                    <div className="mt-6 pt-5 border-t border-stone-700/80">
+                    <div className={`border-t border-stone-700/80 ${compact ? 'mt-4 pt-4' : 'mt-6 pt-5'}`}>
                       {aside.statusLabel && (
-                        <p className="text-[10px] tracking-widest text-stone-500 mb-2">{aside.statusLabel}</p>
+                        <p className="text-[10px] tracking-widest text-stone-500 mb-1">{aside.statusLabel}</p>
                       )}
-                      {aside.statusValue && <p className="font-medium text-white">{aside.statusValue}</p>}
+                      {aside.statusValue && <p className="font-medium text-white text-sm sm:text-[15px]">{aside.statusValue}</p>}
                     </div>
                   )}
                 </div>

@@ -94,8 +94,7 @@ export default function AgendaPage() {
         dateTo,
         barberId: user.barberId,
       });
-      const list = Array.isArray(data) ? data : data?.data ?? [];
-      setAppointments(list);
+      setAppointments(data.appointments ?? []);
     } catch (err) {
       setError(err?.message || 'Error al cargar agenda');
       setAppointments([]);

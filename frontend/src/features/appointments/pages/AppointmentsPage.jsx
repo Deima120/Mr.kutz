@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Star, Plus, ArrowRight } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Star, Plus, ArrowRight, Pencil } from 'lucide-react';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as barberService from '@/features/barbers/services/barberService';
 import { useAuth } from '@/shared/contexts/AuthContext';
@@ -14,6 +14,8 @@ import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import RatingStars from '@/shared/components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
+import AppointmentForm from '@/features/appointments/components/AppointmentForm';
+import SuccessToast from '@/shared/components/SuccessToast';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 import {
   formatAppointmentClockTime,
@@ -22,6 +24,103 @@ import {
   appointmentNotesOf,
   getLocalDateToday,
 } from '@/shared/utils/appointmentTime';
+
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+
+function AppointmentsPagination({ total, page, pageSize, onPageChange, onPageSizeChange, itemLabel = 'citas' }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  if (total <= 0) return null;
+
+  return (
+    <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <p className="text-xs sm:text-sm text-stone-500 font-bold">
+        Página {safePage} de {totalPages} · {total} {itemLabel}
+      </p>
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-2">
+          <label htmlFor="appointments-page-size" className="text-xs font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">
+            Por página
+          </label>
+          <select
+            id="appointments-page-size"
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none min-w-[4.5rem] font-medium"
+          >
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
+          <button
+            type="button"
+            disabled={safePage <= 1}
+            onClick={() => onPageChange(Math.max(1, safePage - 1))}
+            className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
+          >
+            Anterior
+          </button>
+          <span className="text-xs sm:text-sm font-bold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
+            {safePage}/{totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={safePage >= totalPages}
+            onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
+            className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-900 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditAppointmentButton({ onClick, className = '' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex shrink-0 items-center justify-center h-9 w-9 rounded-xl border border-stone-200 bg-white text-stone-600 shadow-sm transition-colors hover:border-gold/50 hover:bg-gold/5 hover:text-gold-dark ${className}`}
+      aria-label="Editar cita"
+      title="Editar cita"
+    >
+      <Pencil className="w-4 h-4" strokeWidth={2} aria-hidden />
+    </button>
+  );
+}
+
+const APPOINTMENT_STATUS_SELECT_CLASS =
+  'h-9 shrink-0 text-sm leading-none border border-stone-300 rounded-xl px-3 bg-white focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none';
+
+function AppointmentRowActions({ appointmentId, status, onEdit, onStatusChange }) {
+  if (['cancelled', 'no_show', 'completed'].includes(status)) return null;
+
+  return (
+    <div className="inline-flex items-center gap-2 shrink-0">
+      <EditAppointmentButton onClick={() => onEdit(appointmentId)} />
+      <select
+        value={status}
+        onChange={(e) => onStatusChange(appointmentId, e.target.value)}
+        className={APPOINTMENT_STATUS_SELECT_CLASS}
+        aria-label="Cambiar estado de la cita"
+      >
+        <option value="scheduled">Agendada</option>
+        <option value="confirmed">Confirmada</option>
+        <option value="in_progress">En progreso</option>
+        <option value="completed">Completada</option>
+        <option value="cancelled">Cancelada</option>
+        <option value="no_show">No asistió</option>
+      </select>
+    </div>
+  );
+}
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -130,6 +229,7 @@ export default function AppointmentsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
+  const [total, setTotal] = useState(0);
   const [barbers, setBarbers] = useState([]);
   const [filterDate, setFilterDate] = useState(
     getLocalDateToday()
@@ -139,28 +239,35 @@ export default function AppointmentsPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [formView, setFormView] = useState(null);
 
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
   const isClient = user?.role === 'client';
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (targetPage = page) => {
     setLoading(true);
     setError('');
     try {
-      const params = { date: filterDate };
+      const params = {
+        limit: pageSize,
+        offset: (targetPage - 1) * pageSize,
+      };
+      if (!isClient) params.date = filterDate;
       if (isAdmin && filterBarber) params.barberId = filterBarber;
       if (isBarber && user?.barberId) params.barberId = user.barberId;
       if (isClient) {
-        delete params.date;
         params.clientId = user?.clientId;
       }
       const data = await appointmentService.getAppointments(params);
-      const list = Array.isArray(data) ? data : (data?.data ?? []);
-      setAppointments(list);
+      setAppointments(data.appointments ?? []);
+      setTotal(data.total ?? 0);
     } catch (err) {
       setError(err?.message || 'Error al cargar citas');
       setAppointments([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -178,11 +285,40 @@ export default function AppointmentsPage() {
     if (isBarber && !user?.barberId) return;
     if (isClient && !user?.clientId) return;
     fetchAppointments();
-  }, [filterDate, filterBarber, user?.barberId, user?.clientId]);
+  }, [filterDate, filterBarber, user?.barberId, user?.clientId, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterDate, filterBarber, pageSize, isClient, isAdmin, isBarber]);
+
+  useEffect(() => {
+    const editMatch = location.pathname.match(/^\/appointments\/(\d+)\/edit$/);
+    if (editMatch) {
+      setFormView(parseInt(editMatch[1], 10));
+      navigate('/appointments', { replace: true });
+      return;
+    }
+    if (location.pathname === '/appointments/new') {
+      setFormView('create');
+      navigate(`/appointments${location.search || ''}`, { replace: true });
+      return;
+    }
+    if (location.state?.openCreateForm) {
+      setFormView('create');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.search, location.state, navigate]);
+
+  const handleFormSuccess = ({ created, updated } = {}) => {
+    setFormView(null);
+    if (created) setSuccessMessage('Cita agendada correctamente.');
+    if (updated) setSuccessMessage('Cita actualizada correctamente.');
+    fetchAppointments(1);
+    setPage(1);
+  };
 
   // Mensaje de éxito al llegar desde alta/edición de cita (state) o al cancelar
   useEffect(() => {
-    if (!isClient) return;
     const st = location.state;
     if (st?.appointmentCreated) {
       setSuccessMessage('Cita agendada correctamente.');
@@ -191,7 +327,7 @@ export default function AppointmentsPage() {
       setSuccessMessage('Cita actualizada correctamente.');
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [isClient, location.state, location.pathname, navigate]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -227,64 +363,95 @@ export default function AppointmentsPage() {
     ? 'Tus citas por fecha'
     : 'Gestión de citas por fecha';
 
+  const isCreating = formView === 'create';
+  const editingId = typeof formView === 'number' ? formView : null;
+  const isFormOpen = isCreating || editingId != null;
+
+  const inlineForm = isFormOpen ? (
+    <AppointmentForm
+      embedded
+      editId={editingId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => setFormView(null)}
+    />
+  ) : null;
+
+  const openEditForm = (id) => setFormView(id);
+
+  const formHeaderTitle = isCreating ? 'Nueva cita' : editingId ? 'Editar cita' : pageTitle;
+  const formHeaderSubtitle = isCreating
+    ? 'Completa los datos para agendar'
+    : editingId
+    ? 'Modifica los datos de la cita'
+    : pageSubtitle;
+  const toolbarTitle = isFormOpen ? formHeaderTitle : null;
+  const toolbarSubtitle = isFormOpen ? formHeaderSubtitle : null;
+
+  const dismissSuccessMessage = () => setSuccessMessage(null);
+  const successToast = (
+    <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />
+  );
+
   // ——— Vista cliente: diseño premium y sencillo ———
   if (isClient) {
     return (
       <div className="min-h-[60vh] bg-stone-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className="max-w-2xl mx-auto">
+          <div className={isFormOpen ? 'max-w-[min(88rem,100%)] mx-auto' : 'max-w-2xl mx-auto'}>
             <p className="section-label text-gold">Reservas</p>
             <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight mb-2">
-              Mis citas
+              {isFormOpen ? formHeaderTitle : 'Mis citas'}
             </h1>
             <p className="text-stone-500 mb-8">
-              Aquí ves todas tus citas. Puedes agendar una nueva cuando quieras.
+              {isFormOpen ? formHeaderSubtitle : 'Aquí ves todas tus citas. Puedes agendar una nueva cuando quieras.'}
             </p>
 
-            {successMessage && (
-              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between gap-4" role="status">
-                <span className="font-medium">{successMessage}</span>
-                <button
-                  type="button"
-                  onClick={() => setSuccessMessage(null)}
-                  className="shrink-0 p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded-lg transition-colors"
-                  aria-label="Cerrar"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-
-            <Link
-              to="/appointments/new"
+            {!isFormOpen && (
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
               className="inline-flex items-center gap-2 w-full sm:w-auto justify-center px-6 py-3.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors mb-8"
             >
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Agendar nueva cita
-            </Link>
+            </button>
+            )}
 
-            {error && (
+            {inlineForm}
+
+            {!isFormOpen && error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
                 {error}
               </div>
             )}
 
-            {loading ? (
+            {!isFormOpen && (
+            <AppointmentsPagination
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+            )}
+
+            {!isFormOpen && loading ? (
               <div className="py-16 text-center">
                 <p className="text-stone-500">Cargando tus citas...</p>
               </div>
-            ) : appointments.length === 0 ? (
+            ) : !isFormOpen && appointments.length === 0 ? (
               <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-10 sm:p-14 text-center">
                 <p className="text-stone-500 mb-6">Aún no tienes citas agendadas.</p>
-                <Link
-                  to="/appointments/new"
+                <button
+                  type="button"
+                  onClick={() => setFormView('create')}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
                 >
                   Agendar mi primera cita
                   <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                </Link>
+                </button>
               </div>
-            ) : (
+            ) : !isFormOpen ? (
               <ul className="space-y-4">
                 {appointments.map((a) => {
                   const noteText = appointmentNotesOf(a);
@@ -334,12 +501,7 @@ export default function AppointmentsPage() {
                         )}
                         {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
                           <div className="mt-4 pt-4 border-t border-stone-100 flex flex-wrap items-center gap-x-4 gap-y-2">
-                            <Link
-                              to={`/appointments/${a.id}/edit`}
-                              className="text-sm font-semibold text-barber-dark hover:text-gold-dark underline-offset-2 hover:underline"
-                            >
-                              Modificar cita
-                            </Link>
+                            <EditAppointmentButton onClick={() => openEditForm(a.id)} />
                             {cancelConfirmId === a.id ? (
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm text-stone-600">¿Cancelar esta cita?</span>
@@ -375,9 +537,10 @@ export default function AppointmentsPage() {
                 );
                 })}
               </ul>
-            )}
+            ) : null}
           </div>
         </div>
+        {successToast}
       </div>
     );
   }
@@ -390,10 +553,13 @@ export default function AppointmentsPage() {
           <div>
             <p className="section-label text-gold">Citas</p>
             <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight mb-1">
-              Mis citas
+              {formHeaderTitle}
             </h1>
-            <p className="text-stone-500">Por fecha. Cambia el estado o crea una nueva cita.</p>
+            <p className="text-stone-500">
+              {formHeaderSubtitle}
+            </p>
           </div>
+          {!isFormOpen && (
           <div className="flex flex-wrap items-center gap-3">
             <div>
               <label className="block text-xs font-semibold text-stone-600 mb-1">Fecha</label>
@@ -404,37 +570,52 @@ export default function AppointmentsPage() {
                 className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
               />
             </div>
-            <Link
-              to="/appointments/new"
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm"
             >
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Nueva cita
-            </Link>
+            </button>
           </div>
+          )}
         </div>
 
-        {error && (
+        {inlineForm}
+
+        {!isFormOpen && error && (
           <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
             {error}
           </div>
         )}
 
-        {loading ? (
+        {!isFormOpen && (
+        <AppointmentsPagination
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+        )}
+
+        {!isFormOpen && loading ? (
           <div className="py-16 text-center text-stone-500">Cargando citas...</div>
-        ) : appointments.length === 0 ? (
+        ) : !isFormOpen && appointments.length === 0 ? (
           <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-12 text-center">
             <p className="text-stone-500 mb-4">No hay citas para esta fecha.</p>
-            <Link
-              to="/appointments/new"
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
             >
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Crear cita
               <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-            </Link>
+            </button>
           </div>
-        ) : (
+        ) : !isFormOpen ? (
           <ul className="space-y-4">
             {appointments.map((a) => {
               const noteText = appointmentNotesOf(a);
@@ -473,29 +654,13 @@ export default function AppointmentsPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                        <>
-                          <Link
-                            to={`/appointments/${a.id}/edit`}
-                            className="text-sm font-semibold text-barber-dark hover:text-gold-dark px-3 py-2 rounded-xl border border-stone-200 hover:border-gold/50 transition-colors"
-                          >
-                            Editar
-                          </Link>
-                          <select
-                            value={a.status}
-                            onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                            className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
-                          >
-                            <option value="scheduled">Agendada</option>
-                            <option value="confirmed">Confirmada</option>
-                            <option value="in_progress">En progreso</option>
-                            <option value="completed">Completada</option>
-                            <option value="cancelled">Cancelada</option>
-                            <option value="no_show">No asistió</option>
-                          </select>
-                        </>
-                      )}
+                    <div className="flex items-center shrink-0 self-center">
+                      <AppointmentRowActions
+                        appointmentId={a.id}
+                        status={a.status}
+                        onEdit={openEditForm}
+                        onStatusChange={handleStatusChange}
+                      />
                     </div>
                   </div>
                 </article>
@@ -503,7 +668,8 @@ export default function AppointmentsPage() {
             );
             })}
           </ul>
-        )}
+        ) : null}
+        {successToast}
       </div>
     );
   }
@@ -512,62 +678,77 @@ export default function AppointmentsPage() {
   return (
     <div className="page-shell">
       <PageHeader
-        title={pageTitle}
-        subtitle={pageSubtitle}
+        title={toolbarTitle}
+        subtitle={toolbarSubtitle}
+        filters={
+          !isFormOpen ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium text-stone-500">Fecha</span>
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="input-premium py-1.5 text-sm"
+                />
+              </label>
+              {isAdmin && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium text-stone-500">Barbero</span>
+                  <select
+                    value={filterBarber}
+                    onChange={(e) => setFilterBarber(e.target.value)}
+                    className="input-premium py-1.5 text-sm min-w-[10rem]"
+                  >
+                    <option value="">Todos</option>
+                    {barbers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.first_name} {b.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          ) : null
+        }
         actions={
-          <Link
-            to="/appointments/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal transition-colors text-sm shadow-sm"
-          >
-            <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-            Nueva cita
-          </Link>
+          !isFormOpen ? (
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
+              className="btn-admin inline-flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Nueva cita
+            </button>
+          ) : null
         }
       />
 
-      <div className="flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Fecha</label>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
-        {isAdmin && (
-          <div>
-            <label className="block text-xs font-semibold text-stone-600 mb-1">Barbero</label>
-            <select
-              value={filterBarber}
-              onChange={(e) => setFilterBarber(e.target.value)}
-              className="input-premium py-2.5 text-sm min-w-[180px]"
-            >
-              <option value="">Todos</option>
-              {barbers.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.first_name} {b.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {error && (
+      {error && !isFormOpen && (
         <div className="alert-error" role="alert">{error}</div>
       )}
 
-      {loading ? (
-        <DataCard>
-          <div className="py-16 text-center text-stone-500">Cargando...</div>
+      {inlineForm}
+
+      {!isFormOpen && loading ? (
+        <DataCard compact>
+          <div className="py-10 text-center text-stone-500">Cargando...</div>
         </DataCard>
-      ) : appointments.length === 0 ? (
-        <DataCard>
-          <div className="py-16 text-center text-stone-500">No hay citas para esta fecha.</div>
+      ) : !isFormOpen && appointments.length === 0 ? (
+        <DataCard compact>
+          <div className="py-10 text-center text-stone-500">No hay citas para esta fecha.</div>
         </DataCard>
-      ) : (
-        <DataCard>
+      ) : !isFormOpen ? (
+        <DataCard compact>
+          <AppointmentsPagination
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
           <Table>
             <TableHead>
               <TableHeader>Hora</TableHeader>
@@ -624,29 +805,13 @@ export default function AppointmentsPage() {
                       <span className="text-stone-300">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {!['cancelled', 'no_show', 'completed'].includes(a.status) ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          to={`/appointments/${a.id}/edit`}
-                          className="text-sm font-semibold text-primary-600 hover:text-primary-800 whitespace-nowrap"
-                        >
-                          Editar
-                        </Link>
-                        <select
-                          value={a.status}
-                          onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                          className="text-sm border border-stone-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-gold/40 focus:border-gold"
-                        >
-                          <option value="scheduled">Agendada</option>
-                          <option value="confirmed">Confirmada</option>
-                          <option value="in_progress">En progreso</option>
-                          <option value="completed">Completada</option>
-                          <option value="cancelled">Cancelada</option>
-                          <option value="no_show">No asistió</option>
-                        </select>
-                      </div>
-                    ) : null}
+                  <TableCell className="align-middle">
+                    <AppointmentRowActions
+                      appointmentId={a.id}
+                      status={a.status}
+                      onEdit={openEditForm}
+                      onStatusChange={handleStatusChange}
+                    />
                   </TableCell>
                 </TableRow>
                 );
@@ -654,7 +819,8 @@ export default function AppointmentsPage() {
             </TableBody>
           </Table>
         </DataCard>
-      )}
+      ) : null}
+      {successToast}
     </div>
   );
 }

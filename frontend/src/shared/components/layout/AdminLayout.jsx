@@ -319,34 +319,28 @@ export default function AdminLayout({ children }) {
           sidebarCollapsed ? 'lg:ml-[5.75rem]' : 'lg:ml-72'
         }`}
       >
-        <header className="shrink-0 border-b border-stone-200 bg-white/90 px-4 py-3 shadow-card backdrop-blur sm:px-6 md:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(true)}
-                className="rounded-xl border border-stone-200 bg-white p-2 text-stone-700 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:hidden"
-                aria-label="Abrir menu"
-              >
-                <Menu size={21} />
-              </button>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold-dark">
-                  {isAdmin ? 'Administracion' : 'Operacion'}
-                </p>
-                <h2 className="truncate font-serif text-xl font-medium text-stone-900">
-                  {activeItem?.label || businessName}
-                </h2>
-              </div>
+        <header className="shrink-0 border-b border-stone-200 bg-white/90 px-3 py-2 shadow-card backdrop-blur sm:px-5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="rounded-lg border border-stone-200 bg-white p-1.5 text-stone-700 shadow-sm transition hover:border-gold/50 hover:text-stone-950 lg:hidden"
+              aria-label="Abrir menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-dark">
+                {isAdmin ? 'Administracion' : 'Operacion'}
+              </p>
+              <h2 className="truncate font-serif text-lg font-medium leading-tight text-stone-900">
+                {activeItem?.label || businessName}
+              </h2>
             </div>
-
-            <span className="hidden rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-500 sm:inline-flex">
-              {activeItem?.description || 'Panel'}
-            </span>
           </div>
         </header>
 
-        <main className="admin-content-scroll flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
+        <main className="admin-content-scroll flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-5">
           {children}
         </main>
       </div>

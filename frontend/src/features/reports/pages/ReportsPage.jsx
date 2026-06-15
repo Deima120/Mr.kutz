@@ -150,24 +150,25 @@ export default function ReportsPage() {
   return (
     <div className="page-shell print:space-y-4">
       <PageHeader
-        title="Reportes"
-        label="Análisis"
-        subtitle="Resumen, comparativa con el periodo anterior y valoraciones."
-        actions={
-          <div className="flex flex-wrap gap-2 items-center no-print">
+        filters={
+          <div className="flex flex-wrap items-end gap-2 no-print">
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="input-premium py-2.5 text-sm"
+              className="input-premium py-1.5 text-sm"
             />
-            <span className="text-stone-400 hidden sm:inline">—</span>
+            <span className="hidden pb-2 text-stone-400 sm:inline">—</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="input-premium py-2.5 text-sm"
+              className="input-premium py-1.5 text-sm"
             />
+          </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2 items-center no-print">
             <button
               type="button"
               onClick={handleExportCSV}

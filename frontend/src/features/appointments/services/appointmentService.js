@@ -9,7 +9,13 @@ const APPOINTMENTS_BASE = '/appointments';
 export const getAppointments = async (params = {}) => {
   const response = await api.get(APPOINTMENTS_BASE, { params });
   const res = response?.data ?? response;
-  return res?.data ?? res;
+  const list = res?.data ?? res;
+  return {
+    appointments: Array.isArray(list) ? list : (list?.appointments ?? []),
+    total: res?.total ?? (Array.isArray(list) ? list.length : 0),
+    limit: res?.limit,
+    offset: res?.offset,
+  };
 };
 
 export const getAppointmentById = async (id) => {
@@ -18,10 +24,13 @@ export const getAppointmentById = async (id) => {
   return res?.data ?? res;
 };
 
-export const getAvailableSlots = async (barberId, date, excludeAppointmentId) => {
+export const getAvailableSlots = async (barberId, date, excludeAppointmentId, durationMinutes) => {
   const params = { barberId, date };
   if (excludeAppointmentId != null && excludeAppointmentId !== '') {
     params.excludeAppointmentId = excludeAppointmentId;
+  }
+  if (durationMinutes != null && durationMinutes > 0) {
+    params.durationMinutes = durationMinutes;
   }
   const response = await api.get(`${APPOINTMENTS_BASE}/slots`, {
     params,

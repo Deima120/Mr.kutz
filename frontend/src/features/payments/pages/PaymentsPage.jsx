@@ -3,11 +3,14 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import * as paymentService from '@/features/payments/services/paymentService';
+import { PaymentForm } from '@/features/payments/pages/PaymentFormPage';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
+import SuccessToast from '@/shared/components/SuccessToast';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
@@ -18,6 +21,60 @@ export default function PaymentsPage() {
   const [dateTo, setDateTo] = useState(getLocalDateToday());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [formView, setFormView] = useState(null);
+  const [paymentPrefill, setPaymentPrefill] = useState({ productId: null, appointmentId: null });
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isFormOpen = formView === 'create';
+
+  useEffect(() => {
+    if (location.pathname === '/payments/new') {
+      const params = new URLSearchParams(location.search);
+      setPaymentPrefill({
+        productId: params.get('productId'),
+        appointmentId: params.get('appointmentId'),
+      });
+      setFormView('create');
+      navigate('/payments', { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
+
+  const handleFormSuccess = () => {
+    setFormView(null);
+    setPaymentPrefill({ productId: null, appointmentId: null });
+    setSuccessMessage('Pago registrado correctamente.');
+    fetchPayments();
+  };
+
+  const openCreateForm = () => {
+    setPaymentPrefill({ productId: null, appointmentId: null });
+    setFormView('create');
+  };
+
+  const formHeaderTitle = isFormOpen ? 'Registrar pago' : 'Pagos y ventas';
+  const formHeaderSubtitle = isFormOpen
+    ? 'Completa los datos del cobro'
+    : 'Historial de transacciones';
+
+  const inlineForm = isFormOpen ? (
+    <PaymentForm
+      embedded
+      prefillProductId={paymentPrefill.productId}
+      prefillAppointmentId={paymentPrefill.appointmentId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => {
+        setFormView(null);
+        setPaymentPrefill({ productId: null, appointmentId: null });
+      }}
+    />
+  ) : null;
+
+  const successToast = (
+    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
+  );
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -94,11 +151,10 @@ export default function PaymentsPage() {
   return (
     <div className="page-shell">
       <PageHeader
-        compact
-        title="Pagos y ventas"
-        label="Finanzas"
-        subtitle="Historial de transacciones"
+        title={isFormOpen ? formHeaderTitle : null}
+        subtitle={isFormOpen ? formHeaderSubtitle : null}
         actions={
+          !isFormOpen ? (
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -129,13 +185,23 @@ export default function PaymentsPage() {
             <button type="button" onClick={printAsPDF} className={btnToolbar}>
               PDF
             </button>
-            <Link to="/payments/new" className="btn-admin text-xs py-2 px-3">
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3"
+            >
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Registrar pago
-            </Link>
+            </button>
           </div>
+          ) : null
         }
       />
 
+      {inlineForm}
+
+      {!isFormOpen && (
+      <>
       <div className="mb-4 flex flex-col gap-3 rounded-xl border border-stone-200/90 bg-stone-50/60 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -270,6 +336,9 @@ export default function PaymentsPage() {
           </Table>
         </DataCard>
       )}
+      </>
+      )}
+      {successToast}
     </div>
   );
 }

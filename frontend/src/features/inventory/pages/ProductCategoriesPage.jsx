@@ -97,9 +97,6 @@ export default function ProductCategoriesPage() {
   return (
     <div className="page-shell">
       <PageHeader
-        compact
-        title="Categorías de productos"
-        subtitle="Nombre, descripción y estado para inventario"
         actions={
           <div className="flex flex-wrap gap-1.5">
             <button

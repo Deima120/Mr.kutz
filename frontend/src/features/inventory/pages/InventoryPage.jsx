@@ -3,12 +3,16 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Plus, Pencil, ShoppingCart, History, SlidersHorizontal } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
+import { ProductForm } from '@/features/inventory/pages/ProductFormPage';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import StatsCard from '@/shared/components/admin/StatsCard';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import SuccessToast from '@/shared/components/SuccessToast';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 
 const MOVEMENT_LABELS = {
@@ -20,6 +24,7 @@ const MOVEMENT_LABELS = {
 
 export default function InventoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [search, setSearch] = useState('');
@@ -29,6 +34,54 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [formView, setFormView] = useState(null);
+
+  const isCreating = formView === 'create';
+  const editingId = typeof formView === 'number' ? formView : null;
+  const isFormOpen = isCreating || editingId != null;
+
+  useEffect(() => {
+    const editMatch = location.pathname.match(/^\/inventory\/(\d+)\/edit$/);
+    if (editMatch) {
+      setFormView(parseInt(editMatch[1], 10));
+      navigate('/inventory', { replace: true });
+      return;
+    }
+    if (location.pathname === '/inventory/new') {
+      setFormView('create');
+      navigate('/inventory', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  const handleFormSuccess = ({ created, updated } = {}) => {
+    setFormView(null);
+    if (created) setSuccessMessage('Producto creado correctamente.');
+    if (updated) setSuccessMessage('Producto actualizado correctamente.');
+    fetchProducts();
+  };
+
+  const openEditForm = (id) => setFormView(id);
+
+  const formHeaderTitle = isCreating ? 'Nuevo producto' : editingId ? 'Editar producto' : 'Inventario';
+  const formHeaderSubtitle = isCreating
+    ? 'Registra un producto en el catálogo'
+    : editingId
+    ? 'Modifica los datos del producto'
+    : 'Productos, alertas, movimientos y venta en caja (pagos)';
+
+  const inlineForm = isFormOpen ? (
+    <ProductForm
+      embedded
+      editId={editingId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => setFormView(null)}
+    />
+  ) : null;
+
+  const successToast = (
+    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
+  );
 
   const [adjustModal, setAdjustModal] = useState(null);
   const [adjustQty, setAdjustQty] = useState(1);
@@ -148,10 +201,10 @@ export default function InventoryPage() {
   return (
     <div className="page-shell">
       <PageHeader
-        title="Inventario"
-        label="Stock"
-        subtitle="Productos, alertas, movimientos y venta en caja (pagos)"
+        title={isFormOpen ? formHeaderTitle : null}
+        subtitle={isFormOpen ? formHeaderSubtitle : null}
         actions={
+          !isFormOpen ? (
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -183,13 +236,23 @@ export default function InventoryPage() {
             <Link to="/inventory/categories" className="btn-admin-outline w-full sm:w-auto">
               Categorías
             </Link>
-            <Link to="/inventory/new" className="btn-admin w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
+              className="btn-admin inline-flex items-center gap-2 w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Nuevo producto
-            </Link>
+            </button>
           </div>
+          ) : null
         }
       />
 
+      {inlineForm}
+
+      {!isFormOpen && (
+      <>
       {/* Resumen */}
       <div className="grid gap-4 sm:grid-cols-3">
         <StatsCard label="Total productos" value={products.length} />
@@ -209,9 +272,13 @@ export default function InventoryPage() {
           <ul className="text-sm text-amber-700 space-y-1">
             {lowStock.map((p) => (
               <li key={p.id}>
-                <Link to={`/inventory/${p.id}/edit`} className="hover:underline font-medium">
+                <button
+                  type="button"
+                  onClick={() => openEditForm(p.id)}
+                  className="hover:underline font-medium text-left text-barber-dark hover:text-gold transition-colors"
+                >
                   {p.name}
-                </Link>
+                </button>
                 : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo {p.min_stock ?? p.minStock ?? 0})
               </li>
             ))}
@@ -293,12 +360,13 @@ export default function InventoryPage() {
                 (categoryFilter && p.category_name !== categoryFilter) ? null : (
                 <TableRow key={p.id}>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    <Link
-                      to={`/inventory/${p.id}/edit`}
-                      className="font-medium text-barber-dark hover:text-gold transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(p.id)}
+                      className="font-medium text-barber-dark hover:text-gold transition-colors text-left"
                     >
                       {p.name}
-                    </Link>
+                    </button>
                     {!isProductActive(p) && (
                       <span className="ml-2 text-xs text-stone-500">(inactivo)</span>
                     )}
@@ -344,22 +412,28 @@ export default function InventoryPage() {
                     {p.min_stock ?? p.minStock ?? 0}
                   </TableCell>
                   <TableCell className={isLowStock(p) ? 'bg-amber-50/50' : ''}>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      <button
-                        type="button"
+                    <div className="inline-flex items-center gap-1.5">
+                      <AdminIconButton
+                        icon={Pencil}
+                        label="Editar producto"
+                        onClick={() => openEditForm(p.id)}
+                      />
+                      <AdminIconButton
+                        icon={ShoppingCart}
+                        label="Vender producto"
                         onClick={() => goToSell(p)}
                         disabled={(p.quantity ?? 0) <= 0}
-                        className="text-sm font-medium text-gold hover:text-gold-dark transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                      >
-                        Vender
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <AdminIconButton
+                        icon={History}
+                        label="Historial de movimientos"
                         onClick={() => handleOpenHistory(p)}
-                        className="text-sm font-medium text-barber-dark hover:text-gold transition-colors"
-                      >
-                        Historial
-                      </button>
+                      />
+                      <AdminIconButton
+                        icon={SlidersHorizontal}
+                        label="Ajustar stock"
+                        onClick={() => handleOpenAdjust(p)}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -368,6 +442,8 @@ export default function InventoryPage() {
             </TableBody>
           </Table>
         </DataCard>
+      )}
+      </>
       )}
 
       {/* Modal ajuste rápido — cantidad + Sumar/Restar */}
@@ -472,6 +548,7 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+      {successToast}
     </div>
   );
 }

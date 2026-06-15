@@ -3,11 +3,15 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Plus, Pencil, CalendarDays } from 'lucide-react';
 import * as barberService from '@/features/barbers/services/barberService';
+import { BarberForm } from '@/features/barbers/pages/BarberFormPage';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import SuccessToast from '@/shared/components/SuccessToast';
 
 export default function BarbersPage() {
   const { user } = useAuth();
@@ -17,6 +21,28 @@ export default function BarbersPage() {
   const [documentFilter, setDocumentFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [formView, setFormView] = useState(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isCreating = formView === 'create';
+  const editingId = typeof formView === 'number' ? formView : null;
+  const isFormOpen = isCreating || editingId != null;
+
+  useEffect(() => {
+    const editMatch = location.pathname.match(/^\/barbers\/(\d+)\/edit$/);
+    if (editMatch) {
+      setFormView(parseInt(editMatch[1], 10));
+      navigate('/barbers', { replace: true });
+      return;
+    }
+    if (location.pathname === '/barbers/new') {
+      setFormView('create');
+      navigate('/barbers', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const fetchBarbers = async () => {
     setLoading(true);
@@ -44,21 +70,57 @@ export default function BarbersPage() {
     fetchBarbers();
   };
 
+  const handleFormSuccess = ({ created, updated } = {}) => {
+    setFormView(null);
+    if (created) setSuccessMessage('Barbero registrado correctamente.');
+    if (updated) setSuccessMessage('Barbero actualizado correctamente.');
+    fetchBarbers();
+  };
+
+  const openEditForm = (id) => setFormView(id);
+
+  const formHeaderTitle = isCreating ? 'Nuevo barbero' : editingId ? 'Editar barbero' : 'Barberos';
+  const formHeaderSubtitle = isCreating
+    ? 'Completa el perfil del integrante'
+    : editingId
+    ? 'Modifica los datos del barbero'
+    : 'Equipo de trabajo';
+
+  const inlineForm = isFormOpen ? (
+    <BarberForm
+      embedded
+      editId={editingId}
+      onSuccess={handleFormSuccess}
+      onCancel={() => setFormView(null)}
+    />
+  ) : null;
+
+  const successToast = (
+    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
+  );
+
   return (
     <div className="page-shell">
       <PageHeader
-        title="Barberos"
-        label="Equipo"
-        subtitle="Equipo de trabajo"
+        title={isFormOpen ? formHeaderTitle : null}
+        subtitle={isFormOpen ? formHeaderSubtitle : null}
         actions={
-          isAdmin && (
-            <Link to="/barbers/new" className="btn-admin">
-              + Nuevo barbero
-            </Link>
-          )
+          isAdmin && !isFormOpen ? (
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
+              className="btn-admin inline-flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Nuevo barbero
+            </button>
+          ) : null
         }
       />
 
+      {inlineForm}
+
+      {!isFormOpen && (
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-4">
         <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0 max-w-xl">
           <input
@@ -84,20 +146,21 @@ export default function BarbersPage() {
           </label>
         )}
       </div>
+      )}
 
-      {error && (
+      {!isFormOpen && error && (
         <div className="alert-error" role="alert">{error}</div>
       )}
 
-      {loading ? (
+      {!isFormOpen && loading ? (
         <DataCard>
           <div className="py-16 text-center text-stone-500">Cargando...</div>
         </DataCard>
-      ) : barbers.length === 0 ? (
+      ) : !isFormOpen && barbers.length === 0 ? (
         <DataCard>
           <div className="py-16 text-center text-stone-500">No hay barberos registrados.</div>
         </DataCard>
-      ) : (
+      ) : !isFormOpen ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {barbers.map((b) => (
             <DataCard key={b.id} className={!b.is_active ? 'opacity-60' : ''}>
@@ -132,26 +195,25 @@ export default function BarbersPage() {
                   )}
                 </div>
                 {isAdmin && (
-                  <div className="flex gap-2 shrink-0">
-                    <Link
+                  <div className="inline-flex items-center gap-1.5 shrink-0">
+                    <AdminIconButton
+                      icon={CalendarDays}
+                      label="Horarios"
                       to={`/barbers/${b.id}/schedules`}
-                      className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
-                    >
-                      Horarios
-                    </Link>
-                    <Link
-                      to={`/barbers/${b.id}/edit`}
-                      className="text-sm font-semibold text-barber-dark hover:text-gold transition-colors"
-                    >
-                      Editar
-                    </Link>
+                    />
+                    <AdminIconButton
+                      icon={Pencil}
+                      label="Editar barbero"
+                      onClick={() => openEditForm(b.id)}
+                    />
                   </div>
                 )}
               </div>
             </DataCard>
           ))}
         </div>
-      )}
+      ) : null}
+      {successToast}
     </div>
   );
 }

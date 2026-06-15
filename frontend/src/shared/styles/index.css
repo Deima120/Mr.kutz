@@ -20,7 +20,7 @@
 
 @layer components {
   .page-shell {
-    @apply space-y-8;
+    @apply space-y-4;
   }
   .panel-card {
     @apply bg-white rounded-2xl border border-stone-200/80 shadow-card;

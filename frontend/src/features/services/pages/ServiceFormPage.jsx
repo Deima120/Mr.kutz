@@ -6,17 +6,27 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as serviceService from '@/features/services/services/serviceService';
 import AdminFormShell, {
+  AdminFormCard,
   AdminFormCardHeader,
-  ADMIN_FORM_FIELD_CLASS,
   ADMIN_FORM_LABEL_CLASS,
+  ADMIN_FORM_FIELD_COMPACT,
+  ADMIN_FORM_ERROR_CLASS,
+  ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
   AdminFormSecondaryButton,
+  AdminFormPreviewField,
+  AdminFormPreviewPanel,
+  AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
 
-export default function ServiceFormPage() {
-  const { id } = useParams();
-  const isEdit = !!id;
+export function ServiceForm({
+  embedded = false,
+  editId = null,
+  onSuccess,
+  onCancel,
+}) {
+  const isEdit = Boolean(editId);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -38,9 +48,9 @@ export default function ServiceFormPage() {
   }, []);
 
   useEffect(() => {
-    if (isEdit) {
+    if (isEdit && editId) {
       serviceService
-        .getServiceById(id)
+        .getServiceById(editId)
         .then((s) => {
           setFormData({
             name: s.name || '',
@@ -58,7 +68,7 @@ export default function ServiceFormPage() {
         })
         .catch(() => setError('Servicio no encontrado'));
     }
-  }, [id, isEdit]);
+  }, [editId, isEdit]);
 
   const namesFromApi = categories
     .map((c) => c.name)
@@ -103,10 +113,13 @@ export default function ServiceFormPage() {
       if (isEdit) payload.isActive = formData.isActive;
 
       if (isEdit) {
-        await serviceService.updateService(id, payload);
-        navigate('/services', { replace: true });
+        await serviceService.updateService(editId, payload);
       } else {
         await serviceService.createService(payload);
+      }
+      if (embedded) {
+        onSuccess?.({ created: !isEdit, updated: isEdit });
+      } else {
         navigate('/services', { replace: true });
       }
     } catch (err) {
@@ -117,42 +130,53 @@ export default function ServiceFormPage() {
     }
   };
 
+  const handleCancel = () => {
+    if (embedded) onCancel?.();
+    else navigate(-1);
+  };
+
   return (
     <AdminFormShell
       backTo="/services"
       backLabel="Servicios"
+      onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
+      fullBleed={!embedded}
+      compact={embedded}
+      showBackNav={!embedded}
       aside={{
-        kicker: 'Carta',
-        title: 'Servicios claros para la agenda',
-        bullets: [
-          'El precio y la duración definen huecos en la agenda y el ticket.',
-          'La categoría agrupa la carta y ayuda a filtrar en el listado.',
-          'Desactiva un servicio si ya no se ofrece sin borrar el historial.',
-        ],
+        kicker: 'Vista previa',
+        title: isEdit ? 'Servicio en edición' : 'Nuevo servicio',
+        subtitle: formData.name || 'Completa los datos',
+        bullets: [],
         statusLabel: 'Estado',
-        statusValue: isEdit ? 'Modo edición' : 'Alta nueva',
+        statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+        children: (
+          <AdminFormPreviewPanel>
+            <AdminFormPreviewField label="Nombre" value={formData.name} />
+            <AdminFormPreviewField label="Categoría" value={formData.categoryName} />
+            <AdminFormPreviewField
+              label="Precio"
+              value={formData.price ? `$${parseFloat(formData.price).toFixed(2)}` : ''}
+            />
+            <AdminFormPreviewField
+              label="Duración"
+              value={formData.durationMinutes ? `${formData.durationMinutes} min` : ''}
+            />
+            {formData.description ? (
+              <AdminFormPreviewField label="Descripción" value={formData.description} multiline />
+            ) : null}
+          </AdminFormPreviewPanel>
+        ),
       }}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
-      >
-        <div
-          className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80"
-          aria-hidden
-        />
-        <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col min-h-0 gap-4 flex-1">
+      <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader
             eyebrow="Servicio"
             title={isEdit ? 'Editar servicio' : 'Nuevo servicio'}
           />
 
-          {error && (
-            <div className="alert-error shrink-0 text-sm py-2.5" role="alert">
-              {error}
-            </div>
-          )}
+          {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
           <div className="group shrink-0">
             <label htmlFor="service-name" className={ADMIN_FORM_LABEL_CLASS}>
@@ -163,7 +187,7 @@ export default function ServiceFormPage() {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className={ADMIN_FORM_FIELD_CLASS}
+              className={ADMIN_FORM_FIELD_COMPACT}
               required
             />
           </div>
@@ -178,11 +202,11 @@ export default function ServiceFormPage() {
               value={formData.description}
               onChange={handleChange}
               rows={2}
-              className={`${ADMIN_FORM_FIELD_CLASS} resize-none min-h-[3.5rem]`}
+              className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug`}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 shrink-0">
+          <div className={`${ADMIN_FORM_GRID_CLASS} sm:grid-cols-2 xl:grid-cols-3`}>
             <div className="group sm:col-span-2 xl:col-span-1">
               <label htmlFor="service-category" className={ADMIN_FORM_LABEL_CLASS}>
                 Categoría
@@ -192,7 +216,7 @@ export default function ServiceFormPage() {
                 name="categoryName"
                 value={formData.categoryName}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
               >
                 {categorySelectOptions.map((name) => (
                   <option key={name} value={name}>
@@ -213,7 +237,7 @@ export default function ServiceFormPage() {
                 min="0"
                 value={formData.price}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 required
               />
             </div>
@@ -228,7 +252,7 @@ export default function ServiceFormPage() {
                 min="1"
                 value={formData.durationMinutes}
                 onChange={handleChange}
-                className={ADMIN_FORM_FIELD_CLASS}
+                className={ADMIN_FORM_FIELD_COMPACT}
                 required
               />
             </div>
@@ -247,21 +271,20 @@ export default function ServiceFormPage() {
             </label>
           )}
 
-          <AdminFormFooterActions>
+          <AdminFormFooterActions className="mt-1">
             <AdminFormPrimaryButton disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Guardando…
-                </>
-              ) : (
-                'Guardar servicio'
-              )}
+              <AdminFormLoadingButton loading={loading} loadingLabel="Guardando…">
+                Guardar servicio
+              </AdminFormLoadingButton>
             </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={() => navigate(-1)}>Cancelar</AdminFormSecondaryButton>
+            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
-        </div>
-      </form>
+      </AdminFormCard>
     </AdminFormShell>
   );
+}
+
+export default function ServiceFormPage() {
+  const { id } = useParams();
+  return <ServiceForm editId={id ? parseInt(id, 10) : null} />;
 }
