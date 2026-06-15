@@ -1,336 +1,386 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
-import PageHeader from '@/shared/components/admin/PageHeader';
+/**
+ * Compras — listado compacto, filtros, paginación y formulario inline en la misma tarjeta.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Eye, Ban } from 'lucide-react';
+import * as purchaseService from '@/features/purchases/services/purchaseService';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
-import * as purchaseService from '@/features/purchases/services/purchaseService';
-import * as productService from '@/features/inventory/services/productService';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import SuccessToast from '@/shared/components/SuccessToast';
+import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
+import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
+import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
+import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/utils/purchaseFormatters';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const STATUS_OPTIONS = [
+  { value: '', label: 'Todas' },
+  { value: 'active', label: 'Activas' },
+  { value: 'voided', label: 'Anuladas' },
+];
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [periodTotal, setPeriodTotal] = useState({ total: 0, count: 0 });
+
+  const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfMonth());
+  const [dateTo, setDateTo] = useState(getLocalDateToday());
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    supplierName: '',
-    invoiceNumber: '',
-    notes: '',
-    items: [{ productId: '', quantity: 1, unitCost: 0 }],
-  });
-  const [voidTarget, setVoidTarget] = useState(null);
-  const [voidReason, setVoidReason] = useState('');
-  const [voiding, setVoiding] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const fetchData = async () => {
+  const [detailPurchase, setDetailPurchase] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [voidTarget, setVoidTarget] = useState(null);
+  const [isVoiding, setIsVoiding] = useState(false);
+
+  const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  useEffect(() => {
+    setPage(1);
+  }, [dateFrom, dateTo, statusFilter, search, pageSize]);
+
+  const fetchPurchases = useCallback(async (targetPage = page) => {
     setLoading(true);
     setError('');
     try {
-      const [p, prod] = await Promise.all([
-        purchaseService.getPurchases(),
-        productService.getProducts(),
+      const params = {
+        dateFrom,
+        dateTo,
+        limit: pageSize,
+        offset: (targetPage - 1) * pageSize,
+      };
+      if (statusFilter) params.status = statusFilter;
+      if (search.trim()) params.search = search.trim();
+
+      const [listData, totalData] = await Promise.all([
+        purchaseService.getPurchases(params),
+        purchaseService.getPurchasesTotal({ dateFrom, dateTo }),
       ]);
-      setPurchases(Array.isArray(p) ? p : (p?.data ?? []));
-      setProducts(Array.isArray(prod) ? prod : (prod?.data ?? []));
+
+      setPurchases(listData.purchases ?? []);
+      setListTotal(listData.total ?? 0);
+      setPeriodTotal(totalData || { total: 0, count: 0 });
     } catch (err) {
       setError(err?.message || 'Error al cargar compras');
       setPurchases([]);
+      setListTotal(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFrom, dateTo, statusFilter, search, pageSize, page]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!isFormOpen) fetchPurchases(page);
+  }, [fetchPurchases, isFormOpen, page]);
 
-  const totalPreview = useMemo(
-    () => form.items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unitCost) || 0), 0),
-    [form.items]
-  );
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
-  const updateItem = (idx, field, value) => {
-    setForm((prev) => ({
-      ...prev,
-      items: prev.items.map((it, i) => (i === idx ? { ...it, [field]: value } : it)),
-    }));
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setSearch(searchInput.trim());
   };
 
-  const addItem = () => setForm((prev) => ({ ...prev, items: [...prev.items, { productId: '', quantity: 1, unitCost: 0 }] }));
-  const removeItem = (idx) =>
-    setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
+  const openDetail = async (row) => {
+    setDetailLoading(true);
     try {
-      await purchaseService.createPurchase({
-        supplierName: form.supplierName || undefined,
-        invoiceNumber: form.invoiceNumber || undefined,
-        notes: form.notes || undefined,
-        items: form.items
-          .filter((i) => i.productId)
-          .map((i) => ({ productId: Number(i.productId), quantity: Number(i.quantity), unitCost: Number(i.unitCost) })),
-      });
-      setShowForm(false);
-      setForm({ supplierName: '', invoiceNumber: '', notes: '', items: [{ productId: '', quantity: 1, unitCost: 0 }] });
-      fetchData();
-    } catch (err) {
-      setError(err?.message || 'Error al registrar compra');
+      const full = await purchaseService.getPurchaseById(row.id);
+      setDetailPurchase(full || row);
+    } catch {
+      setDetailPurchase(row);
     } finally {
-      setSaving(false);
+      setDetailLoading(false);
     }
   };
 
+  const handleFormSuccess = () => {
+    setIsFormOpen(false);
+    setSuccessMessage('Compra registrada correctamente.');
+    setPage(1);
+    fetchPurchases(1);
+  };
+
+  const confirmVoid = async (voidReason) => {
+    if (!voidTarget) return;
+    setIsVoiding(true);
+    try {
+      await purchaseService.voidPurchase(voidTarget.id, { voidReason });
+      setVoidTarget(null);
+      setSuccessMessage('Compra anulada correctamente.');
+      await fetchPurchases(page);
+    } catch (err) {
+      setError(err?.message || 'No se pudo anular la compra');
+    } finally {
+      setIsVoiding(false);
+    }
+  };
+
+  const exportRows = purchases.map((p) => ({
+    id: p.id,
+    proveedor: p.supplier_name || '',
+    factura: p.invoice_number || '',
+    total: p.total_amount,
+    articulos: p.items_count ?? p.items?.length ?? 0,
+    estado: p.voided_at ? 'Anulada' : 'Activa',
+    fecha: p.created_at,
+    notas: p.notes || '',
+  }));
+
+  const filterFieldClass = 'input-premium py-1.5 text-xs min-w-0';
+  const filterLabelClass = 'text-[11px] font-medium text-stone-500';
+
   return (
     <div className="page-shell">
-      <PageHeader
-        actions={
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                downloadCSV(
-                  'compras.csv',
-                  purchases.map((p) => ({
-                    id: p.id,
-                    proveedor: p.supplier_name || '',
-                    factura: p.invoice_number || '',
-                    total: p.total_amount,
-                    estado: p.voided_at ? 'Anulada' : 'Activa',
-                    fecha: p.created_at,
-                  }))
-                )
-              }
-              className="btn-admin-outline"
-            >
-              Exportar CSV
-            </button>
-            <button type="button" onClick={printAsPDF} className="btn-admin-outline">
-              Exportar PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm((v) => !v)}
-              className="btn-admin inline-flex items-center justify-center gap-2"
-            >
-              {showForm ? (
-                'Cerrar'
-              ) : (
+      <DataCard compact>
+        <div className={`space-y-3 pb-3 border-b border-stone-100 ${isFormOpen ? 'mb-0' : 'mb-3'}`}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <form onSubmit={handleSearchSubmit} className="flex gap-2 min-w-0 flex-1 max-w-xl">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Buscar proveedor, factura, notas…"
+                  disabled={isFormOpen}
+                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none disabled:opacity-60"
+                />
+              </div>
+              <button type="submit" disabled={isFormOpen} className="btn-admin shrink-0 px-3 text-xs disabled:opacity-60">
+                Buscar
+              </button>
+            </form>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {!isFormOpen && (
                 <>
-                  <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                  Nueva compra
+                  <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo activo</p>
+                      <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
+                        {formatPurchaseAmount(periodTotal.total)}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
+                      {periodTotal.count} compra{periodTotal.count === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => downloadCSV('compras.csv', exportRows)} className="btn-admin-outline text-xs py-2 px-3">
+                    CSV
+                  </button>
+                  <button type="button" onClick={printAsPDF} className="btn-admin-outline text-xs py-2 px-3">
+                    PDF
+                  </button>
                 </>
               )}
-            </button>
-          </div>
-        }
-      />
-
-      {error && <div className="alert-error">{error}</div>}
-
-      {voidTarget != null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="void-purchase-title"
-        >
-          <div className="w-full max-w-md rounded-2xl bg-white border border-stone-200 shadow-xl p-5 sm:p-6">
-            <h2 id="void-purchase-title" className="text-lg font-semibold text-stone-900 mb-1">
-              Anular compra #{voidTarget}
-            </h2>
-            <p className="text-sm text-stone-600 mb-4">
-              Se descontará del inventario la cantidad ingresada en cada ítem. Solo es posible si hay stock suficiente.
-            </p>
-            <label className="block text-xs font-semibold text-stone-600 mb-1.5">Motivo (opcional)</label>
-            <textarea
-              value={voidReason}
-              onChange={(e) => setVoidReason(e.target.value)}
-              className="input-premium w-full min-h-[4.5rem] resize-y mb-4"
-              maxLength={500}
-              placeholder="Ej. factura duplicada, error de digitación…"
-            />
-            <div className="flex flex-wrap gap-2 justify-end">
-              <button
-                type="button"
-                className="btn-admin-outline"
-                disabled={voiding}
-                onClick={() => {
-                  setVoidTarget(null);
-                  setVoidReason('');
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn-admin bg-red-700 hover:bg-red-800 border-red-800"
-                disabled={voiding}
-                onClick={async () => {
-                  setVoiding(true);
-                  setError('');
-                  try {
-                    await purchaseService.voidPurchase(voidTarget, {
-                      voidReason: voidReason.trim() || undefined,
-                    });
-                    setVoidTarget(null);
-                    setVoidReason('');
-                    fetchData();
-                  } catch (err) {
-                    setError(err?.message || err?.errors?.[0]?.message || 'No se pudo anular la compra');
-                  } finally {
-                    setVoiding(false);
-                  }
-                }}
-              >
-                {voiding ? 'Anulando…' : 'Confirmar anulación'}
-              </button>
+              {isFormOpen ? (
+                <button type="button" onClick={() => setIsFormOpen(false)} className="btn-admin-outline text-xs py-2 px-3">
+                  Volver al listado
+                </button>
+              ) : (
+                <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
+                  <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                  Nueva compra
+                </button>
+              )}
             </div>
           </div>
+
+          {!isFormOpen && (
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex flex-col gap-1">
+                <span className={filterLabelClass}>Desde</span>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={filterFieldClass} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={filterLabelClass}>Hasta</span>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterFieldClass} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={filterLabelClass}>Estado</span>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={filterFieldClass}>
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.value || 'all'} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
+          {isFormOpen && <p className="text-xs text-stone-500 pt-1">Nuevo ingreso de inventario</p>}
         </div>
-      )}
 
-      {showForm && (
-        <div className="relative rounded-[1.35rem] p-[1.5px] bg-gradient-to-br from-gold/55 via-stone-100/60 to-gold/30 shadow-[0_16px_44px_rgba(0,0,0,0.1)] mb-6">
-          <div className="rounded-[1.28rem] bg-white/90 backdrop-blur-md border border-white/90 p-4 sm:p-6">
-            <p className="text-[10px] font-semibold tracking-[0.2em] text-gold mb-4">Registrar compra</p>
-            <form className="space-y-4" onSubmit={submit}>
-            <div className="grid md:grid-cols-3 gap-3">
-              <input
-                value={form.supplierName}
-                onChange={(e) => setForm((p) => ({ ...p, supplierName: e.target.value }))}
-                className="input-premium"
-                placeholder="Proveedor"
-              />
-              <input
-                value={form.invoiceNumber}
-                onChange={(e) => setForm((p) => ({ ...p, invoiceNumber: e.target.value }))}
-                className="input-premium"
-                placeholder="No. factura"
-              />
-              <input
-                value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                className="input-premium"
-                placeholder="Notas"
-              />
-            </div>
-
-            <div className="space-y-2">
-              {form.items.map((item, idx) => (
-                <div key={idx} className="grid md:grid-cols-5 gap-2">
-                  <select
-                    value={item.productId}
-                    onChange={(e) => updateItem(idx, 'productId', e.target.value)}
-                    className="input-premium md:col-span-2"
-                    required
-                  >
-                    <option value="">Producto</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                    className="input-premium"
-                    placeholder="Cantidad"
-                    required
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.unitCost}
-                    onChange={(e) => updateItem(idx, 'unitCost', e.target.value)}
-                    className="input-premium"
-                    placeholder="Costo unitario"
-                    required
-                  />
-                  <button type="button" onClick={() => removeItem(idx)} className="btn-outline" disabled={form.items.length === 1}>
-                    Quitar
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <button type="button" onClick={addItem} className="btn-admin-outline inline-flex items-center gap-2">
-                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                Agregar item
-              </button>
-              <p className="text-stone-600 text-sm">Total estimado: <strong>${Math.round(totalPreview).toLocaleString('es-CO')}</strong></p>
-            </div>
-
-            <button type="submit" disabled={saving} className="btn-admin">
-              {saving ? 'Guardando...' : 'Registrar compra'}
-            </button>
-            </form>
+        {isFormOpen ? (
+          <div className="pt-3">
+            <PurchaseForm contained onSuccess={handleFormSuccess} onCancel={() => setIsFormOpen(false)} />
           </div>
-        </div>
-      )}
-
-      <DataCard>
-        {loading ? (
-          <div className="py-12 text-center text-stone-500">Cargando compras...</div>
-        ) : purchases.length === 0 ? (
-          <div className="py-12 text-center text-stone-500">No hay compras registradas.</div>
         ) : (
-          <Table>
-            <TableHead>
-              <TableHeader>ID</TableHeader>
-              <TableHeader>Proveedor</TableHeader>
-              <TableHeader>Factura</TableHeader>
-              <TableHeader>Total</TableHeader>
-              <TableHeader>Estado</TableHeader>
-              <TableHeader>Fecha</TableHeader>
-              <TableHeader className="text-right">Acciones</TableHeader>
-            </TableHead>
-            <TableBody>
-              {purchases.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>{p.id}</TableCell>
-                  <TableCell>{p.supplier_name || '-'}</TableCell>
-                  <TableCell>{p.invoice_number || '-'}</TableCell>
-                  <TableCell>${Math.round(Number(p.total_amount || 0)).toLocaleString('es-CO')}</TableCell>
-                  <TableCell>
-                    {p.voided_at ? (
-                      <span className="text-red-700 text-sm font-medium">Anulada</span>
-                    ) : (
-                      <span className="text-emerald-700 text-sm">Activa</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{p.created_at ? new Date(p.created_at).toLocaleString('es-ES') : '-'}</TableCell>
-                  <TableCell className="text-right">
-                    {!p.voided_at ? (
+          <>
+            {error && (
+              <div className="alert-error text-sm py-2 mb-3" role="alert">{error}</div>
+            )}
+
+            {loading ? (
+              <div className="py-10 text-center text-stone-500">
+                <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-sm">Cargando compras…</p>
+              </div>
+            ) : purchases.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm text-stone-500 mb-3">No hay compras con los filtros seleccionados.</p>
+                <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin text-sm">
+                  Registrar primera compra
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-xs text-stone-500">
+                    Página {safePage} de {totalPages} · {listTotal} registro{listTotal !== 1 ? 's' : ''}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="purchases-page-size" className="text-[11px] font-medium text-stone-500 whitespace-nowrap">
+                        Por página
+                      </label>
+                      <select
+                        id="purchases-page-size"
+                        value={pageSize}
+                        onChange={(e) => setPageSize(Number(e.target.value))}
+                        className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none"
+                      >
+                        {PAGE_SIZE_OPTIONS.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1.5" role="navigation" aria-label="Paginación">
                       <button
                         type="button"
-                        className="text-sm font-medium text-red-700 hover:text-red-900 underline-offset-2 hover:underline"
-                        onClick={() => {
-                          setVoidReason('');
-                          setVoidTarget(p.id);
-                        }}
+                        disabled={safePage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        className="rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-40"
                       >
-                        Anular
+                        Anterior
                       </button>
-                    ) : (
-                      <span className="text-stone-400 text-sm">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      <span className="text-xs font-semibold text-stone-800 tabular-nums min-w-[2.5rem] text-center">
+                        {safePage}/{totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={safePage >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        className="rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-900 hover:bg-stone-50 disabled:opacity-40"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHead>
+                      <TableHeader compact>ID</TableHeader>
+                      <TableHeader compact>Proveedor</TableHeader>
+                      <TableHeader compact>Factura</TableHeader>
+                      <TableHeader compact>Artículos</TableHeader>
+                      <TableHeader compact>Estado</TableHeader>
+                      <TableHeader compact>Fecha</TableHeader>
+                      <TableHeader compact className="text-right">Total</TableHeader>
+                      <TableHeader compact className="w-24" />
+                    </TableHead>
+                    <TableBody>
+                      {purchases.map((p) => {
+                        const isVoided = Boolean(p.voided_at);
+                        return (
+                          <TableRow key={p.id} className={isVoided ? 'opacity-75 bg-stone-50/60' : ''}>
+                            <TableCell compact className="text-xs font-mono">#{p.id}</TableCell>
+                            <TableCell compact className="text-xs max-w-[10rem] truncate">
+                              {p.supplier_name || '—'}
+                            </TableCell>
+                            <TableCell compact className="text-xs font-mono max-w-[8rem] truncate">
+                              {p.invoice_number || '—'}
+                            </TableCell>
+                            <TableCell compact className="text-xs tabular-nums">
+                              {p.items_count ?? p.items?.length ?? '—'}
+                            </TableCell>
+                            <TableCell compact>
+                              <span
+                                className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
+                                  isVoided
+                                    ? 'border-stone-200 bg-stone-100 text-stone-600'
+                                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                }`}
+                              >
+                                {isVoided ? 'Anulada' : 'Activa'}
+                              </span>
+                            </TableCell>
+                            <TableCell compact className="text-xs whitespace-nowrap">
+                              {formatPurchaseDate(p.created_at)}
+                            </TableCell>
+                            <TableCell
+                              compact
+                              className={`text-right text-xs font-semibold tabular-nums ${
+                                isVoided ? 'text-stone-500 line-through' : 'text-gold'
+                              }`}
+                            >
+                              {formatPurchaseAmount(p.total_amount)}
+                            </TableCell>
+                            <TableCell compact>
+                              <div className="inline-flex items-center gap-1">
+                                <AdminIconButton
+                                  icon={Eye}
+                                  label="Ver detalle"
+                                  onClick={() => openDetail(p)}
+                                  disabled={detailLoading}
+                                />
+                                {!isVoided ? (
+                                  <AdminIconButton
+                                    icon={Ban}
+                                    label="Anular compra"
+                                    variant="danger"
+                                    onClick={() => setVoidTarget(p)}
+                                  />
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </>
         )}
       </DataCard>
+
+      <PurchaseDetailModal purchase={detailPurchase} onClose={() => setDetailPurchase(null)} />
+      <VoidPurchaseModal
+        purchase={voidTarget}
+        onClose={() => !isVoiding && setVoidTarget(null)}
+        onConfirm={confirmVoid}
+        isSubmitting={isVoiding}
+      />
+      <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>
   );
 }

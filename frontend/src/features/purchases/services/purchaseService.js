@@ -7,8 +7,19 @@ const extract = (r) => {
   return res?.data ?? res;
 };
 
-export const getPurchases = async () => {
-  const response = await api.get(BASE);
+export const getPurchases = async (params = {}) => {
+  const res = await api.get(BASE, { params });
+  const purchases = Array.isArray(res?.data) ? res.data : [];
+  return {
+    purchases,
+    total: typeof res?.total === 'number' ? res.total : purchases.length,
+    limit: res?.limit ?? params.limit,
+    offset: res?.offset ?? params.offset ?? 0,
+  };
+};
+
+export const getPurchasesTotal = async (params = {}) => {
+  const response = await api.get(`${BASE}/total`, { params });
   return extract(response);
 };
 

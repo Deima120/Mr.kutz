@@ -2,8 +2,32 @@ import * as purchaseService from '../services/purchase.service.js';
 
 export const getAll = async (req, res, next) => {
   try {
-    const data = await purchaseService.getAll();
-    res.json({ success: true, data });
+    const { dateFrom, dateTo, status, search, limit, offset } = req.query;
+    const result = await purchaseService.getAll({
+      dateFrom,
+      dateTo,
+      status,
+      search,
+      limit: limit ? parseInt(limit, 10) : 20,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
+    res.json({
+      success: true,
+      data: result.purchases,
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTotal = async (req, res, next) => {
+  try {
+    const { dateFrom, dateTo } = req.query;
+    const total = await purchaseService.getTotalByDateRange(dateFrom, dateTo);
+    res.json({ success: true, data: total });
   } catch (error) {
     next(error);
   }

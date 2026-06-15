@@ -26,6 +26,7 @@ const voidValidation = [
 router.use(auth);
 router.use(authorize('admin'));
 
+router.get('/total', purchaseController.getTotal);
 router.get('/', purchaseController.getAll);
 router.post('/:id/void', voidValidation, validate, purchaseController.voidPurchase);
 router.get('/:id', idParam, validate, purchaseController.getById);
