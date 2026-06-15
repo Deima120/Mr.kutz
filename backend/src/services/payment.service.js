@@ -61,44 +61,134 @@ function toPaymentRow(p) {
     service_name: p.appointment?.service?.name,
     product_name: p.product?.name,
     product_sku: p.product?.sku,
+    payment_type: p.productId ? 'product' : p.appointmentId ? 'service' : 'cash',
   };
+}
+
+function buildPaymentsWhere({
+  dateFrom,
+  dateTo,
+  appointmentId,
+  status,
+  paymentMethodId,
+  type,
+  search,
+}) {
+  const where = {};
+
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+    if (dateTo) where.createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
+  }
+
+  if (appointmentId) where.appointmentId = parseInt(appointmentId, 10);
+
+  if (status === 'active') where.voidedAt = null;
+  if (status === 'voided') where.voidedAt = { not: null };
+
+  if (paymentMethodId) {
+    where.paymentMethodId = parseInt(paymentMethodId, 10);
+  }
+
+  if (type === 'service') {
+    where.appointmentId = { not: null };
+    where.productId = null;
+  } else if (type === 'product') {
+    where.productId = { not: null };
+  } else if (type === 'cash') {
+    where.appointmentId = null;
+    where.productId = null;
+  }
+
+  const term = String(search || '').trim();
+  if (term) {
+    where.OR = [
+      { reference: { contains: term, mode: 'insensitive' } },
+      { notes: { contains: term, mode: 'insensitive' } },
+      { product: { name: { contains: term, mode: 'insensitive' } } },
+      { product: { sku: { contains: term, mode: 'insensitive' } } },
+      {
+        appointment: {
+          client: {
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' } },
+              { lastName: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+        },
+      },
+      { appointment: { service: { name: { contains: term, mode: 'insensitive' } } } },
+    ];
+  }
+
+  return where;
 }
 
 export const getPaymentMethods = async () => {
   const methods = await prisma.paymentMethod.findMany({
     where: { isActive: true },
-    orderBy: { name: 'asc' },
+    orderBy: { id: 'asc' },
     select: { id: true, name: true, description: true },
   });
-  return methods;
+  const order = ['efectivo', 'transferencia', 'tarjeta'];
+  return methods.sort(
+    (a, b) => order.indexOf(a.name) - order.indexOf(b.name) || a.id - b.id,
+  );
 };
 
-export const getAll = async ({ dateFrom, dateTo, appointmentId, limit = 100, offset = 0 }) => {
-  const where = {};
-  if (dateFrom) where.createdAt = { ...where.createdAt, gte: new Date(dateFrom) };
-  if (dateTo) where.createdAt = { ...where.createdAt, lte: new Date(dateTo + 'T23:59:59.999Z') };
-  if (appointmentId) where.appointmentId = parseInt(appointmentId, 10);
-
-  const payments = await prisma.payment.findMany({
-    where,
-    include: {
-      paymentMethod: { select: { name: true } },
-      product: { select: { name: true, sku: true } },
-      appointment: {
-        select: {
-          appointmentDate: true,
-          startTime: true,
-          client: { select: { firstName: true, lastName: true } },
-          service: { select: { name: true } },
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    skip: offset,
+export const getAll = async ({
+  dateFrom,
+  dateTo,
+  appointmentId,
+  status,
+  paymentMethodId,
+  type,
+  search,
+  limit = 20,
+  offset = 0,
+}) => {
+  const where = buildPaymentsWhere({
+    dateFrom,
+    dateTo,
+    appointmentId,
+    status,
+    paymentMethodId,
+    type,
+    search,
   });
 
-  return payments.map(toPaymentRow);
+  const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+  const skip = Math.max(parseInt(offset, 10) || 0, 0);
+
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      include: {
+        paymentMethod: { select: { name: true } },
+        product: { select: { name: true, sku: true } },
+        appointment: {
+          select: {
+            appointmentDate: true,
+            startTime: true,
+            client: { select: { firstName: true, lastName: true } },
+            service: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+    }),
+    prisma.payment.count({ where }),
+  ]);
+
+  return {
+    payments: payments.map(toPaymentRow),
+    total,
+    limit: take,
+    offset: skip,
+  };
 };
 
 export const getTotalByDateRange = async (dateFrom, dateTo) => {

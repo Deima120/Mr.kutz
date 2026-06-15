@@ -18,7 +18,17 @@ export const getPaymentMethods = async () => {
 
 export const getPayments = async (params = {}) => {
   const response = await api.get(PAYMENTS_BASE, { params });
-  return extract(response);
+  const res = response?.data ?? response;
+  const rows = res?.data ?? res;
+  if (Array.isArray(rows)) {
+    return { payments: rows, total: rows.length, limit: params.limit, offset: params.offset ?? 0 };
+  }
+  return {
+    payments: Array.isArray(rows?.payments) ? rows.payments : Array.isArray(rows) ? rows : [],
+    total: res?.total ?? 0,
+    limit: res?.limit,
+    offset: res?.offset ?? 0,
+  };
 };
 
 export const getPaymentsTotal = async (params = {}) => {

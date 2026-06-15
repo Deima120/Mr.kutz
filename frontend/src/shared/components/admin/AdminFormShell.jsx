@@ -157,36 +157,45 @@ export default function AdminFormShell({
   children,
   fullBleed = true,
   compact = false,
+  contained = false,
   showBackNav = true,
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
 
   const bleedWidth =
-    fullBleed
+    fullBleed && !contained
       ? 'w-[calc(100%+3rem)] md:w-[calc(100%+4rem)] -mx-6 md:-mx-8'
       : 'w-full min-w-0';
-  const rootMinHeight = fullBleed ? 'min-h-0' : compact ? 'min-h-0' : 'min-h-[min(72vh,52rem)]';
+  const rootMinHeight = fullBleed && !contained ? 'min-h-0' : 'min-h-0';
+
+  const formWrapClass = contained
+    ? 'relative flex-1 min-h-0 w-full'
+    : `relative flex-1 min-h-0 ${compact ? 'rounded-2xl p-[1.5px]' : 'rounded-[1.35rem] p-[1.5px]'} bg-gradient-to-br from-gold/65 via-stone-100/60 to-gold/35 shadow-[0_20px_60px_rgba(0,0,0,0.12)]`;
 
   return (
     <div
-      className={`relative flex-1 ${rootMinHeight} ${bleedWidth} flex flex-col overflow-x-hidden overflow-y-hidden`}
+      className={`relative flex-1 ${rootMinHeight} ${bleedWidth} flex flex-col overflow-x-hidden ${contained ? 'overflow-y-visible' : 'overflow-y-hidden'}`}
     >
-      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-stone-300/35 via-stone-100 to-stone-200/50" aria-hidden />
-      <div
-        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_90%_70%_at_100%_0%,rgba(201,169,98,0.14),transparent_55%),radial-gradient(ellipse_70%_50%_at_0%_100%,rgba(12,10,9,0.08),transparent_50%)]"
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 -z-20 opacity-[0.32] bg-section-pattern mix-blend-multiply pointer-events-none"
-        aria-hidden
-      />
-      <div
-        className="absolute top-0 right-[15%] w-[min(42vw,28rem)] h-[min(42vw,28rem)] rounded-full bg-gold/12 blur-3xl -z-10 animate-float pointer-events-none"
-        aria-hidden
-      />
-      <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-barber-dark/[0.06] blur-3xl -z-10 pointer-events-none" aria-hidden />
+      {!contained && (
+        <>
+          <div className="absolute inset-0 -z-20 bg-gradient-to-br from-stone-300/35 via-stone-100 to-stone-200/50" aria-hidden />
+          <div
+            className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_90%_70%_at_100%_0%,rgba(201,169,98,0.14),transparent_55%),radial-gradient(ellipse_70%_50%_at_0%_100%,rgba(12,10,9,0.08),transparent_50%)]"
+            aria-hidden
+          />
+          <div
+            className="absolute inset-0 -z-20 opacity-[0.32] bg-section-pattern mix-blend-multiply pointer-events-none"
+            aria-hidden
+          />
+          <div
+            className="absolute top-0 right-[15%] w-[min(42vw,28rem)] h-[min(42vw,28rem)] rounded-full bg-gold/12 blur-3xl -z-10 animate-float pointer-events-none"
+            aria-hidden
+          />
+          <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-barber-dark/[0.06] blur-3xl -z-10 pointer-events-none" aria-hidden />
+        </>
+      )}
 
-      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${compact ? 'px-0 md:px-2 pt-0 pb-3' : 'px-5 md:px-7 pt-1 pb-4'} animate-fade-in-up`}>
+      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${contained ? 'p-0' : compact ? 'px-0 md:px-2 pt-0 pb-3' : 'px-5 md:px-7 pt-1 pb-4'} ${contained ? '' : 'animate-fade-in-up'}`}>
         {showBackNav && (
         <div className={`flex flex-wrap items-center gap-2 shrink-0 ${compact ? 'mb-2' : 'mb-4 gap-3'}`}>
           {onBackClick ? (
@@ -227,8 +236,8 @@ export default function AdminFormShell({
           }`}
         >
           <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col min-h-0` : 'flex flex-col min-h-0'}>
-            <div className={`relative flex-1 min-h-0 ${compact ? 'rounded-2xl p-[1.5px]' : 'rounded-[1.35rem] p-[1.5px]'} bg-gradient-to-br from-gold/65 via-stone-100/60 to-gold/35 shadow-[0_20px_60px_rgba(0,0,0,0.12)]`}>
-              {!compact && (
+            <div className={formWrapClass}>
+              {!compact && !contained && (
                 <div className="absolute -inset-2 bg-gradient-to-br from-gold/8 to-transparent rounded-3xl blur-xl -z-10 opacity-80" aria-hidden />
               )}
               {children}
@@ -237,7 +246,7 @@ export default function AdminFormShell({
 
           {asideVisible && (
             <aside className={`${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'} flex flex-col min-h-0`}>
-              <div className={`min-h-0 rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}>
+              <div className={`min-h-0 rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}>
                 <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                 <div className="relative flex flex-col">

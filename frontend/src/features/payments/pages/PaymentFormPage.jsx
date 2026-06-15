@@ -1,12 +1,15 @@
 /**
- * Formulario para registrar pago (cita completada o venta de inventario)
+ * Formulario para registrar pago (cita, inventario o caja libre)
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CalendarCheck, Package, Wallet } from 'lucide-react';
 import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
+import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
+import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -22,6 +25,12 @@ import AdminFormShell, {
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
 
+const PAYMENT_MODES = [
+  { id: 'service', label: 'Servicio', icon: CalendarCheck },
+  { id: 'product', label: 'Producto', icon: Package },
+  { id: 'cash', label: 'Caja', icon: Wallet },
+];
+
 function generatePaymentReference() {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -33,6 +42,7 @@ function generatePaymentReference() {
 
 export function PaymentForm({
   embedded = false,
+  contained = false,
   onSuccess,
   onCancel,
   prefillProductId: prefillProductIdProp = null,
@@ -45,54 +55,64 @@ export function PaymentForm({
 
   const [methods, setMethods] = useState([]);
   const [completedAppointments, setCompletedAppointments] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [paymentMode, setPaymentMode] = useState(prefillProductId ? 'product' : prefillAppointmentId ? 'service' : 'service');
+
   const [formData, setFormData] = useState({
     amount: '',
     paymentMethodId: '',
     appointmentId: '',
+    productId: '',
     reference: generatePaymentReference(),
+    notes: '',
   });
+  const [productQty, setProductQty] = useState('1');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [linkToAppointment, setLinkToAppointment] = useState(true);
 
   const [saleProduct, setSaleProduct] = useState(null);
-  const [productQty, setProductQty] = useState('1');
   const [productLoadError, setProductLoadError] = useState('');
   const [appointmentFromUrl, setAppointmentFromUrl] = useState(null);
   const [appointmentPrefillError, setAppointmentPrefillError] = useState('');
 
   useEffect(() => {
-    paymentService.getPaymentMethods().then((m) => {
-      setMethods(Array.isArray(m) ? m : []);
-    });
+    paymentService.getPaymentMethods().then((m) => setMethods(Array.isArray(m) ? m : []));
   }, []);
 
   useEffect(() => {
-    if (!prefillProductId) {
-      setSaleProduct(null);
-      setProductLoadError('');
-      return;
-    }
-    setAppointmentFromUrl(null);
-    setAppointmentPrefillError('');
-    const pid = parseInt(prefillProductId, 10);
+    if (prefillProductId) setPaymentMode('product');
+    else if (prefillAppointmentId) setPaymentMode('service');
+  }, [prefillProductId, prefillAppointmentId]);
+
+  useEffect(() => {
+    if (paymentMode !== 'product') return;
+    productService
+      .getProducts({ limit: 200 })
+      .then((data) => setProducts(data?.products ?? data ?? []))
+      .catch(() => setProducts([]));
+  }, [paymentMode]);
+
+  const loadProduct = (pid) => {
     if (!Number.isFinite(pid) || pid < 1) {
-      setProductLoadError('Producto no válido.');
       setSaleProduct(null);
+      setProductLoadError('Producto no válido.');
       return;
     }
-    setLinkToAppointment(false);
     setProductLoadError('');
     productService
       .getProductById(pid)
-      .then((res) => {
-        const p = res?.data ?? res;
-        setSaleProduct(p);
-      })
+      .then((res) => setSaleProduct(res?.data ?? res))
       .catch(() => {
         setSaleProduct(null);
         setProductLoadError('No se pudo cargar el producto.');
       });
+  };
+
+  useEffect(() => {
+    if (!prefillProductId) return;
+    const pid = parseInt(prefillProductId, 10);
+    setFormData((prev) => ({ ...prev, productId: String(pid) }));
+    loadProduct(pid);
   }, [prefillProductId]);
 
   useEffect(() => {
@@ -105,30 +125,23 @@ export function PaymentForm({
     const aid = parseInt(prefillAppointmentId, 10);
     if (!Number.isFinite(aid) || aid < 1) {
       setAppointmentPrefillError('Cita no válida.');
-      setAppointmentFromUrl(null);
       return;
     }
     setAppointmentPrefillError('');
-    setLinkToAppointment(true);
     appointmentService
       .getAppointmentById(aid)
       .then((row) => {
         const a = row?.data ?? row;
         if (!a) {
           setAppointmentPrefillError('Cita no encontrada.');
-          setAppointmentFromUrl(null);
           return;
         }
         if (a.status !== 'completed') {
-          setAppointmentPrefillError(
-            'La cita debe estar en estado completada para registrar el cobro. Vuelve a citas y márcala como completada primero.'
-          );
-          setAppointmentFromUrl(null);
+          setAppointmentPrefillError('La cita debe estar completada para cobrar.');
           return;
         }
         if (a.has_active_payment) {
           setAppointmentPrefillError('Esta cita ya tiene un pago registrado.');
-          setAppointmentFromUrl(null);
           return;
         }
         setAppointmentFromUrl(a);
@@ -136,17 +149,19 @@ export function PaymentForm({
         setFormData((prev) => ({
           ...prev,
           appointmentId: String(a.id),
-          amount:
-            price != null && price !== '' && !Number.isNaN(Number(price))
-              ? String(Number(price))
-              : prev.amount,
+          amount: price != null && !Number.isNaN(Number(price)) ? String(Number(price)) : prev.amount,
         }));
       })
-      .catch(() => {
-        setAppointmentPrefillError('No se pudo cargar la cita.');
-        setAppointmentFromUrl(null);
-      });
+      .catch(() => setAppointmentPrefillError('No se pudo cargar la cita.'));
   }, [prefillAppointmentId, prefillProductId]);
+
+  useEffect(() => {
+    if (paymentMode !== 'service') return;
+    appointmentService
+      .getAppointments({ status: 'completed', limit: 100 })
+      .then((data) => setCompletedAppointments(data.appointments ?? []))
+      .catch(() => setCompletedAppointments([]));
+  }, [paymentMode]);
 
   useEffect(() => {
     if (!saleProduct) return;
@@ -157,21 +172,6 @@ export function PaymentForm({
     }
   }, [saleProduct, productQty]);
 
-  useEffect(() => {
-    if (saleProduct) return;
-    if (linkToAppointment) {
-      appointmentService
-        .getAppointments({ status: 'completed', limit: 100 })
-        .then((data) => {
-          setCompletedAppointments(data.appointments ?? []);
-        })
-        .catch(() => setCompletedAppointments([]));
-    } else {
-      setCompletedAppointments([]);
-      setFormData((prev) => ({ ...prev, appointmentId: '' }));
-    }
-  }, [linkToAppointment, saleProduct]);
-
   const appointmentSelectRows = useMemo(() => {
     const rows = completedAppointments.filter((x) => !x?.has_active_payment);
     if (appointmentFromUrl && !rows.some((x) => x.id === appointmentFromUrl.id)) {
@@ -180,6 +180,32 @@ export function PaymentForm({
     return rows;
   }, [completedAppointments, appointmentFromUrl]);
 
+  const selectedAppointment = appointmentSelectRows.find(
+    (a) => a.id === parseInt(formData.appointmentId, 10)
+  ) || appointmentFromUrl;
+
+  const selectedMethod = methods.find((m) => String(m.id) === String(formData.paymentMethodId));
+
+  const handleModeChange = (mode) => {
+    setPaymentMode(mode);
+    setError('');
+    setProductLoadError('');
+    if (mode !== 'product') {
+      setSaleProduct(null);
+      setFormData((prev) => ({ ...prev, productId: '' }));
+    }
+    if (mode !== 'service') {
+      setFormData((prev) => ({ ...prev, appointmentId: '' }));
+    }
+  };
+
+  const handleProductSelect = (e) => {
+    const idSel = e.target.value;
+    setFormData((prev) => ({ ...prev, productId: idSel }));
+    if (idSel) loadProduct(parseInt(idSel, 10));
+    else setSaleProduct(null);
+  };
+
   const handleAppointmentSelect = (e) => {
     const idSel = e.target.value;
     const apt = appointmentSelectRows.find((a) => a.id === parseInt(idSel, 10));
@@ -187,8 +213,7 @@ export function PaymentForm({
     setFormData((prev) => ({
       ...prev,
       appointmentId: idSel || '',
-      amount:
-        idSel && p != null && p !== '' && !Number.isNaN(Number(p)) ? String(Number(p)) : prev.amount,
+      amount: idSel && p != null && !Number.isNaN(Number(p)) ? String(Number(p)) : prev.amount,
     }));
   };
 
@@ -206,21 +231,22 @@ export function PaymentForm({
         amount: parseFloat(formData.amount),
         paymentMethodId: parseInt(formData.paymentMethodId, 10),
         reference: formData.reference || undefined,
+        notes: formData.notes.trim() || undefined,
       };
-      if (saleProduct) {
+
+      if (paymentMode === 'product') {
+        if (!saleProduct) throw new Error('Selecciona un producto.');
         const q = Math.max(1, parseInt(productQty, 10) || 1);
         payload.productId = saleProduct.id;
         payload.productQuantity = q;
-      } else if (linkToAppointment && formData.appointmentId) {
+      } else if (paymentMode === 'service') {
+        if (!formData.appointmentId) throw new Error('Selecciona la cita a cobrar.');
         payload.appointmentId = parseInt(formData.appointmentId, 10);
       }
 
       await paymentService.createPayment(payload);
-      if (embedded) {
-        onSuccess?.({ created: true });
-      } else {
-        navigate('/payments', { replace: true });
-      }
+      if (embedded) onSuccess?.({ created: true });
+      else navigate('/payments', { replace: true });
     } catch (err) {
       setError(err?.message || 'Error al registrar pago');
     } finally {
@@ -228,242 +254,253 @@ export function PaymentForm({
     }
   };
 
-  const selectedMethod = methods.find((m) => String(m.id) === String(formData.paymentMethodId));
-
-  const paymentAside = {
-    kicker: 'Vista previa',
-    title: saleProduct ? 'Venta de producto' : appointmentFromUrl ? 'Cobro de servicio' : 'Registro de pago',
-    subtitle: saleProduct?.name || appointmentFromUrl?.service_name || 'Completa los datos',
-    bullets: [],
-    statusLabel: 'Origen',
-    statusValue: saleProduct ? 'Inventario' : linkToAppointment && formData.appointmentId ? 'Cita completada' : 'Caja',
-    children: (
-      <AdminFormPreviewPanel>
-        {saleProduct ? (
-          <AdminFormPreviewField label="Producto" value={saleProduct.name} />
-        ) : null}
-        {appointmentFromUrl && !saleProduct ? (
-          <AdminFormPreviewField
-            label="Cliente"
-            value={`${appointmentFromUrl.client_first_name || ''} ${appointmentFromUrl.client_last_name || ''}`.trim()}
-          />
-        ) : null}
-        <AdminFormPreviewField
-          label="Monto"
-          value={formData.amount ? `$${parseFloat(formData.amount).toFixed(2)}` : ''}
-        />
-        <AdminFormPreviewField label="Método" value={selectedMethod?.name} />
-        <AdminFormPreviewField label="Referencia" value={formData.reference} breakAll />
-      </AdminFormPreviewPanel>
-    ),
+  const handleCancel = () => {
+    if (embedded || contained) onCancel?.();
+    else navigate(-1);
   };
 
   const maxQty = saleProduct != null ? Math.max(0, Number(saleProduct.quantity) || 0) : undefined;
 
-  const handleCancel = () => {
-    if (embedded) onCancel?.();
-    else navigate(-1);
+  const paymentAside = {
+    kicker: 'Vista previa',
+    title:
+      paymentMode === 'product'
+        ? 'Venta de producto'
+        : paymentMode === 'service'
+        ? 'Cobro de servicio'
+        : 'Cobro en caja',
+    subtitle: saleProduct?.name || selectedAppointment?.service_name || 'Completa los datos',
+    bullets: [],
+    statusLabel: 'Origen',
+    statusValue:
+      paymentMode === 'product' ? 'Inventario' : paymentMode === 'service' ? 'Cita completada' : 'Caja libre',
+    children: (
+      <AdminFormPreviewPanel>
+        {saleProduct ? <AdminFormPreviewField label="Producto" value={saleProduct.name} /> : null}
+        {selectedAppointment && paymentMode === 'service' ? (
+          <AdminFormPreviewField
+            label="Cliente"
+            value={`${selectedAppointment.client_first_name || ''} ${selectedAppointment.client_last_name || ''}`.trim()}
+          />
+        ) : null}
+        <AdminFormPreviewField
+          label="Monto"
+          value={formData.amount ? formatPaymentAmount(formData.amount) : ''}
+        />
+        <AdminFormPreviewField label="Método" value={formatPaymentMethodName(selectedMethod?.description || selectedMethod?.name)} />
+        <AdminFormPreviewField label="Referencia" value={formData.reference} breakAll />
+        {formData.notes ? <AdminFormPreviewField label="Notas" value={formData.notes} multiline /> : null}
+      </AdminFormPreviewPanel>
+    ),
   };
 
   return (
     <AdminFormShell
       backTo="/payments"
-      backLabel="Pagos"
-      onBackClick={embedded ? handleCancel : undefined}
+      backLabel={contained ? 'Volver al listado' : 'Pagos'}
+      onBackClick={embedded || contained ? handleCancel : undefined}
       modeBadge="Registro"
-      fullBleed={!embedded}
-      compact={embedded}
-      showBackNav={!embedded}
+      fullBleed={!embedded && !contained}
+      compact={embedded || contained}
+      contained={contained}
+      showBackNav={false}
       aside={paymentAside}
     >
       <AdminFormCard onSubmit={handleSubmit}>
-          <AdminFormCardHeader eyebrow="Pago" title="Registrar pago" />
+        <AdminFormCardHeader eyebrow="Cobro" title="Registrar pago" />
 
-          {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
-          {productLoadError && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
-              {productLoadError}
-            </div>
-          )}
-          {appointmentPrefillError && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
-              {appointmentPrefillError}
-            </div>
-          )}
-          {appointmentFromUrl && !saleProduct && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-xs py-2 px-2.5 shrink-0">
-              Cobro sugerido para la cita que acabas de completar:{' '}
-              <span className="font-semibold">
-                {appointmentFromUrl.client_first_name} {appointmentFromUrl.client_last_name} —{' '}
-                {appointmentFromUrl.service_name}
-              </span>
-              . Confirma método de pago y monto.
-            </div>
-          )}
-
-          {saleProduct && (
-            <div className="rounded-xl border border-stone-200 bg-stone-50/90 p-4 space-y-3 shrink-0">
-              <p className="text-sm font-semibold text-stone-800">Venta desde inventario</p>
-              <p className="text-sm text-stone-600">
-                <span className="font-medium text-stone-900">{saleProduct.name}</span>
-                {saleProduct.sku ? (
-                  <span className="text-stone-500"> · SKU {saleProduct.sku}</span>
-                ) : null}
-              </p>
-              <p className="text-[11px] text-stone-500">
-                Stock disponible: <strong className="text-stone-700">{saleProduct.quantity ?? 0}</strong>
-                {saleProduct.retail_price != null && Number(saleProduct.retail_price) > 0 ? (
-                  <> · Precio unitario: ${Number(saleProduct.retail_price).toFixed(2)}</>
-                ) : (
-                  <> · Sin precio de venta en ficha: indica el monto manualmente</>
-                )}
-              </p>
-              <div className="group max-w-[12rem]">
-                <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad *</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxQty !== undefined && maxQty > 0 ? maxQty : undefined}
-                  value={productQty}
-                  onChange={(e) => {
-                    setProductQty(e.target.value);
-                    setError('');
-                  }}
-                  className={ADMIN_FORM_FIELD_COMPACT}
-                  required
-                />
-              </div>
-            </div>
-          )}
-
-          <label
-            className={`flex items-center gap-2 shrink-0 ${saleProduct ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
-          >
-            <input
-              type="checkbox"
-              checked={linkToAppointment && !saleProduct}
-              disabled={!!saleProduct}
-              onChange={(e) => setLinkToAppointment(e.target.checked)}
-              className="rounded border-stone-300 text-gold focus:ring-gold/40"
-            />
-            <span className="text-sm text-stone-700">
-              {saleProduct ? 'Venta de inventario (sin cita)' : 'Vincular a cita completada'}
+        {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
+        {productLoadError && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
+            {productLoadError}
+          </div>
+        )}
+        {appointmentPrefillError && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
+            {appointmentPrefillError}
+          </div>
+        )}
+        {appointmentFromUrl && paymentMode === 'service' && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-xs py-2 px-2.5 shrink-0">
+            Cobro sugerido:{' '}
+            <span className="font-semibold">
+              {appointmentFromUrl.client_first_name} {appointmentFromUrl.client_last_name} — {appointmentFromUrl.service_name}
             </span>
-          </label>
+          </div>
+        )}
 
-          {!saleProduct && linkToAppointment && appointmentSelectRows.length > 0 && (
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Cita</label>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          {PAYMENT_MODES.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleModeChange(id)}
+              disabled={!!prefillProductId && id !== 'product'}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                paymentMode === id
+                  ? 'border-barber-dark bg-barber-dark text-white'
+                  : 'border-stone-200 bg-white text-stone-700 hover:border-gold/40'
+              } disabled:opacity-50`}
+            >
+              <Icon className="w-3.5 h-3.5" aria-hidden />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {paymentMode === 'service' && (
+          <div className="group">
+            <label className={ADMIN_FORM_LABEL_CLASS}>Cita completada *</label>
+            {appointmentSelectRows.length > 0 ? (
               <select
                 name="appointmentId"
                 value={formData.appointmentId}
                 onChange={handleAppointmentSelect}
                 className={ADMIN_FORM_FIELD_COMPACT}
+                required
               >
                 <option value="">Seleccionar cita…</option>
                 {appointmentSelectRows.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.client_first_name} {a.client_last_name} — {a.service_name} — $
-                    {a.price ?? a.service_price ?? 0} — {String(a.appointment_date).slice(0, 10)}{' '}
-                    {(() => {
-                      const t = a.start_time;
-                      if (!t) return '';
-                      if (t instanceof Date) {
-                        const hh = String(t.getHours()).padStart(2, '0');
-                        const mm = String(t.getMinutes()).padStart(2, '0');
-                        return `${hh}:${mm}`;
-                      }
-                      const s = String(t);
-                      const d = new Date(s);
-                      if (!Number.isNaN(d.getTime()) && s.includes('T')) {
-                        const hh = String(d.getHours()).padStart(2, '0');
-                        const mm = String(d.getMinutes()).padStart(2, '0');
-                        return `${hh}:${mm}`;
-                      }
-                      const iso = s.match(/T(\d{1,2}):(\d{2})/);
-                      if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
-                      const any = s.match(/(\d{1,2}):(\d{2})/);
-                      if (any) return `${String(any[1]).padStart(2, '0')}:${any[2]}`;
-                      return s.slice(0, 5);
-                    })()}
+                    {a.price ?? a.service_price ?? 0} — {extractAppointmentDateYmd(a.appointment_date)}{' '}
+                    {formatAppointmentClockTime(a.start_time)}
                   </option>
                 ))}
               </select>
-            </div>
-          )}
-          {!saleProduct && linkToAppointment && appointmentSelectRows.length === 0 && (
-            <div className="rounded-lg border border-stone-200 bg-stone-50 text-stone-600 text-xs py-2 px-2.5 shrink-0">
-              No hay citas completadas pendientes de cobro.
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-stone-500 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                No hay citas completadas pendientes de cobro.
+              </p>
+            )}
+          </div>
+        )}
 
-          <div className={ADMIN_FORM_GRID_CLASS}>
+        {paymentMode === 'product' && (
+          <div className="space-y-2 shrink-0">
             <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Monto ($) *</label>
-              <input
-                name="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-              />
-            </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</label>
+              <label className={ADMIN_FORM_LABEL_CLASS}>Producto *</label>
               <select
-                name="paymentMethodId"
-                value={formData.paymentMethodId}
-                onChange={handleChange}
+                name="productId"
+                value={formData.productId}
+                onChange={handleProductSelect}
                 className={ADMIN_FORM_FIELD_COMPACT}
                 required
+                disabled={!!prefillProductId}
               >
-                <option value="">Seleccionar…</option>
-                {methods.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.description ? `${m.name} — ${m.description}` : m.name}
-                  </option>
-                ))}
+                <option value="">Seleccionar producto…</option>
+                {products
+                  .filter((p) => (p.quantity ?? 0) > 0)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.sku ? ` · ${p.sku}` : ''} — Stock {p.quantity ?? 0}
+                    </option>
+                  ))}
               </select>
             </div>
+            {saleProduct && (
+              <div className="rounded-lg border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs text-stone-600">
+                Stock: <strong>{saleProduct.quantity ?? 0}</strong>
+                {saleProduct.retail_price != null && Number(saleProduct.retail_price) > 0 ? (
+                  <> · Precio: {formatPaymentAmount(saleProduct.retail_price)}</>
+                ) : (
+                  <> · Indica el monto manualmente</>
+                )}
+              </div>
+            )}
+            {saleProduct && (
+              <div className="group max-w-[10rem]">
+                <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad *</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={maxQty > 0 ? maxQty : undefined}
+                  value={productQty}
+                  onChange={(e) => setProductQty(e.target.value)}
+                  className={ADMIN_FORM_FIELD_COMPACT}
+                  required
+                />
+              </div>
+            )}
           </div>
+        )}
 
+        <div className={ADMIN_FORM_GRID_CLASS}>
           <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Referencia</label>
-            <div className="flex gap-2">
-              <input
-                name="reference"
-                value={formData.reference}
-                onChange={handleChange}
-                placeholder="Nº operación, folio…"
-                className={ADMIN_FORM_FIELD_COMPACT}
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData((prev) => ({ ...prev, reference: generatePaymentReference() }))
-                }
-                className="px-3 rounded-lg border border-stone-300 text-xs text-stone-700 hover:bg-stone-50"
-                title="Generar una nueva referencia"
-              >
-                Generar
-              </button>
-            </div>
-            <p className="text-[11px] text-stone-500 mt-1">
-              Puedes editarla. Si la dejas vacía, el servidor generará una automáticamente.
-            </p>
+            <label className={ADMIN_FORM_LABEL_CLASS}>Monto ($) *</label>
+            <input
+              name="amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.amount}
+              onChange={handleChange}
+              className={ADMIN_FORM_FIELD_COMPACT}
+              required
+            />
           </div>
+          <div className="group">
+            <label className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</label>
+            <select
+              name="paymentMethodId"
+              value={formData.paymentMethodId}
+              onChange={handleChange}
+              className={ADMIN_FORM_FIELD_COMPACT}
+              required
+            >
+              <option value="">Seleccionar…</option>
+              {methods.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {formatPaymentMethodName(m.description || m.name)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          <AdminFormFooterActions className="mt-1">
-            <AdminFormPrimaryButton disabled={loading}>
-              <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
-                Registrar pago
-              </AdminFormLoadingButton>
-            </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
-          </AdminFormFooterActions>
+        <div className="group">
+          <label className={ADMIN_FORM_LABEL_CLASS}>Referencia</label>
+          <div className="flex gap-2">
+            <input
+              name="reference"
+              value={formData.reference}
+              onChange={handleChange}
+              placeholder="Nº operación, folio…"
+              className={ADMIN_FORM_FIELD_COMPACT}
+            />
+            <button
+              type="button"
+              onClick={() => setFormData((prev) => ({ ...prev, reference: generatePaymentReference() }))}
+              className="px-3 rounded-lg border border-stone-300 text-xs text-stone-700 hover:bg-stone-50 shrink-0"
+            >
+              Generar
+            </button>
+          </div>
+        </div>
+
+        <div className="group">
+          <label className={ADMIN_FORM_LABEL_CLASS}>Notas internas</label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            rows={2}
+            maxLength={500}
+            placeholder="Opcional: detalle del cobro, observaciones…"
+            className={`${ADMIN_FORM_FIELD_COMPACT} resize-none`}
+          />
+        </div>
+
+        <AdminFormFooterActions className="mt-1">
+          <AdminFormPrimaryButton disabled={loading}>
+            <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
+              Registrar pago
+            </AdminFormLoadingButton>
+          </AdminFormPrimaryButton>
+          <AdminFormSecondaryButton type="button" onClick={handleCancel}>
+            Cancelar
+          </AdminFormSecondaryButton>
+        </AdminFormFooterActions>
       </AdminFormCard>
     </AdminFormShell>
   );

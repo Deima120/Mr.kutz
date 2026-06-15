@@ -26,20 +26,45 @@ async function main() {
   }
   console.log('✅ Roles creados');
 
-  // 2. Payment methods
+  // 2. Métodos de pago (solo efectivo, transferencia y tarjeta)
+  const legacyRenames = [
+    ['cash', 'efectivo', 'Efectivo'],
+    ['transfer', 'transferencia', 'Transferencia'],
+    ['card', 'tarjeta', 'Tarjeta'],
+  ];
+  for (const [oldName, newName, description] of legacyRenames) {
+    const old = await prisma.paymentMethod.findUnique({ where: { name: oldName } });
+    if (!old) continue;
+    const conflict = await prisma.paymentMethod.findUnique({ where: { name: newName } });
+    if (conflict && conflict.id !== old.id) {
+      await prisma.paymentMethod.update({
+        where: { id: old.id },
+        data: { isActive: false },
+      });
+    } else {
+      await prisma.paymentMethod.update({
+        where: { id: old.id },
+        data: { name: newName, description, isActive: true },
+      });
+    }
+  }
+
   const paymentMethods = [
-    { name: 'cash', description: 'Efectivo' },
-    { name: 'card', description: 'Tarjeta débito/crédito' },
-    { name: 'transfer', description: 'Transferencia bancaria' },
-    { name: 'online', description: 'Pago en línea (futuro)' },
+    { name: 'efectivo', description: 'Efectivo' },
+    { name: 'transferencia', description: 'Transferencia' },
+    { name: 'tarjeta', description: 'Tarjeta' },
   ];
   for (const pm of paymentMethods) {
     await prisma.paymentMethod.upsert({
       where: { name: pm.name },
-      update: { description: pm.description },
+      update: { description: pm.description, isActive: true },
       create: { ...pm, isActive: true },
     });
   }
+  await prisma.paymentMethod.updateMany({
+    where: { name: { notIn: ['efectivo', 'transferencia', 'tarjeta'] } },
+    data: { isActive: false },
+  });
   console.log('✅ Métodos de pago creados');
 
   // 3. Business settings — MR KUTZ BARBERÍA (datos de perfil Plani)

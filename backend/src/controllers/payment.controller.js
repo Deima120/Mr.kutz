@@ -15,15 +15,35 @@ export const getPaymentMethods = async (req, res, next) => {
 
 export const getAll = async (req, res, next) => {
   try {
-    const { dateFrom, dateTo, appointmentId, limit, offset } = req.query;
-    const payments = await paymentService.getAll({
+    const {
       dateFrom,
       dateTo,
       appointmentId,
-      limit: limit ? parseInt(limit, 10) : 100,
+      status,
+      paymentMethodId,
+      type,
+      search,
+      limit,
+      offset,
+    } = req.query;
+    const result = await paymentService.getAll({
+      dateFrom,
+      dateTo,
+      appointmentId,
+      status,
+      paymentMethodId,
+      type,
+      search,
+      limit: limit ? parseInt(limit, 10) : 20,
       offset: offset ? parseInt(offset, 10) : 0,
     });
-    res.json({ success: true, data: payments });
+    res.json({
+      success: true,
+      data: result.payments,
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset,
+    });
   } catch (error) {
     next(error);
   }
