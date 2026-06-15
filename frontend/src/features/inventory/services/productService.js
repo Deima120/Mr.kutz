@@ -12,8 +12,8 @@ const extract = (r) => {
 };
 
 export const getProducts = async (params = {}) => {
-  const response = await api.get(PRODUCTS_BASE, { params });
-  const res = response?.data ?? response;
+  // El interceptor de api ya devuelve el cuerpo: { success, data, total, limit, offset, summary }
+  const res = await api.get(PRODUCTS_BASE, { params });
   const data = Array.isArray(res?.data) ? res.data : [];
   return {
     data,
