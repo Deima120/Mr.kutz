@@ -25,7 +25,6 @@ const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPag
 const AgendaPage = lazy(() => import('@/features/agenda/pages/AgendaPage'));
 const HistoryPage = lazy(() => import('@/features/history/pages/HistoryPage'));
 const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
-const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
@@ -92,7 +91,6 @@ export default function AppRoutes() {
         { path: 'agenda', element: protectedPage(AgendaPage, ['barber']) },
         { path: 'history', element: protectedPage(HistoryPage, ['barber']) },
         { path: 'reports', element: protectedPage(ReportsPage, ['admin']) },
-        { path: 'settings', element: protectedPage(SettingsPage, ['admin']) },
         { path: 'testimonials', element: protectedPage(TestimonialsPage, ['admin']) },
         { path: '*', element: page(NotFoundPage) },
       ],

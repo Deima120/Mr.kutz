@@ -23,43 +23,6 @@ let settings = await prisma.businessSetting.findFirst({ orderBy: { id: 'asc' } }
   };
 };
 
-export const updateSettings = async (data) => {
-  const settings = await prisma.businessSetting.upsert({
-    where: { id: 1 },
-    update: {
-      businessName: data.business_name,
-      logoUrl: data.logo_url,
-      primaryColor: data.primary_color,
-      secondaryColor: data.secondary_color,
-      contactEmail: data.contact_email,
-      contactPhone: data.contact_phone,
-      address: data.address,
-      openingHours: data.opening_hours,
-    },
-    create: {
-      id: 1,
-      businessName: data.business_name || 'Mr. Kutz',
-      logoUrl: data.logo_url,
-      primaryColor: data.primary_color,
-      secondaryColor: data.secondary_color,
-      contactEmail: data.contact_email,
-      contactPhone: data.contact_phone,
-      address: data.address,
-      openingHours: data.opening_hours,
-    },
-  });
-  return {
-    business_name: settings.businessName,
-    logo_url: settings.logoUrl,
-    primary_color: settings.primaryColor,
-    secondary_color: settings.secondaryColor,
-    contact_email: settings.contactEmail,
-    contact_phone: settings.contactPhone,
-    address: settings.address,
-    opening_hours: settings.openingHours,
-  };
-};
-
 const DEFAULT_PUBLIC = {
   business_name: 'Mr. Kutz',
   logo_url: null,

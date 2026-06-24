@@ -29,7 +29,6 @@ import {
   ShoppingCart,
   Package,
   FileBarChart,
-  Settings,
 } from 'lucide-react';
 
 const adminNavSections = [
@@ -65,7 +64,6 @@ const adminNavSections = [
     label: 'Sistema',
     items: [
       { path: '/reports', label: 'Reportes', description: 'Estadisticas', Icon: FileBarChart },
-      { path: '/settings', label: 'Configuracion', description: 'Ajustes', Icon: Settings },
     ],
   },
 ];
