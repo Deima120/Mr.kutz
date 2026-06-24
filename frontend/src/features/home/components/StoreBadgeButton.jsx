@@ -148,3 +148,53 @@ function DownloadIcon() {
     </svg>
   );
 }
+
+function DriveIcon({ compact = false }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${iconSizeClass(compact)} shrink-0`} aria-hidden>
+      <path fill="#0F9D58" d="M8.4 2 2 13.2h6.4L14.8 2H8.4z" />
+      <path fill="#4285F4" d="M2 13.2 8.4 22h12.8L15.2 13.2H2z" />
+      <path fill="#FFBA00" d="M14.8 2 8.4 13.2h12.8L21.2 2h-6.4z" />
+    </svg>
+  );
+}
+
+export function GoogleDriveDownloadButton({ href, disabled = false, compact = false }) {
+  const className = `${BADGE_BASE} ${badgeSizeClass(compact)} ${disabled || !href ? BADGE_DISABLED : BADGE_ACTIVE}`;
+
+  if (disabled || !href) {
+    return (
+      <span className={className} aria-disabled="true">
+        <DriveIcon compact={compact} />
+        <span className="text-left leading-tight min-w-0">
+          <span className={`block uppercase tracking-wider text-stone-400 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
+            Descarga Android
+          </span>
+          <span className={`block font-semibold text-white ${compact ? 'text-xs' : 'text-sm'}`}>
+            Google Drive
+          </span>
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      aria-label="Descargar app Android desde Google Drive"
+    >
+      <DriveIcon compact={compact} />
+      <span className="text-left leading-tight min-w-0">
+        <span className={`block uppercase tracking-wider text-stone-400 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
+          Descarga Android
+        </span>
+        <span className={`block font-semibold text-white ${compact ? 'text-xs' : 'text-sm'}`}>
+          Google Drive
+        </span>
+      </span>
+    </a>
+  );
+}

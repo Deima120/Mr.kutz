@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSettings } from '@/shared/contexts/SettingsContext';
 import { getMobileAppLinks } from '@/features/home/config/mobileAppLinks';
-import { AppStoreBadge, ApkDownloadButton, GooglePlayBadge } from '@/features/home/components/StoreBadgeButton';
+import { AppStoreBadge, ApkDownloadButton, GoogleDriveDownloadButton, GooglePlayBadge } from '@/features/home/components/StoreBadgeButton';
 
 function PhoneIcon({ className = 'h-5 w-5' }) {
   return (
@@ -18,7 +18,7 @@ function PhoneIcon({ className = 'h-5 w-5' }) {
 
 export default function MobileAppFloating() {
   const { businessName } = useSettings();
-  const { iosUrl, androidUrl, apkUrl, hasAnyDownload } = getMobileAppLinks();
+  const { iosUrl, androidUrl, driveUrl, apkUrl, hasAnyDownload } = getMobileAppLinks();
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
@@ -73,17 +73,30 @@ export default function MobileAppFloating() {
 
             <p className="text-xs text-stone-400 leading-relaxed mb-3">
               Agenda citas y revisa tu historial desde el celular.
+              {!androidUrl && driveUrl && ' Descarga Android por Google Drive mientras publicamos en Play Store.'}
             </p>
 
             <div className="flex flex-col gap-2">
               {(iosUrl || !hasAnyDownload) && <AppStoreBadge href={iosUrl} disabled={!iosUrl} compact />}
-              {(androidUrl || !hasAnyDownload) && <GooglePlayBadge href={androidUrl} disabled={!androidUrl} compact />}
+              {androidUrl ? (
+                <GooglePlayBadge href={androidUrl} compact />
+              ) : driveUrl ? (
+                <GoogleDriveDownloadButton href={driveUrl} compact />
+              ) : (
+                <GooglePlayBadge disabled compact />
+              )}
+              {androidUrl && driveUrl && <GoogleDriveDownloadButton href={driveUrl} compact />}
               {apkUrl && <ApkDownloadButton href={apkUrl} compact />}
             </div>
 
             {!hasAnyDownload && (
               <p className="mt-2.5 text-[11px] text-stone-500 leading-snug">
                 Próximamente en tiendas. Mientras tanto, usa la web.
+              </p>
+            )}
+            {!androidUrl && driveUrl && (
+              <p className="mt-2.5 text-[11px] text-stone-500 leading-snug">
+                Al instalar el APK, Android puede pedirte permitir instalación desde esta fuente.
               </p>
             )}
           </div>
