@@ -1,5 +1,9 @@
 import prisma from '../lib/prisma.js';
-import { toCategoryDto } from './product.dto.js';
+import {
+  toCategoryDto,
+  normalizeCategoryName,
+  normalizeCategoryDescription,
+} from './product.dto.js';
 
 export const getAll = async ({ activeOnly = true } = {}) => {
   const where = activeOnly ? { isActive: true } : {};
@@ -26,8 +30,8 @@ export const getById = async (id) => {
 export const create = async (data) => {
   const row = await prisma.productCategory.create({
     data: {
-      name: data.name,
-      description: data.description || null,
+      name: normalizeCategoryName(data.name),
+      description: normalizeCategoryDescription(data.description),
       isActive: data.isActive ?? true,
     },
     include: {
@@ -39,12 +43,9 @@ export const create = async (data) => {
 
 export const update = async (id, data) => {
   const patch = {};
-  if (data.name !== undefined) patch.name = String(data.name).trim();
+  if (data.name !== undefined) patch.name = normalizeCategoryName(data.name);
   if (data.description !== undefined) {
-    patch.description =
-      data.description != null && String(data.description).trim() !== ''
-        ? String(data.description).trim()
-        : null;
+    patch.description = normalizeCategoryDescription(data.description);
   }
   if (data.isActive !== undefined) patch.isActive = Boolean(data.isActive);
   if (Object.keys(patch).length === 0) {

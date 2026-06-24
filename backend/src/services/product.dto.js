@@ -31,12 +31,24 @@ export function toProductDto(product) {
   };
 }
 
+export function normalizeCategoryName(name) {
+  return String(name ?? '').trim().toUpperCase();
+}
+
+export function normalizeCategoryDescription(description) {
+  if (description == null) return null;
+  const trimmed = String(description).trim();
+  return trimmed === '' ? null : trimmed.toUpperCase();
+}
+
 export function toCategoryDto(category) {
   if (!category) return null;
   return {
     id: category.id,
-    name: category.name,
-    description: category.description,
+    name: category.name ? normalizeCategoryName(category.name) : category.name,
+    description: category.description
+      ? normalizeCategoryDescription(category.description)
+      : category.description,
     is_active: category.isActive,
     isActive: category.isActive,
     product_count: category._count?.products ?? category.product_count ?? 0,

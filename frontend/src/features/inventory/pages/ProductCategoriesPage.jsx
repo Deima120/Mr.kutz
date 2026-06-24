@@ -1,12 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pencil, Trash2, Power, PowerOff, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Check, X } from 'lucide-react';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import * as categoryService from '@/features/inventory/services/productCategoryService';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+
+const toCategoryCaps = (value) => String(value ?? '').trim().toUpperCase();
+
+function CategoryStatusButton({ active, onClick, disabled = false }) {
+  const base =
+    'inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+  const activeClass =
+    'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300';
+  const inactiveClass =
+    'border-stone-200 bg-stone-100 text-stone-600 hover:bg-stone-200 hover:border-stone-300';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={active ? 'Clic para desactivar' : 'Clic para activar'}
+      className={`${base} ${active ? activeClass : inactiveClass}`}
+    >
+      {active ? 'Activa' : 'Inactiva'}
+    </button>
+  );
+}
 
 export default function ProductCategoriesPage() {
   const [rows, setRows] = useState([]);
@@ -17,6 +40,7 @@ export default function ProductCategoriesPage() {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [togglingId, setTogglingId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -39,7 +63,10 @@ export default function ProductCategoriesPage() {
     e.preventDefault();
     if (!name.trim()) return;
     try {
-      await categoryService.createCategory({ name: name.trim(), description: description.trim() || undefined });
+      await categoryService.createCategory({
+        name: toCategoryCaps(name),
+        description: description.trim() ? toCategoryCaps(description) : undefined,
+      });
       setName('');
       setDescription('');
       load();
@@ -50,8 +77,8 @@ export default function ProductCategoriesPage() {
 
   const startEdit = (r) => {
     setEditingId(r.id);
-    setEditName(r.name);
-    setEditDescription(r.description || '');
+    setEditName(toCategoryCaps(r.name));
+    setEditDescription(r.description ? toCategoryCaps(r.description) : '');
   };
 
   const cancelEdit = () => {
@@ -64,8 +91,8 @@ export default function ProductCategoriesPage() {
     if (!editName.trim()) return;
     try {
       await categoryService.updateCategory(r.id, {
-        name: editName.trim(),
-        description: editDescription.trim() === '' ? null : editDescription.trim(),
+        name: toCategoryCaps(editName),
+        description: editDescription.trim() === '' ? null : toCategoryCaps(editDescription),
       });
       cancelEdit();
       load();
@@ -75,11 +102,15 @@ export default function ProductCategoriesPage() {
   };
 
   const toggle = async (r) => {
+    setTogglingId(r.id);
+    setError('');
     try {
       await categoryService.updateCategory(r.id, { isActive: !isCategoryActive(r) });
       load();
     } catch (err) {
       setError(err?.message || 'Error al actualizar categoría');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -116,8 +147,8 @@ export default function ProductCategoriesPage() {
                   'categorias-productos.csv',
                   rows.map((r) => ({
                     id: r.id,
-                    nombre: r.name,
-                    descripcion: r.description || '',
+                    nombre: toCategoryCaps(r.name),
+                    descripcion: r.description ? toCategoryCaps(r.description) : '',
                     productos: getProductCount(r),
                     activo: isCategoryActive(r) ? 'Sí' : 'No',
                   }))
@@ -144,14 +175,14 @@ export default function ProductCategoriesPage() {
         <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={create}>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(toCategoryCaps(e.target.value))}
             className="input-premium py-2 text-sm"
             placeholder="Nombre"
             required
           />
           <input
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => setDescription(toCategoryCaps(e.target.value))}
             className="input-premium py-2 text-sm"
             placeholder="Descripción (opcional)"
           />
@@ -186,13 +217,13 @@ export default function ProductCategoriesPage() {
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <input
                             value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
+                            onChange={(e) => setEditName(toCategoryCaps(e.target.value))}
                             className="input-premium py-1.5 text-sm min-w-0 flex-1"
                             placeholder="Nombre"
                           />
                           <input
                             value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
+                            onChange={(e) => setEditDescription(toCategoryCaps(e.target.value))}
                             className="input-premium py-1.5 text-sm min-w-0 flex-[2]"
                             placeholder="Descripción"
                           />
@@ -202,7 +233,11 @@ export default function ProductCategoriesPage() {
                         {getProductCount(r)}
                       </TableCell>
                       <TableCell compact className="text-xs whitespace-nowrap">
-                        {isCategoryActive(r) ? 'Activa' : 'Inactiva'}
+                        <CategoryStatusButton
+                          active={isCategoryActive(r)}
+                          onClick={() => toggle(r)}
+                          disabled={togglingId === r.id}
+                        />
                       </TableCell>
                       <TableCell compact className="text-right">
                         <div className="inline-flex justify-end gap-1.5">
@@ -221,25 +256,23 @@ export default function ProductCategoriesPage() {
                     </>
                   ) : (
                     <>
-                      <TableCell compact className="text-xs font-medium">
-                        {r.name}
+                      <TableCell compact className="text-xs font-medium uppercase">
+                        {toCategoryCaps(r.name)}
                       </TableCell>
-                      <TableCell compact className="text-xs text-stone-600 max-w-[14rem]">
-                        <span className="line-clamp-2">{r.description || '—'}</span>
+                      <TableCell compact className="text-xs text-stone-600 max-w-[14rem] uppercase">
+                        <span className="line-clamp-2">
+                          {r.description ? toCategoryCaps(r.description) : '—'}
+                        </span>
                       </TableCell>
                       <TableCell compact className="text-xs tabular-nums">
                         {getProductCount(r)}
                       </TableCell>
                       <TableCell compact className="text-xs">
-                        {isCategoryActive(r) ? (
-                          <span className="inline-flex rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
-                            Activa
-                          </span>
-                        ) : (
-                          <span className="inline-flex rounded border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
-                            Inactiva
-                          </span>
-                        )}
+                        <CategoryStatusButton
+                          active={isCategoryActive(r)}
+                          onClick={() => toggle(r)}
+                          disabled={togglingId === r.id}
+                        />
                       </TableCell>
                       <TableCell compact>
                         <div className="inline-flex justify-end gap-1.5">
@@ -247,11 +280,6 @@ export default function ProductCategoriesPage() {
                             icon={Pencil}
                             label="Editar categoría"
                             onClick={() => startEdit(r)}
-                          />
-                          <AdminIconButton
-                            icon={isCategoryActive(r) ? PowerOff : Power}
-                            label={isCategoryActive(r) ? 'Desactivar categoría' : 'Activar categoría'}
-                            onClick={() => toggle(r)}
                           />
                           <AdminIconButton
                             icon={Trash2}
