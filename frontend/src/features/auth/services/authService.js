@@ -37,20 +37,28 @@ export const getProfile = async () => {
 };
 
 export const forgotPassword = async (email) => {
-  const response = await api.post(`${AUTH_BASE}/forgot-password`, { email });
+  const response = await api.post(
+    `${AUTH_BASE}/forgot-password`,
+    { email },
+    { timeout: 20_000 }
+  );
   return response?.data ?? response;
 };
 
 export const verifyResetCode = async (email, code) => {
-  const response = await api.post(`${AUTH_BASE}/verify-code`, { email, code });
+  const response = await api.post(
+    `${AUTH_BASE}/verify-code`,
+    { email, code },
+    { timeout: 15_000 }
+  );
   return response?.data ?? response;
 };
 
 export const resetPassword = async (email, code, newPassword) => {
-  const response = await api.post(`${AUTH_BASE}/reset-password`, {
-    email,
-    code,
-    newPassword,
-  });
+  const response = await api.post(
+    `${AUTH_BASE}/reset-password`,
+    { email, code, newPassword },
+    { timeout: 15_000 }
+  );
   return response?.data ?? response;
 };

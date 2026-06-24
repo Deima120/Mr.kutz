@@ -59,10 +59,14 @@ function normalizeError(error) {
 
   // Sin respuesta (red caída, CORS, servidor apagado)
   if (!error.response) {
+    const isTimeout = error.code === 'ECONNABORTED';
     return {
       success: false,
-      message: 'No se pudo conectar con el servidor. Revisa tu conexión o intenta más tarde.',
+      message: isTimeout
+        ? 'La solicitud tardó demasiado. Intenta de nuevo en unos segundos.'
+        : 'No se pudo conectar con el servidor. Revisa tu conexión o intenta más tarde.',
       status: 0,
+      code: error.code,
     };
   }
 

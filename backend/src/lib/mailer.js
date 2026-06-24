@@ -2,10 +2,8 @@
  * Envío de correos transaccionales (Mr. Kutz).
  *
  * Estrategia de entrega:
- * - SMTP (Gmail, Brevo, etc.): puede entregar a cualquier dirección válida.
- * - Resend con dominio verificado: igual, a cualquier correo.
- * - Resend solo con onboarding@resend.dev: sandbox, restringe destinatarios.
- *   Si hay SMTP configurado, se intenta SMTP primero para mayor entrega.
+ * - SMTP (Gmail, Brevo, etc.): prioridad cuando está configurado; entrega a cualquier correo.
+ * - Resend: respaldo si SMTP falla o no está configurado.
  */
 
 import nodemailer from 'nodemailer';
@@ -71,17 +69,18 @@ function resolveResendFrom(businessName) {
   return fallback;
 }
 
-function isResendOnboardingSandbox(businessName) {
-  if (!isResendConfigured()) return false;
-  return resolveResendFrom(businessName).toLowerCase().includes('onboarding@resend.dev');
-}
+const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS || 12_000);
+
+let cachedTransporter = null;
 
 function getTransporter() {
   if (!isSmtpConfigured()) return null;
+  if (cachedTransporter) return cachedTransporter;
+
   const port = Number(process.env.SMTP_PORT || 587);
   const secure =
     process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1' || port === 465;
-  return nodemailer.createTransport({
+  cachedTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST.trim(),
     port,
     secure,
@@ -89,7 +88,11 @@ function getTransporter() {
       user: process.env.SMTP_USER.trim(),
       pass: process.env.SMTP_PASS,
     },
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
   });
+  return cachedTransporter;
 }
 
 async function sendViaResend({ to, subject, text, html, businessName }) {
@@ -150,20 +153,19 @@ async function sendMail({ to, subject, text, html, businessName = 'Mr. Kutz' }) 
 
   const payload = { to, subject, text, html, businessName };
 
-  if (smtpOk && resendOk && isResendOnboardingSandbox(businessName)) {
+  // SMTP primero cuando está configurado (Gmail, etc.): entrega a cualquier correo registrado.
+  if (smtpOk) {
     const smtp = await sendViaSmtp(payload);
     if (smtp.sent) return smtp;
-    return sendViaResend(payload);
+    if (resendOk) return sendViaResend(payload);
+    return smtp;
   }
 
   if (resendOk) {
-    const r = await sendViaResend(payload);
-    if (r.sent) return r;
-    if (smtpOk) return sendViaSmtp(payload);
-    return r;
+    return sendViaResend(payload);
   }
 
-  return sendViaSmtp(payload);
+  return { sent: false, reason: 'not_configured' };
 }
 
 // -------------------- Plantillas --------------------

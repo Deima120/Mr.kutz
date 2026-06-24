@@ -8,7 +8,7 @@ import { randomInt } from 'node:crypto';
 import prisma from '../lib/prisma.js';
 import { sendPasswordResetCode, isMailDeliveryConfigured } from '../lib/mailer.js';
 import { canonicalEmail } from '../utils/emailCanonical.js';
-import * as settingsService from './settings.service.js';
+import { hashResetCode, verifyResetCodeHash } from '../utils/resetCodeHash.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -32,9 +32,12 @@ function isResetInCooldown(user) {
 
 async function resolveBusinessName() {
   try {
-    const settings = await settingsService.getSettings();
-    if (settings?.business_name?.trim()) {
-      return settings.business_name.trim();
+    const settings = await prisma.businessSetting.findFirst({
+      orderBy: { id: 'asc' },
+      select: { businessName: true },
+    });
+    if (settings?.businessName?.trim()) {
+      return settings.businessName.trim();
     }
   } catch (settingsError) {
     console.warn(
@@ -225,19 +228,21 @@ export const forgotPassword = async (email) => {
   }
 
   const resetCode = generateResetCode();
-  const resetCodeHash = await bcrypt.hash(resetCode, SALT_ROUNDS);
+  const resetCodeHash = hashResetCode(resetCode);
   const resetExpires = new Date(Date.now() + RESET_CODE_TTL_MS);
 
-  await prisma.user.update({
-    where: { id: dbUser.id },
-    data: {
-      resetCode: resetCodeHash,
-      resetCodeExpires: resetExpires,
-      resetCodeAttempts: 0,
-    },
-  });
+  const [, businessName] = await Promise.all([
+    prisma.user.update({
+      where: { id: dbUser.id },
+      data: {
+        resetCode: resetCodeHash,
+        resetCodeExpires: resetExpires,
+        resetCodeAttempts: 0,
+      },
+    }),
+    resolveBusinessName(),
+  ]);
 
-  const businessName = await resolveBusinessName();
   const delivery = await sendPasswordResetCode({
     to: dbUser.email,
     code: resetCode,
@@ -295,7 +300,7 @@ export const verifyResetCode = async (email, code) => {
   }
 
   const codeNorm = String(code ?? '').trim();
-  const codeValid = await bcrypt.compare(codeNorm, dbUser.resetCode);
+  const codeValid = await verifyResetCodeHash(codeNorm, dbUser.resetCode);
 
   if (!codeValid) {
     const attempts = (dbUser.resetCodeAttempts ?? 0) + 1;

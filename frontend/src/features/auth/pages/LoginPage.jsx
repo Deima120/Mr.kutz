@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 
 export default function LoginPage() {
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const recovered = location.state?.recovered;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [errorReason, setErrorReason] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -106,16 +108,26 @@ export default function LoginPage() {
                 <label htmlFor="password" className="label-premium">
                   Contraseña
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-premium rounded-lg"
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-premium rounded-lg pr-11"
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors"
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <div className="text-right">

@@ -38,6 +38,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [codeVerified, setCodeVerified] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -71,6 +72,10 @@ export default function ForgotPasswordPage() {
       const status = err?.status ?? err?.response?.status;
       if (status === 429) {
         setError('Demasiados intentos. Espera unos minutos e inténtalo de nuevo.');
+      } else if (status === 0 || err?.code === 'ECONNABORTED') {
+        setError(
+          'La solicitud tardó demasiado. Revisa tu conexión o si el servidor está activo e inténtalo de nuevo.'
+        );
       } else {
         setError(err?.message || 'No se pudo procesar la solicitud.');
       }
@@ -96,6 +101,7 @@ export default function ForgotPasswordPage() {
       return;
     }
     setError('');
+    setVerifyingCode(true);
     try {
       await authService.verifyResetCode(email.trim(), code.trim());
       setCodeVerified(true);
@@ -103,6 +109,8 @@ export default function ForgotPasswordPage() {
     } catch (err) {
       setCodeVerified(false);
       setError(err?.message || 'El código no es válido.');
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -193,8 +201,13 @@ export default function ForgotPasswordPage() {
                   disabled={loading}
                   className="w-full btn-dark py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Enviando...' : 'Enviar código'}
+                  {loading ? 'Enviando código…' : 'Enviar código'}
                 </button>
+                {loading && (
+                  <p className="text-xs text-center text-stone-500">
+                    Conectando con el servidor de correo. Suele tardar entre 2 y 10 segundos.
+                  </p>
+                )}
               </form>
             )}
 
@@ -250,10 +263,10 @@ export default function ForgotPasswordPage() {
                     <button
                       type="button"
                       onClick={handleVerifyCode}
-                      disabled={code.length !== 6 || loading}
+                      disabled={code.length !== 6 || loading || verifyingCode}
                       className="btn-admin-outline px-3 text-xs whitespace-nowrap disabled:opacity-50"
                     >
-                      {codeVerified ? '✓ OK' : 'Verificar'}
+                      {verifyingCode ? '…' : codeVerified ? '✓ OK' : 'Verificar'}
                     </button>
                   </div>
                 </div>
