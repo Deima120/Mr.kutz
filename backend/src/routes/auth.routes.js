@@ -10,6 +10,7 @@ import { body } from 'express-validator';
 import { auth } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { loginThrottle } from '../middlewares/loginThrottle.js';
+import { publicThrottle } from '../middlewares/publicThrottle.js';
 import { strongPassword } from '../utils/validation.js';
 import * as authController from '../controllers/auth.controller.js';
 
@@ -65,21 +66,39 @@ const forgotPasswordValidation = [
 // Validaciones para verify code
 const verifyCodeValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
-  body('code').isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.'),
+  body('code')
+    .trim()
+    .matches(/^\d{6}$/)
+    .withMessage('El código debe tener 6 dígitos.'),
 ];
 
 // Validaciones para reset password
 const resetPasswordValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
-  body('code').isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.'),
+  body('code')
+    .trim()
+    .matches(/^\d{6}$/)
+    .withMessage('El código debe tener 6 dígitos.'),
   ...strongPassword('newPassword'),
 ];
+
+const forgotPasswordThrottle = publicThrottle({
+  scope: 'forgot-password',
+  max: 5,
+  windowMs: 15 * 60 * 1000,
+});
+
+const resetVerifyThrottle = publicThrottle({
+  scope: 'reset-verify',
+  max: 12,
+  windowMs: 15 * 60 * 1000,
+});
 
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);
-router.post('/forgot-password', forgotPasswordValidation, validate, authController.forgotPassword);
-router.post('/verify-code', verifyCodeValidation, validate, authController.verifyResetCode);
-router.post('/reset-password', resetPasswordValidation, validate, authController.resetPassword);
+router.post('/forgot-password', forgotPasswordThrottle, forgotPasswordValidation, validate, authController.forgotPassword);
+router.post('/verify-code', resetVerifyThrottle, verifyCodeValidation, validate, authController.verifyResetCode);
+router.post('/reset-password', resetVerifyThrottle, resetPasswordValidation, validate, authController.resetPassword);
 
 export default router;

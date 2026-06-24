@@ -187,25 +187,31 @@ function shell({ businessName, title, intro, highlightHtml, closing }) {
 
 function buildResetContent(code, businessName) {
   return {
-    subject: `${businessName} — Código para restablecer contraseña`,
+    subject: `${businessName} — Código de verificación para restablecer contraseña`,
     text: [
       'Hola,',
       '',
-      `Tu código de recuperación es: ${code}`,
+      `Recibimos una solicitud para restablecer la contraseña de tu cuenta en ${businessName}.`,
       '',
-      'Es válido por 30 minutos. Si no solicitaste restablecer la contraseña, ignora este mensaje.',
+      `Tu código de verificación es: ${code}`,
+      '',
+      'Introduce este código en la página de recuperación de contraseña.',
+      'Es válido por 30 minutos.',
+      '',
+      'Si no solicitaste este cambio, ignora este mensaje. Tu contraseña no se modificará.',
       '',
       `— ${businessName}`,
     ].join('\n'),
     html: shell({
       businessName,
       title: 'Restablecer contraseña',
-      intro: 'Usa este código en la página de recuperación:',
+      intro:
+        'Recibimos una solicitud para restablecer la contraseña de tu cuenta. Usa este <strong>código de verificación</strong> en la página web:',
       highlightHtml: `<p style="font-size: 28px; font-weight: 600; letter-spacing: 0.25em; font-family: ui-monospace, monospace; color: #1c1917; background: #f5f5f4; padding: 16px 20px; border-radius: 12px; border: 1px solid #e7e5e4; text-align: center;">${escapeHtml(
         code
       )}</p>`,
       closing:
-        'Válido por <strong>30 minutos</strong>. Si no fuiste tú, puedes ignorar este correo.',
+        'Válido por <strong>30 minutos</strong>. Solo funciona para correos registrados en Mr. Kutz. Si no fuiste tú, ignora este correo.',
     }),
   };
 }

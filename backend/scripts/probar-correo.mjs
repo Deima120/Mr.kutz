@@ -6,6 +6,7 @@
  */
 
 import 'dotenv/config';
+import { randomInt } from 'node:crypto';
 import {
   isMailDeliveryConfigured,
   isResendConfigured,
@@ -47,7 +48,7 @@ const modo = isResendConfigured() ? 'Resend' : 'SMTP';
 const fallback = isResendConfigured() && isSmtpConfigured() ? ' (si falla Resend, se intenta SMTP)' : '';
 console.log('Enviando vía', modo + fallback, '→', to);
 
-const code = String(Math.floor(100000 + Math.random() * 900000));
+const code = String(randomInt(100000, 1000000));
 const result = await sendPasswordResetCode({
   to,
   code,
@@ -60,5 +61,29 @@ if (result.sent) {
 }
 
 console.error('❌ Error:', result.reason || 'desconocido');
-console.error('   Mira el mensaje de error arriba en esta consola.');
+if (result.smtpError && /535|EAUTH|BadCredentials/i.test(String(result.smtpError))) {
+  console.error(`
+Gmail rechazó usuario o contraseña (error 535).
+
+No uses tu contraseña normal de Gmail. Haz esto:
+
+  1. Activa verificación en 2 pasos en tu cuenta Google:
+     https://myaccount.google.com/security
+
+  2. Crea una "Contraseña de aplicación":
+     https://myaccount.google.com/apppasswords
+     (elige "Correo" y "Otro" → Mr. Kutz)
+
+  3. En backend/.env pon:
+     SMTP_USER=la-misma-cuenta@gmail.com
+     SMTP_PASS=xxxx xxxx xxxx xxxx   (16 caracteres, sin comillas rotas)
+
+  4. Reinicia el servidor y vuelve a probar:
+     npm run mail:test -- tu_correo@gmail.com
+
+Alternativa: usa Resend (RESEND_API_KEY) en backend/.env — ver backend/.env.example
+`);
+} else {
+  console.error('   Mira el mensaje de error arriba en esta consola.');
+}
 process.exit(1);

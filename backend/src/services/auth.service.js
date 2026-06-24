@@ -4,13 +4,53 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomInt } from 'node:crypto';
 import prisma from '../lib/prisma.js';
-import { sendPasswordResetCode } from '../lib/mailer.js';
+import { sendPasswordResetCode, isMailDeliveryConfigured } from '../lib/mailer.js';
 import { canonicalEmail } from '../utils/emailCanonical.js';
 import * as settingsService from './settings.service.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
+const RESET_CODE_TTL_MS = 30 * 60 * 1000;
+const RESET_RESEND_COOLDOWN_MS = 2 * 60 * 1000;
+const RESET_MAX_VERIFY_ATTEMPTS = 5;
+const GENERIC_RESET_MESSAGE =
+  'Si el correo está registrado en Mr. Kutz, recibirás un código de verificación en breve. Revisa también la carpeta de spam.';
+
+function generateResetCode() {
+  return String(randomInt(100000, 1000000));
+}
+
+function isResetInCooldown(user) {
+  if (!user?.resetCodeExpires || !user?.resetCode) return false;
+  const expiresAt = new Date(user.resetCodeExpires);
+  if (Number.isNaN(expiresAt.getTime()) || expiresAt <= new Date()) return false;
+  const issuedAt = new Date(expiresAt.getTime() - RESET_CODE_TTL_MS);
+  return Date.now() - issuedAt.getTime() < RESET_RESEND_COOLDOWN_MS;
+}
+
+async function resolveBusinessName() {
+  try {
+    const settings = await settingsService.getSettings();
+    if (settings?.business_name?.trim()) {
+      return settings.business_name.trim();
+    }
+  } catch (settingsError) {
+    console.warn(
+      '[password-reset] No se pudo leer business settings:',
+      settingsError?.message || settingsError
+    );
+  }
+  return 'Mr. Kutz';
+}
+
+function canRequestPasswordReset(user) {
+  if (!user) return false;
+  if (!user.isActive) return false;
+  if (!user.passwordHash) return false;
+  return true;
+}
 
 export const register = async (userData) => {
   const {
@@ -157,40 +197,47 @@ export const login = async (email, password) => {
   return { user: user || formatUserResponse(dbUser), token };
 };
 
-// Solicitar recuperación de contraseña
+// Solicitar recuperación de contraseña (solo correos registrados y activos)
 export const forgotPassword = async (email) => {
   const emailNorm = canonicalEmail(email);
   const dbUser = await prisma.user.findUnique({
     where: { email: emailNorm },
   });
 
-  if (!dbUser) {
-    // Por seguridad, no revelamos si el email existe o no
-    return { message: 'Si el correo existe, recibirás instrucciones en breve.' };
+  if (!canRequestPasswordReset(dbUser)) {
+    return { message: GENERIC_RESET_MESSAGE };
   }
 
-  // Generar código de recuperación (6 dígitos)
-  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const resetExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+  if (isResetInCooldown(dbUser)) {
+    return {
+      message: GENERIC_RESET_MESSAGE,
+      emailSent: true,
+      cooldown: true,
+    };
+  }
+
+  if (!isMailDeliveryConfigured()) {
+    console.error('[forgotPassword] Correo no configurado (SMTP ni Resend).');
+    return {
+      message: GENERIC_RESET_MESSAGE,
+      emailSent: false,
+    };
+  }
+
+  const resetCode = generateResetCode();
+  const resetCodeHash = await bcrypt.hash(resetCode, SALT_ROUNDS);
+  const resetExpires = new Date(Date.now() + RESET_CODE_TTL_MS);
 
   await prisma.user.update({
     where: { id: dbUser.id },
     data: {
-      resetCode,
+      resetCode: resetCodeHash,
       resetCodeExpires: resetExpires,
+      resetCodeAttempts: 0,
     },
   });
 
-  let businessName = 'Mr. Kutz';
-  try {
-    const settings = await settingsService.getSettings();
-    if (settings?.business_name?.trim()) {
-      businessName = settings.business_name.trim();
-    }
-  } catch (settingsError) {
-    console.warn('[forgotPassword] No se pudo leer business settings:', settingsError?.message || settingsError);
-  }
-
+  const businessName = await resolveBusinessName();
   const delivery = await sendPasswordResetCode({
     to: dbUser.email,
     code: resetCode,
@@ -200,14 +247,15 @@ export const forgotPassword = async (email) => {
   if (!delivery?.sent) {
     console.error(
       '[forgotPassword] No se pudo enviar el correo de recuperación:',
-      delivery?.reason || 'unknown'
+      delivery?.reason || 'unknown',
+      delivery?.smtpError ? `| ${delivery.smtpError}` : ''
     );
   }
 
   return {
-    message: 'Si el correo existe, recibirás instrucciones en breve.',
+    message: GENERIC_RESET_MESSAGE,
     emailSent: !!delivery?.sent,
-    ...(process.env.NODE_ENV !== 'production' && { resetCode }),
+    ...(process.env.NODE_ENV !== 'production' && delivery?.sent && { resetCode }),
   };
 };
 
@@ -218,20 +266,54 @@ export const verifyResetCode = async (email, code) => {
     where: { email: emailNorm },
   });
 
-  if (!dbUser || !dbUser.resetCode || !dbUser.resetCodeExpires) {
+  if (!canRequestPasswordReset(dbUser) || !dbUser.resetCode || !dbUser.resetCodeExpires) {
     const error = new Error('El código no es válido o ha caducado.');
     error.statusCode = 400;
     throw error;
   }
 
-  if (dbUser.resetCode !== String(code).trim()) {
-    const error = new Error('El código no es correcto.');
+  if (new Date() > dbUser.resetCodeExpires) {
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
+    });
+    const error = new Error('El código ha caducado. Solicita uno nuevo.');
     error.statusCode = 400;
     throw error;
   }
 
-  if (new Date() > dbUser.resetCodeExpires) {
-    const error = new Error('El código ha caducado.');
+  if ((dbUser.resetCodeAttempts ?? 0) >= RESET_MAX_VERIFY_ATTEMPTS) {
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
+    });
+    const error = new Error(
+      'Demasiados intentos fallidos. Solicita un nuevo código de verificación.'
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const codeNorm = String(code ?? '').trim();
+  const codeValid = await bcrypt.compare(codeNorm, dbUser.resetCode);
+
+  if (!codeValid) {
+    const attempts = (dbUser.resetCodeAttempts ?? 0) + 1;
+    const remaining = Math.max(0, RESET_MAX_VERIFY_ATTEMPTS - attempts);
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: {
+        resetCodeAttempts: attempts,
+        ...(remaining === 0
+          ? { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 }
+          : {}),
+      },
+    });
+    const error = new Error(
+      remaining > 0
+        ? `El código no es correcto. Te quedan ${remaining} intento(s).`
+        : 'Demasiados intentos fallidos. Solicita un nuevo código de verificación.'
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -241,7 +323,6 @@ export const verifyResetCode = async (email, code) => {
 
 // Resetear contraseña con código
 export const resetPassword = async (email, code, newPassword) => {
-  // Verificar código primero
   await verifyResetCode(email, code);
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
@@ -252,6 +333,7 @@ export const resetPassword = async (email, code, newPassword) => {
       passwordHash,
       resetCode: null,
       resetCodeExpires: null,
+      resetCodeAttempts: 0,
     },
   });
 
@@ -303,6 +385,7 @@ const formatUserResponse = (dbUser, extra = {}) => {
     passwordHash: _ph,
     resetCode: _rc,
     resetCodeExpires: _rce,
+    resetCodeAttempts: _rca,
     role: roleObj,
     barber,
     client,

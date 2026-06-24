@@ -1,14 +1,31 @@
 /**
- * Recuperación de contraseña — el código llega solo por correo
+ * Recuperación de contraseña — código de verificación solo por correo registrado
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as authService from '@/features/auth/services/authService';
 
 const inputClass = 'input-premium';
 const labelClass = 'label-premium';
+const RESEND_COOLDOWN_SEC = 120;
+
+function buildInfoMessage(res) {
+  const base =
+    res?.message ||
+    'Si el correo está registrado en Mr. Kutz, recibirás un código de verificación en breve.';
+  if (res?.cooldown) {
+    return `${base} Si no lo ves, espera unos minutos antes de pedir otro código.`;
+  }
+  if (res?.emailSent === true) {
+    return `${base} Revisa tu bandeja de entrada y la carpeta de spam.`;
+  }
+  if (res?.emailSent === false) {
+    return `${base} No pudimos confirmar el envío; si no lo recibes en unos minutos, vuelve a intentarlo.`;
+  }
+  return base;
+}
 
 export default function ForgotPasswordPage() {
   const { isAuthenticated } = useAuth();
@@ -21,41 +38,81 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
 
-  const handleRequestCode = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+    const timer = setInterval(() => {
+      setResendCooldown((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const requestCode = useCallback(async () => {
     setError('');
     setInfo('');
     setLoading(true);
     try {
       const res = await authService.forgotPassword(email.trim());
-      const baseMessage =
-        res?.message || 'Si el correo existe, recibirás instrucciones en breve.';
-      const emailSent = res?.emailSent;
-      let message;
-      if (emailSent === true) {
-        message = `${baseMessage} Revisa tu bandeja de entrada y la carpeta de spam.`;
-      } else if (emailSent === false) {
-        message = `${baseMessage} No pudimos confirmar el envío del correo; si no lo recibes en unos minutos, vuelve a intentarlo.`;
-      } else {
-        message = baseMessage;
-      }
-      setInfo(message);
+      setInfo(buildInfoMessage(res));
+      setResendCooldown(RESEND_COOLDOWN_SEC);
       setStep(2);
+      setCode('');
+      setCodeVerified(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      return true;
     } catch (err) {
-      setError(err?.message || 'No se pudo procesar la solicitud.');
+      const status = err?.status ?? err?.response?.status;
+      if (status === 429) {
+        setError('Demasiados intentos. Espera unos minutos e inténtalo de nuevo.');
+      } else {
+        setError(err?.message || 'No se pudo procesar la solicitud.');
+      }
+      return false;
     } finally {
       setLoading(false);
+    }
+  }, [email]);
+
+  const handleRequestCode = async (e) => {
+    e.preventDefault();
+    await requestCode();
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0 || loading) return;
+    await requestCode();
+  };
+
+  const handleVerifyCode = async () => {
+    if (!/^\d{6}$/.test(code.trim())) {
+      setCodeVerified(false);
+      return;
+    }
+    setError('');
+    try {
+      await authService.verifyResetCode(email.trim(), code.trim());
+      setCodeVerified(true);
+      setInfo('Código verificado. Ahora elige tu nueva contraseña.');
+    } catch (err) {
+      setCodeVerified(false);
+      setError(err?.message || 'El código no es válido.');
     }
   };
 
   const handleReset = async (e) => {
     e.preventDefault();
     setError('');
+    if (!codeVerified) {
+      setError('Verifica el código de 6 dígitos antes de guardar la contraseña.');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
@@ -105,7 +162,7 @@ export default function ForgotPasswordPage() {
             </h1>
             <p className="text-stone-500 text-sm mb-8">
               {step === 1
-                ? 'Indica el correo de tu cuenta. Si existe, podrás restablecer la contraseña con el código que te enviemos.'
+                ? 'Indica el correo con el que te registraste. Solo enviamos el código a cuentas activas en Mr. Kutz.'
                 : 'Introduce el código de 6 dígitos que te enviamos por correo y elige una contraseña nueva.'}
             </p>
 
@@ -136,7 +193,7 @@ export default function ForgotPasswordPage() {
                   disabled={loading}
                   className="w-full btn-dark py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Enviando...' : 'Continuar'}
+                  {loading ? 'Enviando...' : 'Enviar código'}
                 </button>
               </form>
             )}
@@ -144,7 +201,10 @@ export default function ForgotPasswordPage() {
             {step === 2 && (
               <form onSubmit={handleReset} className="space-y-5">
                 {info && (
-                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700" role="status">
+                  <div
+                    className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700"
+                    role="status"
+                  >
                     {info}
                   </div>
                 )}
@@ -167,21 +227,35 @@ export default function ForgotPasswordPage() {
                 </div>
                 <div>
                   <label htmlFor="fp-code" className={labelClass}>
-                    Código de 6 dígitos
+                    Código de verificación (6 dígitos)
                   </label>
-                  <input
-                    id="fp-code"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className={inputClass}
-                    placeholder="000000"
-                    required
-                    autoComplete="one-time-code"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      id="fp-code"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      value={code}
+                      onChange={(e) => {
+                        setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                        setCodeVerified(false);
+                      }}
+                      onBlur={handleVerifyCode}
+                      className={`${inputClass} flex-1 tracking-widest text-center font-mono`}
+                      placeholder="000000"
+                      required
+                      autoComplete="one-time-code"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyCode}
+                      disabled={code.length !== 6 || loading}
+                      className="btn-admin-outline px-3 text-xs whitespace-nowrap disabled:opacity-50"
+                    >
+                      {codeVerified ? '✓ OK' : 'Verificar'}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="fp-new" className={labelClass}>
@@ -195,8 +269,9 @@ export default function ForgotPasswordPage() {
                     className={inputClass}
                     placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
                     required
-                    minLength={6}
+                    minLength={8}
                     autoComplete="new-password"
+                    disabled={!codeVerified}
                   />
                 </div>
                 <div>
@@ -210,16 +285,27 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className={inputClass}
                     required
-                    minLength={6}
+                    minLength={8}
                     autoComplete="new-password"
+                    disabled={!codeVerified}
                   />
                 </div>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !codeVerified}
                   className="w-full btn-dark py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Guardando...' : 'Guardar contraseña'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={loading || resendCooldown > 0}
+                  className="w-full text-sm text-gold font-semibold hover:text-gold-dark py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendCooldown > 0
+                    ? `Reenviar código (${resendCooldown}s)`
+                    : 'Reenviar código'}
                 </button>
                 <button
                   type="button"
@@ -228,12 +314,14 @@ export default function ForgotPasswordPage() {
                     setError('');
                     setInfo('');
                     setCode('');
+                    setCodeVerified(false);
                     setNewPassword('');
                     setConfirmPassword('');
+                    setResendCooldown(0);
                   }}
                   className="w-full text-sm text-stone-500 hover:text-stone-800 py-2"
                 >
-                  ← Volver al paso anterior
+                  ← Cambiar correo
                 </button>
               </form>
             )}
