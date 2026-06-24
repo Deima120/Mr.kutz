@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useSettings } from '@/shared/contexts/SettingsContext';
 import HeroCarousel from '@/features/home/components/HeroCarousel';
+import MobileAppFloating from '@/features/home/components/MobileAppFloating';
 import * as serviceService from '@/features/services/services/serviceService';
 
 const GalleryCarousel3D = lazy(() => import('@/features/home/components/GalleryCarousel3D'));
@@ -531,6 +532,8 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      <MobileAppFloating />
 
       <div className="fixed bottom-5 right-5 z-40">
         <Link
