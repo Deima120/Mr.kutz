@@ -16,7 +16,7 @@ function buildInfoMessage(res) {
     res?.message ||
     'Si el correo está registrado en Mr. Kutz, recibirás un código de verificación en breve.';
   if (res?.cooldown) {
-    return `${base} Si no lo ves, espera unos minutos antes de pedir otro código.`;
+    return 'Ya enviamos un código hace poco a este correo. Revisa bandeja de entrada y spam (también Promociones). Si no lo ves, espera 2 minutos y usa «Reenviar código».';
   }
   if (res?.emailSent === true) {
     return `${base} Revisa tu bandeja de entrada y la carpeta de spam.`;
