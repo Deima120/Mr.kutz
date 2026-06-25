@@ -463,12 +463,46 @@ export default function AppointmentsPage() {
                           <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[a.status] || 'bg-stone-100 text-stone-700'}`}>
                             {STATUS_LABELS[a.status] || a.status}
                           </span>
-                          <time
-                            className="text-sm text-stone-500"
-                            dateTime={extractAppointmentDateYmd(a.appointment_date) || undefined}
-                          >
-                            {formatAppointmentCalendarDate(a.appointment_date)}
-                          </time>
+                          <div className="flex flex-col items-end gap-2 shrink-0 text-right">
+                            <time
+                              className="text-sm text-stone-500"
+                              dateTime={extractAppointmentDateYmd(a.appointment_date) || undefined}
+                            >
+                              {formatAppointmentCalendarDate(a.appointment_date)}
+                            </time>
+                            {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <EditAppointmentButton onClick={() => openEditForm(a.id)} />
+                                {cancelConfirmId === a.id ? (
+                                  <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <span className="text-sm text-stone-600">¿Cancelar?</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStatusChange(a.id, 'cancelled')}
+                                      className="text-sm font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                                    >
+                                      Sí
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCancelConfirmId(null)}
+                                      className="text-sm font-medium text-stone-600 hover:text-stone-800 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 transition-colors"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelClick(a.id)}
+                                    className="text-sm text-red-600 hover:text-red-700 font-medium whitespace-nowrap"
+                                  >
+                                    Cancelar esta cita
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <p className="font-semibold text-stone-900 text-lg">
                           {a.service_name}
@@ -497,38 +531,6 @@ export default function AppointmentsPage() {
                                 "{clientRatingCommentOf(a)}"
                               </p>
                             ) : null}
-                          </div>
-                        )}
-                        {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                          <div className="mt-4 pt-4 border-t border-stone-100 flex flex-wrap items-center gap-x-4 gap-y-2">
-                            <EditAppointmentButton onClick={() => openEditForm(a.id)} />
-                            {cancelConfirmId === a.id ? (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm text-stone-600">¿Cancelar esta cita?</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStatusChange(a.id, 'cancelled')}
-                                  className="text-sm font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-                                >
-                                  Sí, cancelar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setCancelConfirmId(null)}
-                                  className="text-sm font-medium text-stone-600 hover:text-stone-800 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 transition-colors"
-                                >
-                                  No
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleCancelClick(a.id)}
-                                className="text-sm text-red-600 hover:text-red-700 font-medium"
-                              >
-                                Cancelar esta cita
-                              </button>
-                            )}
                           </div>
                         )}
                       </div>

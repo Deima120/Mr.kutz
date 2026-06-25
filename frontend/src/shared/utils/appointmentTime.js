@@ -6,7 +6,7 @@ export function formatAppointmentClockTime(t) {
   if (t == null || t === '') return '';
   if (t instanceof Date) {
     if (Number.isNaN(t.getTime())) return '';
-    return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+    return `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
   }
   const s = String(t).trim();
   if (!s) return '';
@@ -14,9 +14,15 @@ export function formatAppointmentClockTime(t) {
   if (bare) {
     return `${String(parseInt(bare[1], 10)).padStart(2, '0')}:${bare[2]}`;
   }
-  const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) {
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const timeOnlyIso = s.match(/^1970-01-01T(\d{2}):(\d{2})/);
+  if (timeOnlyIso) {
+    return `${timeOnlyIso[1]}:${timeOnlyIso[2]}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    }
   }
   const iso = s.match(/T(\d{1,2}):(\d{2})/);
   if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;

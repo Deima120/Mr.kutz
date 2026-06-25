@@ -54,8 +54,8 @@ function toTimeStr(d) {
     throw new Error(`Formato de hora inválido: "${d}"`);
   }
   if (d instanceof Date) {
-    const h = d.getHours();
-    const m = d.getMinutes();
+    const h = d.getUTCHours();
+    const m = d.getUTCMinutes();
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
   const s = String(d);
@@ -117,8 +117,8 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
       barber_id: a.barberId,
       service_id: a.serviceId,
       appointment_date: a.appointmentDate,
-      start_time: a.startTime,
-      end_time: a.endTime,
+      start_time: toTimeStr(a.startTime),
+      end_time: toTimeStr(a.endTime),
       status: a.status,
       notes: userNotesOnly(a.notes),
       created_at: a.createdAt,
@@ -161,8 +161,8 @@ export const getById = async (id) => {
     barber_id: a.barberId,
     service_id: a.serviceId,
     appointment_date: a.appointmentDate,
-    start_time: a.startTime,
-    end_time: a.endTime,
+    start_time: toTimeStr(a.startTime),
+    end_time: toTimeStr(a.endTime),
     status: a.status,
     notes: userNotesOnly(a.notes),
     created_at: a.createdAt,
@@ -375,8 +375,8 @@ export const create = async (data) => {
   const endM = endMinutes % 60;
   const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
 
-  const startDate = new Date(`1970-01-01T${start.length === 5 ? start + ':00' : start}`);
-  const endDate = new Date(`1970-01-01T${endTime}`);
+  const startDate = new Date(`1970-01-01T${start.length === 5 ? `${start}:00` : start}Z`);
+  const endDate = new Date(`1970-01-01T${endTime}Z`);
 
   await assertNoOverlap({
     barberId,
@@ -433,7 +433,7 @@ export const update = async (id, data, existingAppointment = null) => {
   let nextStartTime = existing.startTime;
   if (data.startTime !== undefined) {
     const s = typeof data.startTime === 'string' && data.startTime ? data.startTime : toTimeStr(existing.startTime);
-    nextStartTime = new Date(`1970-01-01T${s.length === 5 ? s + ':00' : s}`);
+    nextStartTime = new Date(`1970-01-01T${s.length === 5 ? `${s}:00` : s}Z`);
   }
 
   const timingChanged =
@@ -452,7 +452,7 @@ export const update = async (id, data, existingAppointment = null) => {
     const endH = Math.floor(endMinutes / 60);
     const endM = endMinutes % 60;
     const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
-    nextEndTime = new Date(`1970-01-01T${endTimeStr}`);
+    nextEndTime = new Date(`1970-01-01T${endTimeStr}Z`);
   }
 
   const updateData = {};

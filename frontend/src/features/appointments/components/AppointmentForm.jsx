@@ -493,10 +493,12 @@ export default function AppointmentForm({
         }
       >
         <option value="">
-          {!formData.barberId || !formData.appointmentDate
-            ? 'Barbero y fecha primero'
+          {!formData.barberId
+            ? 'Elige barbero primero'
             : formData.serviceIds.length === 0
               ? 'Agrega un servicio'
+              : !formData.appointmentDate
+                ? 'Elige fecha primero'
               : slotsLoading
                 ? 'Cargando...'
                 : slotOptions.length === 0
@@ -710,13 +712,12 @@ export default function AppointmentForm({
                 </div>
               )}
 
-              <div className="grid gap-3.5 sm:grid-cols-2">
+              <div className="grid gap-3.5 sm:grid-cols-1">
                 {barberSelect}
-                {dateInput}
+                {servicesField}
                 {timeSelect}
+                {dateInput}
               </div>
-
-              <div className="grid gap-3.5 sm:grid-cols-1">{servicesField}</div>
 
               <div className="group">
                 <label className={labelClass}>Notas</label>
