@@ -25,22 +25,14 @@ services:
         sync: false
       - key: CORS_ALLOW_PREVIEWS
         value: "false"
-      # Correo: en producción usar Brevo SMTP (ver backend/.env.example). Gmail falla en Render.
+      # Correo: Render free bloquea SMTP — usar Brevo API HTTP (ver backend/.env.example)
       - key: MAIL_PROVIDER
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_FROM_EMAIL
         sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_SECURE
-        value: "false"
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_FROM
         sync: false

@@ -220,7 +220,7 @@ export const forgotPassword = async (email) => {
   }
 
   if (!isMailDeliveryConfigured()) {
-    console.error('[forgotPassword] Correo no configurado (SMTP ni Resend).');
+    console.error('[forgotPassword] Correo no configurado (BREVO_API_KEY, Resend o SMTP).');
     return {
       message: GENERIC_RESET_MESSAGE,
       emailSent: false,
@@ -259,7 +259,7 @@ export const forgotPassword = async (email) => {
     );
     if (reason === 'resend_sandbox') {
       console.error(
-        '[forgotPassword] Resend sandbox: configura Brevo SMTP o verifica dominio en Resend (ver backend/.env.example).'
+        '[forgotPassword] Resend sandbox: configura BREVO_API_KEY o verifica dominio en Resend (ver backend/.env.example).'
       );
     }
   }

@@ -8,6 +8,7 @@
 import 'dotenv/config';
 import { randomInt } from 'node:crypto';
 import {
+  isBrevoApiConfigured,
   isMailDeliveryConfigured,
   isResendConfigured,
   isSmtpConfigured,
@@ -24,12 +25,17 @@ Prueba de correo — Mr. Kutz
 
 Configura en backend/.env UNA de estas opciones:
 
-  A) Resend (rápido para probar):
+  A) Brevo API (producción en Render):
+     MAIL_PROVIDER=brevo
+     BREVO_API_KEY=xkeysib-xxxxxxxx
+     BREVO_FROM_EMAIL=remitente-verificado-en-brevo@gmail.com
+
+  B) Resend (rápido para probar):
      RESEND_API_KEY=re_xxxx
      (No pongas RESEND_FROM con @gmail — Resend no lo permite. Opcional: RESEND_FROM=onboarding@resend.dev)
      → El destinatario debe ser el correo con el que abriste la cuenta en resend.com
 
-  B) Gmail:
+  C) Gmail (solo local):
      SMTP_HOST=smtp.gmail.com
      SMTP_PORT=587
      SMTP_SECURE=false
@@ -40,12 +46,19 @@ Configura en backend/.env UNA de estas opciones:
 }
 
 if (!isMailDeliveryConfigured()) {
-  console.error('❌ Falta configuración: RESEND_API_KEY o SMTP_HOST+SMTP_USER+SMTP_PASS en backend/.env');
+  console.error('❌ Falta configuración: BREVO_API_KEY, RESEND_API_KEY o SMTP en backend/.env');
   process.exit(1);
 }
 
-const modo = isResendConfigured() ? 'Resend' : 'SMTP';
-const fallback = isResendConfigured() && isSmtpConfigured() ? ' (si falla Resend, se intenta SMTP)' : '';
+const modo = isBrevoApiConfigured()
+  ? 'Brevo API'
+  : isResendConfigured()
+    ? 'Resend'
+    : 'SMTP';
+const fallback =
+  [isBrevoApiConfigured(), isResendConfigured(), isSmtpConfigured()].filter(Boolean).length > 1
+    ? ' (con respaldo si falla el primero)'
+    : '';
 console.log('Enviando vía', modo + fallback, '→', to);
 
 const code = String(randomInt(100000, 1000000));

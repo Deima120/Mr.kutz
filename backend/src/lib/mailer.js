@@ -1,10 +1,9 @@
 /**
  * Envío de correos transaccionales (Mr. Kutz).
  *
- * Producción (Render, Railway, etc.):
- * - Gmail SMTP suele fallar (timeout) desde servidores en la nube.
- * - Resend con onboarding@resend.dev solo envía al correo de la cuenta Resend (sandbox).
- * - Recomendado: Brevo SMTP (smtp-relay.brevo.com) o Resend con dominio verificado.
+ * Producción (Render plan gratis):
+ * - Render BLOQUEA puertos SMTP 25/465/587 → timeout aunque uses Brevo o Gmail.
+ * - Usar API HTTP: BREVO_API_KEY (recomendado) o Resend con dominio verificado.
  *
  * Desarrollo local: Gmail SMTP funciona bien.
  */
@@ -18,6 +17,10 @@ export function isResendConfigured() {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
 
+export function isBrevoApiConfigured() {
+  return Boolean(process.env.BREVO_API_KEY?.trim());
+}
+
 export function isSmtpConfigured() {
   return Boolean(
     process.env.SMTP_HOST?.trim() &&
@@ -27,7 +30,7 @@ export function isSmtpConfigured() {
 }
 
 export function isMailDeliveryConfigured() {
-  return isResendConfigured() || isSmtpConfigured();
+  return isResendConfigured() || isSmtpConfigured() || isBrevoApiConfigured();
 }
 
 function isGmailSmtpHost() {
@@ -91,6 +94,20 @@ function resolveResendFrom(businessName) {
   return fallback;
 }
 
+function resolveBrevoFrom(businessName) {
+  const name = safeFromName(businessName);
+  const raw =
+    process.env.BREVO_FROM_EMAIL?.trim() ||
+    process.env.SMTP_FROM?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    '';
+  let email = raw;
+  if (raw.includes('<')) {
+    email = raw.match(/<([^>]+)>/)?.[1] || raw;
+  }
+  return { name, email: String(email).trim() };
+}
+
 export function isResendSandboxFrom(businessName = 'Mr. Kutz') {
   return resolveResendFrom(businessName).toLowerCase().includes('onboarding@resend.dev');
 }
@@ -105,24 +122,27 @@ export function isResendProductionReady(businessName = 'Mr. Kutz') {
 export function getMailConfigDiagnostics(businessName = 'Mr. Kutz') {
   const smtp = isSmtpConfigured();
   const resend = isResendConfigured();
+  const brevoApi = isBrevoApiConfigured();
   const sandbox = resend && isResendSandboxFrom(businessName);
   const gmailSmtp = smtp && isGmailSmtpHost();
-  const brevo = smtp && isBrevoSmtpHost();
+  const brevoSmtp = smtp && isBrevoSmtpHost();
   const productionReady =
-    isResendProductionReady(businessName) || (smtp && !gmailSmtp) || (smtp && brevo);
+    brevoApi ||
+    isResendProductionReady(businessName) ||
+    (!IS_PRODUCTION && smtp);
 
   const warnings = [];
-  if (!smtp && !resend) {
-    warnings.push('No hay SMTP ni Resend configurado.');
+  if (!smtp && !resend && !brevoApi) {
+    warnings.push('No hay correo configurado (BREVO_API_KEY, Resend o SMTP).');
   }
-  if (IS_PRODUCTION && gmailSmtp && !brevo) {
+  if (IS_PRODUCTION && (smtp || brevoSmtp || gmailSmtp) && !brevoApi && !isResendProductionReady(businessName)) {
     warnings.push(
-      'SMTP Gmail en producción suele fallar en Render (timeout). Usa Brevo (smtp-relay.brevo.com) o Resend con dominio verificado.'
+      'Render plan gratis BLOQUEA SMTP (puertos 587/465). Usa BREVO_API_KEY (API HTTP) o Resend con dominio verificado.'
     );
   }
   if (sandbox) {
     warnings.push(
-      'Resend en modo sandbox (onboarding@resend.dev): solo llega al correo de tu cuenta Resend. Verifica un dominio en resend.com/domains.'
+      'Resend sandbox (onboarding@resend.dev): solo llega al correo de tu cuenta Resend.'
     );
   }
   if (IS_PRODUCTION && !productionReady) {
@@ -130,8 +150,23 @@ export function getMailConfigDiagnostics(businessName = 'Mr. Kutz') {
       'La configuración actual NO puede enviar correos a usuarios registrados en producción.'
     );
   }
+  if (brevoApi) {
+    const { email } = resolveBrevoFrom(businessName);
+    if (!email) {
+      warnings.push('Define BREVO_FROM_EMAIL o SMTP_FROM con el remitente verificado en Brevo.');
+    }
+  }
 
-  return { smtp, resend, sandbox, gmailSmtp, brevo, productionReady, warnings };
+  return {
+    smtp,
+    resend,
+    brevoApi,
+    sandbox,
+    gmailSmtp,
+    brevoSmtp,
+    productionReady,
+    warnings,
+  };
 }
 
 const SMTP_TIMEOUT_MS = Number(
@@ -184,6 +219,50 @@ async function sendViaResend({ to, subject, text, html, businessName }) {
   }
 }
 
+async function sendViaBrevoApi({ to, subject, text, html, businessName }) {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) return { sent: false, reason: 'not_configured' };
+
+  const { name, email } = resolveBrevoFrom(businessName);
+  if (!email) {
+    console.error('[mailer] Brevo API: falta BREVO_FROM_EMAIL o SMTP_FROM.');
+    return { sent: false, reason: 'no_sender' };
+  }
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name, email },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+
+    if (response.ok) return { sent: true };
+
+    let detail = response.statusText;
+    try {
+      const body = await response.json();
+      detail = body?.message || body?.code || detail;
+    } catch (_) {
+      // ignore JSON parse errors
+    }
+    console.error('[mailer] Brevo API:', response.status, detail);
+    return { sent: false, reason: 'send_failed', brevoError: detail };
+  } catch (err) {
+    console.error('[mailer] Brevo API (excepción):', err?.message || err);
+    return { sent: false, reason: 'send_failed' };
+  }
+}
+
 async function sendViaSmtp({ to, subject, text, html, businessName }) {
   const transporter = getTransporter();
   if (!transporter) return { sent: false, reason: 'not_configured' };
@@ -207,27 +286,29 @@ async function sendViaSmtp({ to, subject, text, html, businessName }) {
 
 /**
  * Orden de proveedores según entorno y configuración.
- * MAIL_PROVIDER=resend|smtp fuerza un solo canal.
+ * MAIL_PROVIDER=brevo|resend|smtp fuerza un solo canal.
  */
 function buildDeliveryOrder(businessName) {
   const forced = String(process.env.MAIL_PROVIDER || '').trim().toLowerCase();
+  if (forced === 'brevo') return isBrevoApiConfigured() ? ['brevo'] : [];
   if (forced === 'resend') return isResendConfigured() ? ['resend'] : [];
   if (forced === 'smtp') return isSmtpConfigured() ? ['smtp'] : [];
 
   const order = [];
   const smtpOk = isSmtpConfigured();
+  const brevoOk = isBrevoApiConfigured();
   const resendReady = isResendProductionReady(businessName);
   const resendOk = isResendConfigured();
-  const allowGmailInProd = process.env.MAIL_ALLOW_GMAIL_SMTP === 'true';
+  const allowSmtpInProd = process.env.MAIL_ALLOW_SMTP_IN_PRODUCTION === 'true';
 
   if (IS_PRODUCTION) {
+    if (brevoOk) order.push('brevo');
     if (resendReady) order.push('resend');
-    if (smtpOk && (!isGmailSmtpHost() || allowGmailInProd || isBrevoSmtpHost())) {
-      order.push('smtp');
-    }
+    if (smtpOk && allowSmtpInProd) order.push('smtp');
     if (resendOk && !order.includes('resend')) order.push('resend');
   } else {
     if (smtpOk) order.push('smtp');
+    if (brevoOk) order.push('brevo');
     if (resendOk) order.push('resend');
   }
 
@@ -241,7 +322,7 @@ async function sendMail({ to, subject, text, html, businessName = 'Mr. Kutz' }) 
   if (!to) return { sent: false, reason: 'no_recipient' };
 
   if (!isMailDeliveryConfigured()) {
-    console.warn('[mailer] No hay configuración de correo (SMTP ni Resend).');
+    console.warn('[mailer] No hay configuración de correo (BREVO_API_KEY, SMTP ni Resend).');
     return { sent: false, reason: 'not_configured' };
   }
 
@@ -255,9 +336,14 @@ async function sendMail({ to, subject, text, html, businessName = 'Mr. Kutz' }) 
 
   let lastResult = { sent: false, reason: 'send_failed' };
 
+  const senders = {
+    brevo: sendViaBrevoApi,
+    resend: sendViaResend,
+    smtp: sendViaSmtp,
+  };
+
   for (const channel of order) {
-    const result =
-      channel === 'resend' ? await sendViaResend(payload) : await sendViaSmtp(payload);
+    const result = await senders[channel](payload);
     if (result.sent) return result;
     lastResult = result;
 
@@ -265,7 +351,12 @@ async function sendMail({ to, subject, text, html, businessName = 'Mr. Kutz' }) 
       console.error(
         '[mailer] Resend sandbox: no se puede enviar a',
         to,
-        '— verifica un dominio en resend.com/domains o usa Brevo SMTP.'
+        '— usa BREVO_API_KEY o verifica dominio en Resend.'
+      );
+    }
+    if (channel === 'smtp' && IS_PRODUCTION && !process.env.MAIL_ALLOW_SMTP_IN_PRODUCTION) {
+      console.error(
+        '[mailer] SMTP en Render free tier está bloqueado. Configura BREVO_API_KEY (API HTTP).'
       );
     }
   }
