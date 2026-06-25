@@ -105,6 +105,7 @@ router.get(
   [
     query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
     query('date').isDate().withMessage('Indica una fecha válida.'),
+    query('durationMinutes').optional({ values: 'falsy' }).isInt({ min: 5, max: 480 }).withMessage('Duración no válida (mín. 5 min).'),
   ],
   validate,
   publicBookingController.getSlots,
@@ -128,7 +129,7 @@ router.get('/', appointmentController.getAll);
 router.get('/slots', [
   query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   query('date').isDate().withMessage('Indica una fecha válida.'),
-  query('durationMinutes').optional({ values: 'falsy' }).isInt({ min: 15, max: 480 }).withMessage('Duración no válida.'),
+  query('durationMinutes').optional({ values: 'falsy' }).isInt({ min: 5, max: 480 }).withMessage('Duración no válida (mín. 5 min).'),
 ], validate, appointmentController.getAvailableSlots);
 router.get(
   '/rating-summary',

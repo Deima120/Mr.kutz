@@ -21,13 +21,18 @@ export const listServices = async (req, res, next) => {
 
 export const getSlots = async (req, res, next) => {
   try {
-    const { barberId, date } = req.query;
+    const { barberId, date, durationMinutes } = req.query;
     if (!barberId || !date) {
       return res
         .status(400)
         .json({ success: false, message: 'Se requieren barbero y fecha.' });
     }
-    const slots = await appointmentService.getAvailableSlots(barberId, date);
+    const slots = await appointmentService.getAvailableSlots(
+      barberId,
+      date,
+      null,
+      durationMinutes ? parseInt(durationMinutes, 10) : 30
+    );
     res.json({ success: true, data: slots });
   } catch (err) {
     next(err);

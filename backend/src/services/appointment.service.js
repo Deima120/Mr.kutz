@@ -8,6 +8,10 @@ import {
   notifyAppointmentCompleted,
 } from './appointmentNotifications.js';
 
+/** Granularidad de huecos al calcular horarios (permite servicios de 5, 10 min, etc.). */
+const SLOT_GRID_MINUTES = 5;
+const MIN_SLOT_DURATION_MINUTES = 5;
+
 /**
  * Verifica que el rango [startMin, endMin) no se solape con otra cita activa
  * del mismo barbero ese día. Lanza 409 si hay conflicto.
@@ -548,10 +552,13 @@ export const getAvailableSlots = async (barberId, date, excludeAppointmentId = n
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
 
-  const duration = Math.max(15, parseInt(durationMinutes, 10) || 30);
+  const duration = Math.max(
+    MIN_SLOT_DURATION_MINUTES,
+    parseInt(durationMinutes, 10) || 30
+  );
 
   const slots = [];
-  for (let mins = startMinutes; mins + duration <= endMinutes; mins += 30) {
+  for (let mins = startMinutes; mins + duration <= endMinutes; mins += SLOT_GRID_MINUTES) {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     const startStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;

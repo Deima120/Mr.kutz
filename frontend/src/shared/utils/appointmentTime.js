@@ -89,6 +89,16 @@ export function getLocalFirstDayOfPreviousMonth() {
   return `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
+/** Suma días a una fecha YYYY-MM-DD (calendario local). */
+export function addDaysToYmd(ymd, days) {
+  const base = extractAppointmentDateYmd(ymd);
+  if (!base) return '';
+  const [y, m, d] = base.split('-').map((x) => parseInt(x, 10));
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + Number(days) || 0);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
 /** Notas de la cita tal como las devuelve la API (`notes`); texto recortado o null si no hay. */
 export function appointmentNotesOf(a) {
   const n = a?.notes;

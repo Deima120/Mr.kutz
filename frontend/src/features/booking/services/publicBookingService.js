@@ -37,8 +37,16 @@ export const getServices = async () => {
   return res?.data || [];
 };
 
-export const getSlots = async ({ barberId, date }) => {
-  const res = await request(`${BASE}/slots`, { params: { barberId, date } });
+export const getSlots = async ({ barberId, date, durationMinutes }) => {
+  const res = await request(`${BASE}/slots`, {
+    params: {
+      barberId,
+      date,
+      ...(durationMinutes != null && durationMinutes > 0
+        ? { durationMinutes }
+        : {}),
+    },
+  });
   return res?.data || [];
 };
 

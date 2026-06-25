@@ -68,15 +68,27 @@ export default function BookingPage() {
     };
   }, []);
 
+  const selectedService = useMemo(
+    () => services.find((s) => String(s.id) === String(form.serviceId)) || null,
+    [services, form.serviceId]
+  );
+
   useEffect(() => {
     setSlots([]);
     setForm((f) => ({ ...f, startTime: '' }));
     setSlotsError('');
     if (!form.barberId || !form.appointmentDate) return;
+    const durationMinutes = selectedService
+      ? Number(selectedService.duration_minutes || selectedService.durationMinutes || 0)
+      : 0;
     let cancelled = false;
     setSlotsLoading(true);
     bookingService
-      .getSlots({ barberId: form.barberId, date: form.appointmentDate })
+      .getSlots({
+        barberId: form.barberId,
+        date: form.appointmentDate,
+        durationMinutes: durationMinutes > 0 ? durationMinutes : undefined,
+      })
       .then((data) => {
         if (!cancelled) setSlots(data);
       })
@@ -91,13 +103,8 @@ export default function BookingPage() {
     return () => {
       cancelled = true;
     };
-  }, [form.barberId, form.appointmentDate]);
+  }, [form.barberId, form.appointmentDate, form.serviceId, selectedService]);
 
-
-  const selectedService = useMemo(
-    () => services.find((s) => String(s.id) === String(form.serviceId)) || null,
-    [services, form.serviceId]
-  );
   const selectedBarber = useMemo(
     () => barbers.find((b) => String(b.id) === String(form.barberId)) || null,
     [barbers, form.barberId]
@@ -409,13 +416,7 @@ export default function BookingPage() {
                 )}
                 {selectedBarber && (
                   <p>
-                    con{' '}
-                    {`${selectedBarber.first_name} ${selectedBarber.last_name}`.trim()}
-                  </p>
-                )}
-                {form.appointmentDate && form.startTime && (
-                  <p>
-                    {form.appointmentDate} · {form.startTime}
+                    Con {selectedBarber.first_name} {selectedBarber.last_name}
                   </p>
                 )}
               </div>
@@ -424,18 +425,10 @@ export default function BookingPage() {
             <button
               type="submit"
               disabled={submitting || loadingCatalogue}
-              className="btn-dark w-full py-3 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-dark w-full py-3 text-sm font-semibold disabled:opacity-60"
             >
-              {submitting ? 'Registrando…' : 'Confirmar reserva'}
+              {submitting ? 'Reservando…' : 'Confirmar cita'}
             </button>
-
-            <p className="text-center text-xs text-stone-500">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-gold font-semibold hover:underline">
-                Inicia sesión
-              </Link>{' '}
-              para ver tu historial.
-            </p>
           </form>
         </div>
       </div>

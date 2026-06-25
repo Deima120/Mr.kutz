@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as clientService from '@/features/clients/services/clientService';
@@ -33,6 +33,27 @@ import {
 const FORM_FIELD_CLASS =
   'w-full px-3.5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-[15px] text-stone-900 placeholder-stone-400 transition-all duration-200 min-h-[42px] ' +
   'bg-stone-50/90 border border-stone-200/90 focus:bg-white focus:border-gold/50 focus:ring-2 focus:ring-gold/20 outline-none';
+
+const FORM_FILTER_CLASS =
+  'w-full pl-9 pr-3.5 py-2 rounded-xl text-sm text-stone-900 placeholder-stone-400 transition-all duration-200 min-h-[38px] ' +
+  'bg-white border border-stone-200/90 focus:border-gold/50 focus:ring-2 focus:ring-gold/20 outline-none';
+
+function FieldFilter({ value, onChange, placeholder, id }) {
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden />
+      <input
+        id={id}
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={FORM_FILTER_CLASS}
+        autoComplete="off"
+      />
+    </div>
+  );
+}
 
 const FORM_LABEL_CLASS =
   'block text-[11px] sm:text-xs font-bold tracking-wider text-stone-500 mb-1.5 group-focus-within:text-gold-dark transition-colors';
@@ -80,6 +101,7 @@ export default function AppointmentForm({
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [apptLoading, setApptLoading] = useState(isEdit);
   const [loadError, setLoadError] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('');
 
   const selectedServices = useMemo(
     () => services.filter((s) => formData.serviceIds.includes(String(s.id))),
@@ -198,6 +220,24 @@ export default function AppointmentForm({
     return list;
   }, [slots, formData.startTime]);
 
+  const filteredPickerServices = useMemo(() => {
+    const q = serviceFilter.trim().toLowerCase();
+    const list = services.filter((s) => {
+      if (!isEdit && formData.serviceIds.includes(String(s.id))) return false;
+      if (!q) return true;
+      const name = String(s.name || '').toLowerCase();
+      const category = String(s.category_name || s.categoryName || '').toLowerCase();
+      return name.includes(q) || category.includes(q);
+    });
+    if (isEdit && formData.serviceIds[0]) {
+      const selected = services.find((s) => String(s.id) === String(formData.serviceIds[0]));
+      if (selected && !list.some((s) => String(s.id) === String(selected.id))) {
+        return [selected, ...list];
+      }
+    }
+    return list;
+  }, [services, formData.serviceIds, serviceFilter, isEdit]);
+
   useEffect(() => {
     if (formData.barberId && formData.appointmentDate) {
       setSlotsLoading(true);
@@ -245,6 +285,15 @@ export default function AppointmentForm({
       return { ...prev, serviceIds: [...prev.serviceIds, servicePicker], startTime: isEdit ? prev.startTime : '' };
     });
     setServicePicker('');
+    setError('');
+  };
+
+  const addServiceById = (id) => {
+    const sid = String(id);
+    setFormData((prev) => {
+      if (prev.serviceIds.includes(sid)) return prev;
+      return { ...prev, serviceIds: [...prev.serviceIds, sid], startTime: isEdit ? prev.startTime : '' };
+    });
     setError('');
   };
 
@@ -572,6 +621,88 @@ export default function AppointmentForm({
     </div>
   ) : null;
 
+  const clientServicesField = (
+    <div className="group">
+      <label className={labelClass} htmlFor="client-service-filter">
+        Servicios *
+      </label>
+      {!isEdit ? (
+        <>
+          <FieldFilter
+            id="client-service-filter"
+            value={serviceFilter}
+            onChange={setServiceFilter}
+            placeholder="Buscar servicio por nombre o categoría…"
+          />
+          {!dataLoaded ? (
+            <p className="text-sm text-stone-500 mt-2">Cargando servicios…</p>
+          ) : (
+            <ul
+              className="mt-2 rounded-xl border border-stone-200/90 bg-white divide-y divide-stone-100 max-h-44 overflow-y-auto"
+              aria-live="polite"
+            >
+              {filteredPickerServices.length === 0 ? (
+                <li className="px-3 py-2.5 text-sm text-stone-500">
+                  {serviceFilter.trim() ? 'No hay servicios con ese nombre.' : 'Ya agregaste todos los servicios.'}
+                </li>
+              ) : (
+                filteredPickerServices.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => addServiceById(s.id)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 transition-colors"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-medium text-stone-900 block truncate">{s.name}</span>
+                        {(s.category_name || s.categoryName) && (
+                          <span className="text-xs text-stone-400 truncate block">
+                            {s.category_name || s.categoryName}
+                          </span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
+                        {formatPrice(s.price)}
+                        <span className="block">{s.duration_minutes || s.durationMinutes} min</span>
+                      </span>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+          {formData.serviceIds.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedServices.map((s) => (
+                <span
+                  key={s.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800"
+                >
+                  <span className="font-medium">{s.name}</span>
+                  <span className="text-stone-400 tabular-nums text-xs">{s.duration_minutes} min</span>
+                  <button
+                    type="button"
+                    onClick={() => removeService(String(s.id))}
+                    className="text-stone-400 hover:text-red-600 transition-colors"
+                    aria-label={`Quitar ${s.name}`}
+                  >
+                    <X className="w-3.5 h-3.5" aria-hidden />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className={`${fieldClass} text-stone-700`}>
+          {selectedServices[0]
+            ? `${selectedServices[0].name} — ${formatPrice(selectedServices[0].price)}`
+            : '—'}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <AdminFormShell {...formShellProps}>
       {!isClient ? (
@@ -662,10 +793,10 @@ export default function AppointmentForm({
       ) : (
       <form
         onSubmit={handleSubmit}
-        className={`relative flex flex-col bg-white/95 border border-white overflow-hidden ${embedded ? 'rounded-2xl' : 'rounded-[1.28rem] h-full min-h-0'}`}
+        className={`relative flex flex-col bg-white/95 border border-white ${embedded ? 'rounded-2xl' : 'rounded-[1.28rem] h-full min-h-0 overflow-hidden'}`}
       >
         <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className={`flex flex-col ${embedded ? 'px-5 sm:px-6 py-4 sm:py-5 gap-4' : 'px-5 py-4 sm:px-7 sm:py-5 gap-4 flex-1 min-h-0 overflow-y-auto'}`}>
+        <div className={`flex flex-col ${embedded ? 'px-5 sm:px-6 py-4 sm:py-5 gap-4 overflow-visible' : 'px-5 py-4 sm:px-7 sm:py-5 gap-4 flex-1 min-h-0 overflow-y-auto'}`}>
           {!embedded ? (
             <AdminFormCardHeader
               eyebrow="Reserva"
@@ -714,7 +845,7 @@ export default function AppointmentForm({
 
               <div className="grid gap-3.5 sm:grid-cols-1">
                 {barberSelect}
-                {servicesField}
+                {clientServicesField}
                 {timeSelect}
                 {dateInput}
               </div>

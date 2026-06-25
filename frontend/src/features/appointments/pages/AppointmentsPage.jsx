@@ -397,7 +397,7 @@ export default function AppointmentsPage() {
     return (
       <div className="min-h-[60vh] bg-stone-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className={isFormOpen ? 'max-w-[min(88rem,100%)] mx-auto' : 'max-w-2xl mx-auto'}>
+          <div className={`mx-auto ${isFormOpen ? 'max-w-[min(72rem,100%)]' : 'max-w-2xl'}`}>
             <p className="section-label text-gold">Reservas</p>
             <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight mb-2">
               {isFormOpen ? formHeaderTitle : 'Mis citas'}
