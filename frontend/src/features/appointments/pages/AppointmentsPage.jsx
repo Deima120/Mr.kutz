@@ -367,6 +367,15 @@ export default function AppointmentsPage() {
   const editingId = typeof formView === 'number' ? formView : null;
   const isFormOpen = isCreating || editingId != null;
 
+  useEffect(() => {
+    if (!isClient || !isFormOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isClient, isFormOpen]);
+
   const inlineForm = isFormOpen ? (
     <AppointmentForm
       embedded
@@ -394,19 +403,36 @@ export default function AppointmentsPage() {
 
   // ——— Vista cliente: diseño premium y sencillo ———
   if (isClient) {
+    if (isFormOpen) {
+      return (
+        <div className="fixed inset-x-0 top-[calc(4rem+2px)] bottom-0 z-20 bg-stone-50 overflow-hidden">
+          <div className="container mx-auto h-full max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col min-h-0">
+            <div className="shrink-0 mb-3 sm:mb-4">
+              <p className="section-label text-gold">Reservas</p>
+              <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
+                {formHeaderTitle}
+              </h1>
+              <p className="text-stone-500 text-sm mt-1">{formHeaderSubtitle}</p>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">{inlineForm}</div>
+          </div>
+          {successToast}
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-[60vh] bg-stone-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className={`mx-auto ${isFormOpen ? 'max-w-[min(72rem,100%)]' : 'max-w-2xl'}`}>
+          <div className="max-w-2xl mx-auto">
             <p className="section-label text-gold">Reservas</p>
             <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight mb-2">
-              {isFormOpen ? formHeaderTitle : 'Mis citas'}
+              Mis citas
             </h1>
             <p className="text-stone-500 mb-8">
-              {isFormOpen ? formHeaderSubtitle : 'Aquí ves todas tus citas. Puedes agendar una nueva cuando quieras.'}
+              Aquí ves todas tus citas. Puedes agendar una nueva cuando quieras.
             </p>
 
-            {!isFormOpen && (
             <button
               type="button"
               onClick={() => setFormView('create')}
@@ -415,17 +441,13 @@ export default function AppointmentsPage() {
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Agendar nueva cita
             </button>
-            )}
 
-            {inlineForm}
-
-            {!isFormOpen && error && (
+            {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
                 {error}
               </div>
             )}
 
-            {!isFormOpen && (
             <AppointmentsPagination
               total={total}
               page={page}
@@ -433,13 +455,12 @@ export default function AppointmentsPage() {
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
             />
-            )}
 
-            {!isFormOpen && loading ? (
+            {loading ? (
               <div className="py-16 text-center">
                 <p className="text-stone-500">Cargando tus citas...</p>
               </div>
-            ) : !isFormOpen && appointments.length === 0 ? (
+            ) : appointments.length === 0 ? (
               <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-10 sm:p-14 text-center">
                 <p className="text-stone-500 mb-6">Aún no tienes citas agendadas.</p>
                 <button
@@ -451,7 +472,7 @@ export default function AppointmentsPage() {
                   <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
                 </button>
               </div>
-            ) : !isFormOpen ? (
+            ) : (
               <ul className="space-y-4">
                 {appointments.map((a) => {
                   const noteText = appointmentNotesOf(a);
@@ -539,7 +560,7 @@ export default function AppointmentsPage() {
                 );
                 })}
               </ul>
-            ) : null}
+            )}
           </div>
         </div>
         {successToast}

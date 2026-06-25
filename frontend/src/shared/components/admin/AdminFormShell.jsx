@@ -158,6 +158,7 @@ export default function AdminFormShell({
   fullBleed = true,
   compact = false,
   contained = false,
+  fillHeight = false,
   showBackNav = true,
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
@@ -174,7 +175,7 @@ export default function AdminFormShell({
 
   return (
     <div
-      className={`relative flex-1 ${rootMinHeight} ${bleedWidth} flex flex-col overflow-x-hidden ${contained ? 'overflow-y-visible' : 'overflow-y-hidden'}`}
+      className={`relative flex-1 ${fillHeight ? 'h-full min-h-0' : rootMinHeight} ${bleedWidth} flex flex-col overflow-x-hidden ${contained || fillHeight ? 'overflow-y-visible' : 'overflow-y-hidden'}`}
     >
       {!contained && (
         <>
@@ -195,7 +196,7 @@ export default function AdminFormShell({
         </>
       )}
 
-      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${contained ? 'p-0' : compact ? 'px-0 md:px-2 pt-0 pb-3' : 'px-5 md:px-7 pt-1 pb-4'} ${contained ? '' : 'animate-fade-in-up'}`}>
+      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${fillHeight ? 'h-full' : ''} ${contained ? 'p-0' : compact ? 'px-0 md:px-2 pt-0 pb-3' : 'px-5 md:px-7 pt-1 pb-4'} ${contained ? '' : 'animate-fade-in-up'}`}>
         {showBackNav && (
         <div className={`flex flex-wrap items-center gap-2 shrink-0 ${compact ? 'mb-2' : 'mb-4 gap-3'}`}>
           {onBackClick ? (
@@ -230,13 +231,15 @@ export default function AdminFormShell({
 
         <div
           className={`flex-1 min-h-0 grid items-stretch max-w-[88rem] mx-auto w-full ${
+            fillHeight ? 'h-full overflow-hidden' : ''
+          } ${
             compact ? 'gap-4 lg:gap-5' : 'gap-5 lg:gap-6 xl:gap-8'
           } ${
             asideVisible ? 'grid-cols-1 lg:grid-cols-12' : 'grid-cols-1'
           }`}
         >
-          <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col min-h-0` : 'flex flex-col min-h-0'}>
-            <div className={formWrapClass}>
+          <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col min-h-0 ${fillHeight ? 'h-full overflow-hidden' : ''}` : `flex flex-col min-h-0 ${fillHeight ? 'h-full overflow-hidden' : ''}`}>
+            <div className={`${formWrapClass} ${fillHeight ? 'h-full min-h-0 flex flex-col overflow-hidden' : ''}`}>
               {!compact && !contained && (
                 <div className="absolute -inset-2 bg-gradient-to-br from-gold/8 to-transparent rounded-3xl blur-xl -z-10 opacity-80" aria-hidden />
               )}
@@ -245,8 +248,8 @@ export default function AdminFormShell({
           </div>
 
           {asideVisible && (
-            <aside className={`${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'} flex flex-col min-h-0`}>
-              <div className={`min-h-0 rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}>
+            <aside className={`${fillHeight ? 'hidden lg:flex' : 'flex'} flex-col min-h-0 ${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'} ${fillHeight ? 'h-full overflow-hidden' : ''}`}>
+              <div className={`min-h-0 rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col ${fillHeight ? 'h-full' : ''}`}>
                 <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                 <div className="relative flex flex-col">

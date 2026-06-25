@@ -438,6 +438,8 @@ export default function AppointmentForm({
   const formShellProps = {
     fullBleed: !embedded && !isClient,
     compact: embedded || !isClient,
+    contained: isClient && embedded,
+    fillHeight: isClient && embedded,
     showBackNav: !embedded,
     backTo: '/appointments',
     backLabel: isClient ? 'Mis citas' : 'Citas',
@@ -793,10 +795,10 @@ export default function AppointmentForm({
       ) : (
       <form
         onSubmit={handleSubmit}
-        className={`relative flex flex-col bg-white/95 border border-white ${embedded ? 'rounded-2xl' : 'rounded-[1.28rem] h-full min-h-0 overflow-hidden'}`}
+        className={`relative flex flex-col bg-white/95 border border-white ${embedded ? 'rounded-2xl h-full min-h-0 flex flex-col overflow-hidden' : 'rounded-[1.28rem] h-full min-h-0 overflow-hidden'}`}
       >
         <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className={`flex flex-col ${embedded ? 'px-5 sm:px-6 py-4 sm:py-5 gap-4 overflow-visible' : 'px-5 py-4 sm:px-7 sm:py-5 gap-4 flex-1 min-h-0 overflow-y-auto'}`}>
+        <div className={`flex flex-col flex-1 min-h-0 ${embedded ? 'px-5 sm:px-6 py-4 sm:py-5 gap-4 overflow-y-auto' : 'px-5 py-4 sm:px-7 sm:py-5 gap-4 overflow-y-auto'}`}>
           {!embedded ? (
             <AdminFormCardHeader
               eyebrow="Reserva"
