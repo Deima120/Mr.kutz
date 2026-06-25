@@ -17,6 +17,21 @@ export const register = async (data) => {
 };
 
 /**
+ * Comprueba si un correo está disponible para registro
+ * @param {string} email
+ * @param {{ signal?: AbortSignal }} [options]
+ */
+export const checkEmailAvailability = async (email, options = {}) => {
+  const response = await api.post(
+    `${AUTH_BASE}/check-email`,
+    { email },
+    { signal: options.signal, timeout: 10_000 }
+  );
+  const res = response?.data ?? response;
+  return res?.data ?? res;
+};
+
+/**
  * Inicia sesión
  * @param {string} email
  * @param {string} password

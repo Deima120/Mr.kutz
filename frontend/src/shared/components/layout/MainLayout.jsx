@@ -28,6 +28,7 @@ export default function MainLayout() {
   };
 
   const isAdminOrBarber = isAuthenticated && (user?.role === 'admin' || user?.role === 'barber');
+  const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
 
   const closeMobile = () => setMobileMenuOpen(false);
   const profileInitial = (user?.firstName || user?.email || 'U').trim().charAt(0).toUpperCase();
@@ -280,10 +281,15 @@ export default function MainLayout() {
         )}
       </header>
 
-      <main className="flex-1">
+      <main className={isAuthPage ? 'flex-1 flex flex-col min-h-0' : 'flex-1'}>
         <Outlet />
       </main>
 
+      {isAuthPage ? (
+        <footer className="shrink-0 border-t border-stone-200 bg-stone-50 py-3 text-center text-xs text-stone-500">
+          © {new Date().getFullYear()} {businessName}
+        </footer>
+      ) : (
       <footer className="bg-barber-charcoal text-stone-400 border-t border-stone-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
           <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
@@ -319,6 +325,7 @@ export default function MainLayout() {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }

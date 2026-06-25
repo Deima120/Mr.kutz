@@ -9,6 +9,23 @@ import {
 } from '../middlewares/loginThrottle.js';
 
 /**
+ * POST /api/auth/check-email
+ * Comprueba si un correo ya está registrado (registro en tiempo real)
+ */
+export const checkEmail = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await authService.checkEmailAvailability(email);
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/auth/register
  * Registra nuevo usuario (client por defecto)
  */

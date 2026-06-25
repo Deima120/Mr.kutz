@@ -55,6 +55,22 @@ function canRequestPasswordReset(user) {
   return true;
 }
 
+export const checkEmailAvailability = async (email) => {
+  const emailNorm = canonicalEmail(email);
+  if (!emailNorm) {
+    const error = new Error('Indica un correo electrónico válido.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: emailNorm },
+    select: { id: true },
+  });
+
+  return { available: !existingUser };
+};
+
 export const register = async (userData) => {
   const {
     email,
@@ -255,8 +271,14 @@ export const forgotPassword = async (email) => {
       '[forgotPassword] No se pudo enviar el correo de recuperación:',
       reason,
       delivery?.smtpError ? `| ${delivery.smtpError}` : '',
-      delivery?.resendError ? `| ${delivery.resendError}` : ''
+      delivery?.resendError ? `| ${delivery.resendError}` : '',
+      delivery?.brevoError ? `| ${delivery.brevoError}` : ''
     );
+    if (reason === 'brevo_ip_blocked') {
+      console.error(
+        '[forgotPassword] Brevo: desactiva IPs autorizadas en https://app.brevo.com/security/authorised_ips (Render cambia de IP).'
+      );
+    }
     if (reason === 'resend_sandbox') {
       console.error(
         '[forgotPassword] Resend sandbox: configura BREVO_API_KEY o verifica dominio en Resend (ver backend/.env.example).'

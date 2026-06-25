@@ -1,6 +1,7 @@
 /**
  * Rutas de autenticación
  * POST /api/auth/register
+ * POST /api/auth/check-email
  * POST /api/auth/login
  * GET  /api/auth/me (protegida)
  */
@@ -45,7 +46,10 @@ const registerValidation = [
     .trim()
     .notEmpty()
     .withMessage('El número de documento es obligatorio.')
-    .isLength({ max: 80 }),
+    .matches(/^\d+$/)
+    .withMessage('El número de documento solo puede contener dígitos.')
+    .isLength({ min: 5, max: 20 })
+    .withMessage('El número de documento debe tener entre 5 y 20 dígitos.'),
   body('role')
     .optional({ checkFalsy: true })
     .isIn(['client'])
@@ -94,6 +98,17 @@ const resetVerifyThrottle = publicThrottle({
   windowMs: 15 * 60 * 1000,
 });
 
+const checkEmailThrottle = publicThrottle({
+  scope: 'check-email',
+  max: 30,
+  windowMs: 15 * 60 * 1000,
+});
+
+const checkEmailValidation = [
+  body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+];
+
+router.post('/check-email', checkEmailThrottle, checkEmailValidation, validate, authController.checkEmail);
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);

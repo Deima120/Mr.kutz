@@ -256,6 +256,12 @@ async function sendViaBrevoApi({ to, subject, text, html, businessName }) {
       // ignore JSON parse errors
     }
     console.error('[mailer] Brevo API:', response.status, detail);
+    if (/unrecognised ip|unrecognized ip|authorised_ips|authorized_ips/i.test(String(detail))) {
+      console.error(
+        '[mailer] Brevo bloqueó la IP de Render. Desactiva "IPs autorizadas" en https://app.brevo.com/security/authorised_ips (recomendado en la nube) o añade la IP del log.'
+      );
+      return { sent: false, reason: 'brevo_ip_blocked', brevoError: detail };
+    }
     return { sent: false, reason: 'send_failed', brevoError: detail };
   } catch (err) {
     console.error('[mailer] Brevo API (excepción):', err?.message || err);
