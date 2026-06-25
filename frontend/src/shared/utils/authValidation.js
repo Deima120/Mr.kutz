@@ -5,6 +5,8 @@
 const EMAIL_RE =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
+export const CLIENT_DOCUMENT_MIN_DIGITS = 10;
+
 export function sanitizeDocumentNumber(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
@@ -65,18 +67,35 @@ export function validateConfirmPassword(password, confirmPassword) {
   return { valid: true, message: 'Las contraseñas coinciden.' };
 }
 
-export function validateDocumentNumber(value) {
+export function validateRequiredField(value, label = 'Este campo') {
+  if (!String(value ?? '').trim()) {
+    return { valid: false, message: `${label} es obligatorio.` };
+  }
+  return { valid: true, message: '' };
+}
+
+export function validateDocumentType(value) {
+  return validateRequiredField(value, 'El tipo de documento');
+}
+
+export function validateDocumentNumber(value, minDigits = CLIENT_DOCUMENT_MIN_DIGITS) {
   const num = sanitizeDocumentNumber(value);
   if (!num) {
     return { valid: false, message: 'El número de documento es obligatorio.' };
   }
-  if (num.length < 5) {
-    return { valid: false, message: 'Mínimo 5 dígitos.' };
+  if (num.length < minDigits) {
+    return { valid: false, message: `Mínimo ${minDigits} dígitos.` };
   }
   if (!/^\d+$/.test(num)) {
     return { valid: false, message: 'Solo se permiten números.' };
   }
   return { valid: true, message: '' };
+}
+
+export function getDocumentNumberHint(value, minDigits = CLIENT_DOCUMENT_MIN_DIGITS) {
+  const result = validateDocumentNumber(value, minDigits);
+  if (result.valid) return '';
+  return result.message;
 }
 
 export function isRegisterFormValid(formData) {

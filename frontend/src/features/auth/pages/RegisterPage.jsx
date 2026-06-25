@@ -4,9 +4,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, Eye, EyeOff, X } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { checkEmailAvailability } from '@/features/auth/services/authService';
+import {
+  FieldHint,
+  EmailAvailabilityHint,
+  inputStateClass,
+  emailBorderClass,
+} from '@/shared/components/FormValidationFields';
 import {
   getPasswordChecks,
   isPasswordStrong,
@@ -16,29 +22,12 @@ import {
   validateConfirmPassword,
   validateDocumentNumber,
   validateEmail,
+  getDocumentNumberHint,
 } from '@/shared/utils/authValidation';
 
 const inputClass =
   'w-full px-3 py-2.5 text-sm border rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none scroll-mt-28';
 const labelClass = 'block text-xs font-semibold text-stone-700 mb-1';
-
-function inputStateClass(valid, touched) {
-  if (!touched) return 'border-stone-300';
-  return valid ? 'border-emerald-500' : 'border-red-400';
-}
-
-function FieldHint({ valid, touched, message, successMessage }) {
-  if (!touched || !message) return null;
-  return (
-    <p
-      className={`mt-1.5 text-xs flex items-center gap-1 ${valid ? 'text-emerald-700' : 'text-red-600'}`}
-      role="status"
-    >
-      {valid ? <Check className="w-3.5 h-3.5 shrink-0" aria-hidden /> : <X className="w-3.5 h-3.5 shrink-0" aria-hidden />}
-      {valid && successMessage ? successMessage : message}
-    </p>
-  );
-}
 
 function PasswordChecklist({ password, touched }) {
   if (!touched || !password) return null;
@@ -61,53 +50,6 @@ function PasswordChecklist({ password, touched }) {
       ))}
     </ul>
   );
-}
-
-function EmailAvailabilityHint({ formatValid, availability, show }) {
-  if (!show) return null;
-
-  if (!formatValid) return null;
-
-  if (availability === 'checking') {
-    return (
-      <p className="mt-1.5 text-xs text-stone-500" role="status" aria-live="polite">
-        Comprobando disponibilidad del correo…
-      </p>
-    );
-  }
-
-  if (availability === 'taken') {
-    return (
-      <FieldHint
-        valid={false}
-        touched
-        message="Este correo electrónico ya está registrado."
-      />
-    );
-  }
-
-  if (availability === 'available') {
-    return <FieldHint valid touched message="" successMessage="Correo disponible." />;
-  }
-
-  if (availability === 'error') {
-    return (
-      <FieldHint
-        valid={false}
-        touched
-        message="No se pudo comprobar el correo. Intenta de nuevo."
-      />
-    );
-  }
-
-  return null;
-}
-
-function emailBorderClass(formatValid, availability, show) {
-  if (!show) return 'border-stone-300';
-  if (!formatValid || availability === 'taken') return 'border-red-400';
-  if (availability === 'available') return 'border-emerald-500';
-  return 'border-stone-300';
 }
 
 export default function RegisterPage() {
@@ -399,13 +341,7 @@ export default function RegisterPage() {
                   <FieldHint
                     valid={documentValidation.valid}
                     touched={touched.documentNumber || formData.documentNumber.length > 0}
-                    message={
-                      !formData.documentNumber
-                        ? 'El número de documento es obligatorio.'
-                        : formData.documentNumber.length < 10
-                          ? 'Mínimo 10 dígitos.'
-                          : documentValidation.message
-                    }
+                    message={getDocumentNumberHint(formData.documentNumber)}
                   />
                 </div>
               </div>

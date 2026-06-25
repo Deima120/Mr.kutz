@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as barberService from '@/features/barbers/services/barberService';
+import { sanitizeDocumentNumber, sanitizePhone } from '@/shared/utils/authValidation';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -66,9 +67,12 @@ export function BarberForm({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let next = type === 'checkbox' ? checked : value;
+    if (name === 'documentNumber') next = sanitizeDocumentNumber(value);
+    else if (name === 'phone') next = sanitizePhone(value);
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: next,
     }));
     setError('');
   };
@@ -208,11 +212,14 @@ export function BarberForm({
               <label className={ADMIN_FORM_LABEL_CLASS}>Número de documento *</label>
               <input
                 name="documentNumber"
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
                 value={formData.documentNumber}
                 onChange={handleChange}
                 className={ADMIN_FORM_FIELD_COMPACT}
-                placeholder="Sin puntos ni espacios, si aplica"
-                maxLength={80}
+                placeholder="Solo números"
+                maxLength={20}
                 required
                 autoComplete="off"
               />
@@ -276,9 +283,12 @@ export function BarberForm({
               <input
                 name="phone"
                 type="tel"
+                inputMode="numeric"
                 value={formData.phone}
                 onChange={handleChange}
                 className={ADMIN_FORM_FIELD_COMPACT}
+                placeholder="Solo números"
+                maxLength={15}
               />
             </div>
             <div className="group sm:col-span-2">

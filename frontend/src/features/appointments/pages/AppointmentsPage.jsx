@@ -678,23 +678,21 @@ export default function AppointmentsPage() {
                   className="input-premium py-1.5 text-sm"
                 />
               </label>
-              {isAdmin && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-[11px] font-medium text-stone-500">Barbero</span>
-                  <select
-                    value={filterBarber}
-                    onChange={(e) => setFilterBarber(e.target.value)}
-                    className="input-premium py-1.5 text-sm min-w-[10rem]"
-                  >
-                    <option value="">Todos</option>
-                    {barbers.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.first_name} {b.last_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium text-stone-500">Barbero</span>
+                <select
+                  value={filterBarber}
+                  onChange={(e) => setFilterBarber(e.target.value)}
+                  className="input-premium py-1.5 text-sm min-w-[10rem]"
+                >
+                  <option value="">Todos</option>
+                  {barbers.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.first_name} {b.last_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           ) : null
         }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
@@ -13,6 +13,8 @@ import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
+const SEARCH_DEBOUNCE_MS = 350;
+
 export default function ClientsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -21,6 +23,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -64,12 +67,12 @@ export default function ClientsPage() {
     }
   }, [location.pathname, navigate]);
 
-  const fetchClients = async (targetPage = page) => {
+  const fetchClients = useCallback(async (targetPage) => {
     setLoading(true);
     setError('');
     try {
       const data = await clientService.getClients({
-        search: search.trim() || undefined,
+        search: debouncedSearch || undefined,
         limit: pageSize,
         offset: (targetPage - 1) * pageSize,
       });
@@ -80,26 +83,22 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, pageSize]);
 
-  // Cargar clientes al cambiar la página o el tamaño de página
   useEffect(() => {
-    fetchClients();
-  }, [page, pageSize]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  // Restablecer la página a 1 si cambian los parámetros principales
   useEffect(() => {
     setPage(1);
-  }, [pageSize]);
+  }, [debouncedSearch, pageSize]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (page !== 1) {
-      setPage(1);
-    } else {
-      fetchClients(1);
-    }
-  };
+  useEffect(() => {
+    fetchClients(page);
+  }, [fetchClients, page]);
 
   // Activar modal de eliminación
   const handleDelete = (id, name) => {
@@ -171,24 +170,18 @@ export default function ClientsPage() {
 
         <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
           <div className="p-6 border-b border-stone-100">
-            <form onSubmit={handleSearch} className="flex gap-3 max-w-3xl">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, documento o correo..."
-                  className="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm shadow-sm transition-all duration-200"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-6 py-3 bg-stone-900 text-gold hover:text-gold-light border border-stone-850 hover:border-gold/40 font-semibold rounded-xl shadow-sm transition-all duration-200 transform active:scale-95 text-sm shrink-0"
-              >
-                Buscar
-              </button>
-            </form>
+            <div className="relative max-w-3xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, documento o correo..."
+                className="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-xl text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm shadow-sm transition-all duration-200"
+                autoComplete="off"
+                aria-label="Buscar clientes"
+              />
+            </div>
           </div>
 
           <div className="p-6">
@@ -307,21 +300,18 @@ export default function ClientsPage() {
         <>
           <PageHeader
             filters={
-              <form onSubmit={handleSearch} className="flex gap-2 min-w-0 flex-1 max-w-xl">
-                <div className="relative min-w-0 flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar por nombre, documento o correo..."
-                    className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm"
-                  />
-                </div>
-                <button type="submit" className="btn-admin shrink-0 px-4 text-sm">
-                  Buscar
-                </button>
-              </form>
+              <div className="relative min-w-0 flex-1 max-w-xl">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nombre, documento o correo..."
+                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none text-sm"
+                  autoComplete="off"
+                  aria-label="Buscar clientes"
+                />
+              </div>
             }
             actions={
               isAdmin ? (

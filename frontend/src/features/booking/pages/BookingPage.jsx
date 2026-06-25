@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as bookingService from '@/features/booking/services/publicBookingService';
+import { sanitizePhone } from '@/shared/utils/authValidation';
 import { getLocalDateToday } from '@/shared/utils/appointmentTime';
 
 function formatPrice(v) {
@@ -111,7 +112,9 @@ export default function BookingPage() {
   );
 
   const onChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const next = name === 'phone' ? sanitizePhone(value) : value;
+    setForm((prev) => ({ ...prev, [name]: next }));
     setError('');
   };
 
@@ -383,10 +386,12 @@ export default function BookingPage() {
                   id="phone"
                   name="phone"
                   type="tel"
+                  inputMode="numeric"
                   value={form.phone}
                   onChange={onChange}
                   className="input-premium"
-                  placeholder="Opcional"
+                  placeholder="Solo números"
+                  maxLength={15}
                 />
               </div>
             </div>

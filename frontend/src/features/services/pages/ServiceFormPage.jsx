@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as serviceService from '@/features/services/services/serviceService';
+import ServiceStatusToggle from '@/features/services/components/ServiceStatusToggle';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -109,8 +110,8 @@ export function ServiceForm({
         description: formData.description || undefined,
         price: parseFloat(formData.price),
         durationMinutes: parseInt(formData.durationMinutes, 10),
+        isActive: formData.isActive,
       };
-      if (isEdit) payload.isActive = formData.isActive;
 
       if (isEdit) {
         await serviceService.updateService(editId, payload);
@@ -150,11 +151,15 @@ export function ServiceForm({
         subtitle: formData.name || 'Completa los datos',
         bullets: [],
         statusLabel: 'Estado',
-        statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+        statusValue: formData.isActive ? 'Activo' : 'Inactivo',
         children: (
           <AdminFormPreviewPanel>
             <AdminFormPreviewField label="Nombre" value={formData.name} />
             <AdminFormPreviewField label="Categoría" value={formData.categoryName} />
+            <AdminFormPreviewField
+              label="Estado"
+              value={formData.isActive ? 'Activo (visible al agendar)' : 'Inactivo (oculto al agendar)'}
+            />
             <AdminFormPreviewField
               label="Precio"
               value={formData.price ? `$${parseFloat(formData.price).toFixed(2)}` : ''}
@@ -258,18 +263,22 @@ export function ServiceForm({
             </div>
           </div>
 
-          {isEdit && (
-            <label className="flex items-center gap-2 cursor-pointer shrink-0">
-              <input
-                name="isActive"
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={handleChange}
-                className="rounded border-stone-300 text-gold focus:ring-gold/40"
-              />
-              <span className="text-sm text-stone-700">Activo (visible al agendar)</span>
-            </label>
-          )}
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/80 px-3.5 py-3">
+            <div>
+              <p className="text-[11px] font-bold tracking-wider text-stone-500 mb-1">Disponibilidad</p>
+              <p className="text-sm text-stone-700">
+                {formData.isActive
+                  ? 'Visible al agendar citas (web y panel)'
+                  : 'Oculto al agendar; puedes reactivarlo cuando quieras'}
+              </p>
+            </div>
+            <ServiceStatusToggle
+              active={formData.isActive}
+              onClick={() =>
+                setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))
+              }
+            />
+          </div>
 
           <AdminFormFooterActions className="mt-1">
             <AdminFormPrimaryButton disabled={loading}>

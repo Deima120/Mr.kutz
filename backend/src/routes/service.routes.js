@@ -17,6 +17,7 @@ const createValidation = [
   body('description').optional().trim(),
   body('price').isFloat({ min: 0 }).withMessage('El precio debe ser mayor o igual a 0.'),
   body('durationMinutes').isInt({ min: 1 }).withMessage('La duración debe ser de al menos 1 minuto.'),
+  body('isActive').optional().isBoolean(),
 ];
 
 const updateValidation = [

@@ -46,10 +46,17 @@ export const listPublicCategories = async () => {
   return rows.filter((r) => !isExcludedPublicCategoryName(r.name));
 };
 
-export const getAll = async ({ activeOnly = true } = {}) => {
+export const getAll = async ({ activeFilter = 'active' } = {}) => {
+  let where = {};
+  if (activeFilter === 'active') {
+    where = { isActive: true };
+  } else if (activeFilter === 'inactive') {
+    where = { isActive: false };
+  }
+
   const services = await prisma.service.findMany({
-    where: activeOnly ? { isActive: true } : {},
-    orderBy: { name: 'asc' },
+    where,
+    orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     include: { category: true },
   });
   return services.map(toServiceDto);
@@ -100,6 +107,7 @@ export const create = async (data) => {
       price: parseFloat(data.price),
       durationMinutes: parseInt(data.durationMinutes, 10),
       categoryId: category?.id ?? null,
+      isActive: data.isActive === undefined ? true : data.isActive !== false && data.isActive !== 'false',
     },
     include: { category: true },
   });
@@ -149,16 +157,21 @@ export const update = async (id, data) => {
     throw err;
   }
 
-  const service = await prisma.service.update({
-    where: { id: serviceId },
-    data: {
+  const patch = {
       name: name != null ? name : undefined,
       description: data.description,
       price: data.price != null ? parseFloat(data.price) : undefined,
       durationMinutes: data.durationMinutes != null ? parseInt(data.durationMinutes, 10) : undefined,
-      isActive: data.isActive,
       categoryId: categoryName != null ? nextCategoryId : undefined,
-    },
+    };
+
+  if (data.isActive !== undefined && data.isActive !== null) {
+    patch.isActive = data.isActive !== false && data.isActive !== 'false';
+  }
+
+  const service = await prisma.service.update({
+    where: { id: serviceId },
+    data: patch,
     include: { category: true },
   });
   return toServiceDto(service);

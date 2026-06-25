@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, ArrowRight, Pencil, Trash2 } from 'lucide-react';
 import * as serviceService from '@/features/services/services/serviceService';
 import { ServiceForm } from '@/features/services/pages/ServiceFormPage';
+import ServiceStatusToggle, { isServiceActive } from '@/features/services/components/ServiceStatusToggle';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
@@ -30,10 +31,16 @@ function categoryLabel(s) {
   return raw;
 }
 
+const STATUS_FILTERS = [
+  { id: 'active', label: 'Activos' },
+  { id: 'all', label: 'Todos' },
+  { id: 'inactive', label: 'Inactivos' },
+];
+
 export default function ServicesPage() {
   const [services, setServices] = useState([]);
   const [catalogCategories, setCatalogCategories] = useState([]);
-  const [showInactive, setShowInactive] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('active');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -41,6 +48,7 @@ export default function ServicesPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [formView, setFormView] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -77,7 +85,17 @@ export default function ServicesPage() {
     ? 'Completa los datos del servicio'
     : editingId
     ? 'Modifica el servicio del catálogo'
-    : 'Activos visibles al agendar; puedes filtrar por categoría.';
+    : 'Activos visibles al agendar; gestiona el estado desde cada tarjeta o al editar.';
+
+  const activeCount = useMemo(() => services.filter((s) => isServiceActive(s)).length, [services]);
+  const inactiveCount = useMemo(() => services.filter((s) => !isServiceActive(s)).length, [services]);
+
+  const statusSummary =
+    statusFilter === 'inactive'
+      ? `${services.length} inactivo${services.length !== 1 ? 's' : ''} — no visibles al agendar`
+      : statusFilter === 'all'
+        ? `${activeCount} activo${activeCount !== 1 ? 's' : ''} · ${inactiveCount} inactivo${inactiveCount !== 1 ? 's' : ''}`
+        : `${services.length} activo${services.length !== 1 ? 's' : ''} visibles al agendar`;
 
   const inlineForm = isFormOpen ? (
     <ServiceForm
@@ -96,9 +114,13 @@ export default function ServicesPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await serviceService.getServices({
-        active: showInactive ? 'false' : undefined,
-      });
+      const params =
+        statusFilter === 'active'
+          ? {}
+          : statusFilter === 'inactive'
+            ? { active: 'inactive' }
+            : { active: 'all' };
+      const data = await serviceService.getServices(params);
       setServices(Array.isArray(data) ? data : data?.services || []);
     } catch (err) {
       setError(err?.message || 'Error al cargar servicios');
@@ -110,7 +132,7 @@ export default function ServicesPage() {
 
   useEffect(() => {
     fetchServices();
-  }, [showInactive]);
+  }, [statusFilter]);
 
   useEffect(() => {
     serviceService
@@ -121,7 +143,7 @@ export default function ServicesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [categoryFilter, showInactive, pageSize]);
+  }, [categoryFilter, statusFilter, pageSize]);
 
   const categoryNamesForFilter = useMemo(() => {
     const fromApi = catalogCategories.map((c) => c.name).filter((n) => n && !isHiddenCategoryName(n));
@@ -154,10 +176,30 @@ export default function ServicesPage() {
   const countInCategory = (name) =>
     services.filter((s) => categoryLabel(s) === name).length;
 
+  const handleToggleActive = async (service) => {
+    const next = !isServiceActive(service);
+    setTogglingId(service.id);
+    setError('');
+    try {
+      await serviceService.updateService(service.id, { isActive: next });
+      setSuccessMessage(next ? `"${service.name}" activado.` : `"${service.name}" desactivado.`);
+      await fetchServices();
+    } catch (err) {
+      setError(err?.message || 'Error al actualizar el estado');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const chipBase =
     'inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all border';
   const chipInactive = `${chipBase} border-stone-200 bg-white text-stone-700 hover:border-gold/45 hover:text-barber-dark`;
   const chipActive = `${chipBase} border-barber-dark bg-barber-dark text-white shadow-md`;
+
+  const statusChipBase =
+    'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold transition-all border';
+  const statusChipIdle = `${statusChipBase} border-stone-200 bg-white text-stone-700 hover:border-gold/45`;
+  const statusChipOn = `${statusChipBase} border-barber-dark bg-barber-dark text-white shadow-sm`;
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`¿Eliminar servicio "${name}"?`)) return;
@@ -177,15 +219,23 @@ export default function ServicesPage() {
         actions={
           !isFormOpen ? (
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs sm:text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-lg px-2.5 py-1.5">
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={(e) => setShowInactive(e.target.checked)}
-                className="rounded border-stone-300 text-gold focus:ring-gold/40"
-              />
-              Inactivos
-            </label>
+            <div
+              className="inline-flex rounded-xl border border-stone-200 bg-white p-0.5"
+              role="group"
+              aria-label="Filtrar por estado"
+            >
+              {STATUS_FILTERS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  aria-pressed={statusFilter === opt.id}
+                  onClick={() => setStatusFilter(opt.id)}
+                  className={statusFilter === opt.id ? statusChipOn : statusChipIdle}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={() => setFormView('create')}
@@ -214,7 +264,14 @@ export default function ServicesPage() {
       ) : !isFormOpen && services.length === 0 ? (
         <DataCard>
           <div className="py-10 text-center">
-            <p className="text-stone-500 text-sm mb-3">No hay servicios registrados.</p>
+            <p className="text-stone-500 text-sm mb-3">
+              {statusFilter === 'inactive'
+                ? 'No hay servicios inactivos.'
+                : statusFilter === 'all'
+                  ? 'No hay servicios registrados.'
+                  : 'No hay servicios activos.'}
+            </p>
+            {statusFilter !== 'inactive' && (
             <button
               type="button"
               onClick={() => setFormView('create')}
@@ -224,13 +281,16 @@ export default function ServicesPage() {
               Crear primero
               <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
             </button>
+            )}
           </div>
         </DataCard>
       ) : !isFormOpen ? (
         <>
           <DataCard className="max-w-full min-w-0">
             <div className="w-full min-w-0 max-w-full flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-              <div className="min-w-0 flex-1 max-w-full">
+              <div className="min-w-0 flex-1 max-w-full space-y-3">
+                <p className="text-xs text-stone-500">{statusSummary}</p>
+                <div>
                 <span className="text-[11px] font-bold tracking-wider text-stone-500 block mb-2">Categorías</span>
                 <div className="flex flex-wrap gap-2 min-w-0 max-w-full" role="group" aria-label="Filtrar por categoría">
                   <button
@@ -255,6 +315,7 @@ export default function ServicesPage() {
                       </button>
                     );
                   })}
+                </div>
                 </div>
               </div>
 
@@ -314,11 +375,13 @@ export default function ServicesPage() {
           ) : (
             <>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0 max-w-full">
-                {paginatedServices.map((s) => (
+                {paginatedServices.map((s) => {
+                  const active = isServiceActive(s);
+                  return (
                   <article
                     key={s.id}
-                    className={`rounded-xl border border-stone-200/90 bg-white p-4 shadow-card min-w-0 ${
-                      !s.is_active ? 'opacity-70' : ''
+                    className={`rounded-xl border bg-white p-4 shadow-card min-w-0 ${
+                      active ? 'border-stone-200/90' : 'border-stone-200/90 opacity-80'
                     }`}
                   >
                     <div className="flex justify-between items-start gap-3 min-w-0">
@@ -327,11 +390,11 @@ export default function ServicesPage() {
                           <span className="inline-flex max-w-full truncate px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gold/12 text-gold-dark border border-gold/25">
                             {categoryLabel(s)}
                           </span>
-                          {!s.is_active && (
-                            <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-stone-100 text-stone-600 border border-stone-200">
-                              Inactivo
-                            </span>
-                          )}
+                          <ServiceStatusToggle
+                            active={active}
+                            disabled={togglingId === s.id}
+                            onClick={() => handleToggleActive(s)}
+                          />
                         </div>
                         <h3 className="font-serif text-base font-medium text-stone-900 truncate" title={s.name}>
                           {s.name}
@@ -358,7 +421,8 @@ export default function ServicesPage() {
                       </div>
                     </div>
                   </article>
-                ))}
+                );
+                })}
               </div>
             </>
           )}

@@ -753,14 +753,14 @@ export default function AppointmentForm({
                 </div>
               )}
 
-              <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {clientSelect}
-                {barberSelect}
-                {dateInput}
-                {timeSelect}
-              </div>
+              {clientSelect}
 
-              <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-1">{servicesField}</div>
+              <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-1">
+                {barberSelect}
+                {servicesField}
+                {timeSelect}
+                {dateInput}
+              </div>
 
               <div className="group">
                 <label className={labelClass}>Notas</label>

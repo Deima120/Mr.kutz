@@ -13,10 +13,17 @@ export const listPublicCategories = async (req, res, next) => {
   }
 };
 
+function parseActiveFilter(queryActive) {
+  const value = String(queryActive ?? '').trim().toLowerCase();
+  if (value === 'false' || value === 'all') return 'all';
+  if (value === 'inactive') return 'inactive';
+  return 'active';
+}
+
 export const getAll = async (req, res, next) => {
   try {
-    const activeOnly = req.query.active === undefined || req.query.active !== 'false';
-    const services = await serviceService.getAll({ activeOnly });
+    const activeFilter = parseActiveFilter(req.query.active);
+    const services = await serviceService.getAll({ activeFilter });
     res.json({ success: true, data: services });
   } catch (error) {
     next(error);
