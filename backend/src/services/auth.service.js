@@ -250,11 +250,18 @@ export const forgotPassword = async (email) => {
   });
 
   if (!delivery?.sent) {
+    const reason = delivery?.reason || 'unknown';
     console.error(
       '[forgotPassword] No se pudo enviar el correo de recuperación:',
-      delivery?.reason || 'unknown',
-      delivery?.smtpError ? `| ${delivery.smtpError}` : ''
+      reason,
+      delivery?.smtpError ? `| ${delivery.smtpError}` : '',
+      delivery?.resendError ? `| ${delivery.resendError}` : ''
     );
+    if (reason === 'resend_sandbox') {
+      console.error(
+        '[forgotPassword] Resend sandbox: configura Brevo SMTP o verifica dominio en Resend (ver backend/.env.example).'
+      );
+    }
   }
 
   return {

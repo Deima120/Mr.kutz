@@ -11,6 +11,7 @@ import prisma from './lib/prisma.js';
 
 import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { getMailConfigDiagnostics } from './lib/mailer.js';
 import routes from './routes/index.js';
 
 if (process.env.NODE_ENV === 'production') {
@@ -110,6 +111,17 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 const startServer = async () => {
   try {
     await connectDatabase();
+
+    if (process.env.NODE_ENV === 'production') {
+      const mailDiag = getMailConfigDiagnostics();
+      if (mailDiag.warnings.length > 0) {
+        console.warn('[mailer] Revisa configuración de correo en producción:');
+        mailDiag.warnings.forEach((w) => console.warn(`  ⚠ ${w}`));
+      } else if (mailDiag.productionReady) {
+        console.log('✅ Correo transaccional listo para producción');
+      }
+    }
+
     app.listen(PORT, () => {
       console.log(`🚀 Servidor en http://localhost:${PORT}`);
       console.log(`📋 API: http://localhost:${PORT}/api`);

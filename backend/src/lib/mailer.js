@@ -1,13 +1,18 @@
 /**
  * Envío de correos transaccionales (Mr. Kutz).
  *
- * Estrategia de entrega:
- * - SMTP (Gmail, Brevo, etc.): prioridad cuando está configurado; entrega a cualquier correo.
- * - Resend: respaldo si SMTP falla o no está configurado.
+ * Producción (Render, Railway, etc.):
+ * - Gmail SMTP suele fallar (timeout) desde servidores en la nube.
+ * - Resend con onboarding@resend.dev solo envía al correo de la cuenta Resend (sandbox).
+ * - Recomendado: Brevo SMTP (smtp-relay.brevo.com) o Resend con dominio verificado.
+ *
+ * Desarrollo local: Gmail SMTP funciona bien.
  */
 
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export function isResendConfigured() {
   return Boolean(process.env.RESEND_API_KEY?.trim());
@@ -23,6 +28,23 @@ export function isSmtpConfigured() {
 
 export function isMailDeliveryConfigured() {
   return isResendConfigured() || isSmtpConfigured();
+}
+
+function isGmailSmtpHost() {
+  const host = String(process.env.SMTP_HOST || '').toLowerCase();
+  return host.includes('gmail') || host.includes('googlemail');
+}
+
+function isBrevoSmtpHost() {
+  return String(process.env.SMTP_HOST || '').toLowerCase().includes('brevo');
+}
+
+function parseResendError(result) {
+  const msg = String(result?.error?.message || result?.error || '');
+  if (/only send testing emails to your own email/i.test(msg)) {
+    return { reason: 'resend_sandbox', detail: msg };
+  }
+  return { reason: 'send_failed', detail: msg };
 }
 
 function escapeHtml(s) {
@@ -69,7 +91,52 @@ function resolveResendFrom(businessName) {
   return fallback;
 }
 
-const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS || 12_000);
+export function isResendSandboxFrom(businessName = 'Mr. Kutz') {
+  return resolveResendFrom(businessName).toLowerCase().includes('onboarding@resend.dev');
+}
+
+export function isResendProductionReady(businessName = 'Mr. Kutz') {
+  return isResendConfigured() && !isResendSandboxFrom(businessName);
+}
+
+/**
+ * Diagnóstico al arrancar en producción (se loguea desde index.js).
+ */
+export function getMailConfigDiagnostics(businessName = 'Mr. Kutz') {
+  const smtp = isSmtpConfigured();
+  const resend = isResendConfigured();
+  const sandbox = resend && isResendSandboxFrom(businessName);
+  const gmailSmtp = smtp && isGmailSmtpHost();
+  const brevo = smtp && isBrevoSmtpHost();
+  const productionReady =
+    isResendProductionReady(businessName) || (smtp && !gmailSmtp) || (smtp && brevo);
+
+  const warnings = [];
+  if (!smtp && !resend) {
+    warnings.push('No hay SMTP ni Resend configurado.');
+  }
+  if (IS_PRODUCTION && gmailSmtp && !brevo) {
+    warnings.push(
+      'SMTP Gmail en producción suele fallar en Render (timeout). Usa Brevo (smtp-relay.brevo.com) o Resend con dominio verificado.'
+    );
+  }
+  if (sandbox) {
+    warnings.push(
+      'Resend en modo sandbox (onboarding@resend.dev): solo llega al correo de tu cuenta Resend. Verifica un dominio en resend.com/domains.'
+    );
+  }
+  if (IS_PRODUCTION && !productionReady) {
+    warnings.push(
+      'La configuración actual NO puede enviar correos a usuarios registrados en producción.'
+    );
+  }
+
+  return { smtp, resend, sandbox, gmailSmtp, brevo, productionReady, warnings };
+}
+
+const SMTP_TIMEOUT_MS = Number(
+  process.env.SMTP_TIMEOUT_MS || (IS_PRODUCTION ? 8_000 : 12_000)
+);
 
 let cachedTransporter = null;
 
@@ -106,8 +173,9 @@ async function sendViaResend({ to, subject, text, html, businessName }) {
       html,
     });
     if (result.error) {
-      console.error('[mailer] Resend:', result.error.message || result.error);
-      return { sent: false, reason: 'send_failed' };
+      const parsed = parseResendError(result);
+      console.error('[mailer] Resend:', parsed.detail || result.error);
+      return { sent: false, reason: parsed.reason, resendError: parsed.detail };
     }
     return { sent: true };
   } catch (err) {
@@ -138,34 +206,71 @@ async function sendViaSmtp({ to, subject, text, html, businessName }) {
 }
 
 /**
+ * Orden de proveedores según entorno y configuración.
+ * MAIL_PROVIDER=resend|smtp fuerza un solo canal.
+ */
+function buildDeliveryOrder(businessName) {
+  const forced = String(process.env.MAIL_PROVIDER || '').trim().toLowerCase();
+  if (forced === 'resend') return isResendConfigured() ? ['resend'] : [];
+  if (forced === 'smtp') return isSmtpConfigured() ? ['smtp'] : [];
+
+  const order = [];
+  const smtpOk = isSmtpConfigured();
+  const resendReady = isResendProductionReady(businessName);
+  const resendOk = isResendConfigured();
+  const allowGmailInProd = process.env.MAIL_ALLOW_GMAIL_SMTP === 'true';
+
+  if (IS_PRODUCTION) {
+    if (resendReady) order.push('resend');
+    if (smtpOk && (!isGmailSmtpHost() || allowGmailInProd || isBrevoSmtpHost())) {
+      order.push('smtp');
+    }
+    if (resendOk && !order.includes('resend')) order.push('resend');
+  } else {
+    if (smtpOk) order.push('smtp');
+    if (resendOk) order.push('resend');
+  }
+
+  return order;
+}
+
+/**
  * Helper genérico: elige SMTP o Resend según configuración.
  */
 async function sendMail({ to, subject, text, html, businessName = 'Mr. Kutz' }) {
   if (!to) return { sent: false, reason: 'no_recipient' };
 
-  const smtpOk = isSmtpConfigured();
-  const resendOk = isResendConfigured();
-
-  if (!smtpOk && !resendOk) {
+  if (!isMailDeliveryConfigured()) {
     console.warn('[mailer] No hay configuración de correo (SMTP ni Resend).');
     return { sent: false, reason: 'not_configured' };
   }
 
   const payload = { to, subject, text, html, businessName };
+  const order = buildDeliveryOrder(businessName);
 
-  // SMTP primero cuando está configurado (Gmail, etc.): entrega a cualquier correo registrado.
-  if (smtpOk) {
-    const smtp = await sendViaSmtp(payload);
-    if (smtp.sent) return smtp;
-    if (resendOk) return sendViaResend(payload);
-    return smtp;
+  if (order.length === 0) {
+    console.error('[mailer] MAIL_PROVIDER inválido o proveedor no configurado.');
+    return { sent: false, reason: 'not_configured' };
   }
 
-  if (resendOk) {
-    return sendViaResend(payload);
+  let lastResult = { sent: false, reason: 'send_failed' };
+
+  for (const channel of order) {
+    const result =
+      channel === 'resend' ? await sendViaResend(payload) : await sendViaSmtp(payload);
+    if (result.sent) return result;
+    lastResult = result;
+
+    if (result.reason === 'resend_sandbox') {
+      console.error(
+        '[mailer] Resend sandbox: no se puede enviar a',
+        to,
+        '— verifica un dominio en resend.com/domains o usa Brevo SMTP.'
+      );
+    }
   }
 
-  return { sent: false, reason: 'not_configured' };
+  return lastResult;
 }
 
 // -------------------- Plantillas --------------------
