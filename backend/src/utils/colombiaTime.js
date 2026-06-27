@@ -71,3 +71,16 @@ export function getColombiaTodayYmd(date = new Date()) {
   const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
+
+/** Suma días a YYYY-MM-DD (calendario UTC, suficiente para ventanas de citas). */
+export function addDaysToYmd(ymd, deltaDays) {
+  const [y, m, d] = String(ymd).split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** Convierte YYYY-MM-DD a Date UTC medianoche (como appointmentDate en Prisma). */
+export function ymdToUtcDate(ymd) {
+  const [y, m, d] = String(ymd).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}

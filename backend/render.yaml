@@ -36,3 +36,22 @@ services:
         sync: false
       - key: RESEND_FROM
         sync: false
+      # Cron estados de citas (Render Cron Job + opcional ping HTTP)
+      - key: CRON_SECRET
+        sync: false
+      - key: APPOINTMENT_STATUS_CRON_MS
+        value: "60000"
+
+  - type: cron
+    name: mrkutz-appointment-status
+    runtime: node
+    plan: free
+    schedule: "*/5 * * * *"
+    rootDir: .
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm run cron:appointment-status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false

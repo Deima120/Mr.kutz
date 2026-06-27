@@ -13,6 +13,10 @@ import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { getMailConfigDiagnostics } from './lib/mailer.js';
 import routes from './routes/index.js';
+import {
+  startAppointmentStatusCron,
+  stopAppointmentStatusCron,
+} from './jobs/appointmentStatusJob.js';
 
 if (process.env.NODE_ENV === 'production') {
   const secret = String(process.env.JWT_SECRET || '').trim();
@@ -101,6 +105,7 @@ app.use(errorHandler);
 // ========== GRACEFUL SHUTDOWN ==========
 const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} recibida. Cerrando servidor...`);
+  stopAppointmentStatusCron();
   await prisma.$disconnect();
   process.exit(0);
 };
@@ -125,6 +130,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Servidor en http://localhost:${PORT}`);
       console.log(`📋 API: http://localhost:${PORT}/api`);
+      startAppointmentStatusCron();
     });
   } catch (error) {
     console.error('❌ No se pudo iniciar el servidor:', error?.message || error);

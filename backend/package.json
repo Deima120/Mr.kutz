@@ -16,7 +16,8 @@
     "db:seed": "prisma db seed",
     "create-admin": "node scripts/create-admin.mjs",
     "remove-demo-users": "node scripts/remove-demo-users.mjs",
-    "mail:test": "node scripts/probar-correo.mjs"
+    "mail:test": "node scripts/probar-correo.mjs",
+    "cron:appointment-status": "node src/jobs/runAppointmentStatusSync.js"
   },
   "engines": {
     "node": ">=18.0.0"

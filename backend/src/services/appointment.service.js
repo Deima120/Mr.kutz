@@ -8,9 +8,17 @@ import {
   notifyAppointmentCompleted,
 } from './appointmentNotifications.js';
 import {
+  addDaysToYmd,
+  getColombiaTodayYmd,
+  ymdToUtcDate,
+} from '../utils/colombiaTime.js';
+import {
   isManualAdminStatus,
   resolveAutomaticStatus,
 } from './appointmentStatusAutomation.js';
+
+/** Días hacia atrás que revisa el job de estados (citas confirmadas sin actualizar). */
+export const STATUS_SYNC_LOOKBACK_DAYS = 30;
 
 /** Granularidad de huecos al calcular horarios (permite servicios de 5, 10 min, etc.). */
 const SLOT_GRID_MINUTES = 5;
@@ -72,22 +80,59 @@ function toTimeStr(d) {
   throw new Error(`Valor de tiempo no reconocido: "${s}"`);
 }
 
+async function persistAutomaticStatusChange(rec, next) {
+  const result = await prisma.appointment.updateMany({
+    where: { id: rec.id, status: rec.status },
+    data: { status: next },
+  });
+  if (result.count === 0) return false;
+  rec.status = next;
+  return true;
+}
+
 async function applyAutomaticStatusUpdates(records) {
-  if (!records?.length) return;
+  if (!records?.length) return { updated: 0 };
   const now = new Date();
+  let updated = 0;
   for (const rec of records) {
     const next = resolveAutomaticStatus(rec, now);
     if (next === rec.status) continue;
-    await prisma.appointment.update({
-      where: { id: rec.id },
-      data: { status: next },
-    });
-    rec.status = next;
+    const changed = await persistAutomaticStatusChange(rec, next);
+    if (!changed) continue;
+    updated += 1;
     if (next === 'completed') {
       const full = await getById(rec.id);
       if (full) notifyAppointmentCompleted(full);
     }
   }
+  return { updated };
+}
+
+/**
+ * Sincroniza estados automáticos de citas en BD sin depender de que alguien abra el panel.
+ * Revisa confirmadas / en progreso de los últimos STATUS_SYNC_LOOKBACK_DAYS hasta hoy (Colombia).
+ */
+export async function syncAutomaticAppointmentStatuses() {
+  const todayYmd = getColombiaTodayYmd();
+  const lookbackYmd = addDaysToYmd(todayYmd, -STATUS_SYNC_LOOKBACK_DAYS);
+  const candidates = await prisma.appointment.findMany({
+    where: {
+      status: { in: ['confirmed', 'in_progress'] },
+      appointmentDate: {
+        gte: ymdToUtcDate(lookbackYmd),
+        lte: ymdToUtcDate(todayYmd),
+      },
+    },
+    select: {
+      id: true,
+      status: true,
+      appointmentDate: true,
+      startTime: true,
+      endTime: true,
+    },
+  });
+  const { updated } = await applyAutomaticStatusUpdates(candidates);
+  return { checked: candidates.length, updated };
 }
 
 /** Extrae etiqueta de servicios múltiples guardada en notas al crear la cita. */

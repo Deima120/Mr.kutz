@@ -18,6 +18,7 @@ import purchaseRoutes from './purchase.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import settingsRoutes from './settings.routes.js';
 import mobileRoutes from './mobile.routes.js';
+import cronRoutes from './cron.routes.js';
 
 const router = express.Router();
 
@@ -41,6 +42,7 @@ router.get('/', (req, res) => {
       dashboard: '/api/dashboard',
       settings: '/api/settings',
       mobile: '/api/mobile',
+      cron: '/api/cron (POST, requiere CRON_SECRET)',
     },
   });
 });
@@ -58,5 +60,6 @@ router.use('/purchases', purchaseRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/mobile', mobileRoutes);
+router.use('/cron', cronRoutes);
 
 export default router;
