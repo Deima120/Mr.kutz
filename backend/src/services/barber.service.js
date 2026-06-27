@@ -18,9 +18,13 @@ function normDocNumber(v) {
   return String(v).trim().slice(0, 80);
 }
 
-export const getAll = async ({ activeOnly = true, document } = {}) => {
+export const getAll = async ({ activeFilter = 'active', document } = {}) => {
   const parts = [];
-  if (activeOnly) parts.push({ isActive: true });
+  if (activeFilter === 'active') {
+    parts.push({ isActive: true });
+  } else if (activeFilter === 'inactive') {
+    parts.push({ isActive: false });
+  }
   if (document?.trim()) {
     const d = document.trim();
     parts.push({

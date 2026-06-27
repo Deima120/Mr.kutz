@@ -16,7 +16,6 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -138,18 +137,19 @@ export function BarberForm({
 
   const handleCancel = () => {
     if (embedded) onCancel?.();
-    else navigate(-1);
+    else navigate('/barbers');
   };
 
   return (
     <AdminFormShell
       backTo="/barbers"
-      backLabel="Barberos"
+      backLabel="Volver a barberos"
       onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}
       compact={embedded}
-      showBackNav={!embedded}
+      contained={embedded}
+      showBackNav
       aside={{
         kicker: 'Vista previa',
         title: isEdit ? 'Barbero en edición' : 'Nuevo barbero',
@@ -179,10 +179,12 @@ export function BarberForm({
       }}
     >
       <AdminFormCard onSubmit={handleSubmit}>
-          <AdminFormCardHeader
-            eyebrow="Integrante"
-            title={isEdit ? 'Editar barbero' : 'Nuevo barbero'}
-          />
+          {!embedded && (
+            <AdminFormCardHeader
+              eyebrow="Integrante"
+              title={isEdit ? 'Editar barbero' : 'Nuevo barbero'}
+            />
+          )}
 
           {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
@@ -322,7 +324,6 @@ export function BarberForm({
                 Guardar barbero
               </AdminFormLoadingButton>
             </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
       </AdminFormCard>
     </AdminFormShell>

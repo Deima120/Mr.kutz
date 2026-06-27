@@ -16,12 +16,10 @@ import {
   UsersRound,
   Sparkles,
   ChevronDown,
-  Home,
   LogOut,
   X,
   Menu,
   Calendar,
-  User,
   Scissors,
   UserCog,
   Star,
@@ -31,14 +29,14 @@ import {
   FileBarChart,
 } from 'lucide-react';
 
+const adminDashboardItem = {
+  path: '/dashboard',
+  label: 'Dashboard',
+  description: 'Panel general',
+  Icon: LayoutDashboard,
+};
+
 const adminNavSections = [
-  {
-    id: 'center',
-    label: 'Centro de control',
-    items: [
-      { path: '/dashboard', label: 'Dashboard', description: 'Panel general', Icon: LayoutDashboard },
-    ],
-  },
   {
     id: 'operation',
     label: 'Operacion',
@@ -68,14 +66,14 @@ const adminNavSections = [
   },
 ];
 
+const barberDashboardItem = {
+  path: '/dashboard',
+  label: 'Mi dia',
+  description: 'Resumen diario',
+  Icon: LayoutDashboard,
+};
+
 const barberNavSections = [
-  {
-    id: 'center',
-    label: 'Centro de control',
-    items: [
-      { path: '/dashboard', label: 'Mi dia', description: 'Resumen diario', Icon: LayoutDashboard },
-    ],
-  },
   {
     id: 'operation',
     label: 'Operacion',
@@ -91,6 +89,46 @@ function isActiveRoute(pathname, path) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
+function NavItem({ item, pathname, sidebarCollapsed }) {
+  const active = isActiveRoute(pathname, item.path);
+  const Icon = item.Icon;
+
+  return (
+    <Link
+      to={item.path}
+      title={sidebarCollapsed ? item.label : undefined}
+      className={`group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-300 ${
+        active
+          ? 'bg-white text-barber-dark shadow-[0_18px_44px_rgba(255,255,255,0.12)]'
+          : 'text-stone-400 hover:bg-white/[0.07] hover:text-white'
+      } ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
+    >
+      {active && (
+        <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gold" aria-hidden />
+      )}
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
+          active
+            ? 'bg-barber-dark text-gold'
+            : 'bg-white/[0.04] text-stone-400 group-hover:bg-gold/15 group-hover:text-gold'
+        }`}
+      >
+        <Icon size={20} strokeWidth={1.8} />
+      </span>
+      <span className={`min-w-0 flex-1 ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+        <span className="block truncate">{item.label}</span>
+        <span
+          className={`block truncate text-xs font-medium ${
+            active ? 'text-stone-500' : 'text-stone-600 group-hover:text-stone-400'
+          }`}
+        >
+          {item.description}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export default function AdminLayout({ children }) {
   const { user, logout } = useAuth();
   const { businessName } = useSettings();
@@ -98,18 +136,18 @@ export default function AdminLayout({ children }) {
   const location = useLocation();
   const isAdmin = user?.role === 'admin';
   const navSections = useMemo(() => (isAdmin ? adminNavSections : barberNavSections), [isAdmin]);
+  const dashboardItem = isAdmin ? adminDashboardItem : barberDashboardItem;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [openSections, setOpenSections] = useState(() => ({
-    center: true,
     operation: true,
     business: true,
     system: true,
   }));
 
-  const activeItem = navSections
-    .flatMap((section) => section.items)
-    .find((item) => isActiveRoute(location.pathname, item.path));
+  const activeItem =
+    (isActiveRoute(location.pathname, dashboardItem.path) ? dashboardItem : null) ||
+    navSections.flatMap((section) => section.items).find((item) => isActiveRoute(location.pathname, item.path));
 
   useEffect(() => {
     const activeSection = navSections.find((section) =>
@@ -152,7 +190,7 @@ export default function AdminLayout({ children }) {
       >
         <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-gold to-transparent" aria-hidden />
 
-        <div className="relative border-b border-white/10 px-4 py-5">
+        <div className="relative border-b border-white/[0.04] px-4 py-5">
           <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-gold/12 blur-3xl" />
           <div className={`relative flex items-start gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
             <button
@@ -188,7 +226,15 @@ export default function AdminLayout({ children }) {
         </div>
 
         <nav className="admin-sidebar-scroll relative flex-1 overflow-y-auto px-3 py-4">
-          <div className="pointer-events-none sticky top-0 z-10 h-3 bg-gradient-to-b from-[#090807] to-transparent" />
+          <div className="pointer-events-none sticky top-0 z-10 -mb-2 h-2 bg-gradient-to-b from-[#080706]/25 to-transparent" />
+
+          <div className="mb-4">
+            <NavItem
+              item={dashboardItem}
+              pathname={location.pathname}
+              sidebarCollapsed={sidebarCollapsed}
+            />
+          </div>
 
           {navSections.map((section) => {
             const sectionActive = section.items.some((item) => isActiveRoute(location.pathname, item.path));
@@ -217,61 +263,26 @@ export default function AdminLayout({ children }) {
                   }`}
                 >
                   <ul className="min-h-0 space-y-1 overflow-hidden">
-                    {section.items.map((item) => {
-                      const active = isActiveRoute(location.pathname, item.path);
-                      const Icon = item.Icon;
-
-                      return (
-                        <li key={item.path}>
-                          <Link
-                            to={item.path}
-                            title={sidebarCollapsed ? item.label : undefined}
-                            className={`group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-300 ${
-                              active
-                                ? 'bg-white text-barber-dark shadow-[0_18px_44px_rgba(255,255,255,0.12)]'
-                                : 'text-stone-400 hover:bg-white/[0.07] hover:text-white'
-                            } ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
-                          >
-                            {active && (
-                              <span
-                                className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gold"
-                                aria-hidden
-                              />
-                            )}
-                            <span
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
-                                active
-                                  ? 'bg-barber-dark text-gold'
-                                  : 'bg-white/[0.04] text-stone-400 group-hover:bg-gold/15 group-hover:text-gold'
-                              }`}
-                            >
-                              <Icon size={20} strokeWidth={1.8} />
-                            </span>
-                            <span className={`min-w-0 flex-1 ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-                              <span className="block truncate">{item.label}</span>
-                              <span
-                                className={`block truncate text-xs font-medium ${
-                                  active ? 'text-stone-500' : 'text-stone-600 group-hover:text-stone-400'
-                                }`}
-                              >
-                                {item.description}
-                              </span>
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    })}
+                    {section.items.map((item) => (
+                      <li key={item.path}>
+                        <NavItem
+                          item={item}
+                          pathname={location.pathname}
+                          sidebarCollapsed={sidebarCollapsed}
+                        />
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>
             );
           })}
 
-          <div className="pointer-events-none sticky bottom-0 h-6 bg-gradient-to-t from-[#090807] to-transparent" />
+          <div className="pointer-events-none sticky bottom-0 -mt-2 h-2 bg-gradient-to-t from-[#080706]/20 to-transparent" />
         </nav>
 
-        <div className="border-t border-white/10 p-3">
-          <div className={`mb-2 rounded-xl border border-white/10 bg-white/[0.04] p-3 ${sidebarCollapsed ? 'lg:p-2' : ''}`}>
+        <div className="border-t border-white/[0.04] p-3">
+          <div className={`mb-2 rounded-xl border border-white/[0.04] bg-white/[0.03] p-3 ${sidebarCollapsed ? 'lg:p-2' : ''}`}>
             <div className={`flex items-center gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-sm font-bold text-gold">
                 {userInitial}
@@ -286,16 +297,6 @@ export default function AdminLayout({ children }) {
           </div>
 
           <div className="grid gap-1">
-            <Link
-              to="/"
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-400 transition hover:bg-white/[0.07] hover:text-white ${
-                sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''
-              }`}
-              title={sidebarCollapsed ? 'Inicio' : undefined}
-            >
-              <Home size={18} />
-              <span className={sidebarCollapsed ? 'lg:hidden' : ''}>Inicio</span>
-            </Link>
             <button
               type="button"
               onClick={handleLogout}

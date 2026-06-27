@@ -15,9 +15,9 @@ export const ADMIN_FORM_FIELD_CLASS =
 export const ADMIN_FORM_LABEL_CLASS =
   'block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5 group-focus-within:text-gold-dark transition-colors';
 
-/** Tarjeta del formulario (mismo estilo que ficha de cliente). */
+/** Tarjeta del formulario — blanca, flotante sobre el panel. */
 export const ADMIN_FORM_CARD_CLASS =
-  'relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-stone-100/70 border border-stone-200/80 overflow-hidden';
+  'relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white border border-stone-100/90 shadow-[0_8px_32px_rgba(0,0,0,0.07)] overflow-hidden';
 
 export const ADMIN_FORM_INNER_CLASS =
   'px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto';
@@ -138,6 +138,37 @@ export function AdminFormSecondaryButton({ children, onClick, type = 'button', c
   );
 }
 
+const ADMIN_BACK_NAV_CLASS =
+  'group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white border border-stone-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:border-gold/40 hover:text-barber-dark transition-all';
+
+/** Enlace/botón de regreso en esquina superior (listados, fichas, formularios). */
+export function AdminBackNav({ to, label, onClick, className = '' }) {
+  const content = (
+    <>
+      <ChevronLeft
+        className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
+        strokeWidth={2}
+        aria-hidden
+      />
+      {label}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`${ADMIN_BACK_NAV_CLASS} ${className}`}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link to={to} className={`${ADMIN_BACK_NAV_CLASS} ${className}`}>
+      {content}
+    </Link>
+  );
+}
+
 /**
  * @param {object} props
  * @param {string} props.backTo
@@ -163,72 +194,33 @@ export default function AdminFormShell({
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
 
-  const bleedWidth =
-    fullBleed && !contained
-      ? 'w-[calc(100%+3rem)] md:w-[calc(100%+4rem)] -mx-6 md:-mx-8'
-      : 'w-full min-w-0';
-  const rootMinHeight = fullBleed && !contained ? 'min-h-0' : 'min-h-0';
-
   const formWrapClass = contained
     ? 'relative flex-1 min-h-0 w-full'
-    : `relative flex-1 min-h-0 ${compact ? 'rounded-2xl p-[1.5px]' : 'rounded-[1.35rem] p-[1.5px]'} bg-gradient-to-br from-gold/65 via-stone-100/60 to-gold/35 shadow-[0_20px_60px_rgba(0,0,0,0.12)]`;
+    : 'relative flex-1 min-h-0 w-full';
+
+  const contentPad = contained
+    ? 'p-0'
+    : compact
+      ? 'px-0 pt-0 pb-3'
+      : 'px-0 pt-0 pb-4';
+
+  const backNavOffset = showBackNav ? (compact ? 'pt-11' : 'pt-12') : '';
 
   return (
     <div
-      className={`relative flex-1 ${fillHeight ? 'h-full min-h-0' : rootMinHeight} ${bleedWidth} flex flex-col overflow-x-hidden ${contained || fillHeight ? 'overflow-y-visible' : 'overflow-y-hidden'}`}
+      className={`relative flex-1 min-h-0 w-full min-w-0 flex flex-col overflow-x-hidden ${contained || fillHeight ? 'overflow-y-visible' : 'overflow-y-hidden'} ${contained ? '' : 'animate-fade-in-up'}`}
     >
-      {!contained && (
-        <>
-          <div className="absolute inset-0 -z-20 bg-gradient-to-br from-stone-300/35 via-stone-100 to-stone-200/50" aria-hidden />
-          <div
-            className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_90%_70%_at_100%_0%,rgba(201,169,98,0.14),transparent_55%),radial-gradient(ellipse_70%_50%_at_0%_100%,rgba(12,10,9,0.08),transparent_50%)]"
-            aria-hidden
+      {showBackNav && (
+        <div className={`absolute top-0 left-0 z-20 ${compact ? '' : 'md:left-1'}`}>
+          <AdminBackNav
+            to={backTo}
+            label={backLabel}
+            onClick={onBackClick}
           />
-          <div
-            className="absolute inset-0 -z-20 opacity-[0.32] bg-section-pattern mix-blend-multiply pointer-events-none"
-            aria-hidden
-          />
-          <div
-            className="absolute top-0 right-[15%] w-[min(42vw,28rem)] h-[min(42vw,28rem)] rounded-full bg-gold/12 blur-3xl -z-10 animate-float pointer-events-none"
-            aria-hidden
-          />
-          <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-barber-dark/[0.06] blur-3xl -z-10 pointer-events-none" aria-hidden />
-        </>
+        </div>
       )}
 
-      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${fillHeight ? 'h-full' : ''} ${contained ? 'p-0' : compact ? 'px-0 md:px-2 pt-0 pb-3' : 'px-5 md:px-7 pt-1 pb-4'} ${contained ? '' : 'animate-fade-in-up'}`}>
-        {showBackNav && (
-        <div className={`flex flex-wrap items-center gap-2 shrink-0 ${compact ? 'mb-2' : 'mb-4 gap-3'}`}>
-          {onBackClick ? (
-            <button
-              type="button"
-              onClick={onBackClick}
-              className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
-            >
-              <ChevronLeft
-                className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
-                strokeWidth={2}
-                aria-hidden
-              />
-              {backLabel}
-            </button>
-          ) : (
-            <Link
-              to={backTo}
-              className="group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white/70 backdrop-blur-sm border border-stone-200/90 shadow-sm hover:border-gold/40 hover:text-barber-dark transition-all"
-            >
-              <ChevronLeft
-                className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5"
-                strokeWidth={2}
-                aria-hidden
-              />
-              {backLabel}
-            </Link>
-          )}
-          <span className="h-px flex-1 min-w-[3rem] bg-gradient-to-r from-gold/55 to-stone-300/40 rounded-full" />
-        </div>
-        )}
-
+      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${fillHeight ? 'h-full' : ''} ${contentPad} ${backNavOffset}`}>
         <div
           className={`flex-1 min-h-0 grid items-stretch max-w-[88rem] mx-auto w-full ${
             fillHeight ? 'h-full overflow-hidden' : ''
@@ -240,9 +232,6 @@ export default function AdminFormShell({
         >
           <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col min-h-0 ${fillHeight ? 'h-full overflow-hidden' : ''}` : `flex flex-col min-h-0 ${fillHeight ? 'h-full overflow-hidden' : ''}`}>
             <div className={`${formWrapClass} ${fillHeight ? 'h-full min-h-0 flex flex-col overflow-hidden' : ''}`}>
-              {!compact && !contained && (
-                <div className="absolute -inset-2 bg-gradient-to-br from-gold/8 to-transparent rounded-3xl blur-xl -z-10 opacity-80" aria-hidden />
-              )}
               {children}
             </div>
           </div>

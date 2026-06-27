@@ -4,11 +4,18 @@
 
 import * as barberService from '../services/barber.service.js';
 
+function parseActiveFilter(queryActive) {
+  const value = String(queryActive ?? '').trim().toLowerCase();
+  if (value === 'false' || value === 'all') return 'all';
+  if (value === 'inactive') return 'inactive';
+  return 'active';
+}
+
 export const getAll = async (req, res, next) => {
   try {
-    const activeOnly = req.query.active !== 'false';
+    const activeFilter = parseActiveFilter(req.query.active);
     const document = req.query.document;
-    const barbers = await barberService.getAll({ activeOnly, document });
+    const barbers = await barberService.getAll({ activeFilter, document });
     res.json({ success: true, data: barbers });
   } catch (error) {
     next(error);

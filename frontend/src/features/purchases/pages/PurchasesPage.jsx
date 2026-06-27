@@ -8,6 +8,7 @@ import * as purchaseService from '@/features/purchases/services/purchaseService'
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import { AdminPagination, SegmentedFilter } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
@@ -22,6 +23,7 @@ const STATUS_OPTIONS = [
   { value: 'active', label: 'Activas' },
   { value: 'voided', label: 'Anuladas' },
 ];
+const STATUS_SEGMENTS = STATUS_OPTIONS.map((o) => ({ id: o.value, label: o.label }));
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState([]);
@@ -212,14 +214,15 @@ export default function PurchasesPage() {
                 <span className={filterLabelClass}>Hasta</span>
                 <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterFieldClass} />
               </label>
-              <label className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1">
                 <span className={filterLabelClass}>Estado</span>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={filterFieldClass}>
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value || 'all'} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </label>
+                <SegmentedFilter
+                  options={STATUS_SEGMENTS}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  ariaLabel="Estado de la compra"
+                />
+              </div>
             </div>
           )}
 
@@ -250,49 +253,18 @@ export default function PurchasesPage() {
               </div>
             ) : (
               <>
-                <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-xs text-stone-500">
-                    Página {safePage} de {totalPages} · {listTotal} registro{listTotal !== 1 ? 's' : ''}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="purchases-page-size" className="text-[11px] font-medium text-stone-500 whitespace-nowrap">
-                        Por página
-                      </label>
-                      <select
-                        id="purchases-page-size"
-                        value={pageSize}
-                        onChange={(e) => setPageSize(Number(e.target.value))}
-                        className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none"
-                      >
-                        {PAGE_SIZE_OPTIONS.map((n) => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-1.5" role="navigation" aria-label="Paginación">
-                      <button
-                        type="button"
-                        disabled={safePage <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        className="rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-40"
-                      >
-                        Anterior
-                      </button>
-                      <span className="text-xs font-semibold text-stone-800 tabular-nums min-w-[2.5rem] text-center">
-                        {safePage}/{totalPages}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={safePage >= totalPages}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        className="rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-900 hover:bg-stone-50 disabled:opacity-40"
-                      >
-                        Siguiente
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <AdminPagination
+                  idPrefix="purchases"
+                  page={safePage}
+                  pageSize={pageSize}
+                  total={listTotal}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={PAGE_SIZE_OPTIONS}
+                  itemLabel={`registro${listTotal !== 1 ? 's' : ''}`}
+                  showSummary
+                  layout="bar"
+                />
 
                 <div className="overflow-x-auto">
                   <Table>

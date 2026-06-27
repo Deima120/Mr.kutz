@@ -11,12 +11,17 @@ import ServiceStatusToggle, { isServiceActive } from '@/features/services/compon
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import {
+  AdminEntityCard,
+  AdminListToolbar,
+  AdminPagination,
+  FilterChip,
+  SegmentedFilter,
+} from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
+import AdminDeleteModal from '@/shared/components/admin/AdminDeleteModal';
 
 const PAGE_SIZE_OPTIONS = [6, 9, 12, 18];
-
-const fieldSelectClass =
-  'min-w-0 max-w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none';
 
 function isHiddenCategoryName(name) {
   const n = String(name || '')
@@ -49,6 +54,8 @@ export default function ServicesPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [formView, setFormView] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -191,25 +198,75 @@ export default function ServicesPage() {
     }
   };
 
-  const chipBase =
-    'inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all border';
-  const chipInactive = `${chipBase} border-stone-200 bg-white text-stone-700 hover:border-gold/45 hover:text-barber-dark`;
-  const chipActive = `${chipBase} border-barber-dark bg-barber-dark text-white shadow-md`;
+  const handleDelete = (id, name) => {
+    setDeleteTarget({ id, name });
+  };
 
-  const statusChipBase =
-    'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold transition-all border';
-  const statusChipIdle = `${statusChipBase} border-stone-200 bg-white text-stone-700 hover:border-gold/45`;
-  const statusChipOn = `${statusChipBase} border-barber-dark bg-barber-dark text-white shadow-sm`;
-
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`¿Eliminar servicio "${name}"?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setError('');
     try {
-      await serviceService.deleteService(id);
+      await serviceService.deleteService(deleteTarget.id);
+      setDeleteTarget(null);
+      setSuccessMessage(`Servicio "${deleteTarget.name}" eliminado correctamente.`);
       fetchServices();
     } catch (err) {
       setError(err?.message || 'Error al eliminar');
+    } finally {
+      setIsDeleting(false);
     }
   };
+
+  const statusFilterControl = (
+    <SegmentedFilter
+      options={STATUS_FILTERS}
+      value={statusFilter}
+      onChange={setStatusFilter}
+      ariaLabel="Filtrar por estado"
+    />
+  );
+
+  const listToolbar = !isFormOpen ? (
+    <AdminListToolbar
+      topFilters={statusFilterControl}
+      summary={statusSummary}
+      filterLabel="Categorías"
+      filterAriaLabel="Filtrar por categoría"
+      filters={
+        <>
+          <FilterChip active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>
+            Todas ({services.length})
+          </FilterChip>
+          {categoryNamesForFilter.map((name) => {
+            const n = countInCategory(name);
+            return (
+              <FilterChip
+                key={name}
+                active={categoryFilter === name}
+                onClick={() => setCategoryFilter(name)}
+              >
+                {name} ({n})
+              </FilterChip>
+            );
+          })}
+        </>
+      }
+      pagination={
+        <AdminPagination
+          idPrefix="services"
+          page={safePage}
+          pageSize={pageSize}
+          total={totalFiltered}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          disabled={totalFiltered === 0}
+          className="lg:border-l-0 lg:pl-0 pt-0 border-t-0"
+        />
+      }
+    />
+  ) : null;
 
   return (
     <div className="min-w-0 max-w-full space-y-4">
@@ -218,33 +275,14 @@ export default function ServicesPage() {
         subtitle={isFormOpen ? formHeaderSubtitle : null}
         actions={
           !isFormOpen ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <div
-              className="inline-flex rounded-xl border border-stone-200 bg-white p-0.5"
-              role="group"
-              aria-label="Filtrar por estado"
-            >
-              {STATUS_FILTERS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  aria-pressed={statusFilter === opt.id}
-                  onClick={() => setStatusFilter(opt.id)}
-                  className={statusFilter === opt.id ? statusChipOn : statusChipIdle}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setFormView('create')}
-              className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
-            >
-              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-              Nuevo
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFormView('create')}
+            className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
+          >
+            <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+            Nuevo
+          </button>
           ) : null
         }
       />
@@ -256,6 +294,8 @@ export default function ServicesPage() {
           {error}
         </div>
       )}
+
+      {listToolbar}
 
       {!isFormOpen && loading ? (
         <DataCard>
@@ -286,86 +326,6 @@ export default function ServicesPage() {
         </DataCard>
       ) : !isFormOpen ? (
         <>
-          <DataCard className="max-w-full min-w-0">
-            <div className="w-full min-w-0 max-w-full flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-              <div className="min-w-0 flex-1 max-w-full space-y-3">
-                <p className="text-xs text-stone-500">{statusSummary}</p>
-                <div>
-                <span className="text-[11px] font-bold tracking-wider text-stone-500 block mb-2">Categorías</span>
-                <div className="flex flex-wrap gap-2 min-w-0 max-w-full" role="group" aria-label="Filtrar por categoría">
-                  <button
-                    type="button"
-                    aria-pressed={categoryFilter === 'all'}
-                    onClick={() => setCategoryFilter('all')}
-                    className={categoryFilter === 'all' ? chipActive : chipInactive}
-                  >
-                    Todas ({services.length})
-                  </button>
-                  {categoryNamesForFilter.map((name) => {
-                    const n = countInCategory(name);
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        aria-pressed={categoryFilter === name}
-                        onClick={() => setCategoryFilter(name)}
-                        className={categoryFilter === name ? chipActive : chipInactive}
-                      >
-                        {name} ({n})
-                      </button>
-                    );
-                  })}
-                </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0 lg:pl-6 lg:border-l lg:border-stone-200/90 pt-3 border-t border-stone-200/90 lg:border-t-0 lg:pt-0 min-w-0">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="services-page-size" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
-                    Por página
-                  </label>
-                  <select
-                    id="services-page-size"
-                    value={pageSize}
-                    onChange={(e) => setPageSize(Number(e.target.value))}
-                    className={`${fieldSelectClass} w-auto min-w-[4.5rem]`}
-                  >
-                    {PAGE_SIZE_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div
-                  className="flex items-center gap-1.5 sm:gap-2"
-                  role="navigation"
-                  aria-label="Cambiar página"
-                >
-                  <button
-                    type="button"
-                    disabled={safePage <= 1 || totalFiltered === 0}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-                  >
-                    Anterior
-                  </button>
-                  <span className="text-xs sm:text-sm font-semibold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
-                    {safePage}/{totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={safePage >= totalPages || totalFiltered === 0}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-stone-900 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              </div>
-            </div>
-          </DataCard>
-
           {totalFiltered === 0 ? (
             <DataCard>
               <p className="text-center text-stone-500 text-sm py-6">
@@ -373,61 +333,71 @@ export default function ServicesPage() {
               </p>
             </DataCard>
           ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0 max-w-full">
-                {paginatedServices.map((s) => {
-                  const active = isServiceActive(s);
-                  return (
-                  <article
-                    key={s.id}
-                    className={`rounded-xl border bg-white p-4 shadow-card min-w-0 ${
-                      active ? 'border-stone-200/90' : 'border-stone-200/90 opacity-80'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start gap-3 min-w-0">
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                          <span className="inline-flex max-w-full truncate px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gold/12 text-gold-dark border border-gold/25">
-                            {categoryLabel(s)}
-                          </span>
-                          <ServiceStatusToggle
-                            active={active}
-                            disabled={togglingId === s.id}
-                            onClick={() => handleToggleActive(s)}
-                          />
-                        </div>
-                        <h3 className="font-serif text-base font-medium text-stone-900 truncate" title={s.name}>
-                          {s.name}
-                        </h3>
-                        {s.description && (
-                          <p className="text-stone-500 text-xs mt-1 line-clamp-2">{s.description}</p>
-                        )}
-                        <p className="mt-1.5 text-gold text-sm font-semibold tabular-nums">
-                          ${parseFloat(s.price).toFixed(2)} · {s.duration_minutes} min
-                        </p>
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 shrink-0">
-                        <AdminIconButton
-                          icon={Pencil}
-                          label="Editar servicio"
-                          onClick={() => openEditForm(s.id)}
-                        />
-                        <AdminIconButton
-                          icon={Trash2}
-                          label="Eliminar servicio"
-                          variant="danger"
-                          onClick={() => handleDelete(s.id, s.name)}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0 max-w-full">
+              {paginatedServices.map((s) => {
+                const active = isServiceActive(s);
+                return (
+                <AdminEntityCard key={s.id} inactive={!active}>
+                  <div className="flex justify-between items-start gap-3 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span className="inline-flex max-w-full truncate px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gold/12 text-gold-dark border border-gold/25">
+                          {categoryLabel(s)}
+                        </span>
+                        <ServiceStatusToggle
+                          active={active}
+                          disabled={togglingId === s.id}
+                          onClick={() => handleToggleActive(s)}
                         />
                       </div>
+                      <h3 className="font-serif text-base font-medium text-stone-900 truncate" title={s.name}>
+                        {s.name}
+                      </h3>
+                      {s.description && (
+                        <p className="text-stone-500 text-xs mt-1 line-clamp-2">{s.description}</p>
+                      )}
+                      <p className="mt-1.5 text-gold text-sm font-semibold tabular-nums">
+                        ${parseFloat(s.price).toFixed(2)} · {s.duration_minutes} min
+                      </p>
                     </div>
-                  </article>
-                );
-                })}
-              </div>
-            </>
+                    <div className="inline-flex items-center gap-1.5 shrink-0">
+                      <AdminIconButton
+                        icon={Pencil}
+                        label="Editar servicio"
+                        onClick={() => openEditForm(s.id)}
+                      />
+                      <AdminIconButton
+                        icon={Trash2}
+                        label="Eliminar servicio"
+                        variant="danger"
+                        onClick={() => handleDelete(s.id, s.name)}
+                      />
+                    </div>
+                  </div>
+                </AdminEntityCard>
+              );
+              })}
+            </div>
           )}
         </>
       ) : null}
+
+      <AdminDeleteModal
+        open={Boolean(deleteTarget)}
+        title="¿Eliminar servicio?"
+        itemName={deleteTarget?.name}
+        description={
+          deleteTarget ? (
+            <>
+              ¿Estás seguro de que deseas eliminar permanentemente el servicio{' '}
+              <strong className="text-stone-850 font-bold">{deleteTarget.name}</strong>? Esta acción no se puede deshacer.
+            </>
+          ) : null
+        }
+        isDeleting={isDeleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
       {successToast}
     </div>
   );

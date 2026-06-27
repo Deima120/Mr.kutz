@@ -1,5 +1,6 @@
 /**
  * Badge/botón para activar o desactivar un servicio del catálogo.
+ * Estilo semántico verde (activo) / gris (inactivo), distinto de las píldoras de filtro.
  */
 
 export function isServiceActive(service) {

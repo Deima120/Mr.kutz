@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as clientService from '@/features/clients/services/clientService';
 import { ClientForm } from '@/features/clients/pages/ClientFormPage';
@@ -8,8 +8,10 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
-import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import ClientDeleteModal from '@/features/clients/components/ClientDeleteModal';
+import { downloadClientsExcel } from '@/features/clients/utils/exportClientsExcel';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
@@ -35,6 +37,7 @@ export default function ClientsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name } o null
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -130,6 +133,28 @@ export default function ClientsPage() {
   };
 
   const openEditForm = (id) => setFormView(id);
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    setError('');
+    try {
+      const data = await clientService.getClients({
+        search: debouncedSearch || undefined,
+        limit: 10000,
+        offset: 0,
+      });
+      const allClients = data.clients || [];
+      if (allClients.length === 0) {
+        setError('No hay clientes para exportar.');
+        return;
+      }
+      downloadClientsExcel(allClients, { search: debouncedSearch });
+    } catch (err) {
+      setError(err?.message || 'Error al exportar clientes');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const inlineForm = isFormOpen ? (
     <ClientForm
@@ -235,52 +260,19 @@ export default function ClientsPage() {
 
                 {/* Paginación Vista Barbero */}
                 {total > 0 && clients.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <p className="text-xs sm:text-sm text-stone-500 font-bold">
-                      Mostrando {clients.length} de {total} cliente{total !== 1 ? 's' : ''}
-                    </p>
-
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="barber-page-size" className="text-xs font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">
-                          Por página
-                        </label>
-                        <select
-                          id="barber-page-size"
-                          value={pageSize}
-                          onChange={(e) => setPageSize(Number(e.target.value))}
-                          className="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none w-auto min-w-[4.5rem] font-medium"
-                        >
-                          {PAGE_SIZE_OPTIONS.map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
-                        <button
-                          type="button"
-                          disabled={safePage <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-                        >
-                          Anterior
-                        </button>
-                        <span className="text-xs sm:text-sm font-bold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
-                          {safePage}/{totalPages}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={safePage >= totalPages}
-                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                          className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-900 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-                        >
-                          Siguiente
-                        </button>
-                      </div>
-                    </div>
+                  <div className="mt-6 pt-6 border-t border-stone-100">
+                    <AdminPagination
+                      idPrefix="clients-barber"
+                      page={safePage}
+                      pageSize={pageSize}
+                      total={total}
+                      onPageChange={setPage}
+                      onPageSizeChange={setPageSize}
+                      pageSizeOptions={PAGE_SIZE_OPTIONS}
+                      itemLabel={`cliente${total !== 1 ? 's' : ''}`}
+                      showSummary
+                      layout="bar"
+                    />
                   </div>
                 )}
               </>
@@ -318,24 +310,16 @@ export default function ClientsPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => downloadCSV('clientes.csv', clients.map((c) => ({
-                      id: c.id,
-                      nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
-                      email: c.email || '',
-                      telefono: c.phone || '',
-                      documento_tipo: c.document_type || '',
-                      documento_numero: c.document_number || '',
-                    })))}
-                    className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm"
+                    disabled={exporting || total === 0}
+                    onClick={handleExportExcel}
+                    className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    Exportar CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={printAsPDF}
-                    className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm"
-                  >
-                    Exportar PDF
+                    {exporting ? (
+                      <span className="h-3.5 w-3.5 border-2 border-stone-300 border-t-stone-700 rounded-full animate-spin" aria-hidden />
+                    ) : (
+                      <FileSpreadsheet className="w-4 h-4 shrink-0" aria-hidden />
+                    )}
+                    {exporting ? 'Exportando…' : 'Exportar Excel'}
                   </button>
                   <button
                     type="button"
@@ -370,51 +354,18 @@ export default function ClientsPage() {
         ) : (
           <>
             {total > 0 && (
-              <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-xs text-stone-500">
-                  Página {safePage} de {totalPages} · {total} cliente{total !== 1 ? 's' : ''}
-                </p>
-                <div className="flex flex-wrap items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="admin-page-size" className="text-[11px] font-medium text-stone-500 whitespace-nowrap">
-                      Por página
-                    </label>
-                    <select
-                      id="admin-page-size"
-                      value={pageSize}
-                      onChange={(e) => setPageSize(Number(e.target.value))}
-                      className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none min-w-[4rem]"
-                    >
-                      {PAGE_SIZE_OPTIONS.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-1.5" role="navigation" aria-label="Cambiar página">
-                    <button
-                      type="button"
-                      disabled={safePage <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="inline-flex items-center justify-center rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Anterior
-                    </button>
-                    <span className="text-xs font-semibold text-stone-800 tabular-nums min-w-[2.5rem] text-center">
-                      {safePage}/{totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={safePage >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="inline-flex items-center justify-center rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-900 hover:bg-stone-50 disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <AdminPagination
+                idPrefix="clients-admin"
+                page={safePage}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                itemLabel={`cliente${total !== 1 ? 's' : ''}`}
+                showSummary
+                layout="bar"
+              />
             )}
             <div className="overflow-x-auto">
               <Table>
@@ -481,55 +432,13 @@ export default function ClientsPage() {
         </>
       )}
 
-      {/* Modal de Confirmación de Eliminación Premium */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm transition-all duration-300">
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl p-6 max-w-sm w-full animate-fade-in-up duration-300 relative overflow-hidden">
-            {/* Adorno sutil gradiente */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-500 to-amber-500"></div>
-
-            <div className="w-12 h-12 bg-rose-50 border border-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-              <Trash2 className="w-5 h-5 animate-pulse" />
-            </div>
-
-            <h3 className="font-serif text-lg font-bold text-stone-900 text-center mb-2">
-              ¿Eliminar cliente?
-            </h3>
-            
-            <p className="text-stone-500 text-xs sm:text-sm text-center leading-relaxed mb-6">
-              ¿Estás seguro de que deseas eliminar permanentemente el expediente de{' '}
-              <strong className="text-stone-850 font-bold">{deleteTarget.name}</strong>? 
-              Esta acción no se puede deshacer y retirará toda su información.
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 px-4 py-2.5 bg-stone-100 hover:bg-stone-200 disabled:opacity-50 text-stone-700 font-bold rounded-xl text-sm transition-all border border-stone-200/50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={confirmDelete}
-                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 duration-200 flex items-center justify-center gap-1.5"
-              >
-                {isDeleting ? (
-                  <>
-                    <span className="inline-block animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-                    Eliminando...
-                  </>
-                ) : (
-                  'Sí, eliminar'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ClientDeleteModal
+        open={Boolean(deleteTarget)}
+        clientName={deleteTarget?.name}
+        isDeleting={isDeleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
 
       {successToast}
     </div>

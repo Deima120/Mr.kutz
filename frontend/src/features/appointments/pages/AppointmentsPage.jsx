@@ -4,17 +4,25 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Star, Plus, ArrowRight, Pencil } from 'lucide-react';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as barberService from '@/features/barbers/services/barberService';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
+import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import RatingStars from '@/shared/components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
 import AppointmentForm from '@/features/appointments/components/AppointmentForm';
+import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
+import {
+  getEffectiveAppointmentStatus,
+  canConfirmAppointment,
+  canCancelAppointment,
+  isAppointmentActionsLocked,
+} from '@/features/appointments/utils/appointmentStatusAutomation';
 import SuccessToast from '@/shared/components/SuccessToast';
 import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 import {
@@ -28,57 +36,19 @@ import {
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 function AppointmentsPagination({ total, page, pageSize, onPageChange, onPageSizeChange, itemLabel = 'citas' }) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(Math.max(1, page), totalPages);
-
-  if (total <= 0) return null;
-
   return (
-    <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <p className="text-xs sm:text-sm text-stone-500 font-bold">
-        Página {safePage} de {totalPages} · {total} {itemLabel}
-      </p>
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <label htmlFor="appointments-page-size" className="text-xs font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">
-            Por página
-          </label>
-          <select
-            id="appointments-page-size"
-            value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-stone-900 focus:border-gold focus:ring-2 focus:ring-gold/40 outline-none min-w-[4.5rem] font-medium"
-          >
-            {PAGE_SIZE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
-          <button
-            type="button"
-            disabled={safePage <= 1}
-            onClick={() => onPageChange(Math.max(1, safePage - 1))}
-            className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-          >
-            Anterior
-          </button>
-          <span className="text-xs sm:text-sm font-bold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
-            {safePage}/{totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={safePage >= totalPages}
-            onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
-            className="inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-stone-900 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none"
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
-    </div>
+    <AdminPagination
+      idPrefix="appointments"
+      page={page}
+      pageSize={pageSize}
+      total={total}
+      onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
+      pageSizeOptions={PAGE_SIZE_OPTIONS}
+      itemLabel={itemLabel}
+      showSummary
+      layout="bar"
+    />
   );
 }
 
@@ -96,32 +66,6 @@ function EditAppointmentButton({ onClick, className = '' }) {
   );
 }
 
-const APPOINTMENT_STATUS_SELECT_CLASS =
-  'h-9 shrink-0 text-sm leading-none border border-stone-300 rounded-xl px-3 bg-white focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none';
-
-function AppointmentRowActions({ appointmentId, status, onEdit, onStatusChange }) {
-  if (['cancelled', 'no_show', 'completed'].includes(status)) return null;
-
-  return (
-    <div className="inline-flex items-center gap-2 shrink-0">
-      <EditAppointmentButton onClick={() => onEdit(appointmentId)} />
-      <select
-        value={status}
-        onChange={(e) => onStatusChange(appointmentId, e.target.value)}
-        className={APPOINTMENT_STATUS_SELECT_CLASS}
-        aria-label="Cambiar estado de la cita"
-      >
-        <option value="scheduled">Agendada</option>
-        <option value="confirmed">Confirmada</option>
-        <option value="in_progress">En progreso</option>
-        <option value="completed">Completada</option>
-        <option value="cancelled">Cancelada</option>
-        <option value="no_show">No asistió</option>
-      </select>
-    </div>
-  );
-}
-
 const STATUS_LABELS = {
   scheduled: 'Agendada',
   confirmed: 'Confirmada',
@@ -131,7 +75,7 @@ const STATUS_LABELS = {
   no_show: 'No asistió',
 };
 
-const STATUS_STYLE = {
+const STATUS_BADGE_CLASS = {
   scheduled: 'bg-amber-50 text-amber-800 border-amber-200',
   confirmed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   in_progress: 'bg-sky-50 text-sky-800 border-sky-200',
@@ -139,6 +83,18 @@ const STATUS_STYLE = {
   cancelled: 'bg-red-50 text-red-700 border-red-200',
   no_show: 'bg-red-50 text-red-700 border-red-200',
 };
+
+function AppointmentStatusBadge({ status }) {
+  return (
+    <span
+      className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+        STATUS_BADGE_CLASS[status] || STATUS_BADGE_CLASS.scheduled
+      }`}
+    >
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
 
 /** API devuelve camelCase; toleramos snake_case por si el proxy serializa distinto */
 function clientRatingOf(a) {
@@ -242,6 +198,7 @@ export default function AppointmentsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [formView, setFormView] = useState(null);
+  const [clock, setClock] = useState(() => new Date());
 
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
@@ -292,6 +249,11 @@ export default function AppointmentsPage() {
   }, [filterDate, filterBarber, pageSize, isClient, isAdmin, isBarber]);
 
   useEffect(() => {
+    const tick = window.setInterval(() => setClock(new Date()), 10_000);
+    return () => window.clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
     const editMatch = location.pathname.match(/^\/appointments\/(\d+)\/edit$/);
     if (editMatch) {
       setFormView(parseInt(editMatch[1], 10));
@@ -333,16 +295,31 @@ export default function AppointmentsPage() {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
       setCancelConfirmId(null);
-      if ((isAdmin) && newStatus === 'completed') {
-        navigate(`/payments/new?appointmentId=${id}`);
-        return;
-      }
       fetchAppointments();
       if (isClient && newStatus === 'cancelled') {
         setSuccessMessage('Cita cancelada correctamente.');
       }
+      if (isAdmin && newStatus === 'confirmed') {
+        setSuccessMessage('Cita confirmada.');
+      }
+      if (isAdmin && newStatus === 'scheduled') {
+        setSuccessMessage('Confirmación retirada; cita agendada.');
+      }
+      if (isAdmin && newStatus === 'cancelled') {
+        setSuccessMessage('Cita cancelada.');
+      }
     } catch (err) {
       setError(err?.message || 'Error al actualizar');
+    }
+  };
+
+  const handleConfirmChange = (id, confirmed) => {
+    handleStatusChange(id, confirmed ? 'confirmed' : 'scheduled');
+  };
+
+  const handleCancelRequest = (id) => {
+    if (window.confirm('¿Cancelar esta cita?')) {
+      handleStatusChange(id, 'cancelled');
     }
   };
 
@@ -366,6 +343,12 @@ export default function AppointmentsPage() {
   const isCreating = formView === 'create';
   const editingId = typeof formView === 'number' ? formView : null;
   const isFormOpen = isCreating || editingId != null;
+
+  useEffect(() => {
+    if (isFormOpen || isClient) return undefined;
+    const refresh = window.setInterval(() => fetchAppointments(page), 30_000);
+    return () => window.clearInterval(refresh);
+  }, [isFormOpen, isClient, page, filterDate, filterBarber, pageSize]);
 
   useEffect(() => {
     if (!isClient || !isFormOpen) return undefined;
@@ -481,8 +464,8 @@ export default function AppointmentsPage() {
                     <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:shadow-card-hover hover:border-stone-300 transition-all duration-300">
                       <div className="p-5 sm:p-6">
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[a.status] || 'bg-stone-100 text-stone-700'}`}>
-                            {STATUS_LABELS[a.status] || a.status}
+                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_BADGE_CLASS[getEffectiveAppointmentStatus(a, clock)] || 'bg-stone-100 text-stone-700'}`}>
+                            {STATUS_LABELS[getEffectiveAppointmentStatus(a, clock)] || a.status}
                           </span>
                           <div className="flex flex-col items-end gap-2 shrink-0 text-right">
                             <time
@@ -619,8 +602,8 @@ export default function AppointmentsPage() {
               <li key={a.id}>
                 <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
                   <div className="p-5 sm:p-6">
-                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border mb-2 ${STATUS_STYLE[a.status] || 'bg-stone-100 text-stone-700'}`}>
-                      {STATUS_LABELS[a.status] || a.status}
+                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border mb-2 ${STATUS_BADGE_CLASS[getEffectiveAppointmentStatus(a, clock)] || 'bg-stone-100 text-stone-700'}`}>
+                      {STATUS_LABELS[getEffectiveAppointmentStatus(a, clock)] || a.status}
                     </span>
                     <p className="font-serif text-lg text-stone-900 font-medium">
                       {formatTime(a.start_time)} — {a.service_name}
@@ -748,6 +731,8 @@ export default function AppointmentsPage() {
               {appointments.map((a) => {
                 const rating = clientRatingOf(a);
                 const noteText = appointmentNotesOf(a);
+                const effectiveStatus = getEffectiveAppointmentStatus(a, clock);
+                const locked = isAppointmentActionsLocked(a, clock);
                 return (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{formatTime(a.start_time)}</TableCell>
@@ -766,36 +751,43 @@ export default function AppointmentsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${
-                        a.status === 'completed'
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : a.status === 'cancelled' || a.status === 'no_show'
-                          ? 'bg-red-50 text-red-700 border-red-200'
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}
-                    >
-                      {STATUS_LABELS[a.status] || a.status}
-                    </span>
+                    <AppointmentStatusBadge status={effectiveStatus} />
                   </TableCell>
                   <TableCell className="text-sm">
-                    {a.status === 'completed' && rating != null ? (
+                    {effectiveStatus === 'completed' && rating != null ? (
                       <span className="text-amber-600 tabular-nums inline-flex items-center" title="Valoración del cliente">
                         <RatingStars value={rating} sizeClass="w-3.5 h-3.5" />
                       </span>
-                    ) : a.status === 'completed' ? (
+                    ) : effectiveStatus === 'completed' ? (
                       <span className="text-stone-400">—</span>
                     ) : (
                       <span className="text-stone-300">—</span>
                     )}
                   </TableCell>
                   <TableCell className="align-middle">
-                    <AppointmentRowActions
-                      appointmentId={a.id}
-                      status={a.status}
-                      onEdit={openEditForm}
-                      onStatusChange={handleStatusChange}
-                    />
+                    {effectiveStatus === 'completed' ? (
+                      !a.has_active_payment ? (
+                        <Link
+                          to={`/payments/new?appointmentId=${a.id}`}
+                          className="inline-flex items-center rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold-dark hover:bg-gold/20 transition-colors"
+                        >
+                          Registrar pago
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-stone-400">Pagada</span>
+                      )
+                    ) : ['cancelled', 'no_show'].includes(effectiveStatus) ? null : (
+                      <AppointmentActionToggles
+                        appointmentId={a.id}
+                        status={a.status}
+                        canConfirm={canConfirmAppointment(a, clock)}
+                        canCancel={canCancelAppointment(a, clock)}
+                        onEdit={openEditForm}
+                        onConfirmChange={handleConfirmChange}
+                        onCancelRequest={handleCancelRequest}
+                        editDisabled={locked}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
                 );

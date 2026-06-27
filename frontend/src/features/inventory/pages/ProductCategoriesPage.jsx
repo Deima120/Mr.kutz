@@ -12,7 +12,7 @@ const toCategoryCaps = (value) => String(value ?? '').trim().toUpperCase();
 
 function CategoryStatusButton({ active, onClick, disabled = false }) {
   const base =
-    'inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+    'inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
   const activeClass =
     'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300';
   const inactiveClass =

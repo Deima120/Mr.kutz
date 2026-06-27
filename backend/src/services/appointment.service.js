@@ -7,6 +7,10 @@ import {
   notifyAppointmentCreated,
   notifyAppointmentCompleted,
 } from './appointmentNotifications.js';
+import {
+  isManualAdminStatus,
+  resolveAutomaticStatus,
+} from './appointmentStatusAutomation.js';
 
 /** Granularidad de huecos al calcular horarios (permite servicios de 5, 10 min, etc.). */
 const SLOT_GRID_MINUTES = 5;
@@ -68,6 +72,24 @@ function toTimeStr(d) {
   throw new Error(`Valor de tiempo no reconocido: "${s}"`);
 }
 
+async function applyAutomaticStatusUpdates(records) {
+  if (!records?.length) return;
+  const now = new Date();
+  for (const rec of records) {
+    const next = resolveAutomaticStatus(rec, now);
+    if (next === rec.status) continue;
+    await prisma.appointment.update({
+      where: { id: rec.id },
+      data: { status: next },
+    });
+    rec.status = next;
+    if (next === 'completed') {
+      const full = await getById(rec.id);
+      if (full) notifyAppointmentCompleted(full);
+    }
+  }
+}
+
 /** Extrae etiqueta de servicios múltiples guardada en notas al crear la cita. */
 function displayServiceName(notes, fallbackName) {
   const match = String(notes || '').match(/^\[Servicios:\s*([^\]]+)\]/);
@@ -114,6 +136,8 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
     prisma.appointment.count({ where }),
   ]);
 
+  await applyAutomaticStatusUpdates(appointments);
+
   return {
     appointments: appointments.map((a) => ({
       id: a.id,
@@ -159,6 +183,7 @@ export const getById = async (id) => {
     },
   });
   if (!a) return null;
+  await applyAutomaticStatusUpdates([a]);
   return {
     id: a.id,
     client_id: a.clientId,
@@ -468,6 +493,22 @@ export const update = async (id, data, existingAppointment = null) => {
   if (timingChanged) updateData.endTime = nextEndTime;
   if (data.status) updateData.status = data.status;
   if (data.notes !== undefined) updateData.notes = data.notes === '' ? null : data.notes;
+
+  if (data.status != null) {
+    if (!isManualAdminStatus(data.status)) {
+      const err = new Error(
+        'El estado se actualiza automáticamente. Solo puedes confirmar o cancelar la cita.'
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+    const autoLocked = ['in_progress', 'completed', 'cancelled', 'no_show'];
+    if (autoLocked.includes(existing.status)) {
+      const err = new Error('Esta cita ya no admite cambios manuales de estado.');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
 
   if (Object.keys(updateData).length === 0) {
     return getById(apptId);

@@ -17,6 +17,10 @@ import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import {
+  AdminPagination,
+  FilterChip,
+} from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import {
   formatProductRetailPrice,
@@ -392,36 +396,27 @@ export default function InventoryPage() {
                     className="input-premium py-2 text-sm w-full"
                   />
                 </div>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="input-premium py-2 text-sm min-w-[180px]"
-                >
-                  <option value="">Todas las categorías</option>
+                <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+                  <FilterChip active={!categoryFilter} onClick={() => setCategoryFilter('')} size="sm">
+                    Todas
+                  </FilterChip>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <FilterChip
+                      key={c.id}
+                      active={String(categoryFilter) === String(c.id)}
+                      onClick={() => setCategoryFilter(String(c.id))}
+                      size="sm"
+                    >
                       {c.name}
-                    </option>
+                    </FilterChip>
                   ))}
-                </select>
-                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={showInactive}
-                    onChange={(e) => setShowInactive(e.target.checked)}
-                    className="rounded border-stone-300 text-gold focus:ring-gold/40"
-                  />
+                </div>
+                <FilterChip active={showInactive} onClick={() => setShowInactive((v) => !v)} size="sm">
                   Inactivos
-                </label>
-                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer bg-white border border-stone-200 rounded-xl px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={showLowStockOnly}
-                    onChange={(e) => setShowLowStockOnly(e.target.checked)}
-                    className="rounded border-stone-300 text-gold focus:ring-gold/40"
-                  />
+                </FilterChip>
+                <FilterChip active={showLowStockOnly} onClick={() => setShowLowStockOnly((v) => !v)} size="sm">
                   Solo stock bajo
-                </label>
+                </FilterChip>
               </div>
             </div>
 
@@ -449,48 +444,18 @@ export default function InventoryPage() {
               </div>
             ) : (
               <>
-                <div className="mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-xs text-stone-500">
-                    Página {safePage} de {totalPages} · {listTotal} producto{listTotal !== 1 ? 's' : ''}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="inventory-page-size" className="text-[11px] font-medium text-stone-500 whitespace-nowrap">
-                        Por página
-                      </label>
-                      <select
-                        id="inventory-page-size"
-                        value={pageSize}
-                        onChange={(e) => setPageSize(Number(e.target.value))}
-                        className="input-premium py-1.5 text-xs min-w-[4.5rem]"
-                      >
-                        {PAGE_SIZE_OPTIONS.map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        disabled={safePage <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        className="btn-admin-outline text-xs px-3 py-1.5 disabled:opacity-40"
-                      >
-                        Anterior
-                      </button>
-                      <button
-                        type="button"
-                        disabled={safePage >= totalPages}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        className="btn-admin-outline text-xs px-3 py-1.5 disabled:opacity-40"
-                      >
-                        Siguiente
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <AdminPagination
+                  idPrefix="inventory"
+                  page={safePage}
+                  pageSize={pageSize}
+                  total={listTotal}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={PAGE_SIZE_OPTIONS}
+                  itemLabel={`producto${listTotal !== 1 ? 's' : ''}`}
+                  showSummary
+                  layout="bar"
+                />
 
                 <Table>
                   <TableHead>

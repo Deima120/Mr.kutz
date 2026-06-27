@@ -1,7 +1,16 @@
 /**
  * Hora de cita en la zona local del navegador, alineada con el selector de huecos (HH:MM).
- * Evita mostrar UTC u hora “cruda” del ISO distinta a la elegida por el usuario.
+ * Fechas "de hoy" y filtros del panel usan hora de Colombia (America/Bogota).
  */
+
+import {
+  getColombiaTodayYmd,
+  getColombiaFirstDayOfMonthYmd,
+  getColombiaNowParts,
+  APP_TIMEZONE,
+} from '@/shared/utils/colombiaTime';
+
+export { APP_TIMEZONE };
 export function formatAppointmentClockTime(t) {
   if (t == null || t === '') return '';
   if (t instanceof Date) {
@@ -70,23 +79,21 @@ export function formatAppointmentCalendarDate(
   });
 }
 
-/** Fecha local de hoy en formato YYYY-MM-DD */
+/** Fecha de hoy en Colombia (YYYY-MM-DD) — usada en filtros y panel admin */
 export function getLocalDateToday() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return getColombiaTodayYmd();
 }
 
-/** Primer día del mes local en formato YYYY-MM-DD */
+/** Primer día del mes en Colombia (YYYY-MM-DD) */
 export function getLocalFirstDayOfMonth() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  return getColombiaFirstDayOfMonthYmd();
 }
 
-/** Primer día del mes anterior local en formato YYYY-MM-DD */
+/** Primer día del mes anterior en Colombia (YYYY-MM-DD) */
 export function getLocalFirstDayOfPreviousMonth() {
-  const today = new Date();
-  const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  return `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
+  const p = getColombiaNowParts();
+  const prev = new Date(p.year, p.month - 2, 1);
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
 /** Suma días a una fecha YYYY-MM-DD (calendario local). */
