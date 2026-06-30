@@ -11,6 +11,7 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+import { downloadReportPDF } from '@/shared/utils/exportPdf';
 
 const formatAmount = (n) =>
   `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
@@ -129,8 +130,9 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleExportPDF = () => {
+    if (!report) return;
+    downloadReportPDF(report, { businessName, dateFrom, dateTo });
   };
 
   if (loading || !report) {
@@ -150,10 +152,10 @@ export default function ReportsPage() {
   const maxBar = Math.max(1, dist[1], dist[2], dist[3], dist[4], dist[5]);
 
   return (
-    <div className="page-shell print:space-y-4">
+    <div className="page-shell">
       <PageHeader
         filters={
-          <div className="flex flex-wrap items-end gap-2 no-print">
+          <div className="flex flex-wrap items-end gap-2">
             <input
               type="date"
               value={dateFrom}
@@ -170,7 +172,7 @@ export default function ReportsPage() {
           </div>
         }
         actions={
-          <div className="flex flex-wrap gap-2 items-center no-print">
+          <div className="flex flex-wrap gap-2 items-center">
             <button
               type="button"
               onClick={handleExportCSV}
@@ -180,10 +182,10 @@ export default function ReportsPage() {
             </button>
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={handleExportPDF}
               className="btn-admin-outline flex-1 sm:flex-none"
             >
-              Imprimir
+              Exportar PDF
             </button>
           </div>
         }

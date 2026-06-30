@@ -6,7 +6,8 @@ import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import * as categoryService from '@/features/inventory/services/productCategoryService';
-import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import { downloadCSV } from '@/shared/utils/export';
+import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 
 const toCategoryCaps = (value) => String(value ?? '').trim().toUpperCase();
 
@@ -133,6 +134,31 @@ export default function ProductCategoriesPage() {
   const isCategoryActive = (r) => (r.isActive ?? r.is_active) !== false;
   const getProductCount = (r) => r.product_count ?? 0;
 
+  const categoryExportRows = rows.map((r) => ({
+    id: r.id,
+    nombre: toCategoryCaps(r.name),
+    descripcion: r.description ? toCategoryCaps(r.description) : '',
+    productos: getProductCount(r),
+    activo: isCategoryActive(r) ? 'Sí' : 'No',
+  }));
+
+  const handleExportPDF = () => {
+    if (categoryExportRows.length === 0) return;
+    downloadTablePDF({
+      filename: `categorias-mrkutz-${pdfFileDateSuffix()}.pdf`,
+      title: 'Categorías de productos',
+      meta: [`Total: ${categoryExportRows.length} categoría(s)`],
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Nombre', key: 'nombre' },
+        { header: 'Descripción', key: 'descripcion' },
+        { header: 'Productos', key: 'productos', align: 'right' },
+        { header: 'Activa', key: 'activo', align: 'center' },
+      ],
+      rows: categoryExportRows,
+    });
+  };
+
   const btnToolbar = 'btn-admin-outline text-xs py-2 px-3';
 
   return (
@@ -142,23 +168,12 @@ export default function ProductCategoriesPage() {
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
-              onClick={() =>
-                downloadCSV(
-                  'categorias-productos.csv',
-                  rows.map((r) => ({
-                    id: r.id,
-                    nombre: toCategoryCaps(r.name),
-                    descripcion: r.description ? toCategoryCaps(r.description) : '',
-                    productos: getProductCount(r),
-                    activo: isCategoryActive(r) ? 'Sí' : 'No',
-                  }))
-                )
-              }
+              onClick={() => downloadCSV('categorias-productos.csv', categoryExportRows)}
               className={btnToolbar}
             >
               CSV
             </button>
-            <button type="button" onClick={printAsPDF} className={btnToolbar}>
+            <button type="button" onClick={handleExportPDF} className={btnToolbar}>
               PDF
             </button>
             <Link to="/inventory" className={btnToolbar}>

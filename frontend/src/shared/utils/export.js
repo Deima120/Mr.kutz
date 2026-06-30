@@ -23,7 +23,3 @@ export function downloadCSV(filename, rows) {
   link.remove();
   URL.revokeObjectURL(url);
 }
-
-export function printAsPDF() {
-  window.print();
-}

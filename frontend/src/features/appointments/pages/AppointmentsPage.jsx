@@ -24,7 +24,6 @@ import {
   isAppointmentActionsLocked,
 } from '@/features/appointments/utils/appointmentStatusAutomation';
 import SuccessToast from '@/shared/components/SuccessToast';
-import { downloadCSV, printAsPDF } from '@/shared/utils/export';
 import {
   formatAppointmentClockTime,
   formatAppointmentCalendarDate,

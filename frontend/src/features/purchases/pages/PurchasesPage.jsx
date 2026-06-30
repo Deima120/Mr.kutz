@@ -14,7 +14,8 @@ import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
 import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
 import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/utils/purchaseFormatters';
-import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import { downloadCSV } from '@/shared/utils/export';
+import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -144,6 +145,41 @@ export default function PurchasesPage() {
     notas: p.notes || '',
   }));
 
+  const handleExportPDF = () => {
+    if (exportRows.length === 0) return;
+    const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todas';
+    downloadTablePDF({
+      filename: `compras-mrkutz-${pdfFileDateSuffix()}.pdf`,
+      title: 'Registro de compras',
+      subtitle: `Periodo: ${dateFrom} — ${dateTo}`,
+      meta: [
+        `Total en listado: ${exportRows.length}`,
+        `Estado: ${statusLabel}`,
+        search ? `Búsqueda: «${search}»` : null,
+        `Total activo del periodo: ${formatPurchaseAmount(periodTotal.total)} (${periodTotal.count} compras)`,
+      ],
+      orientation: 'landscape',
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Proveedor', key: 'proveedor' },
+        { header: 'Factura', key: 'factura' },
+        {
+          header: 'Total',
+          accessor: (r) => formatPurchaseAmount(r.total),
+          align: 'right',
+        },
+        { header: 'Ítems', key: 'articulos', align: 'right' },
+        { header: 'Estado', key: 'estado', align: 'center' },
+        {
+          header: 'Fecha',
+          accessor: (r) => formatPurchaseDate(r.fecha),
+        },
+        { header: 'Notas', key: 'notas' },
+      ],
+      rows: exportRows,
+    });
+  };
+
   const filterFieldClass = 'input-premium py-1.5 text-xs min-w-0';
   const filterLabelClass = 'text-[11px] font-medium text-stone-500';
 
@@ -186,7 +222,7 @@ export default function PurchasesPage() {
                   <button type="button" onClick={() => downloadCSV('compras.csv', exportRows)} className="btn-admin-outline text-xs py-2 px-3">
                     CSV
                   </button>
-                  <button type="button" onClick={printAsPDF} className="btn-admin-outline text-xs py-2 px-3">
+                  <button type="button" onClick={handleExportPDF} className="btn-admin-outline text-xs py-2 px-3">
                     PDF
                   </button>
                 </>

@@ -33,7 +33,8 @@ import {
   isLowStock,
   isProductActive,
 } from '@/features/inventory/utils/productFormatters';
-import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import { downloadCSV } from '@/shared/utils/export';
+import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -282,6 +283,42 @@ export default function InventoryPage() {
     activo: isProductActive(p) ? 'Sí' : 'No',
   }));
 
+  const handleExportPDF = () => {
+    if (exportRows.length === 0) return;
+    const filterParts = [
+      searchDebounced ? `Búsqueda: «${searchDebounced}»` : null,
+      showLowStockOnly ? 'Solo stock bajo' : null,
+      categoryFilter ? `Categoría ID ${categoryFilter}` : null,
+      showInactive ? 'Incluye inactivos' : 'Solo activos',
+    ].filter(Boolean);
+    downloadTablePDF({
+      filename: `inventario-mrkutz-${pdfFileDateSuffix()}.pdf`,
+      title: 'Inventario de productos',
+      meta: [`Total: ${exportRows.length} producto(s)`, ...filterParts],
+      orientation: 'landscape',
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Nombre', key: 'nombre' },
+        { header: 'Categoría', key: 'categoria' },
+        { header: 'SKU', key: 'sku' },
+        { header: 'Stock', key: 'stock', align: 'right' },
+        { header: 'Mín.', key: 'min_stock', align: 'right' },
+        {
+          header: 'Venta',
+          accessor: (r) => formatProductRetailPrice({ retail_price: r.precio_venta }),
+          align: 'right',
+        },
+        {
+          header: 'Costo',
+          accessor: (r) => formatProductCostPrice({ cost_price: r.precio_costo }),
+          align: 'right',
+        },
+        { header: 'Activo', key: 'activo', align: 'center' },
+      ],
+      rows: exportRows,
+    });
+  };
+
   const formHeaderTitle = isCreating ? 'Nuevo producto' : editingId ? 'Editar producto' : 'Inventario';
   const formHeaderSubtitle = isCreating
     ? 'Registra un producto en el catálogo'
@@ -320,7 +357,7 @@ export default function InventoryPage() {
               >
                 Importar CSV
               </button>
-              <button type="button" onClick={printAsPDF} className="btn-admin-outline w-full sm:w-auto text-sm">
+              <button type="button" onClick={handleExportPDF} className="btn-admin-outline w-full sm:w-auto text-sm">
                 Exportar PDF
               </button>
               <Link to="/purchases" className="btn-admin-outline w-full sm:w-auto text-sm">

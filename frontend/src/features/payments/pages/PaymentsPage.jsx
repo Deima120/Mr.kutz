@@ -21,8 +21,10 @@ import {
   formatPaymentMethodName,
   getPaymentClientName,
   getPaymentConcept,
+  getPaymentTypeLabel,
 } from '@/features/payments/utils/paymentFormatters';
-import { downloadCSV, printAsPDF } from '@/shared/utils/export';
+import { downloadCSV } from '@/shared/utils/export';
+import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -194,6 +196,46 @@ export default function PaymentsPage() {
     motivo_anulacion: p.void_reason || '',
   }));
 
+  const handleExportPDF = () => {
+    if (exportRows.length === 0) return;
+    const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todos';
+    const typeLabel = TYPE_OPTIONS.find((o) => o.value === typeFilter)?.label || 'Todos';
+    downloadTablePDF({
+      filename: `pagos-mrkutz-${pdfFileDateSuffix()}.pdf`,
+      title: 'Registro de pagos',
+      subtitle: `Periodo: ${dateFrom} — ${dateTo}`,
+      meta: [
+        `Total en listado: ${exportRows.length}`,
+        `Estado: ${statusLabel} · Tipo: ${typeLabel}`,
+        search ? `Búsqueda: «${search}»` : null,
+        `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} cobros)`,
+      ],
+      orientation: 'landscape',
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        {
+          header: 'Fecha',
+          accessor: (r) => formatPaymentDateTime(r.fecha),
+        },
+        { header: 'Estado', key: 'estado', align: 'center' },
+        {
+          header: 'Tipo',
+          accessor: (r) => getPaymentTypeLabel(r.tipo),
+        },
+        { header: 'Cliente', key: 'cliente' },
+        { header: 'Concepto', key: 'concepto' },
+        { header: 'Método', key: 'metodo' },
+        {
+          header: 'Monto',
+          accessor: (r) => formatPaymentAmount(r.monto),
+          align: 'right',
+        },
+        { header: 'Ref.', key: 'referencia' },
+      ],
+      rows: exportRows,
+    });
+  };
+
   const closeForm = () => {
     setFormView(null);
     setPaymentPrefill({ productId: null, appointmentId: null });
@@ -252,7 +294,7 @@ export default function PaymentsPage() {
                   <button type="button" onClick={() => downloadCSV('pagos.csv', exportRows)} className="btn-admin-outline text-xs py-2 px-3">
                     CSV
                   </button>
-                  <button type="button" onClick={printAsPDF} className="btn-admin-outline text-xs py-2 px-3">
+                  <button type="button" onClick={handleExportPDF} className="btn-admin-outline text-xs py-2 px-3">
                     PDF
                   </button>
                 </>
