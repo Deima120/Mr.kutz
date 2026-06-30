@@ -214,8 +214,11 @@ export default function PurchasesPage() {
 
   return (
     <div className="page-shell">
+      {isFormOpen ? (
+        <PurchaseForm contained onSuccess={handleFormSuccess} onCancel={() => setIsFormOpen(false)} />
+      ) : (
       <DataCard compact>
-        <div className={`space-y-3 pb-3 border-b border-stone-100 ${isFormOpen ? 'mb-0' : 'mb-3'}`}>
+        <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <form onSubmit={handleSearchSubmit} className="flex gap-2 min-w-0 flex-1 max-w-xl">
               <div className="relative min-w-0 flex-1">
@@ -225,83 +228,66 @@ export default function PurchasesPage() {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Buscar proveedor, factura, notas…"
-                  disabled={isFormOpen}
-                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none disabled:opacity-60"
+                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
                 />
               </div>
-              <button type="submit" disabled={isFormOpen} className="btn-admin shrink-0 px-3 text-xs disabled:opacity-60">
+              <button type="submit" className="btn-admin shrink-0 px-3 text-xs">
                 Buscar
               </button>
             </form>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {!isFormOpen && (
-                <>
-                  <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo activo</p>
-                      <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
-                        {formatPurchaseAmount(periodTotal.total)}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
-                      {periodTotal.count} compra{periodTotal.count === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <AdminExportButtons
-                    onExcel={handleExportExcel}
-                    onPdf={handleExportPDF}
-                    excelDisabled={exportRows.length === 0}
-                    pdfDisabled={exportRows.length === 0}
-                    size="xs"
-                  />
-                </>
-              )}
-              {isFormOpen ? null : (
-                <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
-                  <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                  Nueva compra
-                </button>
-              )}
+              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo activo</p>
+                  <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
+                    {formatPurchaseAmount(periodTotal.total)}
+                  </p>
+                </div>
+                <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
+                  {periodTotal.count} compra{periodTotal.count === 1 ? '' : 's'}
+                </span>
+              </div>
+              <AdminExportButtons
+                onExcel={handleExportExcel}
+                onPdf={handleExportPDF}
+                excelDisabled={exportRows.length === 0}
+                pdfDisabled={exportRows.length === 0}
+                size="xs"
+              />
+              <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
+                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Nueva compra
+              </button>
             </div>
           </div>
 
-          {!isFormOpen && (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Desde</span>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={filterFieldClass} />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Hasta</span>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterFieldClass} />
-              </label>
-              <div className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Estado</span>
-                <SegmentedFilter
-                  options={STATUS_SEGMENTS}
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  ariaLabel="Estado de la compra"
-                />
-              </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1">
+              <span className={filterLabelClass}>Desde</span>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={filterFieldClass} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={filterLabelClass}>Hasta</span>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterFieldClass} />
+            </label>
+            <div className="flex flex-col gap-1">
+              <span className={filterLabelClass}>Estado</span>
+              <SegmentedFilter
+                options={STATUS_SEGMENTS}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                ariaLabel="Estado de la compra"
+              />
             </div>
-          )}
-
-          {isFormOpen && <p className="text-xs text-stone-500 pt-1">Nuevo ingreso de inventario</p>}
+          </div>
         </div>
 
-        {isFormOpen ? (
-          <div className="pt-3">
-            <PurchaseForm contained onSuccess={handleFormSuccess} onCancel={() => setIsFormOpen(false)} />
-          </div>
-        ) : (
-          <>
-            {error && (
-              <div className="alert-error text-sm py-2 mb-3" role="alert">{error}</div>
-            )}
+        {error && (
+          <div className="alert-error text-sm py-2 mb-3" role="alert">{error}</div>
+        )}
 
-            {loading ? (
+        {loading ? (
               <div className="py-10 text-center text-stone-500">
                 <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
                 <p className="text-sm">Cargando compras…</p>
@@ -403,9 +389,8 @@ export default function PurchasesPage() {
                 </div>
               </>
             )}
-          </>
-        )}
       </DataCard>
+      )}
 
       <PurchaseDetailModal purchase={detailPurchase} onClose={() => setDetailPurchase(null)} />
       <VoidPurchaseModal
