@@ -3,10 +3,23 @@
  * Solo admin
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as barberService from '@/features/barbers/services/barberService';
-import { sanitizeDocumentNumber, sanitizePhone } from '@/shared/utils/authValidation';
+import {
+  sanitizeDocumentNumber,
+  sanitizePhone,
+  validateBarberForm,
+  getApiErrorMessage,
+  validateDocumentType,
+  validateAdminDocumentNumber,
+  validateRequiredField,
+  validateEmail,
+  validatePassword,
+  validatePhone,
+} from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { AdminFormField } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -42,6 +55,33 @@ export function BarberForm({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } = useFormValidation();
+
+  const documentTypeValidation = useMemo(
+    () => validateDocumentType(formData.documentType),
+    [formData.documentType]
+  );
+  const documentNumberValidation = useMemo(
+    () => validateAdminDocumentNumber(formData.documentNumber),
+    [formData.documentNumber]
+  );
+  const firstNameValidation = useMemo(
+    () => validateRequiredField(formData.firstName, 'El nombre'),
+    [formData.firstName]
+  );
+  const lastNameValidation = useMemo(
+    () => validateRequiredField(formData.lastName, 'El apellido'),
+    [formData.lastName]
+  );
+  const emailValidation = useMemo(() => validateEmail(formData.email), [formData.email]);
+  const passwordValidation = useMemo(
+    () => validatePassword(formData.password, { required: !isEdit }),
+    [formData.password, isEdit]
+  );
+  const phoneValidation = useMemo(
+    () => validatePhone(formData.phone, { required: false }),
+    [formData.phone]
+  );
 
   useEffect(() => {
     if (isEdit && editId) {
@@ -74,10 +114,16 @@ export function BarberForm({
       [name]: next,
     }));
     setError('');
+    clearFieldError(name);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validateBarberForm(formData, isEdit);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -87,11 +133,6 @@ export function BarberForm({
         : [];
 
       if (isEdit) {
-        if (!formData.documentType.trim() || !formData.documentNumber.trim()) {
-          setError('El tipo y número de documento son obligatorios');
-          setLoading(false);
-          return;
-        }
         await barberService.updateBarber(editId, {
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -102,16 +143,6 @@ export function BarberForm({
           isActive: formData.isActive,
         });
       } else {
-        if (!formData.documentType.trim() || !formData.documentNumber.trim()) {
-          setError('El tipo y número de documento son obligatorios');
-          setLoading(false);
-          return;
-        }
-        if (!formData.password || formData.password.length < 6) {
-          setError('La contraseña debe tener al menos 6 caracteres');
-          setLoading(false);
-          return;
-        }
         await barberService.createBarber({
           email: formData.email,
           password: formData.password,
@@ -129,7 +160,7 @@ export function BarberForm({
         navigate('/barbers', { replace: true });
       }
     } catch (err) {
-      setError(err?.message || err?.errors?.[0]?.message || 'Error al guardar');
+      setError(getApiErrorMessage(err, 'Error al guardar'));
     } finally {
       setLoading(false);
     }
@@ -189,110 +220,184 @@ export function BarberForm({
           {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
           <div className={ADMIN_FORM_GRID_CLASS}>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Tipo de documento *</label>
-              <input
-                name="documentType"
-                list="barber-doc-types"
-                value={formData.documentType}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                placeholder="Ej. CC, CE, NIT…"
-                maxLength={40}
-                required
-                autoComplete="off"
-              />
-              <datalist id="barber-doc-types">
-                <option value="CC" />
-                <option value="CE" />
-                <option value="TI" />
-                <option value="Pasaporte" />
-                <option value="NIT" />
-              </datalist>
-            </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Número de documento *</label>
-              <input
-                name="documentNumber"
-                type="text"
-                inputMode="numeric"
-                pattern="\d*"
-                value={formData.documentNumber}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                placeholder="Solo números"
-                maxLength={20}
-                required
-                autoComplete="off"
-              />
-            </div>
+            <AdminFormField
+              label="Tipo de documento"
+              htmlFor="barber-doc-type"
+              required
+              error={fieldError('documentType')}
+              live={buildLiveHint('documentType', formData.documentType, documentTypeValidation, 'Tipo válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <>
+                  <input
+                    id="barber-doc-type"
+                    name="documentType"
+                    list="barber-doc-types"
+                    value={formData.documentType}
+                    onChange={handleChange}
+                    onBlur={() => markTouched('documentType')}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                    placeholder="Ej. CC, CE, NIT…"
+                    maxLength={40}
+                    autoComplete="off"
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                  <datalist id="barber-doc-types">
+                    <option value="CC" />
+                    <option value="CE" />
+                    <option value="TI" />
+                    <option value="Pasaporte" />
+                    <option value="NIT" />
+                  </datalist>
+                </>
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Número de documento"
+              htmlFor="barber-doc-number"
+              required
+              error={fieldError('documentNumber')}
+              live={buildLiveHint('documentNumber', formData.documentNumber, documentNumberValidation, 'Documento válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="barber-doc-number"
+                  name="documentNumber"
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.documentNumber}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('documentNumber')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  placeholder="Solo números"
+                  maxLength={20}
+                  autoComplete="off"
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3">
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Nombre *</label>
-              <input
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-              />
-            </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Apellido *</label>
-              <input
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-              />
-            </div>
-            <div className="group sm:col-span-2 xl:col-span-2">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Correo electrónico *</label>
-              <input
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-                disabled={isEdit}
-              />
-              {isEdit && <p className="text-xs text-stone-500 mt-1">El correo no se puede modificar.</p>}
-            </div>
+            <AdminFormField
+              label="Nombre"
+              htmlFor="barber-first-name"
+              required
+              error={fieldError('firstName')}
+              live={buildLiveHint('firstName', formData.firstName, firstNameValidation, 'Nombre válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="barber-first-name"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('firstName')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Apellido"
+              htmlFor="barber-last-name"
+              required
+              error={fieldError('lastName')}
+              live={buildLiveHint('lastName', formData.lastName, lastNameValidation, 'Apellido válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="barber-last-name"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('lastName')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Correo electrónico"
+              htmlFor="barber-email"
+              required={!isEdit}
+              error={fieldError('email')}
+              live={!isEdit ? buildLiveHint('email', formData.email, emailValidation, 'Correo válido.') : null}
+              className="sm:col-span-2 xl:col-span-2"
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <>
+                  <input
+                    id="barber-email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    onBlur={() => markTouched('email')}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                    disabled={isEdit}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                  {isEdit && <p className="text-xs text-stone-500 mt-1">El correo no se puede modificar.</p>}
+                </>
+              )}
+            </AdminFormField>
           </div>
 
           {!isEdit && (
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Contraseña *</label>
-              <input
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
-                required={!isEdit}
-              />
-            </div>
+            <AdminFormField
+              label="Contraseña"
+              htmlFor="barber-password"
+              required
+              error={fieldError('password')}
+              live={buildLiveHint('password', formData.password, passwordValidation, 'Contraseña segura.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="barber-password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('password')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Teléfono</label>
-              <input
-                name="phone"
-                type="tel"
-                inputMode="numeric"
-                value={formData.phone}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                placeholder="Solo números"
-                maxLength={15}
-              />
-            </div>
+            <AdminFormField
+              label="Teléfono"
+              htmlFor="barber-phone"
+              error={fieldError('phone')}
+              live={buildLiveHint('phone', formData.phone, phoneValidation, 'Teléfono válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="barber-phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('phone')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  placeholder="Solo números"
+                  maxLength={15}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
             <div className="group sm:col-span-2">
               <label className={ADMIN_FORM_LABEL_CLASS}>Especialidades (separadas por coma)</label>
               <input

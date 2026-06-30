@@ -14,8 +14,9 @@ import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
 import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
 import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/utils/purchaseFormatters';
-import { downloadCSV } from '@/shared/utils/export';
+import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
+import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -145,6 +146,34 @@ export default function PurchasesPage() {
     notas: p.notes || '',
   }));
 
+  const handleExportExcel = () => {
+    if (exportRows.length === 0) return;
+    const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todas';
+    downloadExcelTable({
+      sheetName: 'Compras',
+      title: 'Registro de compras',
+      meta: [
+        `Periodo: ${dateFrom} — ${dateTo}`,
+        `Total en listado: ${exportRows.length}`,
+        `Estado: ${statusLabel}`,
+        search ? `Búsqueda: «${search}»` : null,
+        `Total activo del periodo: ${formatPurchaseAmount(periodTotal.total)} (${periodTotal.count} compras)`,
+      ],
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Proveedor', key: 'proveedor', emphasis: true },
+        { header: 'Factura', key: 'factura' },
+        { header: 'Total', accessor: (r) => formatPurchaseAmount(r.total), align: 'right' },
+        { header: 'Ítems', key: 'articulos', align: 'right' },
+        { header: 'Estado', key: 'estado', align: 'center' },
+        { header: 'Fecha', accessor: (r) => formatPurchaseDate(r.fecha) },
+        { header: 'Notas', key: 'notas' },
+      ],
+      rows: exportRows,
+      fileBase: 'compras-mrkutz',
+    });
+  };
+
   const handleExportPDF = () => {
     if (exportRows.length === 0) return;
     const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todas';
@@ -219,19 +248,16 @@ export default function PurchasesPage() {
                       {periodTotal.count} compra{periodTotal.count === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <button type="button" onClick={() => downloadCSV('compras.csv', exportRows)} className="btn-admin-outline text-xs py-2 px-3">
-                    CSV
-                  </button>
-                  <button type="button" onClick={handleExportPDF} className="btn-admin-outline text-xs py-2 px-3">
-                    PDF
-                  </button>
+                  <AdminExportButtons
+                    onExcel={handleExportExcel}
+                    onPdf={handleExportPDF}
+                    excelDisabled={exportRows.length === 0}
+                    pdfDisabled={exportRows.length === 0}
+                    size="xs"
+                  />
                 </>
               )}
-              {isFormOpen ? (
-                <button type="button" onClick={() => setIsFormOpen(false)} className="btn-admin-outline text-xs py-2 px-3">
-                  Volver al listado
-                </button>
-              ) : (
+              {isFormOpen ? null : (
                 <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
                   <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
                   Nueva compra

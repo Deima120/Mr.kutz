@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import * as barberService from '@/features/barbers/services/barberService';
 import AdminFormShell, {
   AdminFormCardHeader,
@@ -200,12 +200,6 @@ export default function BarberSchedulesPage() {
 
           <AdminFormFooterActions className="mt-auto">
             <AdminFormPrimaryButton disabled={saving}>{saving ? 'Guardando…' : 'Guardar horarios'}</AdminFormPrimaryButton>
-            <Link
-              to="/barbers"
-              className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-stone-600 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 transition-all"
-            >
-              Cancelar
-            </Link>
           </AdminFormFooterActions>
         </div>
       </form>

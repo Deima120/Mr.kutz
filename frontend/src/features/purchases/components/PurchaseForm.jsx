@@ -7,6 +7,9 @@ import { Plus, Trash2 } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import * as productService from '@/features/inventory/services/productService';
 import { formatPurchaseAmount } from '@/features/purchases/utils/purchaseFormatters';
+import { validatePurchaseForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -16,7 +19,6 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -34,6 +36,8 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint, fieldBorderClass } =
+    useFormValidation();
 
   useEffect(() => {
     productService
@@ -59,6 +63,8 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
       items: prev.items.map((it, i) => (i === idx ? { ...it, [field]: value } : it)),
     }));
     setError('');
+    clearFieldError(`items.${idx}.${field}`);
+    clearFieldError('items');
   };
 
   const addItem = () => setForm((prev) => ({ ...prev, items: [...prev.items, emptyItem()] }));
@@ -71,6 +77,11 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validatePurchaseForm(form, products);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -82,8 +93,6 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
           unitCost: Number(i.unitCost),
         }));
 
-      if (items.length === 0) throw new Error('Agrega al menos un producto.');
-
       await purchaseService.createPurchase({
         supplierName: form.supplierName.trim() || undefined,
         invoiceNumber: form.invoiceNumber.trim() || undefined,
@@ -92,7 +101,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
       });
       onSuccess?.();
     } catch (err) {
-      setError(err?.message || 'Error al registrar compra');
+      setError(getApiErrorMessage(err, 'Error al registrar compra'));
     } finally {
       setLoading(false);
     }
@@ -137,7 +146,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
       fullBleed={false}
       compact
       contained={contained}
-      showBackNav={false}
+      showBackNav
       aside={aside}
     >
       <AdminFormCard onSubmit={handleSubmit}>
@@ -188,16 +197,36 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
               Agregar
             </button>
           </div>
+          <FieldErrorMessage message={fieldError('items')} />
 
-          {form.items.map((item, idx) => (
+          {form.items.map((item, idx) => {
+            const productKey = `items.${idx}.productId`;
+            const qtyKey = `items.${idx}.quantity`;
+            const costKey = `items.${idx}.unitCost`;
+            const productValidation = item.productId
+              ? { valid: true, message: '' }
+              : { valid: false, message: 'Selecciona un producto.' };
+            const qtyValidation = validatePositiveInt(item.quantity, 'La cantidad', {
+              required: !!item.productId,
+              min: 1,
+            });
+            const costValidation = validateMoney(item.unitCost, 'El costo unitario', {
+              required: !!item.productId,
+              min: 0,
+            });
+            const productLive = buildLiveHint(productKey, item.productId, productValidation, 'Producto seleccionado.');
+            const qtyLive = buildLiveHint(qtyKey, item.quantity, qtyValidation, 'Cantidad válida.');
+            const costLive = buildLiveHint(costKey, item.unitCost, costValidation, 'Costo válido.');
+
+            return (
             <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end rounded-lg border border-stone-200/80 bg-stone-50/60 p-2.5">
               <div className="sm:col-span-5 group">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Producto</label>
                 <select
                   value={item.productId}
                   onChange={(e) => updateItem(idx, 'productId', e.target.value)}
-                  className={ADMIN_FORM_FIELD_COMPACT}
-                  required={idx === 0}
+                  onBlur={() => markTouched(productKey)}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldError(productKey) ? fieldBorderClass(productKey, false, item.productId) : fieldBorderClass(productKey, productValidation.valid, item.productId)}`}
                 >
                   <option value="">Seleccionar…</option>
                   {products.map((p) => (
@@ -206,6 +235,16 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                     </option>
                   ))}
                 </select>
+                {fieldError(productKey) ? (
+                  <FieldErrorMessage message={fieldError(productKey)} />
+                ) : (
+                  <FieldHint
+                    valid={productLive.valid}
+                    touched={productLive.show}
+                    message={productLive.message}
+                    successMessage={productLive.successMessage}
+                  />
+                )}
               </div>
               <div className="sm:col-span-2 group">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad</label>
@@ -214,9 +253,19 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                   min="1"
                   value={item.quantity}
                   onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                  className={ADMIN_FORM_FIELD_COMPACT}
-                  required={!!item.productId}
+                  onBlur={() => markTouched(qtyKey)}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(qtyKey, qtyValidation.valid, item.quantity)}`}
                 />
+                {fieldError(qtyKey) ? (
+                  <FieldErrorMessage message={fieldError(qtyKey)} />
+                ) : (
+                  <FieldHint
+                    valid={qtyLive.valid}
+                    touched={qtyLive.show}
+                    message={qtyLive.message}
+                    successMessage={qtyLive.successMessage}
+                  />
+                )}
               </div>
               <div className="sm:col-span-3 group">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Costo unit. ($)</label>
@@ -226,9 +275,19 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                   step="0.01"
                   value={item.unitCost}
                   onChange={(e) => updateItem(idx, 'unitCost', e.target.value)}
-                  className={ADMIN_FORM_FIELD_COMPACT}
-                  required={!!item.productId}
+                  onBlur={() => markTouched(costKey)}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(costKey, costValidation.valid, item.unitCost)}`}
                 />
+                {fieldError(costKey) ? (
+                  <FieldErrorMessage message={fieldError(costKey)} />
+                ) : (
+                  <FieldHint
+                    valid={costLive.valid}
+                    touched={costLive.show}
+                    message={costLive.message}
+                    successMessage={costLive.successMessage}
+                  />
+                )}
               </div>
               <div className="sm:col-span-2 flex justify-end">
                 <button
@@ -242,7 +301,8 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <p className="text-xs text-stone-600 text-right">
@@ -255,9 +315,6 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
               Registrar compra
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
-          <AdminFormSecondaryButton type="button" onClick={onCancel}>
-            Cancelar
-          </AdminFormSecondaryButton>
         </AdminFormFooterActions>
       </AdminFormCard>
     </AdminFormShell>

@@ -37,9 +37,9 @@ export function AdminFormGoldBar() {
   );
 }
 
-export function AdminFormCard({ onSubmit, children, className = '', noValidate = false }) {
+export function AdminFormCard({ onSubmit, children, className = '', noValidate = true }) {
   return (
-    <form onSubmit={onSubmit} noValidate={noValidate || undefined} className={`${ADMIN_FORM_CARD_CLASS} ${className}`}>
+    <form onSubmit={onSubmit} noValidate={noValidate} className={`${ADMIN_FORM_CARD_CLASS} ${className}`}>
       <AdminFormGoldBar />
       <div className={ADMIN_FORM_INNER_CLASS}>{children}</div>
     </form>

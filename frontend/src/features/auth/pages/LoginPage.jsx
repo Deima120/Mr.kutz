@@ -6,6 +6,9 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
+import { validateLoginForm } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { PublicFormField } from '@/shared/components/FormValidationFields';
 
 export default function LoginPage() {
   const { isAuthenticated, login } = useAuth();
@@ -18,6 +21,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [errorReason, setErrorReason] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { fieldError, inputInvalidClass, applyValidation, clearFieldError } = useFormValidation();
 
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
@@ -25,6 +29,11 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validateLoginForm(email, password);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     setError('');
     setErrorReason(null);
     setLoading(true);
@@ -58,7 +67,7 @@ export default function LoginPage() {
             <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium mb-2">Iniciar sesión</h1>
             <p className="text-stone-500 text-sm mb-8">Ingresa tus credenciales para acceder</p>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} noValidate className="space-y-5">
               {recovered && (
                 <div
                   className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
@@ -88,37 +97,44 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <div>
-                <label htmlFor="email" className="label-premium">
-                  Correo electrónico
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-premium rounded-lg"
-                  placeholder="tu@email.com"
-                  required
-                  autoComplete="email"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="label-premium">
-                  Contraseña
-                </label>
-                <div className="relative">
+              <PublicFormField label="Correo electrónico" htmlFor="email" required error={fieldError('email')}>
+                {({ invalid, errorId }) => (
                   <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input-premium rounded-lg pr-11"
-                    placeholder="••••••••"
-                    required
-                    autoComplete="current-password"
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError('');
+                      clearFieldError('email');
+                    }}
+                    className={`input-premium rounded-lg ${invalid ? inputInvalidClass('email') : ''}`}
+                    placeholder="tu@email.com"
+                    autoComplete="email"
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
                   />
+                )}
+              </PublicFormField>
+
+              <PublicFormField label="Contraseña" htmlFor="password" required error={fieldError('password')}>
+                {({ invalid, errorId }) => (
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError('');
+                        clearFieldError('password');
+                      }}
+                      className={`input-premium rounded-lg pr-11 ${invalid ? inputInvalidClass('password') : ''}`}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={errorId}
+                    />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
@@ -128,7 +144,8 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-              </div>
+                )}
+              </PublicFormField>
 
               <div className="text-right">
                 <Link to="/forgot-password" className="text-sm text-gold font-medium hover:text-gold-dark transition-colors">

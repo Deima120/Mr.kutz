@@ -369,15 +369,6 @@ export default function AppointmentsPage() {
 
   const openEditForm = (id) => setFormView(id);
 
-  const formHeaderTitle = isCreating ? 'Nueva cita' : editingId ? 'Editar cita' : pageTitle;
-  const formHeaderSubtitle = isCreating
-    ? 'Completa los datos para agendar'
-    : editingId
-    ? 'Modifica los datos de la cita'
-    : pageSubtitle;
-  const toolbarTitle = isFormOpen ? formHeaderTitle : null;
-  const toolbarSubtitle = isFormOpen ? formHeaderSubtitle : null;
-
   const dismissSuccessMessage = () => setSuccessMessage(null);
   const successToast = (
     <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />
@@ -389,13 +380,6 @@ export default function AppointmentsPage() {
       return (
         <div className="fixed inset-x-0 top-[calc(4rem+2px)] bottom-0 z-20 bg-stone-50 overflow-hidden">
           <div className="container mx-auto h-full max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col min-h-0">
-            <div className="shrink-0 mb-3 sm:mb-4">
-              <p className="section-label text-gold">Reservas</p>
-              <h1 className="font-serif text-2xl sm:text-3xl text-stone-900 font-medium tracking-tight">
-                {formHeaderTitle}
-              </h1>
-              <p className="text-stone-500 text-sm mt-1">{formHeaderSubtitle}</p>
-            </div>
             <div className="flex-1 min-h-0 overflow-hidden">{inlineForm}</div>
           </div>
           {successToast}
@@ -645,11 +629,9 @@ export default function AppointmentsPage() {
   // ——— Vista admin ———
   return (
     <div className="page-shell">
-      <PageHeader
-        title={toolbarTitle}
-        subtitle={toolbarSubtitle}
-        filters={
-          !isFormOpen ? (
+      {!isFormOpen && (
+        <PageHeader
+          filters={
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-medium text-stone-500">Fecha</span>
@@ -676,10 +658,8 @@ export default function AppointmentsPage() {
                 </select>
               </label>
             </div>
-          ) : null
-        }
-        actions={
-          !isFormOpen ? (
+          }
+          actions={
             <button
               type="button"
               onClick={() => setFormView('create')}
@@ -688,9 +668,9 @@ export default function AppointmentsPage() {
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Nueva cita
             </button>
-          ) : null
-        }
-      />
+          }
+        />
+      )}
 
       {error && !isFormOpen && (
         <div className="alert-error" role="alert">{error}</div>

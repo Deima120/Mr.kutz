@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useSettings } from '@/shared/contexts/SettingsContext';
+import { getBookAppointmentPath } from '@/shared/utils/bookAppointmentPath';
 import AdminLayout from './AdminLayout';
 const FALLBACK_HOURS = 'Lunes a Sábado: 9:00 – 20:00 · Domingo: 10:00 – 14:00';
 
@@ -19,6 +20,7 @@ export default function MainLayout() {
   const profileMenuRef = useRef(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const bookPath = getBookAppointmentPath(user);
 
   const handleLogout = () => {
     logout();
@@ -306,7 +308,7 @@ export default function MainLayout() {
             <div>
               <h3 className="text-white font-semibold text-xs tracking-widest mb-3">Contacto</h3>
               <p className="text-sm mb-2">¿Preguntas? Te esperamos.</p>
-              <Link to="/reservar" className="inline-flex items-center gap-1 text-gold hover:text-gold-light text-sm font-medium transition-colors">
+              <Link to={bookPath} className="inline-flex items-center gap-1 text-gold hover:text-gold-light text-sm font-medium transition-colors">
                 Agenda en línea
                 <span aria-hidden>→</span>
               </Link>

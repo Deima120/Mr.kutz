@@ -6,8 +6,11 @@ import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import * as categoryService from '@/features/inventory/services/productCategoryService';
-import { downloadCSV } from '@/shared/utils/export';
+import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
+import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import { validateCategoryName } from '@/shared/utils/formValidation';
+import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 
 const toCategoryCaps = (value) => String(value ?? '').trim().toUpperCase();
 
@@ -37,6 +40,8 @@ export default function ProductCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [name, setName] = useState('');
+  const [createNameError, setCreateNameError] = useState('');
+  const [editNameError, setEditNameError] = useState('');
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -62,7 +67,13 @@ export default function ProductCategoriesPage() {
 
   const create = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const validation = validateCategoryName(name);
+    if (!validation.valid) {
+      setCreateNameError(validation.firstError);
+      setError(validation.firstError);
+      return;
+    }
+    setCreateNameError('');
     try {
       await categoryService.createCategory({
         name: toCategoryCaps(name),
@@ -86,10 +97,17 @@ export default function ProductCategoriesPage() {
     setEditingId(null);
     setEditName('');
     setEditDescription('');
+    setEditNameError('');
   };
 
   const saveEdit = async (r) => {
-    if (!editName.trim()) return;
+    const validation = validateCategoryName(editName);
+    if (!validation.valid) {
+      setEditNameError(validation.firstError);
+      setError(validation.firstError);
+      return;
+    }
+    setEditNameError('');
     try {
       await categoryService.updateCategory(r.id, {
         name: toCategoryCaps(editName),
@@ -142,6 +160,24 @@ export default function ProductCategoriesPage() {
     activo: isCategoryActive(r) ? 'Sí' : 'No',
   }));
 
+  const handleExportExcel = () => {
+    if (categoryExportRows.length === 0) return;
+    downloadExcelTable({
+      sheetName: 'Categorías',
+      title: 'Categorías de productos',
+      meta: [`Total: ${categoryExportRows.length} categoría(s)`],
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Nombre', key: 'nombre', emphasis: true },
+        { header: 'Descripción', key: 'descripcion' },
+        { header: 'Productos', key: 'productos', align: 'right' },
+        { header: 'Activa', key: 'activo', align: 'center' },
+      ],
+      rows: categoryExportRows,
+      fileBase: 'categorias-mrkutz',
+    });
+  };
+
   const handleExportPDF = () => {
     if (categoryExportRows.length === 0) return;
     downloadTablePDF({
@@ -166,16 +202,13 @@ export default function ProductCategoriesPage() {
       <PageHeader
         actions={
           <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => downloadCSV('categorias-productos.csv', categoryExportRows)}
-              className={btnToolbar}
-            >
-              CSV
-            </button>
-            <button type="button" onClick={handleExportPDF} className={btnToolbar}>
-              PDF
-            </button>
+            <AdminExportButtons
+              onExcel={handleExportExcel}
+              onPdf={handleExportPDF}
+              excelDisabled={categoryExportRows.length === 0}
+              pdfDisabled={categoryExportRows.length === 0}
+              size="xs"
+            />
             <Link to="/inventory" className={btnToolbar}>
               Inventario
             </Link>
@@ -187,14 +220,21 @@ export default function ProductCategoriesPage() {
 
       <div className="mb-4 rounded-xl border border-stone-200/90 bg-white px-3 py-3 shadow-sm sm:px-4">
         <p className="mb-2 text-[10px] font-semibold text-gold">Nueva categoría</p>
-        <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={create}>
-          <input
-            value={name}
-            onChange={(e) => setName(toCategoryCaps(e.target.value))}
-            className="input-premium py-2 text-sm"
-            placeholder="Nombre"
-            required
-          />
+        <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={create} noValidate>
+          <div>
+            <input
+              value={name}
+              onChange={(e) => {
+                setName(toCategoryCaps(e.target.value));
+                setCreateNameError('');
+                setError('');
+              }}
+              className={`input-premium py-2 text-sm ${createNameError ? '!border-red-400' : ''}`}
+              placeholder="Nombre"
+              aria-invalid={createNameError ? true : undefined}
+            />
+            <FieldErrorMessage message={createNameError} />
+          </div>
           <input
             value={description}
             onChange={(e) => setDescription(toCategoryCaps(e.target.value))}
@@ -230,12 +270,20 @@ export default function ProductCategoriesPage() {
                     <>
                       <TableCell compact colSpan={2} className="align-top">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <input
-                            value={editName}
-                            onChange={(e) => setEditName(toCategoryCaps(e.target.value))}
-                            className="input-premium py-1.5 text-sm min-w-0 flex-1"
-                            placeholder="Nombre"
-                          />
+                          <div className="min-w-0 flex-1">
+                            <input
+                              value={editName}
+                              onChange={(e) => {
+                                setEditName(toCategoryCaps(e.target.value));
+                                setEditNameError('');
+                                setError('');
+                              }}
+                              className={`input-premium py-1.5 text-sm min-w-0 w-full ${editNameError ? '!border-red-400' : ''}`}
+                              placeholder="Nombre"
+                              aria-invalid={editNameError ? true : undefined}
+                            />
+                            <FieldErrorMessage message={editNameError} />
+                          </div>
                           <input
                             value={editDescription}
                             onChange={(e) => setEditDescription(toCategoryCaps(e.target.value))}

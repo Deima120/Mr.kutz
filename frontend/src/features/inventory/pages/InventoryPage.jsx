@@ -11,7 +11,6 @@ import { ProductForm } from '@/features/inventory/pages/ProductFormPage';
 import AdjustStockModal from '@/features/inventory/components/AdjustStockModal';
 import MovementHistoryModal from '@/features/inventory/components/MovementHistoryModal';
 import VoidMovementModal from '@/features/inventory/components/VoidMovementModal';
-import ImportProductsModal from '@/features/inventory/components/ImportProductsModal';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
@@ -33,8 +32,9 @@ import {
   isLowStock,
   isProductActive,
 } from '@/features/inventory/utils/productFormatters';
-import { downloadCSV } from '@/shared/utils/export';
+import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
+import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -73,7 +73,6 @@ export default function InventoryPage() {
   const [movementsError, setMovementsError] = useState('');
 
   const [quickUpdating, setQuickUpdating] = useState(null);
-  const [importOpen, setImportOpen] = useState(false);
   const [voidMovement, setVoidMovement] = useState(null);
   const [isVoiding, setIsVoiding] = useState(false);
 
@@ -259,14 +258,6 @@ export default function InventoryPage() {
     }
   };
 
-  const handleImportSuccess = (result) => {
-    if ((result?.created ?? 0) > 0) {
-      setSuccessMessage(`Importación: ${result.created} producto(s) creado(s).`);
-      setPage(1);
-      fetchProducts(1);
-    }
-  };
-
   const goToSell = (product) => {
     navigate(`/payments/new?productId=${product.id}`);
   };
@@ -282,6 +273,42 @@ export default function InventoryPage() {
     precio_costo: getProductCostPrice(p) ?? '',
     activo: isProductActive(p) ? 'Sí' : 'No',
   }));
+
+  const handleExportExcel = () => {
+    if (exportRows.length === 0) return;
+    const filterParts = [
+      searchDebounced ? `Búsqueda: «${searchDebounced}»` : null,
+      showLowStockOnly ? 'Solo stock bajo' : null,
+      categoryFilter ? `Categoría ID ${categoryFilter}` : null,
+      showInactive ? 'Incluye inactivos' : 'Solo activos',
+    ].filter(Boolean);
+    downloadExcelTable({
+      sheetName: 'Inventario',
+      title: 'Inventario de productos',
+      meta: [`Total: ${exportRows.length} producto(s)`, ...filterParts],
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Nombre', key: 'nombre', emphasis: true },
+        { header: 'Categoría', key: 'categoria' },
+        { header: 'SKU', key: 'sku' },
+        { header: 'Stock', key: 'stock', align: 'right' },
+        { header: 'Mín.', key: 'min_stock', align: 'right' },
+        {
+          header: 'Precio venta',
+          accessor: (r) => formatProductRetailPrice({ retail_price: r.precio_venta }),
+          align: 'right',
+        },
+        {
+          header: 'Precio costo',
+          accessor: (r) => formatProductCostPrice({ cost_price: r.precio_costo }),
+          align: 'right',
+        },
+        { header: 'Activo', key: 'activo', align: 'center' },
+      ],
+      rows: exportRows,
+      fileBase: 'inventario-mrkutz',
+    });
+  };
 
   const handleExportPDF = () => {
     if (exportRows.length === 0) return;
@@ -319,13 +346,6 @@ export default function InventoryPage() {
     });
   };
 
-  const formHeaderTitle = isCreating ? 'Nuevo producto' : editingId ? 'Editar producto' : 'Inventario';
-  const formHeaderSubtitle = isCreating
-    ? 'Registra un producto en el catálogo'
-    : editingId
-      ? 'Modifica los datos del producto'
-      : 'Productos, alertas, movimientos y venta en caja';
-
   const inlineForm = isFormOpen ? (
     <ProductForm
       embedded
@@ -337,29 +357,18 @@ export default function InventoryPage() {
 
   return (
     <div className="page-shell">
-      <PageHeader
-        title={isFormOpen ? formHeaderTitle : 'Inventario'}
-        subtitle={isFormOpen ? formHeaderSubtitle : 'Productos, stock, movimientos y venta en caja'}
-        actions={
-          !isFormOpen ? (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => downloadCSV('inventario.csv', exportRows)}
-                className="btn-admin-outline w-full sm:w-auto text-sm"
-              >
-                Exportar CSV
-              </button>
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                className="btn-admin-outline w-full sm:w-auto text-sm"
-              >
-                Importar CSV
-              </button>
-              <button type="button" onClick={handleExportPDF} className="btn-admin-outline w-full sm:w-auto text-sm">
-                Exportar PDF
-              </button>
+      {!isFormOpen && (
+        <PageHeader
+          title="Inventario"
+          subtitle="Productos, stock, movimientos y venta en caja"
+          actions={
+            <div className="flex flex-wrap gap-2 items-center">
+              <AdminExportButtons
+                onExcel={handleExportExcel}
+                onPdf={handleExportPDF}
+                excelDisabled={exportRows.length === 0}
+                pdfDisabled={exportRows.length === 0}
+              />
               <Link to="/purchases" className="btn-admin-outline w-full sm:w-auto text-sm">
                 Compras
               </Link>
@@ -375,9 +384,9 @@ export default function InventoryPage() {
                 Nuevo producto
               </button>
             </div>
-          ) : null
-        }
-      />
+          }
+        />
+      )}
 
       {inlineForm}
 
@@ -630,13 +639,6 @@ export default function InventoryPage() {
         onConfirm={confirmVoidMovement}
         isSubmitting={isVoiding}
       />
-
-      {importOpen && (
-        <ImportProductsModal
-          onClose={() => setImportOpen(false)}
-          onSuccess={handleImportSuccess}
-        />
-      )}
 
       <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>

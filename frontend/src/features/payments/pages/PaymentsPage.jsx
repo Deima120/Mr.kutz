@@ -23,8 +23,9 @@ import {
   getPaymentConcept,
   getPaymentTypeLabel,
 } from '@/features/payments/utils/paymentFormatters';
-import { downloadCSV } from '@/shared/utils/export';
+import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
+import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -196,6 +197,38 @@ export default function PaymentsPage() {
     motivo_anulacion: p.void_reason || '',
   }));
 
+  const handleExportExcel = () => {
+    if (exportRows.length === 0) return;
+    const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todos';
+    const typeLabel = TYPE_OPTIONS.find((o) => o.value === typeFilter)?.label || 'Todos';
+    downloadExcelTable({
+      sheetName: 'Pagos',
+      title: 'Registro de pagos',
+      meta: [
+        `Periodo: ${dateFrom} — ${dateTo}`,
+        `Total en listado: ${exportRows.length}`,
+        `Estado: ${statusLabel} · Tipo: ${typeLabel}`,
+        search ? `Búsqueda: «${search}»` : null,
+        `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} cobros)`,
+      ],
+      columns: [
+        { header: 'ID', key: 'id', align: 'center' },
+        { header: 'Fecha', accessor: (r) => formatPaymentDateTime(r.fecha) },
+        { header: 'Estado', key: 'estado', align: 'center' },
+        { header: 'Tipo', accessor: (r) => getPaymentTypeLabel(r.tipo) },
+        { header: 'Cliente', key: 'cliente', emphasis: true },
+        { header: 'Concepto', key: 'concepto' },
+        { header: 'Método', key: 'metodo' },
+        { header: 'Monto', accessor: (r) => formatPaymentAmount(r.monto), align: 'right' },
+        { header: 'Referencia', key: 'referencia' },
+        { header: 'Notas', key: 'notas' },
+        { header: 'Motivo anulación', key: 'motivo_anulacion' },
+      ],
+      rows: exportRows,
+      fileBase: 'pagos-mrkutz',
+    });
+  };
+
   const handleExportPDF = () => {
     if (exportRows.length === 0) return;
     const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todos';
@@ -291,19 +324,16 @@ export default function PaymentsPage() {
                       {periodTotal.count} cobro{periodTotal.count === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <button type="button" onClick={() => downloadCSV('pagos.csv', exportRows)} className="btn-admin-outline text-xs py-2 px-3">
-                    CSV
-                  </button>
-                  <button type="button" onClick={handleExportPDF} className="btn-admin-outline text-xs py-2 px-3">
-                    PDF
-                  </button>
+                  <AdminExportButtons
+                    onExcel={handleExportExcel}
+                    onPdf={handleExportPDF}
+                    excelDisabled={exportRows.length === 0}
+                    pdfDisabled={exportRows.length === 0}
+                    size="xs"
+                  />
                 </>
               )}
-              {isFormOpen ? (
-                <button type="button" onClick={closeForm} className="btn-admin-outline text-xs py-2 px-3">
-                  Volver al listado
-                </button>
-              ) : (
+              {isFormOpen ? null : (
                 <button type="button" onClick={openCreateForm} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
                   <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
                   Registrar pago

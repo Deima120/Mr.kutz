@@ -87,13 +87,6 @@ export default function ServicesPage() {
 
   const openEditForm = (id) => setFormView(id);
 
-  const formHeaderTitle = isCreating ? 'Nuevo servicio' : editingId ? 'Editar servicio' : 'Servicios';
-  const formHeaderSubtitle = isCreating
-    ? 'Completa los datos del servicio'
-    : editingId
-    ? 'Modifica el servicio del catálogo'
-    : 'Activos visibles al agendar; gestiona el estado desde cada tarjeta o al editar.';
-
   const activeCount = useMemo(() => services.filter((s) => isServiceActive(s)).length, [services]);
   const inactiveCount = useMemo(() => services.filter((s) => !isServiceActive(s)).length, [services]);
 
@@ -270,22 +263,20 @@ export default function ServicesPage() {
 
   return (
     <div className="min-w-0 max-w-full space-y-4">
-      <PageHeader
-        title={isFormOpen ? formHeaderTitle : null}
-        subtitle={isFormOpen ? formHeaderSubtitle : null}
-        actions={
-          !isFormOpen ? (
-          <button
-            type="button"
-            onClick={() => setFormView('create')}
-            className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
-          >
-            <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-            Nuevo
-          </button>
-          ) : null
-        }
-      />
+      {!isFormOpen && (
+        <PageHeader
+          actions={
+            <button
+              type="button"
+              onClick={() => setFormView('create')}
+              className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
+            >
+              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+              Nuevo
+            </button>
+          }
+        />
+      )}
 
       {inlineForm}
 

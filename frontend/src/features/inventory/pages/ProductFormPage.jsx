@@ -2,11 +2,20 @@
  * Formulario crear/editar producto
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
 import * as productCategoryService from '@/features/inventory/services/productCategoryService';
+import {
+  validateProductForm,
+  getApiErrorMessage,
+  validateRequiredField,
+  validateMoney,
+  validateNonNegativeInt,
+} from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { AdminFormField } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -16,7 +25,6 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -45,6 +53,29 @@ export function ProductForm({
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } = useFormValidation();
+
+  const nameValidation = useMemo(
+    () => validateRequiredField(formData.name, 'El nombre'),
+    [formData.name]
+  );
+  const retailValidation = useMemo(
+    () => validateMoney(formData.retailPrice, 'El precio de venta', { required: false, min: 0 }),
+    [formData.retailPrice]
+  );
+  const costValidation = useMemo(
+    () => validateMoney(formData.costPrice, 'El precio de costo', { required: false, min: 0 }),
+    [formData.costPrice]
+  );
+  const minStockValidation = useMemo(
+    () =>
+      validateNonNegativeInt(
+        formData.minStock != null ? String(formData.minStock) : '',
+        'El stock mínimo',
+        { required: false }
+      ),
+    [formData.minStock]
+  );
 
   useEffect(() => {
     if (isEdit && editId) {
@@ -88,6 +119,7 @@ export function ProductForm({
     if (name === 'retailPrice' || name === 'costPrice') {
       setFormData((prev) => ({ ...prev, [name]: value }));
       setError('');
+      clearFieldError(name);
       return;
     }
     setFormData((prev) => ({
@@ -95,10 +127,16 @@ export function ProductForm({
       [name]: type === 'checkbox' ? checked : type === 'number' ? parseInt(value, 10) || 0 : value,
     }));
     setError('');
+    clearFieldError(name);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validateProductForm(formData);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -128,7 +166,7 @@ export function ProductForm({
         navigate('/inventory', { replace: true });
       }
     } catch (err) {
-      setError(err?.message || 'Error al guardar');
+      setError(getApiErrorMessage(err, 'Error al guardar'));
     } finally {
       setLoading(false);
     }
@@ -150,7 +188,7 @@ export function ProductForm({
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}
       compact={embedded}
-      showBackNav={!embedded}
+      showBackNav
       aside={{
         kicker: 'Vista previa',
         title: isEdit ? 'Producto en edición' : 'Nuevo producto',
@@ -199,10 +237,26 @@ export function ProductForm({
 
           {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
-          <div className="group shrink-0">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Nombre *</label>
-            <input name="name" value={formData.name} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT} required />
-          </div>
+          <AdminFormField
+            label="Nombre"
+            htmlFor="product-name"
+            required
+            error={fieldError('name')}
+            live={buildLiveHint('name', formData.name, nameValidation, 'Nombre válido.')}
+          >
+            {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+              <input
+                id="product-name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                onBlur={() => markTouched('name')}
+                className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                aria-invalid={invalid || undefined}
+                aria-describedby={errorId}
+              />
+            )}
+          </AdminFormField>
 
           <div className="group shrink-0">
             <label className={ADMIN_FORM_LABEL_CLASS}>Descripción</label>
@@ -256,36 +310,73 @@ export function ProductForm({
           </div>
 
           <div className={`${ADMIN_FORM_GRID_CLASS} max-w-xl`}>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Precio de venta ($)</label>
-              <input
-                name="retailPrice"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.retailPrice}
-                onChange={handleChange}
-                placeholder="Opcional"
-                className={ADMIN_FORM_FIELD_COMPACT}
-              />
-            </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Precio de costo ($)</label>
-              <input
-                name="costPrice"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.costPrice}
-                onChange={handleChange}
-                placeholder="Opcional"
-                className={ADMIN_FORM_FIELD_COMPACT}
-              />
-            </div>
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Stock mínimo (alerta)</label>
-              <input name="minStock" type="number" min="0" value={formData.minStock} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT} />
-            </div>
+            <AdminFormField
+              label="Precio de venta ($)"
+              htmlFor="product-retail"
+              error={fieldError('retailPrice')}
+              live={buildLiveHint('retailPrice', formData.retailPrice, retailValidation, 'Precio válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="product-retail"
+                  name="retailPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.retailPrice}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('retailPrice')}
+                  placeholder="Opcional"
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Precio de costo ($)"
+              htmlFor="product-cost"
+              error={fieldError('costPrice')}
+              live={buildLiveHint('costPrice', formData.costPrice, costValidation, 'Precio válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="product-cost"
+                  name="costPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.costPrice}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('costPrice')}
+                  placeholder="Opcional"
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Stock mínimo (alerta)"
+              htmlFor="product-min-stock"
+              error={fieldError('minStock')}
+              live={buildLiveHint('minStock', formData.minStock, minStockValidation, 'Valor válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="product-min-stock"
+                  name="minStock"
+                  type="number"
+                  min="0"
+                  value={formData.minStock}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('minStock')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
           </div>
 
           {isEdit && productMeta && (
@@ -325,7 +416,6 @@ export function ProductForm({
                 Guardar producto
               </AdminFormLoadingButton>
             </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
       </AdminFormCard>
     </AdminFormShell>

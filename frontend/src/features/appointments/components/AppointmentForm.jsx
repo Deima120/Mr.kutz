@@ -10,6 +10,9 @@ import * as appointmentService from '@/features/appointments/services/appointmen
 import * as clientService from '@/features/clients/services/clientService';
 import * as barberService from '@/features/barbers/services/barberService';
 import * as serviceService from '@/features/services/services/serviceService';
+import { validateAppointmentForm, getApiErrorMessage } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -18,7 +21,6 @@ import AdminFormShell, {
   ADMIN_FORM_ERROR_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -97,6 +99,8 @@ export default function AppointmentForm({
   }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint, fieldBorderClass } =
+    useFormValidation();
   const [dataLoaded, setDataLoaded] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [apptLoading, setApptLoading] = useState(isEdit);
@@ -276,6 +280,12 @@ export default function AppointmentForm({
       return next;
     });
     setError('');
+    clearFieldError(name);
+    if (name === 'serviceIds') clearFieldError('serviceIds');
+  };
+
+  const handleBlur = (e) => {
+    markTouched(e.target.name);
   };
 
   const addService = () => {
@@ -286,6 +296,8 @@ export default function AppointmentForm({
     });
     setServicePicker('');
     setError('');
+    clearFieldError('serviceIds');
+    markTouched('serviceIds');
   };
 
   const addServiceById = (id) => {
@@ -309,10 +321,13 @@ export default function AppointmentForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isEdit && (apptLoading || loadError)) return;
-    if (!isEdit && formData.serviceIds.length === 0) {
-      setError('Agrega al menos un servicio.');
+
+    const validation = validateAppointmentForm(formData, { isEdit, isClient });
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
       return;
     }
+
     setLoading(true);
     setError('');
     try {
@@ -350,7 +365,7 @@ export default function AppointmentForm({
         onSuccess?.({ created: true });
       }
     } catch (err) {
-      setError(err?.message || (isEdit ? 'Error al guardar los cambios' : 'Error al crear cita'));
+      setError(getApiErrorMessage(err, isEdit ? 'Error al guardar los cambios' : 'Error al crear cita'));
     } finally {
       setLoading(false);
     }
@@ -430,6 +445,61 @@ export default function AppointmentForm({
   const fieldClass = isClient ? FORM_FIELD_CLASS : ADMIN_FORM_FIELD_COMPACT;
   const labelClass = isClient ? FORM_LABEL_CLASS : ADMIN_FORM_LABEL_CLASS;
 
+  const clientValidation = useMemo(
+    () =>
+      formData.clientId
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona un cliente.' },
+    [formData.clientId]
+  );
+  const barberValidation = useMemo(
+    () =>
+      formData.barberId
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona un barbero.' },
+    [formData.barberId]
+  );
+  const dateValidation = useMemo(
+    () =>
+      formData.appointmentDate
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona una fecha.' },
+    [formData.appointmentDate]
+  );
+  const timeValidation = useMemo(
+    () =>
+      formData.startTime
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona una hora disponible.' },
+    [formData.startTime]
+  );
+  const servicesValidation = useMemo(
+    () =>
+      formData.serviceIds?.length
+        ? { valid: true, message: '' }
+        : { valid: false, message: isEdit ? 'Selecciona un servicio.' : 'Agrega al menos un servicio.' },
+    [formData.serviceIds, isEdit]
+  );
+
+  const hintOrError = (name, value, validation, successMessage) => {
+    const submitErr = fieldError(name);
+    if (submitErr) return <FieldErrorMessage message={submitErr} />;
+    const live = buildLiveHint(name, value, validation, successMessage);
+    return (
+      <FieldHint
+        valid={live.valid}
+        touched={live.show}
+        message={live.message}
+        successMessage={live.successMessage}
+      />
+    );
+  };
+
+  const borderFor = (name, value, validation) =>
+    fieldError(name)
+      ? fieldBorderClass(name, false, value)
+      : fieldBorderClass(name, validation.valid, value);
+
   const handleBack = () => {
     if (onCancel) onCancel();
     else navigate('/appointments');
@@ -440,10 +510,10 @@ export default function AppointmentForm({
     compact: embedded || !isClient,
     contained: isClient && embedded,
     fillHeight: isClient && embedded,
-    showBackNav: !embedded,
+    showBackNav: true,
     backTo: '/appointments',
     backLabel: isClient ? 'Mis citas' : 'Citas',
-    onBackClick: undefined,
+    onBackClick: embedded || isClient ? handleBack : undefined,
     modeBadge: isEdit ? 'Edición' : isClient ? 'Reserva' : 'Alta',
     aside: previewAside,
   };
@@ -513,7 +583,6 @@ export default function AppointmentForm({
             setFormData((prev) => ({ ...prev, serviceIds: e.target.value ? [e.target.value] : [] }))
           }
           className={fieldClass}
-          required
           disabled={isClient && isEdit}
         >
           <option value="">Seleccionar servicio...</option>
@@ -523,6 +592,12 @@ export default function AppointmentForm({
             </option>
           ))}
         </select>
+      )}
+      {hintOrError(
+        'serviceIds',
+        formData.serviceIds.length,
+        servicesValidation,
+        isEdit ? 'Servicio seleccionado.' : 'Servicios agregados.'
       )}
     </div>
   );
@@ -534,8 +609,8 @@ export default function AppointmentForm({
         name="startTime"
         value={formData.startTime}
         onChange={handleChange}
-        className={fieldClass}
-        required
+        onBlur={handleBlur}
+        className={`${fieldClass} ${borderFor('startTime', formData.startTime, timeValidation)}`}
         disabled={
           !formData.barberId ||
           !formData.appointmentDate ||
@@ -562,6 +637,7 @@ export default function AppointmentForm({
           </option>
         ))}
       </select>
+      {hintOrError('startTime', formData.startTime, timeValidation, 'Hora seleccionada.')}
     </div>
   );
 
@@ -573,10 +649,11 @@ export default function AppointmentForm({
         type="date"
         value={formData.appointmentDate}
         onChange={handleChange}
+        onBlur={handleBlur}
         min={dateInputMin}
-        className={fieldClass}
-        required
+        className={`${fieldClass} ${borderFor('appointmentDate', formData.appointmentDate, dateValidation)}`}
       />
+      {hintOrError('appointmentDate', formData.appointmentDate, dateValidation, 'Fecha seleccionada.')}
     </div>
   );
 
@@ -587,8 +664,8 @@ export default function AppointmentForm({
         name="barberId"
         value={formData.barberId}
         onChange={handleChange}
-        className={fieldClass}
-        required
+        onBlur={handleBlur}
+        className={`${fieldClass} ${borderFor('barberId', formData.barberId, barberValidation)}`}
         disabled={!dataLoaded || barbers.length === 0 || (isClient && isEdit)}
       >
         <option value="">
@@ -600,6 +677,7 @@ export default function AppointmentForm({
           </option>
         ))}
       </select>
+      {hintOrError('barberId', formData.barberId, barberValidation, 'Barbero seleccionado.')}
     </div>
   );
 
@@ -610,8 +688,8 @@ export default function AppointmentForm({
         name="clientId"
         value={formData.clientId}
         onChange={handleChange}
-        className={fieldClass}
-        required
+        onBlur={handleBlur}
+        className={`${fieldClass} ${borderFor('clientId', formData.clientId, clientValidation)}`}
       >
         <option value="">Seleccionar cliente...</option>
         {clients.map((c) => (
@@ -620,6 +698,7 @@ export default function AppointmentForm({
           </option>
         ))}
       </select>
+      {hintOrError('clientId', formData.clientId, clientValidation, 'Cliente seleccionado.')}
     </div>
   ) : null;
 
@@ -787,7 +866,6 @@ export default function AppointmentForm({
                     {isEdit ? 'Guardar cambios' : 'Crear cita'}
                   </AdminFormLoadingButton>
                 </AdminFormPrimaryButton>
-                <AdminFormSecondaryButton onClick={handleBack}>Cancelar</AdminFormSecondaryButton>
               </AdminFormFooterActions>
             </>
           )}
@@ -880,7 +958,6 @@ export default function AppointmentForm({
                     ? isEdit ? 'Guardando…' : 'Reservando…'
                     : isEdit ? 'Guardar cambios' : 'Confirmar reserva'}
                 </AdminFormPrimaryButton>
-                <AdminFormSecondaryButton onClick={handleBack}>Cancelar</AdminFormSecondaryButton>
               </AdminFormFooterActions>
             </>
           )}

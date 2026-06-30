@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as bookingService from '@/features/booking/services/publicBookingService';
-import { sanitizePhone } from '@/shared/utils/authValidation';
+import { sanitizePhone, validateBookingForm, getApiErrorMessage } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { PublicFormField, FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import { getLocalDateToday } from '@/shared/utils/appointmentTime';
 
 function formatPrice(v) {
@@ -42,6 +44,7 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+  const { fieldError, inputInvalidClass, applyValidation, clearFieldError } = useFormValidation();
 
   useEffect(() => {
     let cancelled = false;
@@ -116,25 +119,14 @@ export default function BookingPage() {
     const next = name === 'phone' ? sanitizePhone(value) : value;
     setForm((prev) => ({ ...prev, [name]: next }));
     setError('');
-  };
-
-  const validate = () => {
-    if (!form.serviceId) return 'Selecciona un servicio.';
-    if (!form.barberId) return 'Selecciona un barbero.';
-    if (!form.appointmentDate) return 'Selecciona una fecha.';
-    if (!form.startTime) return 'Selecciona una hora disponible.';
-    if (!form.firstName.trim()) return 'Escribe tu nombre.';
-    if (!form.lastName.trim()) return 'Escribe tu apellido.';
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim()))
-      return 'Correo electrónico no válido.';
-    return '';
+    clearFieldError(name);
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    const msg = validate();
-    if (msg) {
-      setError(msg);
+    const validation = validateBookingForm(form);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
       return;
     }
     setSubmitting(true);
@@ -152,8 +144,7 @@ export default function BookingPage() {
       });
       setSuccess(result);
     } catch (err) {
-      const fieldMsg = err?.data?.errors?.[0]?.message;
-      setError(fieldMsg || err?.message || 'No pudimos registrar la cita.');
+      setError(getApiErrorMessage(err, 'No pudimos registrar la cita.'));
     } finally {
       setSubmitting(false);
     }
@@ -219,7 +210,7 @@ export default function BookingPage() {
 
         <div className="panel-card overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-gold-dark via-gold to-gold-light" />
-          <form onSubmit={onSubmit} className="p-6 sm:p-10 space-y-6">
+          <form onSubmit={onSubmit} noValidate className="p-6 sm:p-10 space-y-6">
             {catalogueError && (
               <div className="alert-error" role="alert">
                 {catalogueError}
@@ -232,69 +223,70 @@ export default function BookingPage() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label-premium" htmlFor="serviceId">
-                  Servicio *
-                </label>
-                <select
-                  id="serviceId"
-                  name="serviceId"
-                  value={form.serviceId}
-                  onChange={onChange}
-                  className="input-premium"
-                  disabled={loadingCatalogue}
-                  required
-                >
-                  <option value="">Selecciona un servicio…</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} — {formatPrice(s.price)} ({s.duration_minutes} min)
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <PublicFormField label="Servicio" htmlFor="serviceId" required error={fieldError('serviceId')}>
+                {({ invalid, errorId }) => (
+                  <select
+                    id="serviceId"
+                    name="serviceId"
+                    value={form.serviceId}
+                    onChange={onChange}
+                    className={`input-premium ${invalid ? inputInvalidClass('serviceId') : ''}`}
+                    disabled={loadingCatalogue}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  >
+                    <option value="">Selecciona un servicio…</option>
+                    {services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {formatPrice(s.price)} ({s.duration_minutes} min)
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </PublicFormField>
 
-              <div>
-                <label className="label-premium" htmlFor="barberId">
-                  Barbero *
-                </label>
-                <select
-                  id="barberId"
-                  name="barberId"
-                  value={form.barberId}
-                  onChange={onChange}
-                  className="input-premium"
-                  disabled={loadingCatalogue}
-                  required
-                >
-                  <option value="">Selecciona un barbero…</option>
-                  {barbers.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {`${b.first_name} ${b.last_name}`.trim()}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <PublicFormField label="Barbero" htmlFor="barberId" required error={fieldError('barberId')}>
+                {({ invalid, errorId }) => (
+                  <select
+                    id="barberId"
+                    name="barberId"
+                    value={form.barberId}
+                    onChange={onChange}
+                    className={`input-premium ${invalid ? inputInvalidClass('barberId') : ''}`}
+                    disabled={loadingCatalogue}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  >
+                    <option value="">Selecciona un barbero…</option>
+                    {barbers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {`${b.first_name} ${b.last_name}`.trim()}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </PublicFormField>
             </div>
 
-            <div>
-              <label className="label-premium" htmlFor="appointmentDate">
-                Fecha *
-              </label>
-              <input
-                id="appointmentDate"
-                name="appointmentDate"
-                type="date"
-                min={getLocalDateToday()}
-                value={form.appointmentDate}
-                onChange={onChange}
-                className="input-premium"
-                required
-              />
-            </div>
+            <PublicFormField label="Fecha" htmlFor="appointmentDate" required error={fieldError('appointmentDate')}>
+              {({ invalid, errorId }) => (
+                <input
+                  id="appointmentDate"
+                  name="appointmentDate"
+                  type="date"
+                  min={getLocalDateToday()}
+                  value={form.appointmentDate}
+                  onChange={onChange}
+                  className={`input-premium ${invalid ? inputInvalidClass('appointmentDate') : ''}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </PublicFormField>
 
             <div>
               <p className="label-premium">Hora disponible *</p>
+              <FieldErrorMessage message={fieldError('startTime')} />
               {!form.barberId || !form.appointmentDate ? (
                 <p className="text-sm text-stone-500">
                   Selecciona barbero y fecha para ver las horas disponibles.
@@ -335,65 +327,66 @@ export default function BookingPage() {
             <hr className="border-stone-200" />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label-premium" htmlFor="firstName">
-                  Nombre *
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  value={form.firstName}
-                  onChange={onChange}
-                  className="input-premium"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label-premium" htmlFor="lastName">
-                  Apellido *
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  value={form.lastName}
-                  onChange={onChange}
-                  className="input-premium"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label-premium" htmlFor="email">
-                  Correo *
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={onChange}
-                  className="input-premium"
-                  placeholder="tu@email.com"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label-premium" htmlFor="phone">
-                  Teléfono
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  value={form.phone}
-                  onChange={onChange}
-                  className="input-premium"
-                  placeholder="Solo números"
-                  maxLength={15}
-                />
-              </div>
+              <PublicFormField label="Nombre" htmlFor="firstName" required error={fieldError('firstName')}>
+                {({ invalid, errorId }) => (
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    value={form.firstName}
+                    onChange={onChange}
+                    className={`input-premium ${invalid ? inputInvalidClass('firstName') : ''}`}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                )}
+              </PublicFormField>
+              <PublicFormField label="Apellido" htmlFor="lastName" required error={fieldError('lastName')}>
+                {({ invalid, errorId }) => (
+                  <input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    value={form.lastName}
+                    onChange={onChange}
+                    className={`input-premium ${invalid ? inputInvalidClass('lastName') : ''}`}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                )}
+              </PublicFormField>
+              <PublicFormField label="Correo" htmlFor="email" required error={fieldError('email')}>
+                {({ invalid, errorId }) => (
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={onChange}
+                    className={`input-premium ${invalid ? inputInvalidClass('email') : ''}`}
+                    placeholder="tu@email.com"
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                )}
+              </PublicFormField>
+              <PublicFormField label="Teléfono" htmlFor="phone" error={fieldError('phone')}>
+                {({ invalid, errorId }) => (
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    value={form.phone}
+                    onChange={onChange}
+                    className={`input-premium ${invalid ? inputInvalidClass('phone') : ''}`}
+                    placeholder="Solo números"
+                    maxLength={15}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                )}
+              </PublicFormField>
             </div>
 
             <div>

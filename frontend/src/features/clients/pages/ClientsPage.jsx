@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus, FileSpreadsheet } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as clientService from '@/features/clients/services/clientService';
 import { ClientForm } from '@/features/clients/pages/ClientFormPage';
@@ -12,6 +12,7 @@ import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import ClientDeleteModal from '@/features/clients/components/ClientDeleteModal';
 import { downloadClientsExcel } from '@/features/clients/utils/exportClientsExcel';
+import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
@@ -308,19 +309,11 @@ export default function ClientsPage() {
             actions={
               isAdmin ? (
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={exporting || total === 0}
-                    onClick={handleExportExcel}
-                    className="btn-admin-outline hover:text-gold hover:bg-stone-100 transition-colors text-xs font-semibold py-2 px-3 sm:text-sm inline-flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    {exporting ? (
-                      <span className="h-3.5 w-3.5 border-2 border-stone-300 border-t-stone-700 rounded-full animate-spin" aria-hidden />
-                    ) : (
-                      <FileSpreadsheet className="w-4 h-4 shrink-0" aria-hidden />
-                    )}
-                    {exporting ? 'Exportando…' : 'Exportar Excel'}
-                  </button>
+                  <AdminExportButtons
+                    onExcel={handleExportExcel}
+                    excelDisabled={exporting || total === 0}
+                    excelLoading={exporting}
+                  />
                   <button
                     type="button"
                     onClick={() => setFormView('create')}

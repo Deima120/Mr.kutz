@@ -136,13 +136,6 @@ export default function BarbersPage() {
 
   const openEditForm = (id) => setFormView(id);
 
-  const formHeaderTitle = isCreating ? 'Nuevo barbero' : editingId ? 'Editar barbero' : 'Barberos';
-  const formHeaderSubtitle = isCreating
-    ? 'Completa el perfil del integrante'
-    : editingId
-    ? 'Modifica los datos del barbero'
-    : 'Equipo de trabajo';
-
   const inlineForm = isFormOpen ? (
     <BarberForm
       embedded
@@ -174,10 +167,7 @@ export default function BarbersPage() {
       )}
 
       {isFormOpen ? (
-        <DataCard title={formHeaderTitle} compact>
-          <p className="text-xs text-stone-500 mb-4">{formHeaderSubtitle}</p>
-          {inlineForm}
-        </DataCard>
+        inlineForm
       ) : (
         <>
           {listToolbar}

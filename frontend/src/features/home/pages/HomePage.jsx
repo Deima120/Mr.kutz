@@ -6,6 +6,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useSettings } from '@/shared/contexts/SettingsContext';
+import { getBookAppointmentPath } from '@/shared/utils/bookAppointmentPath';
 import HeroCarousel from '@/features/home/components/HeroCarousel';
 import MobileAppFloating from '@/features/home/components/MobileAppFloating';
 import * as serviceService from '@/features/services/services/serviceService';
@@ -166,6 +167,7 @@ export default function HomePage() {
   const { businessName, address, openingHours } = useSettings();
   const isAdmin = user?.role === 'admin';
   const canManage = isAdmin || user?.role === 'barber';
+  const bookPath = getBookAppointmentPath(user);
   const locationAddress = (address || '').trim();
   const mapLink = locationAddress
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationAddress)}`
@@ -399,7 +401,7 @@ export default function HomePage() {
 
           <div className="text-center mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/reservar"
+              to={bookPath}
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-gold text-barber-dark font-semibold text-sm uppercase tracking-widest hover:bg-gold/90 transition-colors rounded-sm"
             >
               Agendar cita
@@ -480,7 +482,7 @@ export default function HomePage() {
           <p className="text-stone-400 mb-12 max-w-lg mx-auto text-lg md:text-xl">
             Agenda en línea en segundos. Elige fecha, barbero y servicio.
           </p>
-          <Link to="/reservar" className="btn-primary">
+          <Link to={bookPath} className="btn-primary">
             Agenda tu cita ahora
             <span className="inline-block ml-1" aria-hidden>
               →
@@ -537,7 +539,7 @@ export default function HomePage() {
 
       <div className="fixed bottom-5 right-5 z-40">
         <Link
-          to="/reservar"
+          to={bookPath}
           className="inline-flex items-center gap-2 px-4 sm:px-5 py-3 rounded-full bg-gold text-barber-dark font-semibold shadow-[0_14px_32px_rgba(0,0,0,0.28)] hover:bg-gold-light transition-colors"
         >
           Reservar ahora

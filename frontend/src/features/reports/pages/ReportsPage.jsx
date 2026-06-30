@@ -11,7 +11,9 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+import { downloadReportExcel } from '@/shared/utils/exportExcel';
 import { downloadReportPDF } from '@/shared/utils/exportPdf';
+import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 
 const formatAmount = (n) =>
   `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
@@ -78,56 +80,9 @@ export default function ReportsPage() {
     fetchReport();
   }, [fetchReport]);
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (!report) return;
-    const c = report.current || {};
-    const p = report.previous || {};
-    const cmp = report.comparison || {};
-    const r = report.ratings || {};
-    const esc = (s) => {
-      const v = String(s ?? '');
-      if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-      return v;
-    };
-    const lines = [
-      `Reporte ${businessName || 'Mr. Kutz'}`,
-      `Periodo,${dateFrom},${dateTo}`,
-      '',
-      'Concepto,Actual,Anterior,Variación %',
-      `Ventas totales,${c.sales?.total ?? 0},${p.sales?.total ?? 0},${cmp.salesTotal ?? ''}`,
-      `Transacciones,${c.sales?.count ?? 0},${p.sales?.count ?? 0},${cmp.salesCount ?? ''}`,
-      `Citas completadas,${c.appointments?.completed ?? 0},${p.appointments?.completed ?? 0},${cmp.appointmentsCompleted ?? ''}`,
-      `Citas totales,${c.appointments?.total ?? 0},${p.appointments?.total ?? 0},${cmp.appointmentsTotal ?? ''}`,
-      `Clientes totales,${c.totalClients ?? 0},${p.totalClients ?? 0},`,
-      '',
-      'Servicios más solicitados',
-      ...(c.topServices || []).map((s) => `${esc(s.name)},${s.count}`),
-      '',
-      'Barberos más activos',
-      ...(c.topBarbers || []).map((b) => `${esc(`${b.first_name} ${b.last_name}`)},${b.count}`),
-      '',
-      'Reseñas del periodo',
-      `Promedio,${r.average ?? ''}`,
-      `Total,${r.count ?? 0}`,
-      'Fecha,Cliente,Servicio,Barbero,Puntaje,Comentario',
-      ...(r.recent || []).map((x) =>
-        [
-          esc(formatDate(x.date)),
-          esc(x.clientName),
-          esc(x.serviceName),
-          esc(x.barberName),
-          esc(x.rating),
-          esc(x.comment || ''),
-        ].join(',')
-      ),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte-mrkutz-${dateFrom}-${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadReportExcel(report, { businessName, dateFrom, dateTo });
   };
 
   const handleExportPDF = () => {
@@ -173,20 +128,11 @@ export default function ReportsPage() {
         }
         actions={
           <div className="flex flex-wrap gap-2 items-center">
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="btn-admin flex-1 sm:flex-none"
-            >
-              Exportar CSV
-            </button>
-            <button
-              type="button"
-              onClick={handleExportPDF}
-              className="btn-admin-outline flex-1 sm:flex-none"
-            >
-              Exportar PDF
-            </button>
+            <AdminExportButtons
+              onExcel={handleExportExcel}
+              onPdf={handleExportPDF}
+              className="flex-1 sm:flex-none"
+            />
           </div>
         }
       />

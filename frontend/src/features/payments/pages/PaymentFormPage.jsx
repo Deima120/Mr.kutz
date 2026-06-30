@@ -10,6 +10,9 @@ import * as appointmentService from '@/features/appointments/services/appointmen
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
 import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
+import { validatePaymentForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { AdminFormField } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -19,7 +22,6 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -69,11 +71,46 @@ export function PaymentForm({
   const [productQty, setProductQty] = useState('1');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
   const [saleProduct, setSaleProduct] = useState(null);
   const [productLoadError, setProductLoadError] = useState('');
   const [appointmentFromUrl, setAppointmentFromUrl] = useState(null);
   const [appointmentPrefillError, setAppointmentPrefillError] = useState('');
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } = useFormValidation();
+
+  const amountValidation = useMemo(
+    () => validateMoney(formData.amount, 'El monto', { required: true, min: 0.01 }),
+    [formData.amount]
+  );
+  const methodValidation = useMemo(
+    () =>
+      formData.paymentMethodId
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona un método de pago.' },
+    [formData.paymentMethodId]
+  );
+  const productValidation = useMemo(
+    () =>
+      formData.productId
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona un producto.' },
+    [formData.productId]
+  );
+  const appointmentValidation = useMemo(
+    () =>
+      formData.appointmentId
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Selecciona la cita a cobrar.' },
+    [formData.appointmentId]
+  );
+  const qtyValidation = useMemo(() => {
+    const base = validatePositiveInt(productQty, 'La cantidad', { required: true, min: 1 });
+    if (!base.valid) return base;
+    const max = saleProduct != null ? Number(saleProduct.quantity) || 0 : 0;
+    if (max > 0 && parseInt(productQty, 10) > max) {
+      return { valid: false, message: `Stock insuficiente (máx. ${max}).` };
+    }
+    return { valid: true, message: '' };
+  }, [productQty, saleProduct]);
 
   useEffect(() => {
     paymentService.getPaymentMethods().then((m) => setMethods(Array.isArray(m) ? m : []));
@@ -220,10 +257,20 @@ export function PaymentForm({
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
+    clearFieldError(e.target.name);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validatePaymentForm(formData, paymentMode, {
+      saleProduct,
+      productQty,
+      appointmentSelectRows,
+    });
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -235,12 +282,10 @@ export function PaymentForm({
       };
 
       if (paymentMode === 'product') {
-        if (!saleProduct) throw new Error('Selecciona un producto.');
         const q = Math.max(1, parseInt(productQty, 10) || 1);
         payload.productId = saleProduct.id;
         payload.productQuantity = q;
       } else if (paymentMode === 'service') {
-        if (!formData.appointmentId) throw new Error('Selecciona la cita a cobrar.');
         payload.appointmentId = parseInt(formData.appointmentId, 10);
       }
 
@@ -248,7 +293,7 @@ export function PaymentForm({
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {
-      setError(err?.message || 'Error al registrar pago');
+      setError(getApiErrorMessage(err, 'Error al registrar pago'));
     } finally {
       setLoading(false);
     }
@@ -303,7 +348,7 @@ export function PaymentForm({
       fullBleed={!embedded && !contained}
       compact={embedded || contained}
       contained={contained}
-      showBackNav={false}
+      showBackNav={true}
       aside={paymentAside}
     >
       <AdminFormCard onSubmit={handleSubmit}>
@@ -349,45 +394,60 @@ export function PaymentForm({
         </div>
 
         {paymentMode === 'service' && (
-          <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Cita completada *</label>
-            {appointmentSelectRows.length > 0 ? (
-              <select
-                name="appointmentId"
-                value={formData.appointmentId}
-                onChange={handleAppointmentSelect}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-              >
-                <option value="">Seleccionar cita…</option>
-                {appointmentSelectRows.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.client_first_name} {a.client_last_name} — {a.service_name} — $
-                    {a.price ?? a.service_price ?? 0} — {extractAppointmentDateYmd(a.appointment_date)}{' '}
-                    {formatAppointmentClockTime(a.start_time)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-xs text-stone-500 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
-                No hay citas completadas pendientes de cobro.
-              </p>
-            )}
-          </div>
+          <AdminFormField
+            label="Cita completada"
+            required
+            error={fieldError('appointmentId')}
+            live={buildLiveHint('appointmentId', formData.appointmentId, appointmentValidation, 'Cita seleccionada.')}
+          >
+            {({ invalid, errorId, liveBorderClass, submitBorderClass }) =>
+              appointmentSelectRows.length > 0 ? (
+                <select
+                  name="appointmentId"
+                  value={formData.appointmentId}
+                  onChange={handleAppointmentSelect}
+                  onBlur={() => markTouched('appointmentId')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                >
+                  <option value="">Seleccionar cita…</option>
+                  {appointmentSelectRows.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.client_first_name} {a.client_last_name} — {a.service_name} — $
+                      {a.price ?? a.service_price ?? 0} — {extractAppointmentDateYmd(a.appointment_date)}{' '}
+                      {formatAppointmentClockTime(a.start_time)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs text-stone-500 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                  No hay citas completadas pendientes de cobro.
+                </p>
+              )
+            }
+          </AdminFormField>
         )}
 
         {paymentMode === 'product' && (
           <div className="space-y-2 shrink-0">
-            <div className="group">
-              <label className={ADMIN_FORM_LABEL_CLASS}>Producto *</label>
-              <select
-                name="productId"
-                value={formData.productId}
-                onChange={handleProductSelect}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-                disabled={!!prefillProductId}
-              >
+            <AdminFormField
+              label="Producto"
+              required
+              error={fieldError('productId')}
+              live={buildLiveHint('productId', formData.productId, productValidation, 'Producto seleccionado.')}
+            >
+              {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
+                <select
+                  name="productId"
+                  value={formData.productId}
+                  onChange={handleProductSelect}
+                  onBlur={() => markTouched('productId')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  disabled={!!prefillProductId}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                >
                 <option value="">Seleccionar producto…</option>
                 {products
                   .filter((p) => (p.quantity ?? 0) > 0)
@@ -396,8 +456,9 @@ export function PaymentForm({
                       {p.name}{p.sku ? ` · ${p.sku}` : ''} — Stock {p.quantity ?? 0}
                     </option>
                   ))}
-              </select>
-            </div>
+                </select>
+              )}
+            </AdminFormField>
             {saleProduct && (
               <div className="rounded-lg border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs text-stone-600">
                 Stock: <strong>{saleProduct.quantity ?? 0}</strong>
@@ -409,53 +470,83 @@ export function PaymentForm({
               </div>
             )}
             {saleProduct && (
-              <div className="group max-w-[10rem]">
-                <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad *</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxQty > 0 ? maxQty : undefined}
-                  value={productQty}
-                  onChange={(e) => setProductQty(e.target.value)}
-                  className={ADMIN_FORM_FIELD_COMPACT}
-                  required
-                />
-              </div>
+              <AdminFormField
+                label="Cantidad"
+                required
+                error={fieldError('productQty')}
+                live={buildLiveHint('productQty', productQty, qtyValidation, 'Cantidad válida.')}
+              >
+                {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxQty > 0 ? maxQty : undefined}
+                    value={productQty}
+                    onChange={(e) => {
+                      setProductQty(e.target.value);
+                      setError('');
+                      clearFieldError('productQty');
+                    }}
+                    onBlur={() => markTouched('productQty')}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                  />
+                )}
+              </AdminFormField>
             )}
           </div>
         )}
 
         <div className={ADMIN_FORM_GRID_CLASS}>
-          <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Monto ($) *</label>
-            <input
-              name="amount"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.amount}
-              onChange={handleChange}
-              className={ADMIN_FORM_FIELD_COMPACT}
-              required
-            />
-          </div>
-          <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</label>
-            <select
-              name="paymentMethodId"
-              value={formData.paymentMethodId}
-              onChange={handleChange}
-              className={ADMIN_FORM_FIELD_COMPACT}
-              required
-            >
+          <AdminFormField
+            label="Monto ($)"
+            htmlFor="payment-amount"
+            required
+            error={fieldError('amount')}
+            live={buildLiveHint('amount', formData.amount, amountValidation, 'Monto válido.')}
+          >
+            {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
+              <input
+                id="payment-amount"
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.amount}
+                onChange={handleChange}
+                onBlur={() => markTouched('amount')}
+                className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                aria-invalid={invalid || undefined}
+                aria-describedby={errorId}
+              />
+            )}
+          </AdminFormField>
+          <AdminFormField
+            label="Método de pago"
+            required
+            error={fieldError('paymentMethodId')}
+            live={buildLiveHint('paymentMethodId', formData.paymentMethodId, methodValidation, 'Método seleccionado.')}
+          >
+            {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
+              <select
+                name="paymentMethodId"
+                value={formData.paymentMethodId}
+                onChange={handleChange}
+                onBlur={() => markTouched('paymentMethodId')}
+                className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                aria-invalid={invalid || undefined}
+                aria-describedby={errorId}
+              >
               <option value="">Seleccionar…</option>
               {methods.map((m) => (
                 <option key={m.id} value={m.id}>
                   {formatPaymentMethodName(m.description || m.name)}
                 </option>
               ))}
-            </select>
-          </div>
+              </select>
+            )}
+          </AdminFormField>
         </div>
 
         <div className="group">
@@ -497,9 +588,6 @@ export function PaymentForm({
               Registrar pago
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
-          <AdminFormSecondaryButton type="button" onClick={handleCancel}>
-            Cancelar
-          </AdminFormSecondaryButton>
         </AdminFormFooterActions>
       </AdminFormCard>
     </AdminFormShell>

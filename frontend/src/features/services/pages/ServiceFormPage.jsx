@@ -2,10 +2,13 @@
  * Formulario crear/editar servicio
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as serviceService from '@/features/services/services/serviceService';
 import ServiceStatusToggle from '@/features/services/components/ServiceStatusToggle';
+import { validateServiceForm, getApiErrorMessage, validateRequiredField, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { AdminFormField } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -15,7 +18,6 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
-  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -40,6 +42,21 @@ export function ServiceForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [categories, setCategories] = useState([]);
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } =
+    useFormValidation();
+
+  const nameValidation = useMemo(
+    () => validateRequiredField(formData.name, 'El nombre'),
+    [formData.name]
+  );
+  const priceValidation = useMemo(
+    () => validateMoney(formData.price, 'El precio', { required: true, min: 0 }),
+    [formData.price]
+  );
+  const durationValidation = useMemo(
+    () => validatePositiveInt(formData.durationMinutes, 'La duración', { required: true, min: 1 }),
+    [formData.durationMinutes]
+  );
 
   useEffect(() => {
     serviceService
@@ -97,10 +114,16 @@ export function ServiceForm({
       [name]: type === 'checkbox' ? checked : value,
     }));
     setError('');
+    clearFieldError(name);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validateServiceForm(formData);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -124,8 +147,7 @@ export function ServiceForm({
         navigate('/services', { replace: true });
       }
     } catch (err) {
-      const msg = err?.errors?.[0]?.message || err?.message || 'Error al guardar';
-      setError(msg);
+      setError(getApiErrorMessage(err, 'Error al guardar'));
     } finally {
       setLoading(false);
     }
@@ -144,7 +166,7 @@ export function ServiceForm({
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}
       compact={embedded}
-      showBackNav={!embedded}
+      showBackNav
       aside={{
         kicker: 'Vista previa',
         title: isEdit ? 'Servicio en edición' : 'Nuevo servicio',
@@ -183,19 +205,26 @@ export function ServiceForm({
 
           {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
-          <div className="group shrink-0">
-            <label htmlFor="service-name" className={ADMIN_FORM_LABEL_CLASS}>
-              Nombre <span className="text-red-600 normal-case">*</span>
-            </label>
-            <input
-              id="service-name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className={ADMIN_FORM_FIELD_COMPACT}
-              required
-            />
-          </div>
+          <AdminFormField
+            label="Nombre"
+            htmlFor="service-name"
+            required
+            error={fieldError('name')}
+            live={buildLiveHint('name', formData.name, nameValidation, 'Nombre válido.')}
+          >
+            {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+              <input
+                id="service-name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                onBlur={() => markTouched('name')}
+                className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                aria-invalid={invalid || undefined}
+                aria-describedby={errorId}
+              />
+            )}
+          </AdminFormField>
 
           <div className="group shrink-0">
             <label htmlFor="service-description" className={ADMIN_FORM_LABEL_CLASS}>
@@ -230,37 +259,51 @@ export function ServiceForm({
                 ))}
               </select>
             </div>
-            <div className="group">
-              <label htmlFor="service-price" className={ADMIN_FORM_LABEL_CLASS}>
-                Precio ($) <span className="text-red-600 normal-case">*</span>
-              </label>
-              <input
-                id="service-price"
-                name="price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.price}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-              />
-            </div>
-            <div className="group">
-              <label htmlFor="service-duration" className={ADMIN_FORM_LABEL_CLASS}>
-                Duración (min) <span className="text-red-600 normal-case">*</span>
-              </label>
-              <input
-                id="service-duration"
-                name="durationMinutes"
-                type="number"
-                min="1"
-                value={formData.durationMinutes}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                required
-              />
-            </div>
+            <AdminFormField
+              label="Precio ($)"
+              htmlFor="service-price"
+              required
+              error={fieldError('price')}
+              live={buildLiveHint('price', formData.price, priceValidation, 'Precio válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="service-price"
+                  name="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.price}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('price')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Duración (min)"
+              htmlFor="service-duration"
+              required
+              error={fieldError('durationMinutes')}
+              live={buildLiveHint('durationMinutes', formData.durationMinutes, durationValidation, 'Duración válida.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="service-duration"
+                  name="durationMinutes"
+                  type="number"
+                  min="1"
+                  value={formData.durationMinutes}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('durationMinutes')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
           </div>
 
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/80 px-3.5 py-3">
@@ -286,7 +329,6 @@ export function ServiceForm({
                 Guardar servicio
               </AdminFormLoadingButton>
             </AdminFormPrimaryButton>
-            <AdminFormSecondaryButton onClick={handleCancel}>Cancelar</AdminFormSecondaryButton>
           </AdminFormFooterActions>
       </AdminFormCard>
     </AdminFormShell>

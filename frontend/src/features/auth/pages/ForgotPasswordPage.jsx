@@ -6,6 +6,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as authService from '@/features/auth/services/authService';
+import {
+  validateForgotEmailStep,
+  validateForgotResetStep,
+  validateVerificationCode,
+} from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { PublicFormField } from '@/shared/components/FormValidationFields';
 
 const inputClass = 'input-premium';
 const labelClass = 'label-premium';
@@ -41,6 +48,7 @@ export default function ForgotPasswordPage() {
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [codeVerified, setCodeVerified] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const { fieldError, inputInvalidClass, applyValidation, clearFieldError } = useFormValidation();
 
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
@@ -87,6 +95,11 @@ export default function ForgotPasswordPage() {
 
   const handleRequestCode = async (e) => {
     e.preventDefault();
+    const validation = validateForgotEmailStep(email);
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
+      return;
+    }
     await requestCode();
   };
 
@@ -117,30 +130,14 @@ export default function ForgotPasswordPage() {
   const handleReset = async (e) => {
     e.preventDefault();
     setError('');
-    if (!codeVerified) {
-      setError('Verifica el código de 6 dígitos antes de guardar la contraseña.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
-      return;
-    }
-    if (newPassword.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
-    if (
-      !/[A-Z]/.test(newPassword) ||
-      !/[a-z]/.test(newPassword) ||
-      !/\d/.test(newPassword)
-    ) {
-      setError(
-        'La contraseña debe incluir al menos una mayúscula, una minúscula y un número.'
-      );
-      return;
-    }
-    if (!/^\d{6}$/.test(code.trim())) {
-      setError('El código debe ser de 6 dígitos');
+    const validation = validateForgotResetStep({
+      code,
+      codeVerified,
+      newPassword,
+      confirmPassword,
+    });
+    if (!applyValidation(validation)) {
+      setError(validation.firstError);
       return;
     }
     setLoading(true);
@@ -175,27 +172,31 @@ export default function ForgotPasswordPage() {
             </p>
 
             {step === 1 && (
-              <form onSubmit={handleRequestCode} className="space-y-5">
+              <form onSubmit={handleRequestCode} noValidate className="space-y-5">
                 {error && (
                   <div className="alert-error" role="alert">
                     {error}
                   </div>
                 )}
-                <div>
-                  <label htmlFor="fp-email" className={labelClass}>
-                    Correo electrónico
-                  </label>
-                  <input
-                    id="fp-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                    placeholder="tu@email.com"
-                    required
-                    autoComplete="email"
-                  />
-                </div>
+                <PublicFormField label="Correo electrónico" htmlFor="fp-email" required error={fieldError('email')}>
+                  {({ invalid, errorId }) => (
+                    <input
+                      id="fp-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setError('');
+                        clearFieldError('email');
+                      }}
+                      className={`${inputClass} ${invalid ? inputInvalidClass('email') : ''}`}
+                      placeholder="tu@email.com"
+                      autoComplete="email"
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={errorId}
+                    />
+                  )}
+                </PublicFormField>
                 <button
                   type="submit"
                   disabled={loading}
@@ -212,7 +213,7 @@ export default function ForgotPasswordPage() {
             )}
 
             {step === 2 && (
-              <form onSubmit={handleReset} className="space-y-5">
+              <form onSubmit={handleReset} noValidate className="space-y-5">
                 {info && (
                   <div
                     className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700"
@@ -238,71 +239,78 @@ export default function ForgotPasswordPage() {
                     className={`${inputClass} bg-stone-100 text-stone-600`}
                   />
                 </div>
-                <div>
-                  <label htmlFor="fp-code" className={labelClass}>
-                    Código de verificación (6 dígitos)
-                  </label>
-                  <div className="flex gap-2">
+                <PublicFormField label="Código de verificación (6 dígitos)" htmlFor="fp-code" required error={fieldError('code')}>
+                  {({ invalid, errorId }) => (
+                    <div className="flex gap-2">
+                      <input
+                        id="fp-code"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={code}
+                        onChange={(e) => {
+                          setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                          setCodeVerified(false);
+                          setError('');
+                          clearFieldError('code');
+                        }}
+                        onBlur={handleVerifyCode}
+                        className={`${inputClass} flex-1 tracking-widest text-center font-mono ${invalid ? inputInvalidClass('code') : ''}`}
+                        placeholder="000000"
+                        autoComplete="one-time-code"
+                        aria-invalid={invalid || undefined}
+                        aria-describedby={errorId}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyCode}
+                        disabled={code.length !== 6 || loading || verifyingCode}
+                        className="btn-admin-outline px-3 text-xs whitespace-nowrap disabled:opacity-50"
+                      >
+                        {verifyingCode ? '…' : codeVerified ? '✓ OK' : 'Verificar'}
+                      </button>
+                    </div>
+                  )}
+                </PublicFormField>
+                <PublicFormField label="Nueva contraseña" htmlFor="fp-new" required error={fieldError('newPassword')}>
+                  {({ invalid, errorId }) => (
                     <input
-                      id="fp-code"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      value={code}
+                      id="fp-new"
+                      type="password"
+                      value={newPassword}
                       onChange={(e) => {
-                        setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                        setCodeVerified(false);
+                        setNewPassword(e.target.value);
+                        setError('');
+                        clearFieldError('newPassword');
                       }}
-                      onBlur={handleVerifyCode}
-                      className={`${inputClass} flex-1 tracking-widest text-center font-mono`}
-                      placeholder="000000"
-                      required
-                      autoComplete="one-time-code"
+                      className={`${inputClass} ${invalid ? inputInvalidClass('newPassword') : ''}`}
+                      placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
+                      autoComplete="new-password"
+                      disabled={!codeVerified}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={errorId}
                     />
-                    <button
-                      type="button"
-                      onClick={handleVerifyCode}
-                      disabled={code.length !== 6 || loading || verifyingCode}
-                      className="btn-admin-outline px-3 text-xs whitespace-nowrap disabled:opacity-50"
-                    >
-                      {verifyingCode ? '…' : codeVerified ? '✓ OK' : 'Verificar'}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="fp-new" className={labelClass}>
-                    Nueva contraseña
-                  </label>
-                  <input
-                    id="fp-new"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className={inputClass}
-                    placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    disabled={!codeVerified}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="fp-confirm" className={labelClass}>
-                    Confirmar contraseña
-                  </label>
-                  <input
-                    id="fp-confirm"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={inputClass}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    disabled={!codeVerified}
-                  />
-                </div>
+                  )}
+                </PublicFormField>
+                <PublicFormField label="Confirmar contraseña" htmlFor="fp-confirm" required error={fieldError('confirmPassword')}>
+                  {({ invalid, errorId }) => (
+                    <input
+                      id="fp-confirm"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setError('');
+                        clearFieldError('confirmPassword');
+                      }}
+                      className={`${inputClass} ${invalid ? inputInvalidClass('confirmPassword') : ''}`}
+                      autoComplete="new-password"
+                      disabled={!codeVerified}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={errorId}
+                    />
+                  )}
+                </PublicFormField>
                 <button
                   type="submit"
                   disabled={loading || !codeVerified}
