@@ -83,7 +83,7 @@ export default function ClientDetailPage() {
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-sm font-medium transition-all"
         >
           <ChevronLeft className="w-4 h-4" />
-          Volver a clientes
+          Volver
         </Link>
       </div>
     );
@@ -112,7 +112,7 @@ export default function ClientDetailPage() {
 
   return (
     <div className="relative max-w-6xl mx-auto p-1 animate-fade-in-up">
-      <AdminBackNav to="/clients" label="Volver a clientes" className="absolute top-0 left-0 z-20" />
+      <AdminBackNav to="/clients" className="absolute top-0 left-0 z-20" />
 
       <div className="space-y-4 pt-11">
       {/* Cabecera / Tarjeta Hero del Perfil */}

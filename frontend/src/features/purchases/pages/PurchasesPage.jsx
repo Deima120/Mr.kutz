@@ -8,7 +8,7 @@ import * as purchaseService from '@/features/purchases/services/purchaseService'
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
-import { AdminPagination, SegmentedFilter } from '@/shared/components/admin/AdminListControls';
+import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
@@ -209,9 +209,6 @@ export default function PurchasesPage() {
     });
   };
 
-  const filterFieldClass = 'input-premium py-1.5 text-xs min-w-0';
-  const filterLabelClass = 'text-[11px] font-medium text-stone-500';
-
   return (
     <div className="page-shell">
       {isFormOpen ? (
@@ -262,25 +259,17 @@ export default function PurchasesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1">
-              <span className={filterLabelClass}>Desde</span>
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={filterFieldClass} />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={filterLabelClass}>Hasta</span>
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterFieldClass} />
-            </label>
-            <div className="flex flex-col gap-1">
-              <span className={filterLabelClass}>Estado</span>
-              <SegmentedFilter
-                options={STATUS_SEGMENTS}
-                value={statusFilter}
-                onChange={setStatusFilter}
-                ariaLabel="Estado de la compra"
-              />
-            </div>
-          </div>
+          <AdminFilterRow>
+            <AdminFilterDate id="purchases-date-from" label="Desde" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <AdminFilterDate id="purchases-date-to" label="Hasta" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <FilterSelect
+              label="Estado"
+              options={STATUS_SEGMENTS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              ariaLabel="Estado de la compra"
+            />
+          </AdminFilterRow>
         </div>
 
         {error && (

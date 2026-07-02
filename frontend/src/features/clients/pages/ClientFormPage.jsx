@@ -257,7 +257,6 @@ export function ClientForm({
   return (
     <AdminFormShell
       backTo="/clients"
-      backLabel="Volver a clientes"
       onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}

@@ -142,7 +142,7 @@ const ADMIN_BACK_NAV_CLASS =
   'group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-stone-600 bg-white border border-stone-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:border-gold/40 hover:text-barber-dark transition-all';
 
 /** Enlace/botón de regreso en esquina superior (listados, fichas, formularios). */
-export function AdminBackNav({ to, label, onClick, className = '' }) {
+export function AdminBackNav({ to, label = 'Volver', onClick, className = '' }) {
   const content = (
     <>
       <ChevronLeft
@@ -180,7 +180,7 @@ export function AdminBackNav({ to, label, onClick, className = '' }) {
  */
 export default function AdminFormShell({
   backTo,
-  backLabel,
+  backLabel = 'Volver',
   onBackClick,
   modeBadge,
   showAside = true,

@@ -16,6 +16,7 @@ import {
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
+import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -92,7 +93,7 @@ export function ProductForm({
           setFormData({
             name: p.name || '',
             description: p.description || '',
-            unit: p.unit || 'unit',
+            unit: 'unit',
             minStock,
             categoryId: categoryId != null && categoryId !== '' ? String(categoryId) : '',
             isActive: isActive !== false,
@@ -142,7 +143,7 @@ export function ProductForm({
     try {
       const payload = {
         name: formData.name.trim(),
-        unit: formData.unit || 'unit',
+        unit: 'unit',
         minStock: Number.isFinite(formData.minStock) ? formData.minStock : 0,
       };
       if (formData.description?.trim()) payload.description = formData.description.trim();
@@ -183,7 +184,6 @@ export function ProductForm({
   return (
     <AdminFormShell
       backTo="/inventory"
-      backLabel="Inventario"
       onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}
@@ -202,12 +202,12 @@ export function ProductForm({
             <AdminFormPreviewField label="SKU" value={isEdit ? productSku : 'Automático'} />
             <AdminFormPreviewField label="Categoría" value={categoryName} />
             <AdminFormPreviewField
-              label="Precio venta"
-              value={formData.retailPrice ? `$${Number(formData.retailPrice).toFixed(2)}` : ''}
-            />
-            <AdminFormPreviewField
               label="Precio costo"
               value={formData.costPrice ? `$${Number(formData.costPrice).toFixed(2)}` : ''}
+            />
+            <AdminFormPreviewField
+              label="Precio venta"
+              value={formData.retailPrice ? `$${Number(formData.retailPrice).toFixed(2)}` : ''}
             />
             {formData.retailPrice && formData.costPrice ? (
               <AdminFormPreviewField
@@ -222,7 +222,7 @@ export function ProductForm({
             {isEdit && productMeta ? (
               <AdminFormPreviewField
                 label="Stock actual"
-                value={`${productMeta.quantity} ${formData.unit === 'unit' ? 'u' : formData.unit}`}
+                value={`${productMeta.quantity} u`}
               />
             ) : null}
           </AdminFormPreviewPanel>
@@ -287,52 +287,31 @@ export function ProductForm({
             )}
             <div className="group">
               <label className={ADMIN_FORM_LABEL_CLASS}>Unidad</label>
-              <select name="unit" value={formData.unit} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT}>
-                <option value="unit">Unidad</option>
-                <option value="ml">ml</option>
-                <option value="g">g</option>
-                <option value="kg">kg</option>
-                <option value="L">L</option>
-                <option value="pz">pz</option>
-              </select>
+              <input
+                readOnly
+                tabIndex={-1}
+                value="Unidad"
+                className={`${ADMIN_FORM_FIELD_COMPACT} bg-stone-50 text-stone-600 cursor-default`}
+                aria-readonly="true"
+              />
             </div>
             <div className="group sm:col-span-2 xl:col-span-1">
               <label className={ADMIN_FORM_LABEL_CLASS}>Categoría</label>
-              <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={ADMIN_FORM_FIELD_COMPACT}>
-                <option value="">Sin categoría</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <CustomSelect
+                name="categoryId"
+                value={formData.categoryId}
+                onChange={formSelectEvent('categoryId', handleChange)}
+                placeholder="Sin categoría"
+                variant="formCompact"
+                options={[
+                  { id: '', label: 'Sin categoría' },
+                  ...categories.map((c) => ({ id: String(c.id), label: c.name })),
+                ]}
+              />
             </div>
           </div>
 
           <div className={`${ADMIN_FORM_GRID_CLASS} max-w-xl`}>
-            <AdminFormField
-              label="Precio de venta ($)"
-              htmlFor="product-retail"
-              error={fieldError('retailPrice')}
-              live={buildLiveHint('retailPrice', formData.retailPrice, retailValidation, 'Precio válido.')}
-            >
-              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
-                <input
-                  id="product-retail"
-                  name="retailPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.retailPrice}
-                  onChange={handleChange}
-                  onBlur={() => markTouched('retailPrice')}
-                  placeholder="Opcional"
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                  aria-invalid={invalid || undefined}
-                  aria-describedby={errorId}
-                />
-              )}
-            </AdminFormField>
             <AdminFormField
               label="Precio de costo ($)"
               htmlFor="product-cost"
@@ -349,6 +328,29 @@ export function ProductForm({
                   value={formData.costPrice}
                   onChange={handleChange}
                   onBlur={() => markTouched('costPrice')}
+                  placeholder="Opcional"
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                />
+              )}
+            </AdminFormField>
+            <AdminFormField
+              label="Precio de venta ($)"
+              htmlFor="product-retail"
+              error={fieldError('retailPrice')}
+              live={buildLiveHint('retailPrice', formData.retailPrice, retailValidation, 'Precio válido.')}
+            >
+              {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+                <input
+                  id="product-retail"
+                  name="retailPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.retailPrice}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('retailPrice')}
                   placeholder="Opcional"
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
                   aria-invalid={invalid || undefined}
@@ -383,8 +385,7 @@ export function ProductForm({
             <>
               <div className="rounded-xl bg-stone-50/90 border border-stone-200/90 p-3 text-sm shrink-0">
                 <p className="text-stone-600">
-                  Stock actual: <strong>{productMeta.quantity}</strong>{' '}
-                  {formData.unit === 'unit' ? 'unidades' : formData.unit}
+                  Stock actual: <strong>{productMeta.quantity}</strong> unidades
                 </p>
                 {productMeta.stockUpdatedAt && (
                   <p className="text-stone-500 text-xs mt-1">

@@ -9,6 +9,7 @@ import ServiceStatusToggle from '@/features/services/components/ServiceStatusTog
 import { validateServiceForm, getApiErrorMessage, validateRequiredField, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
+import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -161,7 +162,6 @@ export function ServiceForm({
   return (
     <AdminFormShell
       backTo="/services"
-      backLabel="Servicios"
       onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}
@@ -245,19 +245,14 @@ export function ServiceForm({
               <label htmlFor="service-category" className={ADMIN_FORM_LABEL_CLASS}>
                 Categoría
               </label>
-              <select
+              <CustomSelect
                 id="service-category"
                 name="categoryName"
                 value={formData.categoryName}
-                onChange={handleChange}
-                className={ADMIN_FORM_FIELD_COMPACT}
-              >
-                {categorySelectOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                onChange={formSelectEvent('categoryName', handleChange)}
+                variant="formCompact"
+                options={categorySelectOptions.map((name) => ({ id: name, label: name }))}
+              />
             </div>
             <AdminFormField
               label="Precio ($)"

@@ -12,6 +12,7 @@ import { appointmentNotesOf } from '@/shared/utils/appointmentTime';
 import { AppointmentNoteBlock } from '@/shared/components/AppointmentNoteText';
 import DashboardCard, { DashboardChartPanel } from '@/shared/components/admin/DashboardCard';
 import AppointmentRatingsPanel from '@/shared/components/admin/AppointmentRatingsPanel';
+import { AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import {
   DualBarKpiChart,
   HorizontalBarsChart,
@@ -191,21 +192,21 @@ function BarberDashboard() {
       )}
 
       <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-stone-100 flex flex-wrap items-center justify-between gap-4">
+        <div className="px-4 sm:px-6 py-4 border-b border-stone-100 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
           <h2 className="font-serif text-lg text-stone-900 font-medium">Tus valoraciones</h2>
-          <div>
-            <label className="sr-only" htmlFor="barber-rating-period">
-              Periodo de valoraciones
-            </label>
-            <select
+          <div className="w-full sm:w-auto sm:min-w-[10rem]">
+            <FilterSelect
               id="barber-rating-period"
+              label="Periodo"
               value={ratingPeriod}
-              onChange={(e) => setRatingPeriod(e.target.value)}
-              className="px-4 py-2 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
-            >
-              <option value="30">Últimos 30 días</option>
-              <option value="all">Todos</option>
-            </select>
+              onChange={setRatingPeriod}
+              ariaLabel="Periodo de valoraciones"
+              className="w-full sm:w-auto sm:min-w-[9rem]"
+              options={[
+                { id: '30', label: 'Últimos 30 días' },
+                { id: 'all', label: 'Todos' },
+              ]}
+            />
           </div>
         </div>
         <div className="p-6">

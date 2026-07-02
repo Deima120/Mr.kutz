@@ -18,13 +18,15 @@ import StatsCard from '@/shared/components/admin/StatsCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import {
   AdminPagination,
-  FilterChip,
+  AdminFilterRow,
+  FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import {
   formatProductRetailPrice,
   formatProductCostPrice,
   formatProductMargin,
+  formatProductUnit,
   formatInventoryValue,
   getProductMinStock,
   getProductRetailPrice,
@@ -294,13 +296,13 @@ export default function InventoryPage() {
         { header: 'Stock', key: 'stock', align: 'right' },
         { header: 'Mín.', key: 'min_stock', align: 'right' },
         {
-          header: 'Precio venta',
-          accessor: (r) => formatProductRetailPrice({ retail_price: r.precio_venta }),
+          header: 'Precio costo',
+          accessor: (r) => formatProductCostPrice({ cost_price: r.precio_costo }),
           align: 'right',
         },
         {
-          header: 'Precio costo',
-          accessor: (r) => formatProductCostPrice({ cost_price: r.precio_costo }),
+          header: 'Precio venta',
+          accessor: (r) => formatProductRetailPrice({ retail_price: r.precio_venta }),
           align: 'right',
         },
         { header: 'Activo', key: 'activo', align: 'center' },
@@ -331,13 +333,13 @@ export default function InventoryPage() {
         { header: 'Stock', key: 'stock', align: 'right' },
         { header: 'Mín.', key: 'min_stock', align: 'right' },
         {
-          header: 'Venta',
-          accessor: (r) => formatProductRetailPrice({ retail_price: r.precio_venta }),
+          header: 'Costo',
+          accessor: (r) => formatProductCostPrice({ cost_price: r.precio_costo }),
           align: 'right',
         },
         {
-          header: 'Costo',
-          accessor: (r) => formatProductCostPrice({ cost_price: r.precio_costo }),
+          header: 'Venta',
+          accessor: (r) => formatProductRetailPrice({ retail_price: r.precio_venta }),
           align: 'right',
         },
         { header: 'Activo', key: 'activo', align: 'center' },
@@ -422,7 +424,7 @@ export default function InventoryPage() {
                     >
                       {p.name}
                     </button>
-                    : <strong>{p.quantity ?? 0}</strong> {p.unit || 'u'} (mínimo{' '}
+                    : <strong>{p.quantity ?? 0}</strong> {formatProductUnit(p.unit, p.quantity)} (mínimo{' '}
                     {p.min_stock ?? p.minStock ?? 0})
                   </li>
                 ))}
@@ -432,38 +434,45 @@ export default function InventoryPage() {
 
           <DataCard compact>
             <div className="flex flex-col gap-3 pb-3 border-b border-stone-100">
-              <div className="flex flex-wrap gap-3 items-center">
-                <div className="flex-1 min-w-[200px]">
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar por nombre o SKU…"
-                    className="input-premium py-2 text-sm w-full"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
-                  <FilterChip active={!categoryFilter} onClick={() => setCategoryFilter('')} size="sm">
-                    Todas
-                  </FilterChip>
-                  {categories.map((c) => (
-                    <FilterChip
-                      key={c.id}
-                      active={String(categoryFilter) === String(c.id)}
-                      onClick={() => setCategoryFilter(String(c.id))}
-                      size="sm"
-                    >
-                      {c.name}
-                    </FilterChip>
-                  ))}
-                </div>
-                <FilterChip active={showInactive} onClick={() => setShowInactive((v) => !v)} size="sm">
-                  Inactivos
-                </FilterChip>
-                <FilterChip active={showLowStockOnly} onClick={() => setShowLowStockOnly((v) => !v)} size="sm">
-                  Solo stock bajo
-                </FilterChip>
-              </div>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre o SKU…"
+                className="input-premium py-2 text-sm w-full"
+              />
+              <AdminFilterRow className="w-full">
+                <FilterSelect
+                  label="Categoría"
+                  value={categoryFilter || ''}
+                  onChange={setCategoryFilter}
+                  options={[
+                    { id: '', label: 'Todas' },
+                    ...categories.map((c) => ({ id: String(c.id), label: c.name })),
+                  ]}
+                  ariaLabel="Filtrar por categoría"
+                />
+                <FilterSelect
+                  label="Visibilidad"
+                  value={showInactive ? 'with_inactive' : 'active_only'}
+                  onChange={(v) => setShowInactive(v === 'with_inactive')}
+                  options={[
+                    { id: 'active_only', label: 'Solo activos' },
+                    { id: 'with_inactive', label: 'Incluir inactivos' },
+                  ]}
+                  ariaLabel="Filtrar por visibilidad"
+                />
+                <FilterSelect
+                  label="Stock"
+                  value={showLowStockOnly ? 'low' : 'all'}
+                  onChange={(v) => setShowLowStockOnly(v === 'low')}
+                  options={[
+                    { id: 'all', label: 'Todos' },
+                    { id: 'low', label: 'Solo stock bajo' },
+                  ]}
+                  ariaLabel="Filtrar por stock"
+                />
+              </AdminFilterRow>
             </div>
 
             {error && (
@@ -508,8 +517,8 @@ export default function InventoryPage() {
                     <TableHeader>Producto</TableHeader>
                     <TableHeader>Categoría</TableHeader>
                     <TableHeader>SKU</TableHeader>
-                    <TableHeader>P. venta</TableHeader>
                     <TableHeader>Costo</TableHeader>
+                    <TableHeader>P. venta</TableHeader>
                     <TableHeader>Margen</TableHeader>
                     <TableHeader>Stock</TableHeader>
                     <TableHeader>Mínimo</TableHeader>
@@ -537,10 +546,10 @@ export default function InventoryPage() {
                           </TableCell>
                           <TableCell className={low ? 'bg-amber-50/50' : ''}>{p.sku || '—'}</TableCell>
                           <TableCell className={low ? 'bg-amber-50/50' : ''}>
-                            {formatProductRetailPrice(p)}
+                            {formatProductCostPrice(p)}
                           </TableCell>
                           <TableCell className={low ? 'bg-amber-50/50' : ''}>
-                            {formatProductCostPrice(p)}
+                            {formatProductRetailPrice(p)}
                           </TableCell>
                           <TableCell className={low ? 'bg-amber-50/50' : ''}>
                             {formatProductMargin(p)}
@@ -548,7 +557,7 @@ export default function InventoryPage() {
                           <TableCell className={low ? 'bg-amber-50/50' : ''}>
                             <div className="flex items-center gap-2">
                               <span className={`font-semibold min-w-[2rem] ${low ? 'text-amber-600' : ''}`}>
-                                {p.quantity ?? 0} {p.unit || 'u'}
+                                {p.quantity ?? 0} {formatProductUnit(p.unit, p.quantity)}
                               </span>
                               <button
                                 type="button"

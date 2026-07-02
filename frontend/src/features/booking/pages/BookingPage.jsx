@@ -4,6 +4,7 @@ import * as bookingService from '@/features/booking/services/publicBookingServic
 import { sanitizePhone, validateBookingForm, getApiErrorMessage } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { PublicFormField, FieldErrorMessage } from '@/shared/components/FormValidationFields';
+import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import { getLocalDateToday } from '@/shared/utils/appointmentTime';
 
 function formatPrice(v) {
@@ -225,45 +226,43 @@ export default function BookingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <PublicFormField label="Servicio" htmlFor="serviceId" required error={fieldError('serviceId')}>
                 {({ invalid, errorId }) => (
-                  <select
+                  <CustomSelect
                     id="serviceId"
                     name="serviceId"
                     value={form.serviceId}
-                    onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('serviceId') : ''}`}
+                    onChange={formSelectEvent('serviceId', onChange)}
+                    placeholder="Selecciona un servicio…"
+                    variant="public"
+                    selectClassName={invalid ? inputInvalidClass('serviceId') : ''}
                     disabled={loadingCatalogue}
-                    aria-invalid={invalid || undefined}
-                    aria-describedby={errorId}
-                  >
-                    <option value="">Selecciona un servicio…</option>
-                    {services.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} — {formatPrice(s.price)} ({s.duration_minutes} min)
-                      </option>
-                    ))}
-                  </select>
+                    ariaInvalid={invalid || undefined}
+                    ariaDescribedBy={errorId}
+                    options={services.map((s) => ({
+                      id: String(s.id),
+                      label: `${s.name} — ${formatPrice(s.price)} (${s.duration_minutes} min)`,
+                    }))}
+                  />
                 )}
               </PublicFormField>
 
               <PublicFormField label="Barbero" htmlFor="barberId" required error={fieldError('barberId')}>
                 {({ invalid, errorId }) => (
-                  <select
+                  <CustomSelect
                     id="barberId"
                     name="barberId"
                     value={form.barberId}
-                    onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('barberId') : ''}`}
+                    onChange={formSelectEvent('barberId', onChange)}
+                    placeholder="Selecciona un barbero…"
+                    variant="public"
+                    selectClassName={invalid ? inputInvalidClass('barberId') : ''}
                     disabled={loadingCatalogue}
-                    aria-invalid={invalid || undefined}
-                    aria-describedby={errorId}
-                  >
-                    <option value="">Selecciona un barbero…</option>
-                    {barbers.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {`${b.first_name} ${b.last_name}`.trim()}
-                      </option>
-                    ))}
-                  </select>
+                    ariaInvalid={invalid || undefined}
+                    ariaDescribedBy={errorId}
+                    options={barbers.map((b) => ({
+                      id: String(b.id),
+                      label: `${b.first_name} ${b.last_name}`.trim(),
+                    }))}
+                  />
                 )}
               </PublicFormField>
             </div>

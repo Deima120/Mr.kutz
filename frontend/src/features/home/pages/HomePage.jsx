@@ -8,6 +8,7 @@ import { useAuth } from '@/shared/contexts/AuthContext';
 import { useSettings } from '@/shared/contexts/SettingsContext';
 import { getBookAppointmentPath } from '@/shared/utils/bookAppointmentPath';
 import HeroCarousel from '@/features/home/components/HeroCarousel';
+import CustomSelect from '@/shared/components/CustomSelect';
 import MobileAppFloating from '@/features/home/components/MobileAppFloating';
 import * as serviceService from '@/features/services/services/serviceService';
 
@@ -334,24 +335,17 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-8 md:mb-10">
-            {SERVICE_CATEGORIES.map((cat) => {
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`px-4 py-2 text-xs md:text-sm uppercase tracking-widest transition-all rounded-sm border ${
-                    isActive
-                      ? 'bg-gold text-barber-dark border-gold'
-                      : 'bg-transparent text-stone-300 border-stone-700 hover:border-gold/60 hover:text-gold'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
+          <div className="flex justify-center mb-8 md:mb-10 px-4">
+            <div className="flex flex-col gap-1.5 w-full max-w-xs">
+              <span className="section-label text-center mb-1">Categoría</span>
+              <CustomSelect
+                value={activeCategory}
+                onChange={setActiveCategory}
+                options={SERVICE_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label }))}
+                ariaLabel="Filtrar servicios por categoría"
+                variant="dark"
+              />
+            </div>
           </div>
 
           <div

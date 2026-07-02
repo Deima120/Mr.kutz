@@ -13,6 +13,7 @@ import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payment
 import { validatePaymentForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
+import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -342,7 +343,6 @@ export function PaymentForm({
   return (
     <AdminFormShell
       backTo="/payments"
-      backLabel={contained ? 'Volver al listado' : 'Pagos'}
       onBackClick={embedded || contained ? handleCancel : undefined}
       modeBadge="Registro"
       fullBleed={!embedded && !contained}
@@ -402,24 +402,21 @@ export function PaymentForm({
           >
             {({ invalid, errorId, liveBorderClass, submitBorderClass }) =>
               appointmentSelectRows.length > 0 ? (
-                <select
+                <CustomSelect
                   name="appointmentId"
                   value={formData.appointmentId}
-                  onChange={handleAppointmentSelect}
+                  onChange={(id) => handleAppointmentSelect({ target: { value: String(id) } })}
                   onBlur={() => markTouched('appointmentId')}
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                  aria-invalid={invalid || undefined}
-                  aria-describedby={errorId}
-                >
-                  <option value="">Seleccionar cita…</option>
-                  {appointmentSelectRows.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.client_first_name} {a.client_last_name} — {a.service_name} — $
-                      {a.price ?? a.service_price ?? 0} — {extractAppointmentDateYmd(a.appointment_date)}{' '}
-                      {formatAppointmentClockTime(a.start_time)}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Seleccionar cita…"
+                  variant="formCompact"
+                  selectClassName={submitBorderClass || liveBorderClass}
+                  ariaInvalid={invalid || undefined}
+                  ariaDescribedBy={errorId}
+                  options={appointmentSelectRows.map((a) => ({
+                    id: String(a.id),
+                    label: `${a.client_first_name} ${a.client_last_name} — ${a.service_name} — $${a.price ?? a.service_price ?? 0} — ${extractAppointmentDateYmd(a.appointment_date)} ${formatAppointmentClockTime(a.start_time)}`,
+                  }))}
+                />
               ) : (
                 <p className="text-xs text-stone-500 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
                   No hay citas completadas pendientes de cobro.
@@ -438,25 +435,24 @@ export function PaymentForm({
               live={buildLiveHint('productId', formData.productId, productValidation, 'Producto seleccionado.')}
             >
               {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
-                <select
+                <CustomSelect
                   name="productId"
                   value={formData.productId}
-                  onChange={handleProductSelect}
+                  onChange={(id) => handleProductSelect({ target: { value: String(id) } })}
                   onBlur={() => markTouched('productId')}
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  placeholder="Seleccionar producto…"
+                  variant="formCompact"
+                  selectClassName={submitBorderClass || liveBorderClass}
                   disabled={!!prefillProductId}
-                  aria-invalid={invalid || undefined}
-                  aria-describedby={errorId}
-                >
-                <option value="">Seleccionar producto…</option>
-                {products
-                  .filter((p) => (p.quantity ?? 0) > 0)
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.sku ? ` · ${p.sku}` : ''} — Stock {p.quantity ?? 0}
-                    </option>
-                  ))}
-                </select>
+                  ariaInvalid={invalid || undefined}
+                  ariaDescribedBy={errorId}
+                  options={products
+                    .filter((p) => (p.quantity ?? 0) > 0)
+                    .map((p) => ({
+                      id: String(p.id),
+                      label: `${p.name}${p.sku ? ` · ${p.sku}` : ''} — Stock ${p.quantity ?? 0}`,
+                    }))}
+                />
               )}
             </AdminFormField>
             {saleProduct && (
@@ -529,22 +525,21 @@ export function PaymentForm({
             live={buildLiveHint('paymentMethodId', formData.paymentMethodId, methodValidation, 'Método seleccionado.')}
           >
             {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
-              <select
+              <CustomSelect
                 name="paymentMethodId"
                 value={formData.paymentMethodId}
-                onChange={handleChange}
+                onChange={formSelectEvent('paymentMethodId', handleChange)}
                 onBlur={() => markTouched('paymentMethodId')}
-                className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                aria-invalid={invalid || undefined}
-                aria-describedby={errorId}
-              >
-              <option value="">Seleccionar…</option>
-              {methods.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {formatPaymentMethodName(m.description || m.name)}
-                </option>
-              ))}
-              </select>
+                placeholder="Seleccionar…"
+                variant="formCompact"
+                selectClassName={submitBorderClass || liveBorderClass}
+                ariaInvalid={invalid || undefined}
+                ariaDescribedBy={errorId}
+                options={methods.map((m) => ({
+                  id: String(m.id),
+                  label: formatPaymentMethodName(m.description || m.name),
+                }))}
+              />
             )}
           </AdminFormField>
         </div>

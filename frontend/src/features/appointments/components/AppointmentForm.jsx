@@ -13,6 +13,7 @@ import * as serviceService from '@/features/services/services/serviceService';
 import { validateAppointmentForm, getApiErrorMessage } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
+import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -444,6 +445,7 @@ export default function AppointmentForm({
 
   const fieldClass = isClient ? FORM_FIELD_CLASS : ADMIN_FORM_FIELD_COMPACT;
   const labelClass = isClient ? FORM_LABEL_CLASS : ADMIN_FORM_LABEL_CLASS;
+  const selectVariant = isClient ? 'public' : 'formCompact';
 
   const clientValidation = useMemo(
     () =>
@@ -512,7 +514,6 @@ export default function AppointmentForm({
     fillHeight: isClient && embedded,
     showBackNav: true,
     backTo: '/appointments',
-    backLabel: isClient ? 'Mis citas' : 'Citas',
     onBackClick: embedded || isClient ? handleBack : undefined,
     modeBadge: isEdit ? 'Edición' : isClient ? 'Reserva' : 'Alta',
     aside: previewAside,
@@ -526,23 +527,22 @@ export default function AppointmentForm({
       {!isEdit ? (
         <>
           <div className="flex gap-2.5">
-            <select
+            <CustomSelect
               value={servicePicker}
-              onChange={(e) => setServicePicker(e.target.value)}
-              className={`${fieldClass} flex-1 min-w-0`}
+              onChange={setServicePicker}
+              placeholder={
+                !dataLoaded ? 'Cargando...' : services.length === 0 ? 'Sin servicios' : 'Agregar servicio...'
+              }
+              variant={selectVariant}
+              className="flex-1 min-w-0"
               disabled={!dataLoaded || services.length === 0}
-            >
-              <option value="">
-                {!dataLoaded ? 'Cargando...' : services.length === 0 ? 'Sin servicios' : 'Agregar servicio...'}
-              </option>
-              {services
+              options={services
                 .filter((s) => !formData.serviceIds.includes(String(s.id)))
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — {formatPrice(s.price)} ({s.duration_minutes} min)
-                  </option>
-                ))}
-            </select>
+                .map((s) => ({
+                  id: String(s.id),
+                  label: `${s.name} — ${formatPrice(s.price)} (${s.duration_minutes} min)`,
+                }))}
+            />
             <button
               type="button"
               onClick={addService}
@@ -576,22 +576,21 @@ export default function AppointmentForm({
           )}
         </>
       ) : (
-        <select
+        <CustomSelect
           name="serviceIds"
           value={formData.serviceIds[0] || ''}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, serviceIds: e.target.value ? [e.target.value] : [] }))
+          onChange={(id) =>
+            setFormData((prev) => ({ ...prev, serviceIds: id ? [String(id)] : [] }))
           }
-          className={fieldClass}
+          placeholder="Seleccionar servicio..."
+          variant={selectVariant}
+          selectClassName={fieldClass}
           disabled={isClient && isEdit}
-        >
-          <option value="">Seleccionar servicio...</option>
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} — {formatPrice(s.price)} ({s.duration_minutes} min)
-            </option>
-          ))}
-        </select>
+          options={services.map((s) => ({
+            id: String(s.id),
+            label: `${s.name} — ${formatPrice(s.price)} (${s.duration_minutes} min)`,
+          }))}
+        />
       )}
       {hintOrError(
         'serviceIds',
@@ -605,38 +604,34 @@ export default function AppointmentForm({
   const timeSelect = (
     <div className="group">
       <label className={labelClass}>Hora *</label>
-      <select
+      <CustomSelect
         name="startTime"
         value={formData.startTime}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        className={`${fieldClass} ${borderFor('startTime', formData.startTime, timeValidation)}`}
+        onChange={formSelectEvent('startTime', handleChange)}
+        onBlur={() => markTouched('startTime')}
+        placeholder={
+          !formData.barberId
+            ? 'Elige barbero primero'
+            : formData.serviceIds.length === 0
+              ? 'Agrega un servicio'
+              : !formData.appointmentDate
+                ? 'Elige fecha primero'
+                : slotsLoading
+                  ? 'Cargando...'
+                  : slotOptions.length === 0
+                    ? 'Sin horarios'
+                    : 'Seleccionar...'
+        }
+        variant={selectVariant}
+        selectClassName={`${fieldClass} ${borderFor('startTime', formData.startTime, timeValidation)}`}
         disabled={
           !formData.barberId ||
           !formData.appointmentDate ||
           formData.serviceIds.length === 0 ||
           slotsLoading
         }
-      >
-        <option value="">
-          {!formData.barberId
-            ? 'Elige barbero primero'
-            : formData.serviceIds.length === 0
-              ? 'Agrega un servicio'
-              : !formData.appointmentDate
-                ? 'Elige fecha primero'
-              : slotsLoading
-                ? 'Cargando...'
-                : slotOptions.length === 0
-                  ? 'Sin horarios'
-                  : 'Seleccionar...'}
-        </option>
-        {slotOptions.map((slot) => (
-          <option key={slot} value={slot}>
-            {slot}
-          </option>
-        ))}
-      </select>
+        options={slotOptions.map((slot) => ({ id: slot, label: slot }))}
+      />
       {hintOrError('startTime', formData.startTime, timeValidation, 'Hora seleccionada.')}
     </div>
   );
@@ -660,23 +655,20 @@ export default function AppointmentForm({
   const barberSelect = (
     <div className="group">
       <label className={labelClass}>Barbero *</label>
-      <select
+      <CustomSelect
         name="barberId"
         value={formData.barberId}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        className={`${fieldClass} ${borderFor('barberId', formData.barberId, barberValidation)}`}
+        onChange={formSelectEvent('barberId', handleChange)}
+        onBlur={() => markTouched('barberId')}
+        placeholder={!dataLoaded ? 'Cargando...' : barbers.length === 0 ? 'Sin barberos' : 'Seleccionar...'}
+        variant={selectVariant}
+        selectClassName={`${fieldClass} ${borderFor('barberId', formData.barberId, barberValidation)}`}
         disabled={!dataLoaded || barbers.length === 0 || (isClient && isEdit)}
-      >
-        <option value="">
-          {!dataLoaded ? 'Cargando...' : barbers.length === 0 ? 'Sin barberos' : 'Seleccionar...'}
-        </option>
-        {barbers.map((b) => (
-          <option key={b.id} value={b.id}>
-            {b.first_name} {b.last_name}
-          </option>
-        ))}
-      </select>
+        options={barbers.map((b) => ({
+          id: String(b.id),
+          label: `${b.first_name} ${b.last_name}`,
+        }))}
+      />
       {hintOrError('barberId', formData.barberId, barberValidation, 'Barbero seleccionado.')}
     </div>
   );
@@ -684,20 +676,19 @@ export default function AppointmentForm({
   const clientSelect = !isClient ? (
     <div className="group">
       <label className={labelClass}>Cliente *</label>
-      <select
+      <CustomSelect
         name="clientId"
         value={formData.clientId}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        className={`${fieldClass} ${borderFor('clientId', formData.clientId, clientValidation)}`}
-      >
-        <option value="">Seleccionar cliente...</option>
-        {clients.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.first_name} {c.last_name} {c.email ? `(${c.email})` : ''}
-          </option>
-        ))}
-      </select>
+        onChange={formSelectEvent('clientId', handleChange)}
+        onBlur={() => markTouched('clientId')}
+        placeholder="Seleccionar cliente..."
+        variant={selectVariant}
+        selectClassName={`${fieldClass} ${borderFor('clientId', formData.clientId, clientValidation)}`}
+        options={clients.map((c) => ({
+          id: String(c.id),
+          label: `${c.first_name} ${c.last_name}${c.email ? ` (${c.email})` : ''}`,
+        }))}
+      />
       {hintOrError('clientId', formData.clientId, clientValidation, 'Cliente seleccionado.')}
     </div>
   ) : null;

@@ -11,7 +11,7 @@ import * as barberService from '@/features/barbers/services/barberService';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
-import { AdminPagination } from '@/shared/components/admin/AdminListControls';
+import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import RatingStars from '@/shared/components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
@@ -631,33 +631,28 @@ export default function AppointmentsPage() {
     <div className="page-shell">
       {!isFormOpen && (
         <PageHeader
-          filters={
-            <div className="flex flex-wrap items-end gap-3">
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-stone-500">Fecha</span>
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="input-premium py-1.5 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-stone-500">Barbero</span>
-                <select
-                  value={filterBarber}
-                  onChange={(e) => setFilterBarber(e.target.value)}
-                  className="input-premium py-1.5 text-sm min-w-[10rem]"
-                >
-                  <option value="">Todos</option>
-                  {barbers.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.first_name} {b.last_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            filters={
+            <AdminFilterRow className="w-full sm:max-w-none">
+              <AdminFilterDate
+                id="appointments-filter-date"
+                label="Fecha"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+              />
+              <FilterSelect
+                label="Barbero"
+                value={filterBarber}
+                onChange={setFilterBarber}
+                ariaLabel="Filtrar por barbero"
+                options={[
+                  { id: '', label: 'Todos' },
+                  ...barbers.map((b) => ({
+                    id: String(b.id),
+                    label: `${b.first_name} ${b.last_name}`.trim(),
+                  })),
+                ]}
+              />
+            </AdminFilterRow>
           }
           actions={
             <button

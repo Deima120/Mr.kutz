@@ -13,8 +13,9 @@ import DataCard from '@/shared/components/admin/DataCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import {
   AdminEntityCard,
+  AdminFilterRow,
   AdminListToolbar,
-  SegmentedFilter,
+  FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 
@@ -99,30 +100,31 @@ export default function BarbersPage() {
 
   const listToolbar = !isFormOpen ? (
     <AdminListToolbar
-      topFilters={
-        <SegmentedFilter
-          options={BARBER_STATUS_FILTERS}
-          value={statusFilter}
-          onChange={setStatusFilter}
-          ariaLabel="Filtrar barberos por estado"
-        />
-      }
       summary={statusSummary}
-      filterLabel="Documento"
-      filterAriaLabel="Filtrar por documento"
       filters={
-        <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row gap-2 w-full max-w-xl">
-          <input
-            type="text"
-            value={documentFilter}
-            onChange={(e) => setDocumentFilter(e.target.value)}
-            placeholder="Tipo o número de documento…"
-            className="input-premium flex-1 py-2 text-sm min-w-0"
-          />
-          <button type="submit" className="btn-admin-outline shrink-0 text-sm py-2 px-4">
-            Filtrar
-          </button>
-        </form>
+        <div className="space-y-3 w-full min-w-0">
+          <AdminFilterRow>
+            <FilterSelect
+              label="Estado"
+              options={BARBER_STATUS_FILTERS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              ariaLabel="Filtrar barberos por estado"
+            />
+          </AdminFilterRow>
+          <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row gap-2 w-full">
+            <input
+              type="text"
+              value={documentFilter}
+              onChange={(e) => setDocumentFilter(e.target.value)}
+              placeholder="Tipo o número de documento…"
+              className="input-premium flex-1 py-2 text-sm min-w-0 w-full"
+            />
+            <button type="submit" className="btn-admin-outline shrink-0 text-sm py-2 px-4 w-full sm:w-auto">
+              Filtrar
+            </button>
+          </form>
+        </div>
       }
     />
   ) : null;

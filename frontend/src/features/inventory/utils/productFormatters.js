@@ -53,6 +53,15 @@ export function formatProductRetailPrice(product) {
   return price != null ? `$${price.toFixed(2)}` : '—';
 }
 
+/** Etiqueta de unidad para inventario (solo por unidad). */
+export function formatProductUnit(unit, quantity) {
+  if (!unit || unit === 'unit' || unit === 'u' || unit === 'unidad' || unit === 'pz') {
+    if (quantity == null) return 'Unidad';
+    return Number(quantity) === 1 ? 'unidad' : 'unidades';
+  }
+  return unit;
+}
+
 export function isProductActive(product) {
   const value = product?.isActive ?? product?.is_active;
   return value !== false;

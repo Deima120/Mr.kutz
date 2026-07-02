@@ -10,7 +10,7 @@ import { PaymentForm } from '@/features/payments/pages/PaymentFormPage';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
-import { AdminPagination, SegmentedFilter } from '@/shared/components/admin/AdminListControls';
+import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import PaymentTypeBadge from '@/features/payments/components/PaymentTypeBadge';
 import PaymentDetailModal from '@/features/payments/components/PaymentDetailModal';
@@ -285,8 +285,13 @@ export default function PaymentsPage() {
     />
   ) : null;
 
-  const filterFieldClass = 'input-premium py-1.5 text-xs min-w-0';
-  const filterLabelClass = 'text-[11px] font-medium text-stone-500';
+  const methodFilterOptions = [
+    { id: '', label: 'Todos' },
+    ...methods.map((m) => ({
+      id: String(m.id),
+      label: formatPaymentMethodName(m.description || m.name),
+    })),
+  ];
 
   return (
     <div className="page-shell">
@@ -310,7 +315,7 @@ export default function PaymentsPage() {
               </button>
             </form>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-stretch sm:justify-end">
               {!isFormOpen && (
                 <>
                   <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
@@ -343,45 +348,31 @@ export default function PaymentsPage() {
           </div>
 
           {!isFormOpen && (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Desde</span>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={filterFieldClass} />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Hasta</span>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterFieldClass} />
-              </label>
-              <div className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Estado</span>
-                <SegmentedFilter
-                  options={STATUS_SEGMENTS}
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  ariaLabel="Estado del pago"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Tipo</span>
-                <SegmentedFilter
-                  options={TYPE_SEGMENTS}
-                  value={typeFilter}
-                  onChange={setTypeFilter}
-                  ariaLabel="Tipo de pago"
-                />
-              </div>
-              <label className="flex flex-col gap-1">
-                <span className={filterLabelClass}>Método</span>
-                <select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)} className={`${filterFieldClass} min-w-[7rem]`}>
-                  <option value="">Todos</option>
-                      {methods.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {formatPaymentMethodName(m.description || m.name)}
-                        </option>
-                      ))}
-                </select>
-              </label>
-            </div>
+            <AdminFilterRow>
+              <AdminFilterDate id="payments-date-from" label="Desde" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <AdminFilterDate id="payments-date-to" label="Hasta" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <FilterSelect
+                label="Estado"
+                options={STATUS_SEGMENTS}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                ariaLabel="Estado del pago"
+              />
+              <FilterSelect
+                label="Tipo"
+                options={TYPE_SEGMENTS}
+                value={typeFilter}
+                onChange={setTypeFilter}
+                ariaLabel="Tipo de pago"
+              />
+              <FilterSelect
+                label="Método"
+                value={methodFilter}
+                onChange={setMethodFilter}
+                options={methodFilterOptions}
+                ariaLabel="Método de pago"
+              />
+            </AdminFilterRow>
           )}
 
           {isFormOpen && (

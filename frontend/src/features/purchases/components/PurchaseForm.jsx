@@ -3,13 +3,14 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Check, X } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import * as productService from '@/features/inventory/services/productService';
 import { formatPurchaseAmount } from '@/features/purchases/utils/purchaseFormatters';
 import { validatePurchaseForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
-import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
+import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
+import CustomSelect from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -25,6 +26,46 @@ import AdminFormShell, {
 } from '@/shared/components/admin/AdminFormShell';
 
 const emptyItem = () => ({ productId: '', quantity: '1', unitCost: '' });
+
+const ITEM_FIELD_FEEDBACK_CLASS = 'min-h-[1.125rem] mt-1 text-[11px] leading-tight';
+
+function ItemFieldFeedback({ error, live }) {
+  if (error) {
+    return (
+      <div className={ITEM_FIELD_FEEDBACK_CLASS} role="alert">
+        <p className="flex items-center gap-1 text-red-600 truncate">
+          <X className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{error}</span>
+        </p>
+      </div>
+    );
+  }
+
+  if (live?.show) {
+    if (live.valid && live.successMessage) {
+      return (
+        <div className={ITEM_FIELD_FEEDBACK_CLASS} role="status">
+          <p className="flex items-center gap-1 text-emerald-700 truncate">
+            <Check className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{live.successMessage}</span>
+          </p>
+        </div>
+      );
+    }
+    if (!live.valid && live.message) {
+      return (
+        <div className={ITEM_FIELD_FEEDBACK_CLASS} role="status">
+          <p className="flex items-center gap-1 text-red-600 truncate">
+            <X className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{live.message}</span>
+          </p>
+        </div>
+      );
+    }
+  }
+
+  return <div className={ITEM_FIELD_FEEDBACK_CLASS} aria-hidden>&nbsp;</div>;
+}
 
 export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   const [products, setProducts] = useState([]);
@@ -140,7 +181,6 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   return (
     <AdminFormShell
       backTo="/purchases"
-      backLabel="Volver al listado"
       onBackClick={onCancel}
       modeBadge="Compra"
       fullBleed={false}
@@ -197,7 +237,9 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
               Agregar
             </button>
           </div>
-          <FieldErrorMessage message={fieldError('items')} />
+          <div className="min-h-[1.125rem]">
+            <FieldErrorMessage message={fieldError('items')} />
+          </div>
 
           {form.items.map((item, idx) => {
             const productKey = `items.${idx}.productId`;
@@ -219,34 +261,28 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
             const costLive = buildLiveHint(costKey, item.unitCost, costValidation, 'Costo válido.');
 
             return (
-            <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end rounded-lg border border-stone-200/80 bg-stone-50/60 p-2.5">
-              <div className="sm:col-span-5 group">
+            <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start rounded-lg border border-stone-200/80 bg-stone-50/60 p-2.5">
+              <div className="sm:col-span-5">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Producto</label>
-                <select
+                <CustomSelect
                   value={item.productId}
-                  onChange={(e) => updateItem(idx, 'productId', e.target.value)}
+                  onChange={(next) => updateItem(idx, 'productId', next)}
                   onBlur={() => markTouched(productKey)}
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldError(productKey) ? fieldBorderClass(productKey, false, item.productId) : fieldBorderClass(productKey, productValidation.valid, item.productId)}`}
-                >
-                  <option value="">Seleccionar…</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.sku ? ` · ${p.sku}` : ''}
-                    </option>
-                  ))}
-                </select>
-                {fieldError(productKey) ? (
-                  <FieldErrorMessage message={fieldError(productKey)} />
-                ) : (
-                  <FieldHint
-                    valid={productLive.valid}
-                    touched={productLive.show}
-                    message={productLive.message}
-                    successMessage={productLive.successMessage}
-                  />
-                )}
+                  placeholder="Seleccionar…"
+                  variant="formCompact"
+                  selectClassName={
+                    fieldError(productKey)
+                      ? fieldBorderClass(productKey, false, item.productId)
+                      : fieldBorderClass(productKey, productValidation.valid, item.productId)
+                  }
+                  options={products.map((p) => ({
+                    id: String(p.id),
+                    label: `${p.name}${p.sku ? ` · ${p.sku}` : ''}`,
+                  }))}
+                />
+                <ItemFieldFeedback error={fieldError(productKey)} live={productLive} />
               </div>
-              <div className="sm:col-span-2 group">
+              <div className="sm:col-span-2">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad</label>
                 <input
                   type="number"
@@ -256,18 +292,9 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                   onBlur={() => markTouched(qtyKey)}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(qtyKey, qtyValidation.valid, item.quantity)}`}
                 />
-                {fieldError(qtyKey) ? (
-                  <FieldErrorMessage message={fieldError(qtyKey)} />
-                ) : (
-                  <FieldHint
-                    valid={qtyLive.valid}
-                    touched={qtyLive.show}
-                    message={qtyLive.message}
-                    successMessage={qtyLive.successMessage}
-                  />
-                )}
+                <ItemFieldFeedback error={fieldError(qtyKey)} live={qtyLive} />
               </div>
-              <div className="sm:col-span-3 group">
+              <div className="sm:col-span-3">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Costo unit. ($)</label>
                 <input
                   type="number"
@@ -278,23 +305,14 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                   onBlur={() => markTouched(costKey)}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(costKey, costValidation.valid, item.unitCost)}`}
                 />
-                {fieldError(costKey) ? (
-                  <FieldErrorMessage message={fieldError(costKey)} />
-                ) : (
-                  <FieldHint
-                    valid={costLive.valid}
-                    touched={costLive.show}
-                    message={costLive.message}
-                    successMessage={costLive.successMessage}
-                  />
-                )}
+                <ItemFieldFeedback error={fieldError(costKey)} live={costLive} />
               </div>
-              <div className="sm:col-span-2 flex justify-end">
+              <div className="sm:col-span-2 flex sm:justify-end sm:pt-[1.375rem]">
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
                   disabled={form.items.length === 1}
-                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-stone-200 text-stone-500 hover:text-red-600 hover:border-red-200 disabled:opacity-40"
+                  className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-lg border border-stone-200 text-stone-500 hover:text-red-600 hover:border-red-200 disabled:opacity-40"
                   aria-label="Quitar artículo"
                 >
                   <Trash2 className="w-4 h-4" />

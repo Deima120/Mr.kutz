@@ -13,10 +13,10 @@ import DataCard from '@/shared/components/admin/DataCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import {
   AdminEntityCard,
+  AdminFilterRow,
   AdminListToolbar,
   AdminPagination,
-  FilterChip,
-  SegmentedFilter,
+  FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
 import SuccessToast from '@/shared/components/SuccessToast';
 import AdminDeleteModal from '@/shared/components/admin/AdminDeleteModal';
@@ -176,6 +176,17 @@ export default function ServicesPage() {
   const countInCategory = (name) =>
     services.filter((s) => categoryLabel(s) === name).length;
 
+  const categoryOptions = useMemo(
+    () => [
+      { id: 'all', label: `Todas (${services.length})` },
+      ...categoryNamesForFilter.map((name) => ({
+        id: name,
+        label: `${name} (${countInCategory(name)})`,
+      })),
+    ],
+    [services.length, categoryNamesForFilter, services]
+  );
+
   const handleToggleActive = async (service) => {
     const next = !isServiceActive(service);
     setTogglingId(service.id);
@@ -211,39 +222,26 @@ export default function ServicesPage() {
     }
   };
 
-  const statusFilterControl = (
-    <SegmentedFilter
-      options={STATUS_FILTERS}
-      value={statusFilter}
-      onChange={setStatusFilter}
-      ariaLabel="Filtrar por estado"
-    />
-  );
-
   const listToolbar = !isFormOpen ? (
     <AdminListToolbar
-      topFilters={statusFilterControl}
       summary={statusSummary}
-      filterLabel="Categorías"
-      filterAriaLabel="Filtrar por categoría"
       filters={
-        <>
-          <FilterChip active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>
-            Todas ({services.length})
-          </FilterChip>
-          {categoryNamesForFilter.map((name) => {
-            const n = countInCategory(name);
-            return (
-              <FilterChip
-                key={name}
-                active={categoryFilter === name}
-                onClick={() => setCategoryFilter(name)}
-              >
-                {name} ({n})
-              </FilterChip>
-            );
-          })}
-        </>
+        <AdminFilterRow>
+          <FilterSelect
+            label="Categoría"
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+            options={categoryOptions}
+            ariaLabel="Filtrar por categoría"
+          />
+          <FilterSelect
+            label="Estado"
+            options={STATUS_FILTERS}
+            value={statusFilter}
+            onChange={setStatusFilter}
+            ariaLabel="Filtrar por estado"
+          />
+        </AdminFilterRow>
       }
       pagination={
         <AdminPagination

@@ -1,3 +1,5 @@
+import { formatProductUnit } from '@/features/inventory/utils/productFormatters';
+
 export default function AdjustStockModal({
   product,
   adjustQty,
@@ -24,7 +26,7 @@ export default function AdjustStockModal({
       >
         <h3 className="font-serif text-lg font-semibold text-stone-900">{product.name}</h3>
         <p className="text-sm text-stone-500">
-          Stock actual: <strong className="text-gold">{currentQty}</strong> {product.unit || 'u'}
+          Stock actual: <strong className="text-gold">{currentQty}</strong> {formatProductUnit(product.unit, currentQty)}
         </p>
         <div>
           <label className="block text-[11px] font-semibold text-stone-600 mb-1">Cantidad</label>

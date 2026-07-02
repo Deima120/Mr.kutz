@@ -129,7 +129,6 @@ export default function BarberSchedulesPage() {
   return (
     <AdminFormShell
       backTo="/barbers"
-      backLabel="Barberos"
       modeBadge="Horarios"
       aside={{
         kicker: 'Agenda',

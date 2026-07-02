@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as barberService from '@/features/barbers/services/barberService';
 import AppointmentRatingsPanel from '@/shared/components/admin/AppointmentRatingsPanel';
+import { AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 
 export default function TestimonialsPage() {
   const [ratingSummary, setRatingSummary] = useState(null);
@@ -74,34 +75,31 @@ export default function TestimonialsPage() {
             loading={ratingLoading}
             error={ratingError}
             filtersSlot={
-              <div className="flex flex-wrap items-end gap-4 mb-2">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-600 mb-1">Periodo</label>
-                  <select
-                    value={ratingPeriod}
-                    onChange={(e) => setRatingPeriod(e.target.value)}
-                    className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold"
-                  >
-                    <option value="30">Últimos 30 días</option>
-                    <option value="all">Todos</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-stone-600 mb-1">Barbero</label>
-                  <select
-                    value={ratingBarberId}
-                    onChange={(e) => setRatingBarberId(e.target.value)}
-                    className="px-4 py-2.5 border border-stone-300 rounded-xl text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold min-w-[200px]"
-                  >
-                    <option value="">Todos los barberos</option>
-                    {barbers.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.first_name} {b.last_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <AdminFilterRow className="mb-2">
+                <FilterSelect
+                  label="Periodo"
+                  value={ratingPeriod}
+                  onChange={setRatingPeriod}
+                  ariaLabel="Periodo de valoraciones"
+                  options={[
+                    { id: '30', label: 'Últimos 30 días' },
+                    { id: 'all', label: 'Todos' },
+                  ]}
+                />
+                <FilterSelect
+                  label="Barbero"
+                  value={ratingBarberId}
+                  onChange={setRatingBarberId}
+                  ariaLabel="Filtrar por barbero"
+                  options={[
+                    { id: '', label: 'Todos los barberos' },
+                    ...barbers.map((b) => ({
+                      id: String(b.id),
+                      label: `${b.first_name} ${b.last_name}`.trim(),
+                    })),
+                  ]}
+                />
+              </AdminFilterRow>
             }
           />
         </div>

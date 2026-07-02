@@ -174,7 +174,6 @@ export function BarberForm({
   return (
     <AdminFormShell
       backTo="/barbers"
-      backLabel="Volver a barberos"
       onBackClick={embedded ? handleCancel : undefined}
       modeBadge={isEdit ? 'Edición' : 'Alta'}
       fullBleed={!embedded}

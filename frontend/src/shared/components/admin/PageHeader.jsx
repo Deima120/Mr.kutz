@@ -43,8 +43,8 @@ export default function PageHeader({
   if (!hasToolbar) return null;
 
   return (
-    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between min-w-0">
-      <div className="flex flex-wrap items-end gap-x-3 gap-y-2 min-w-0 flex-1">
+    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between min-w-0">
+      <div className="flex flex-col gap-3 min-w-0 flex-1 w-full">
         {hasContext && (
           <div className="min-w-0 shrink-0">
             {title && <p className="text-sm font-semibold text-stone-900">{title}</p>}
@@ -53,7 +53,7 @@ export default function PageHeader({
             )}
           </div>
         )}
-        {filters}
+        {filters ? <div className="w-full min-w-0">{filters}</div> : null}
       </div>
       {actions && (
         <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end">{actions}</div>
