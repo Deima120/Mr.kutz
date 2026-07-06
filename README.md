@@ -1,22 +1,64 @@
+<div align="center">
+
 # Mr. Kutz
 
-Sistema de gestión para barbería: landing pública, reservas en línea, panel administrativo, vistas para barberos y clientes, e **API REST** (incluye contrato móvil en `backend/docs/API_MOBILE.md`).
+**Sistema de gestión para barberías** — landing pública, reservas en línea, panel administrativo, roles (admin / barbero / cliente) y API REST con contrato móvil.
+
+[![CI](https://github.com/Deima120/Mr.kutz/actions/workflows/ci.yml/badge.svg)](https://github.com/Deima120/Mr.kutz/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
+
+<br />
+
+[![Sitio en vivo](https://img.shields.io/badge/🌐_Sitio-mrkutz.vercel.app-8B5CF6?style=for-the-badge)](https://mrkutz.vercel.app)
+[![API](https://img.shields.io/badge/⚡_API-Render-46E3B7?style=for-the-badge)](https://mrkutz-backend.onrender.com/health)
+
+<br />
+
+[Demo en vivo](https://mrkutz.vercel.app) · [Reservar cita](https://mrkutz.vercel.app/reservar) · [API health](https://mrkutz-backend.onrender.com/health) · [Docs móvil](backend/docs/API_MOBILE.md)
+
+</div>
+
+---
+
+## Características
+
+| Módulo | Descripción |
+|--------|-------------|
+| **Landing** | Hero 3D, servicios, galería, testimonios y ubicación |
+| **Reservas** | Agendamiento público (`/reservar`) y panel de citas |
+| **Panel admin** | Clientes, barberos, servicios, pagos, inventario, compras |
+| **Dashboard** | Métricas y reportes exportables (Excel / PDF) |
+| **Auth** | JWT, registro, recuperación de contraseña, roles |
+| **API móvil** | Endpoints documentados para app Flutter |
+
+---
+
+## Stack
+
+| Capa | Tecnología |
+|------|------------|
+| **Frontend** | React 18, Vite 8, React Router 6, Axios, Tailwind CSS, Three.js |
+| **Backend** | Node.js 18+, Express 4, ES modules |
+| **Base de datos** | PostgreSQL + Prisma 5 |
+| **Auth** | JWT, bcryptjs |
+| **Deploy** | Vercel (web) · Render (API + cron) · Neon (PostgreSQL) |
 
 ---
 
 ## Estructura del repositorio
-
-En la raíz solo viven **`backend/`**, **`frontend/`** y este **`README.md`**.  
-Los archivos ocultos de Git (`.gitignore`, `.gitattributes`) permanecen en la raíz por convención.
 
 ```
 Mr.kutz/
 ├── backend/                 # API Node.js + Prisma + PostgreSQL
 │   ├── docs/
 │   │   ├── API_MOBILE.md    # Contrato API para app móvil (Flutter)
-│   │   └── SEGUIMIENTO.md   # Automatización, backlog y pendientes
+│   │   └── SEGUIMIENTO.md   # Notas internas de desarrollo
 │   ├── prisma/              # schema, migraciones, seed
-│   ├── scripts/             # create-admin, correo, limpieza demo
+│   ├── scripts/             # create-admin, correo, utilidades
 │   ├── src/                 # Express: routes → controllers → services
 │   ├── render.yaml          # Plantilla deploy Render (API + cron)
 │   └── package.json
@@ -26,37 +68,25 @@ Mr.kutz/
 │   ├── src/shared/          # Componentes, contextos, API client
 │   ├── vercel.json          # SPA rewrites para Vercel
 │   └── package.json
+├── .github/workflows/       # CI (build backend + frontend)
 └── README.md
 ```
 
-### Documentación adicional (dentro de cada carpeta)
+### Documentación adicional
 
 | Archivo | Ubicación |
 |---------|-----------|
-| API móvil detallada | `backend/docs/API_MOBILE.md` |
-| Seguimiento / backlog | `backend/docs/SEGUIMIENTO.md` |
-| Variables de entorno API | `backend/.env.example` |
-| Galería de cortes | `frontend/CORTES-README.md` |
-| Modelos 3D (GLTF) | `frontend/GLTF-README.md` |
-| Auditorías npm | `backend/backend-audit.json`, `frontend/frontend-audit.json` |
-
----
-
-## Stack tecnológico
-
-| Capa | Tecnología |
-|------|------------|
-| **Frontend** | React 18, Vite 8, React Router 6, Axios, Tailwind CSS |
-| **Backend** | Node.js 18+, Express 4, ES modules |
-| **Base de datos** | PostgreSQL + Prisma 5 |
-| **Auth** | JWT, bcryptjs |
-| **Validación** | express-validator (API), utilidades en frontend |
+| API móvil detallada | [`backend/docs/API_MOBILE.md`](backend/docs/API_MOBILE.md) |
+| Variables de entorno API | [`backend/.env.example`](backend/.env.example) |
+| Variables frontend | [`frontend/.env.example`](frontend/.env.example) |
+| Galería de cortes | [`frontend/CORTES-README.md`](frontend/CORTES-README.md) |
+| Modelos 3D (GLTF) | [`frontend/GLTF-README.md`](frontend/GLTF-README.md) |
 
 ---
 
 ## Inicio rápido (desarrollo local)
 
-Necesitas **dos terminales**: una para la API (puerto **5000**) y otra para la web (puerto **5173**).
+Necesitas **dos terminales**: API en puerto **5000** y web en **5173**.
 
 ### 1. Base de datos
 
@@ -69,35 +99,17 @@ cd backend
 npm install
 ```
 
-Copia `backend/.env.example` → `backend/.env` y configura al menos:
-
-- `DATABASE_URL`
-- `JWT_SECRET` (cadena larga y aleatoria)
-
-Aplicar esquema (elige una opción):
+Copia `backend/.env.example` → `backend/.env` y configura al menos `DATABASE_URL` y `JWT_SECRET`.
 
 ```bash
-npx prisma migrate deploy   # BD vacía con historial de migraciones
+npx prisma migrate deploy
 npx prisma generate
-# Si migrate deploy falla con P3005 (BD no vacía):
-# npx prisma db push && npx prisma generate
-```
-
-Datos iniciales y administrador:
-
-```bash
 npm run db:seed
-# En .env: ADMIN_EMAIL y ADMIN_PASSWORD
 npm run create-admin
-```
-
-Arrancar API:
-
-```bash
 npm run dev
 ```
 
-Comprobar: [http://localhost:5000/health](http://localhost:5000/health)
+Health check: [http://localhost:5000/health](http://localhost:5000/health)
 
 ### 3. Frontend
 
@@ -107,7 +119,7 @@ npm install
 npm run dev
 ```
 
-Abre [http://localhost:5173](http://localhost:5173). En desarrollo, Vite hace proxy de `/api` → `http://localhost:5000` (no hace falta `VITE_API_URL` en local).
+Abre [http://localhost:5173](http://localhost:5173). En desarrollo, Vite hace proxy de `/api` → `http://localhost:5000`.
 
 > En **PowerShell** ejecuta los comandos por separado; evita encadenar con `&&`.
 
@@ -119,40 +131,27 @@ Abre [http://localhost:5173](http://localhost:5173). En desarrollo, Vite hace pr
 |-----|-------|-------|
 | **admin** | Completo | Clientes, servicios, barberos, pagos, inventario, reportes |
 | **barber** | Dashboard, citas, agenda, historial | API de pagos disponible; UI de pagos solo admin |
-| **client** | Citas propias, perfil, valoraciones | Registro público en `/register` |
+| **client** | Citas propias, perfil, valoraciones | Registro en `/register` |
 
-Reserva sin cuenta: **`/reservar`** (catálogo público + slots).
+Reserva sin cuenta: [`/reservar`](https://mrkutz.vercel.app/reservar).
 
 ---
 
 ## API REST (resumen)
 
-Base: `http://localhost:5000/api` · Formato: `{ success, data }` o `{ success, message }`
-
 | Módulo | Prefijo | Auth |
 |--------|---------|------|
 | Auth | `/api/auth` | Login, registro, perfil, reset contraseña |
-| Citas | `/api/appointments` | Público: satisfacción, reserva; auth: CRUD, slots, ratings |
+| Citas | `/api/appointments` | Público + auth (CRUD, slots, ratings) |
 | Clientes | `/api/clients` | Solo **admin** |
 | Servicios / Barberos | `/api/services`, `/api/barbers` | GET público o por rol |
-| Pagos | `/api/payments` | Admin y barber (anulación con `POST /:id/void`) |
+| Pagos | `/api/payments` | Admin y barber |
 | Productos / Compras | `/api/products`, `/api/purchases` | Admin (inventario) |
 | Dashboard | `/api/dashboard` | Admin y barber |
-| Settings | `/api/settings` | Solo lectura pública (`GET /public`) |
-| Mobile | `/api/mobile` | App cliente — ver `backend/docs/API_MOBILE.md` |
+| Settings | `/api/settings` | Lectura pública (`GET /public`) |
+| Mobile | `/api/mobile` | App cliente — ver [`API_MOBILE.md`](backend/docs/API_MOBILE.md) |
 
-Detalle de endpoints: secciones ampliadas en commits anteriores del README; para móvil usar **`backend/docs/API_MOBILE.md`**.
-
----
-
-## Frontend (resumen)
-
-- **Entrada:** `frontend/src/index.js` → `App.js` → `routes.js` (lazy loading).
-- **Layouts:** `MainLayout` (público/cliente) · `AdminLayout` (admin/barber con sidebar).
-- **Auth:** `AuthContext` + token en `localStorage` · cliente Axios en `shared/services/api.js`.
-- **Landing:** hero 3D, servicios, galería, satisfacción (`public-satisfaction`), ubicación desde settings.
-
-Rutas protegidas con `ProtectedRoute` y roles en `routes.js`.
+Producción: `https://mrkutz-backend.onrender.com/api` · Formato: `{ success, data }` o `{ success, message }`.
 
 ---
 
@@ -167,7 +166,6 @@ Rutas protegidas con `ProtectedRoute` y roles en `routes.js`.
 | `npm run db:seed` | Roles, métodos de pago, servicios, settings |
 | `npm run db:migrate` | `prisma migrate deploy` |
 | `npm run create-admin` | Crear/actualizar administrador |
-| `npm run remove-demo-users` | Limpiar cuentas demo antiguas |
 | `npm run cron:appointment-status` | Sincronizar estados de citas (cron) |
 | `npm run db:studio` | Prisma Studio |
 
@@ -183,45 +181,24 @@ Rutas protegidas con `ProtectedRoute` y roles en `routes.js`.
 
 ## Despliegue
 
-### Backend (Render u otro)
+| Servicio | Plataforma | URL |
+|----------|------------|-----|
+| Web | Vercel (`frontend/`) | [mrkutz.vercel.app](https://mrkutz.vercel.app) |
+| API | Render | [mrkutz-backend.onrender.com](https://mrkutz-backend.onrender.com) |
+| BD | Neon PostgreSQL | Configurar `DATABASE_URL` |
 
-Variables mínimas: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`, `FRONTEND_URL` (HTTPS).
-
-Comando de arranque recomendado:
+**Backend** — comando de arranque recomendado:
 
 ```bash
 npm ci && npx prisma generate && npx prisma migrate deploy && npm start
 ```
 
-Plantilla: `backend/render.yaml` (incluye cron de estados de citas cada 5 min).  
-Health check: `GET /health`
+**Frontend** — variable de build: `VITE_API_URL=https://mrkutz-backend.onrender.com/api`
 
-### Frontend (Vercel / Netlify)
-
-- **Root del proyecto en el host:** carpeta `frontend/`
-- Variable de build: `VITE_API_URL=https://tu-api.com/api`
-- Build: `npm ci && npm run build` · salida: `dist/`
-- Config SPA: `frontend/vercel.json`
-
-### Orden recomendado
-
-1. PostgreSQL + migraciones  
-2. Deploy backend → anotar URL del API  
-3. Deploy frontend con `VITE_API_URL`  
-4. Actualizar `FRONTEND_URL` en backend (CORS) y redesplegar si hace falta  
-
----
-
-## Estado del proyecto y pendientes
-
-Consulta **`backend/docs/SEGUIMIENTO.md`** para:
-
-- Automatización de estados de citas (implementada)
-- Correos transaccionales
-- Backlog: recordatorios pre-cita, alertas de stock, settings admin, etc.
+Plantillas: [`backend/render.yaml`](backend/render.yaml) · [`frontend/vercel.json`](frontend/vercel.json)
 
 ---
 
 ## Licencia
 
-MIT
+[MIT](LICENSE) © 2026 Mr. Kutz

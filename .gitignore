@@ -23,3 +23,7 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# npm audit reports (local only)
+*-audit.json
+*-outdated.json
