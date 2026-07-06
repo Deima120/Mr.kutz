@@ -4,8 +4,7 @@
 
 **Sistema de gestión para barberías** — landing pública, reservas en línea, panel administrativo, roles (admin / barbero / cliente) y API REST con contrato móvil.
 
-[![CI](https://github.com/Deima120/Mr.kutz/actions/workflows/ci.yml/badge.svg)](https://github.com/Deima120/Mr.kutz/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](backend/LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -54,23 +53,11 @@
 ```
 Mr.kutz/
 ├── backend/                 # API Node.js + Prisma + PostgreSQL
-│   ├── docs/
-│   │   ├── API_MOBILE.md    # Contrato API para app móvil (Flutter)
-│   │   └── SEGUIMIENTO.md   # Notas internas de desarrollo
-│   ├── prisma/              # schema, migraciones, seed
-│   ├── scripts/             # create-admin, correo, utilidades
-│   ├── src/                 # Express: routes → controllers → services
-│   ├── render.yaml          # Plantilla deploy Render (API + cron)
-│   └── package.json
 ├── frontend/                # React 18 + Vite 8 + Tailwind
-│   ├── public/              # Assets estáticos, modelos 3D, imágenes
-│   ├── src/features/        # Módulos por dominio (citas, pagos, etc.)
-│   ├── src/shared/          # Componentes, contextos, API client
-│   ├── vercel.json          # SPA rewrites para Vercel
-│   └── package.json
-├── .github/workflows/       # CI (build backend + frontend)
 └── README.md
 ```
+
+Detalle interno de cada carpeta: `backend/docs/`, `backend/prisma/`, `backend/src/`, `frontend/src/features/`, etc.
 
 ### Documentación adicional
 
@@ -201,4 +188,4 @@ Plantillas: [`backend/render.yaml`](backend/render.yaml) · [`frontend/vercel.js
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 Mr. Kutz
+[MIT](backend/LICENSE) © 2026 Mr. Kutz
