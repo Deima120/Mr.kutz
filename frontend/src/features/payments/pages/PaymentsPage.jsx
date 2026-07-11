@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Ban } from 'lucide-react';
+import { Plus, Eye, Ban } from 'lucide-react';
 import * as paymentService from '@/features/payments/services/paymentService';
 import { PaymentForm } from '@/features/payments/pages/PaymentFormPage';
 import DataCard from '@/shared/components/admin/DataCard';
@@ -26,6 +26,7 @@ import {
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -72,8 +73,6 @@ export default function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [methodFilter, setMethodFilter] = useState('');
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -108,7 +107,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, search, pageSize]);
+  }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, pageSize]);
 
   const fetchPayments = useCallback(async (targetPage = page) => {
     setLoading(true);
@@ -123,7 +122,6 @@ export default function PaymentsPage() {
       if (statusFilter) params.status = statusFilter;
       if (typeFilter) params.type = typeFilter;
       if (methodFilter) params.paymentMethodId = methodFilter;
-      if (search.trim()) params.search = search.trim();
 
       const [listData, totalData] = await Promise.all([
         paymentService.getPayments(params),
@@ -140,7 +138,7 @@ export default function PaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, search, pageSize, page]);
+  }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, pageSize, page]);
 
   useEffect(() => {
     if (!isFormOpen) fetchPayments(page);
@@ -149,11 +147,6 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    setSearch(searchInput.trim());
-  };
 
   const handleFormSuccess = () => {
     setFormView(null);
@@ -295,93 +288,72 @@ export default function PaymentsPage() {
 
   return (
     <div className="page-shell">
-      <DataCard compact>
-        <div className={`space-y-3 pb-3 border-b border-stone-100 ${isFormOpen ? 'mb-0' : 'mb-3'}`}>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <form onSubmit={handleSearchSubmit} className="flex gap-2 min-w-0 flex-1 max-w-xl">
-              <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Buscar ref., cliente, concepto…"
-                  disabled={isFormOpen}
-                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none disabled:opacity-60"
-                />
-              </div>
-              <button type="submit" disabled={isFormOpen} className="btn-admin shrink-0 px-3 text-xs disabled:opacity-60">
-                Buscar
-              </button>
-            </form>
+      {isFormOpen && (
+        <div className="mb-3">
+          <AdminBackNav label="Volver" onClick={closeForm} />
+        </div>
+      )}
 
+      <DataCard compact>
+        {!isFormOpen && (
+        <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
             <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-stretch sm:justify-end">
-              {!isFormOpen && (
-                <>
-                  <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo vigente</p>
-                      <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
-                        {formatPaymentAmount(periodTotal.total)}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
-                      {periodTotal.count} cobro{periodTotal.count === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <AdminExportButtons
-                    onExcel={handleExportExcel}
-                    onPdf={handleExportPDF}
-                    excelDisabled={exportRows.length === 0}
-                    pdfDisabled={exportRows.length === 0}
-                    size="xs"
-                  />
-                </>
-              )}
-              {isFormOpen ? null : (
-                <button type="button" onClick={openCreateForm} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
-                  <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                  Registrar pago
-                </button>
-              )}
+              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo vigente</p>
+                  <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
+                    {formatPaymentAmount(periodTotal.total)}
+                  </p>
+                </div>
+                <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
+                  {periodTotal.count} cobro{periodTotal.count === 1 ? '' : 's'}
+                </span>
+              </div>
+              <AdminExportButtons
+                onExcel={handleExportExcel}
+                onPdf={handleExportPDF}
+                excelDisabled={exportRows.length === 0}
+                pdfDisabled={exportRows.length === 0}
+                size="xs"
+              />
+              <button type="button" onClick={openCreateForm} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
+                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Registrar pago
+              </button>
             </div>
           </div>
 
-          {!isFormOpen && (
-            <AdminFilterRow>
-              <AdminFilterDate id="payments-date-from" label="Desde" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-              <AdminFilterDate id="payments-date-to" label="Hasta" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-              <FilterSelect
-                label="Estado"
-                options={STATUS_SEGMENTS}
-                value={statusFilter}
-                onChange={setStatusFilter}
-                ariaLabel="Estado del pago"
-              />
-              <FilterSelect
-                label="Tipo"
-                options={TYPE_SEGMENTS}
-                value={typeFilter}
-                onChange={setTypeFilter}
-                ariaLabel="Tipo de pago"
-              />
-              <FilterSelect
-                label="Método"
-                value={methodFilter}
-                onChange={setMethodFilter}
-                options={methodFilterOptions}
-                ariaLabel="Método de pago"
-              />
-            </AdminFilterRow>
-          )}
-
-          {isFormOpen && (
-            <p className="text-xs text-stone-500 pt-1">Nuevo registro de pago</p>
-          )}
+          <AdminFilterRow>
+            <AdminFilterDate id="payments-date-from" label="Desde" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <AdminFilterDate id="payments-date-to" label="Hasta" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <FilterSelect
+              label="Estado"
+              options={STATUS_SEGMENTS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              ariaLabel="Estado del pago"
+            />
+            <FilterSelect
+              label="Tipo"
+              options={TYPE_SEGMENTS}
+              value={typeFilter}
+              onChange={setTypeFilter}
+              ariaLabel="Tipo de pago"
+            />
+            <FilterSelect
+              label="Método"
+              value={methodFilter}
+              onChange={setMethodFilter}
+              options={methodFilterOptions}
+              ariaLabel="Método de pago"
+            />
+          </AdminFilterRow>
         </div>
+        )}
 
         {isFormOpen ? (
-          <div className="pt-3">{inlineForm}</div>
+          <div>{inlineForm}</div>
         ) : (
           <>
             {error && (

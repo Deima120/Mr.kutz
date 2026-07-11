@@ -7,6 +7,11 @@ import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { publicThrottle } from '../middlewares/publicThrottle.js';
+import {
+  personNameField,
+  optionalPhoneField,
+  optionalNotesField,
+} from '../utils/validation.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 import * as publicBookingController from '../controllers/publicBooking.controller.js';
 
@@ -33,7 +38,7 @@ const createValidation = [
     .trim()
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora debe tener formato HH:MM.'),
-  body('notes').optional({ checkFalsy: true }).trim(),
+  optionalNotesField('notes', 500),
 ];
 
 const updateValidation = [
@@ -46,7 +51,7 @@ const updateValidation = [
     .trim()
     .matches(/^\d{1,2}:\d{2}$/),
   body('status').optional({ checkFalsy: true }).isIn(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']),
-  body('notes').optional({ checkFalsy: true }).trim(),
+  optionalNotesField('notes', 500),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cita no válido.');
@@ -71,21 +76,13 @@ router.get(
  * Reservas públicas (sin autenticación). Protegidas con rate-limit en memoria.
  */
 const publicBookingValidation = [
-  body('firstName')
-    .trim()
-    .notEmpty()
-    .withMessage('El nombre es obligatorio.')
-    .isLength({ max: 100 }),
-  body('lastName')
-    .trim()
-    .notEmpty()
-    .withMessage('El apellido es obligatorio.')
-    .isLength({ max: 100 }),
+  personNameField('firstName', 'El nombre'),
+  personNameField('lastName', 'El apellido'),
   body('email')
     .isEmail()
     .withMessage('Indica un correo electrónico válido.')
     .normalizeEmail(),
-  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  optionalPhoneField('phone'),
   body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
   body('appointmentDate')
@@ -95,7 +92,7 @@ const publicBookingValidation = [
     .trim()
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora debe tener formato HH:MM.'),
-  body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),
+  optionalNotesField('notes', 500),
 ];
 
 router.get('/public/barbers', publicBookingController.listBarbers);

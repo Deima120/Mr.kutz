@@ -11,7 +11,7 @@ const idParam = param('id').isInt({ min: 1 }).withMessage('ID de compra no váli
 const createValidation = [
   body('supplierName').optional().trim().isLength({ max: 150 }),
   body('invoiceNumber').optional().trim().isLength({ max: 80 }),
-  body('notes').optional().trim(),
+  body('notes').optional().trim().isLength({ max: 500 }),
   body('items').isArray({ min: 1 }).withMessage('Debes incluir al menos un artículo.'),
   body('items.*.productId').isInt({ min: 1 }).withMessage('Producto no válido.'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Cantidad no válida.'),

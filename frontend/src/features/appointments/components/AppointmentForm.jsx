@@ -10,7 +10,7 @@ import * as appointmentService from '@/features/appointments/services/appointmen
 import * as clientService from '@/features/clients/services/clientService';
 import * as barberService from '@/features/barbers/services/barberService';
 import * as serviceService from '@/features/services/services/serviceService';
-import { validateAppointmentForm, getApiErrorMessage } from '@/shared/utils/formValidation';
+import { validateAppointmentForm, getApiErrorMessage, CLIENT_NOTES_MAX } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
@@ -265,6 +265,7 @@ export default function AppointmentForm({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'notes' && value.length > CLIENT_NOTES_MAX) return;
     const nextValue =
       name === 'startTime' && value ? formatAppointmentClockTime(value) || value : value;
     setFormData((prev) => {
@@ -841,6 +842,7 @@ export default function AppointmentForm({
                   onChange={handleChange}
                   className={fieldClass}
                   placeholder="Preferencias o indicaciones (opcional)"
+                  maxLength={CLIENT_NOTES_MAX}
                 />
               </div>
 
@@ -930,6 +932,7 @@ export default function AppointmentForm({
                   onChange={handleChange}
                   className={fieldClass}
                   placeholder="Preferencias o indicaciones (opcional)"
+                  maxLength={CLIENT_NOTES_MAX}
                 />
               </div>
 

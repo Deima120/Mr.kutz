@@ -63,7 +63,7 @@ router.post(
       .trim()
       .matches(/^\d{1,2}:\d{2}$/)
       .withMessage('La hora debe tener formato HH:MM.'),
-    body('notes').optional({ checkFalsy: true }).trim(),
+    body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),
   ],
   validate,
   appointmentController.create,

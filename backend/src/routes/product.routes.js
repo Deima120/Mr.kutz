@@ -12,7 +12,7 @@ const router = express.Router();
 
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
-  body('description').optional({ nullable: true }).trim(),
+  body('description').optional({ nullable: true }).trim().isLength({ max: 1000 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
   body('categoryId')
@@ -29,7 +29,7 @@ const createValidation = [
 
 const updateValidation = [
   body('name').optional().trim().isLength({ max: 150 }),
-  body('description').optional().trim(),
+  body('description').optional().trim().isLength({ max: 1000 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
   body('categoryId')
@@ -56,7 +56,7 @@ const stockValidation = [
       return true;
     }),
   body('movementType').optional().isIn(['purchase', 'sale', 'adjustment', 'damage']),
-  body('notes').optional().trim(),
+  body('notes').optional().trim().isLength({ max: 500 }),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de producto no válido.');

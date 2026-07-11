@@ -13,6 +13,8 @@ import {
   validateRequiredField,
   validateMoney,
   validateNonNegativeInt,
+  TEXT_NAME_MAX,
+  TEXT_DESCRIPTION_MAX,
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
@@ -123,9 +125,12 @@ export function ProductForm({
       clearFieldError(name);
       return;
     }
+    let next = type === 'checkbox' ? checked : type === 'number' ? parseInt(value, 10) || 0 : value;
+    if (name === 'name') next = String(value).slice(0, TEXT_NAME_MAX);
+    else if (name === 'description') next = String(value).slice(0, TEXT_DESCRIPTION_MAX);
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : type === 'number' ? parseInt(value, 10) || 0 : value,
+      [name]: next,
     }));
     setError('');
     clearFieldError(name);
@@ -252,6 +257,7 @@ export function ProductForm({
                 onChange={handleChange}
                 onBlur={() => markTouched('name')}
                 className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                maxLength={TEXT_NAME_MAX}
                 aria-invalid={invalid || undefined}
                 aria-describedby={errorId}
               />
@@ -265,6 +271,7 @@ export function ProductForm({
               value={formData.description}
               onChange={handleChange}
               rows={2}
+              maxLength={TEXT_DESCRIPTION_MAX}
               className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug`}
             />
           </div>

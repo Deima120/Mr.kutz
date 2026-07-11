@@ -9,7 +9,7 @@ import * as categoryService from '@/features/inventory/services/productCategoryS
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
-import { validateCategoryName } from '@/shared/utils/formValidation';
+import { validateCategoryForm, TEXT_CATEGORY_DESCRIPTION_MAX } from '@/shared/utils/formValidation';
 import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 
 const toCategoryCaps = (value) => String(value ?? '').trim().toUpperCase();
@@ -67,9 +67,9 @@ export default function ProductCategoriesPage() {
 
   const create = async (e) => {
     e.preventDefault();
-    const validation = validateCategoryName(name);
+    const validation = validateCategoryForm({ name, description });
     if (!validation.valid) {
-      setCreateNameError(validation.firstError);
+      setCreateNameError(validation.errors.name || validation.firstError);
       setError(validation.firstError);
       return;
     }
@@ -101,9 +101,9 @@ export default function ProductCategoriesPage() {
   };
 
   const saveEdit = async (r) => {
-    const validation = validateCategoryName(editName);
+    const validation = validateCategoryForm({ name: editName, description: editDescription });
     if (!validation.valid) {
-      setEditNameError(validation.firstError);
+      setEditNameError(validation.errors.name || validation.firstError);
       setError(validation.firstError);
       return;
     }
@@ -237,9 +237,10 @@ export default function ProductCategoriesPage() {
           </div>
           <input
             value={description}
-            onChange={(e) => setDescription(toCategoryCaps(e.target.value))}
+            onChange={(e) => setDescription(toCategoryCaps(e.target.value).slice(0, TEXT_CATEGORY_DESCRIPTION_MAX))}
             className="input-premium py-2 text-sm"
             placeholder="Descripción (opcional)"
+            maxLength={TEXT_CATEGORY_DESCRIPTION_MAX}
           />
           <button type="submit" className="btn-admin text-sm py-2">
             Crear
@@ -286,7 +287,12 @@ export default function ProductCategoriesPage() {
                           </div>
                           <input
                             value={editDescription}
-                            onChange={(e) => setEditDescription(toCategoryCaps(e.target.value))}
+                            onChange={(e) =>
+                              setEditDescription(
+                                toCategoryCaps(e.target.value).slice(0, TEXT_CATEGORY_DESCRIPTION_MAX)
+                              )
+                            }
+                            maxLength={TEXT_CATEGORY_DESCRIPTION_MAX}
                             className="input-premium py-1.5 text-sm min-w-0 flex-[2]"
                             placeholder="Descripción"
                           />

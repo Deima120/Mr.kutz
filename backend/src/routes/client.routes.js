@@ -7,41 +7,30 @@ import express from 'express';
 import { body, param } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import {
+  personNameField,
+  optionalPhoneField,
+  documentTypeField,
+  documentNumberField,
+  optionalNotesField,
+} from '../utils/validation.js';
 import * as clientController from '../controllers/client.controller.js';
 
 const router = express.Router();
 
 const clientValidation = [
-  body('firstName')
-    .trim()
-    .notEmpty()
-    .withMessage('El nombre es obligatorio.')
-    .isLength({ max: 100 }),
-  body('lastName')
-    .trim()
-    .notEmpty()
-    .withMessage('El apellido es obligatorio.')
-    .isLength({ max: 100 }),
-  body('phone')
-    .optional({ checkFalsy: true })
-    .trim()
-    .isLength({ max: 20 }),
+  personNameField('firstName', 'El nombre'),
+  personNameField('lastName', 'El apellido'),
+  optionalPhoneField('phone'),
   body('email')
-    .optional({ checkFalsy: true })
     .trim()
+    .notEmpty()
+    .withMessage('El correo es obligatorio.')
     .isEmail()
     .withMessage('Correo electrónico no válido.'),
-  body('documentType')
-    .trim()
-    .notEmpty()
-    .withMessage('El tipo de documento es obligatorio.')
-    .isLength({ max: 40 }),
-  body('documentNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('El número de documento es obligatorio.')
-    .isLength({ max: 80 }),
-  body('notes').optional({ nullable: true }).trim().isLength({ max: 500 }),
+  documentTypeField('documentType'),
+  documentNumberField('documentNumber'),
+  optionalNotesField('notes', 500),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');

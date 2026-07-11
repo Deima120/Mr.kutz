@@ -9,12 +9,20 @@ import { checkEmailAvailability } from '@/features/auth/services/authService';
 import {
   sanitizeDocumentNumber,
   sanitizePhone,
+  sanitizePersonName,
   validateDocumentNumber,
   validateDocumentType,
   validateEmail,
-  validateRequiredField,
-  getDocumentNumberHint,
+  validatePersonName,
+  CLIENT_DOCUMENT_MAX_DIGITS,
+  CLIENT_FIRST_NAME_MIN,
+  CLIENT_LAST_NAME_MIN,
+  CLIENT_NAME_MAX,
+  CLIENT_PHONE_MAX_DIGITS,
+  CLIENT_NOTES_MAX,
+  DOCUMENT_TYPE_OPTIONS,
 } from '@/shared/utils/authValidation';
+import { validatePhone } from '@/shared/utils/formValidation';
 import {
   FieldHint,
   EmailAvailabilityHint,
@@ -34,8 +42,6 @@ import AdminFormShell, {
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
-
-const NOTES_MAX = 500;
 
 function fieldTouched(touched, name, value) {
   return Boolean(touched[name] || String(value ?? '').length > 0);
@@ -96,14 +102,34 @@ export function ClientForm({
     [formData.documentNumber]
   );
   const firstNameValidation = useMemo(
-    () => validateRequiredField(formData.firstName, 'El nombre'),
+    () =>
+      validatePersonName(formData.firstName, 'El nombre', {
+        minLength: CLIENT_FIRST_NAME_MIN,
+      }),
     [formData.firstName]
   );
   const lastNameValidation = useMemo(
-    () => validateRequiredField(formData.lastName, 'El apellido'),
+    () =>
+      validatePersonName(formData.lastName, 'El apellido', {
+        minLength: CLIENT_LAST_NAME_MIN,
+      }),
     [formData.lastName]
   );
   const emailValidation = useMemo(() => validateEmail(formData.email), [formData.email]);
+  const phoneValidation = useMemo(
+    () => validatePhone(formData.phone, { required: false }),
+    [formData.phone]
+  );
+  const notesValidation = useMemo(() => {
+    const len = String(formData.notes ?? '').length;
+    if (len > CLIENT_NOTES_MAX) {
+      return {
+        valid: false,
+        message: `Las notas no pueden superar ${CLIENT_NOTES_MAX} caracteres.`,
+      };
+    }
+    return { valid: true, message: '' };
+  }, [formData.notes]);
 
   const emailUnchanged =
     isEdit && formData.email.trim().toLowerCase() === initialEmailRef.current.toLowerCase();
@@ -117,13 +143,17 @@ export function ClientForm({
       documentValidation.valid &&
       firstNameValidation.valid &&
       lastNameValidation.valid &&
-      emailReady,
+      emailReady &&
+      phoneValidation.valid &&
+      notesValidation.valid,
     [
       documentTypeValidation.valid,
       documentValidation.valid,
       firstNameValidation.valid,
       lastNameValidation.valid,
       emailReady,
+      phoneValidation.valid,
+      notesValidation.valid,
     ]
   );
 
@@ -159,10 +189,11 @@ export function ClientForm({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'notes' && value.length > NOTES_MAX) return;
+    if (name === 'notes' && value.length > CLIENT_NOTES_MAX) return;
     let next = value;
     if (name === 'documentNumber') next = sanitizeDocumentNumber(value);
     else if (name === 'phone') next = sanitizePhone(value);
+    else if (name === 'firstName' || name === 'lastName') next = sanitizePersonName(value);
     setFormData((prev) => ({ ...prev, [name]: next }));
     setError('');
   };
@@ -181,6 +212,7 @@ export function ClientForm({
       lastName: true,
       email: true,
       phone: true,
+      notes: true,
     });
 
     if (!formValid) {
@@ -192,8 +224,12 @@ export function ClientForm({
         setError(documentValidation.message || 'Revisa el número de documento.');
         return;
       }
-      if (!firstNameValidation.valid || !lastNameValidation.valid) {
-        setError('Nombre y apellido son obligatorios.');
+      if (!firstNameValidation.valid) {
+        setError(firstNameValidation.message);
+        return;
+      }
+      if (!lastNameValidation.valid) {
+        setError(lastNameValidation.message);
         return;
       }
       if (!emailValidation.valid) {
@@ -206,6 +242,14 @@ export function ClientForm({
       }
       if (!emailUnchanged && emailAvailability !== 'available') {
         setError('Espera a que se compruebe la disponibilidad del correo.');
+        return;
+      }
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.message);
+        return;
+      }
+      if (!notesValidation.valid) {
+        setError(notesValidation.message);
         return;
       }
       setError('Completa todos los campos obligatorios.');
@@ -253,6 +297,8 @@ export function ClientForm({
   const docTypeShow = fieldTouched(touched, 'documentType', formData.documentType);
   const firstNameShow = fieldTouched(touched, 'firstName', formData.firstName);
   const lastNameShow = fieldTouched(touched, 'lastName', formData.lastName);
+  const phoneShow = fieldTouched(touched, 'phone', formData.phone);
+  const notesShow = fieldTouched(touched, 'notes', formData.notes);
 
   return (
     <AdminFormShell
@@ -309,26 +355,27 @@ export function ClientForm({
             <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
               Tipo de documento <span className="text-red-600 normal-case">*</span>
             </label>
-            <input
+            <select
               id="documentType"
               name="documentType"
-              list="client-doc-types"
               value={formData.documentType}
               onChange={handleChange}
               onBlur={handleBlur}
               className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(documentTypeValidation.valid, docTypeShow)}`}
-              placeholder="CC, CE…"
-              maxLength={40}
               required
-              autoComplete="off"
-            />
-            <datalist id="client-doc-types">
-              <option value="CC" />
-              <option value="CE" />
-              <option value="TI" />
-              <option value="Pasaporte" />
-              <option value="NIT" />
-            </datalist>
+            >
+              <option value="">Selecciona…</option>
+              {DOCUMENT_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+              {isEdit &&
+                formData.documentType &&
+                !DOCUMENT_TYPE_OPTIONS.includes(formData.documentType) && (
+                  <option value={formData.documentType}>{formData.documentType}</option>
+                )}
+            </select>
             <FieldHint
               valid={documentTypeValidation.valid}
               touched={docTypeShow}
@@ -350,14 +397,14 @@ export function ClientForm({
               onBlur={handleBlur}
               className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(documentValidation.valid, docShow)}`}
               placeholder="Solo números"
-              maxLength={20}
+              maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
               required
               autoComplete="off"
             />
             <FieldHint
               valid={documentValidation.valid}
               touched={docShow}
-              message={getDocumentNumberHint(formData.documentNumber)}
+              message={documentValidation.message}
             />
           </div>
         </div>
@@ -375,7 +422,9 @@ export function ClientForm({
               onChange={handleChange}
               onBlur={handleBlur}
               className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(firstNameValidation.valid, firstNameShow)}`}
+              maxLength={CLIENT_NAME_MAX}
               required
+              autoComplete="given-name"
             />
             <FieldHint
               valid={firstNameValidation.valid}
@@ -395,7 +444,9 @@ export function ClientForm({
               onChange={handleChange}
               onBlur={handleBlur}
               className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(lastNameValidation.valid, lastNameShow)}`}
+              maxLength={CLIENT_NAME_MAX}
               required
+              autoComplete="family-name"
             />
             <FieldHint
               valid={lastNameValidation.valid}
@@ -445,9 +496,15 @@ export function ClientForm({
               value={formData.phone}
               onChange={handleChange}
               onBlur={handleBlur}
-              className={ADMIN_FORM_FIELD_COMPACT}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(phoneValidation.valid, phoneShow && Boolean(formData.phone))}`}
               placeholder="Solo números (opcional)"
-              maxLength={15}
+              maxLength={CLIENT_PHONE_MAX_DIGITS}
+              autoComplete="tel"
+            />
+            <FieldHint
+              valid={phoneValidation.valid}
+              touched={phoneShow && Boolean(formData.phone)}
+              message={phoneValidation.message}
             />
           </div>
         </div>
@@ -458,7 +515,7 @@ export function ClientForm({
               Notas internas
             </label>
             <span className="text-[10px] text-stone-400 tabular-nums">
-              {formData.notes.length}/{NOTES_MAX}
+              {formData.notes.length}/{CLIENT_NOTES_MAX}
             </span>
           </div>
           <textarea
@@ -466,10 +523,16 @@ export function ClientForm({
             name="notes"
             value={formData.notes}
             onChange={handleChange}
+            onBlur={handleBlur}
             rows={2}
-            maxLength={NOTES_MAX}
-            className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug`}
+            maxLength={CLIENT_NOTES_MAX}
+            className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug ${adminFieldStateClass(notesValidation.valid, notesShow)}`}
             placeholder="Breve: preferencias, alergias…"
+          />
+          <FieldHint
+            valid={notesValidation.valid}
+            touched={notesShow}
+            message={notesValidation.message}
           />
         </div>
 
@@ -491,4 +554,3 @@ export default function ClientFormPage() {
   const { id } = useParams();
   return <ClientForm editId={id ? parseInt(id, 10) : null} />;
 }
-

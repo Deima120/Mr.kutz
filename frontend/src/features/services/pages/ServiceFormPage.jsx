@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as serviceService from '@/features/services/services/serviceService';
 import ServiceStatusToggle from '@/features/services/components/ServiceStatusToggle';
-import { validateServiceForm, getApiErrorMessage, validateRequiredField, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
+import { validateServiceForm, getApiErrorMessage, validateRequiredField, validateMoney, validatePositiveInt, TEXT_NAME_MAX, TEXT_DESCRIPTION_MAX } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
@@ -110,9 +110,12 @@ export function ServiceForm({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let next = type === 'checkbox' ? checked : value;
+    if (name === 'name') next = String(value).slice(0, TEXT_NAME_MAX);
+    else if (name === 'description') next = String(value).slice(0, TEXT_DESCRIPTION_MAX);
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: next,
     }));
     setError('');
     clearFieldError(name);
@@ -220,6 +223,7 @@ export function ServiceForm({
                 onChange={handleChange}
                 onBlur={() => markTouched('name')}
                 className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                maxLength={TEXT_NAME_MAX}
                 aria-invalid={invalid || undefined}
                 aria-describedby={errorId}
               />
@@ -236,6 +240,7 @@ export function ServiceForm({
               value={formData.description}
               onChange={handleChange}
               rows={2}
+              maxLength={TEXT_DESCRIPTION_MAX}
               className={`${ADMIN_FORM_FIELD_COMPACT} resize-none min-h-[3.25rem] max-h-24 leading-snug`}
             />
           </div>

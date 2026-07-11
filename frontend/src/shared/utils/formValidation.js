@@ -6,6 +6,7 @@
 export {
   validateEmail,
   validateRequiredField,
+  validatePersonName,
   validateDocumentType,
   validateDocumentNumber,
   validateConfirmPassword,
@@ -13,19 +14,51 @@ export {
   getPasswordChecks,
   sanitizeDocumentNumber,
   sanitizePhone,
+  sanitizePersonName,
   CLIENT_DOCUMENT_MIN_DIGITS,
+  CLIENT_DOCUMENT_MAX_DIGITS,
+  CLIENT_DOC_TYPE_MAX,
+  CLIENT_FIRST_NAME_MIN,
+  CLIENT_LAST_NAME_MIN,
+  CLIENT_NAME_MAX,
+  CLIENT_PHONE_MAX_DIGITS,
+  CLIENT_NOTES_MAX,
+  DOCUMENT_TYPE_OPTIONS,
 } from '@/shared/utils/authValidation';
 
 import {
   validateEmail,
   validateRequiredField,
+  validatePersonName,
   validateDocumentType,
   validateDocumentNumber,
   validateConfirmPassword,
   isPasswordStrong,
+  CLIENT_NOTES_MAX,
+  CLIENT_FIRST_NAME_MIN,
+  CLIENT_LAST_NAME_MIN,
 } from '@/shared/utils/authValidation';
 
-/** @typedef {{ valid: boolean, errors: Record<string, string>, firstError: string }} ValidationResult */
+/** Límites de texto alineados con backend. */
+export const TEXT_NAME_MAX = 150;
+export const TEXT_DESCRIPTION_MAX = 1000;
+export const TEXT_CATEGORY_DESCRIPTION_MAX = 500;
+export const TEXT_REFERENCE_MAX = 100;
+export const TEXT_SPECIALTIES_JOINED_MAX = 300;
+export const TEXT_NOTES_MAX = CLIENT_NOTES_MAX;
+
+export function validateNotes(value, { max = TEXT_NOTES_MAX, label = 'Las notas' } = {}) {
+  const notes = String(value ?? '');
+  if (notes.length > max) {
+    return { valid: false, message: `${label} no pueden superar ${max} caracteres.` };
+  }
+  return { valid: true, message: '' };
+}
+
+export function fieldMessage(result, fallback) {
+  if (result.valid) return '';
+  return result.message || fallback;
+}
 
 export function validationResult(errors = {}) {
   const keys = Object.keys(errors);
@@ -158,12 +191,21 @@ export function validateServiceForm(data) {
   const errors = {};
   const name = validateRequiredField(data.name, 'El nombre');
   if (!name.valid) errors.name = name.message;
+  else if (String(data.name).trim().length > TEXT_NAME_MAX) {
+    errors.name = `Máximo ${TEXT_NAME_MAX} caracteres.`;
+  }
 
   const price = validateMoney(data.price, 'El precio', { required: true, min: 0 });
   if (!price.valid) errors.price = price.message;
 
   const duration = validatePositiveInt(data.durationMinutes, 'La duración', { required: true, min: 1 });
   if (!duration.valid) errors.durationMinutes = duration.message;
+
+  const description = validateNotes(data.description, {
+    max: TEXT_DESCRIPTION_MAX,
+    label: 'La descripción',
+  });
+  if (!description.valid) errors.description = description.message;
 
   return validationResult(errors);
 }
@@ -173,6 +215,9 @@ export function validateProductForm(data) {
   const errors = {};
   const name = validateRequiredField(data.name, 'El nombre');
   if (!name.valid) errors.name = name.message;
+  else if (String(data.name).trim().length > TEXT_NAME_MAX) {
+    errors.name = `Máximo ${TEXT_NAME_MAX} caracteres.`;
+  }
 
   if (data.retailPrice !== '' && data.retailPrice != null) {
     const retail = validateMoney(data.retailPrice, 'El precio de venta', { required: false, min: 0 });
@@ -190,17 +235,57 @@ export function validateProductForm(data) {
   );
   if (!minStock.valid) errors.minStock = minStock.message;
 
+  const description = validateNotes(data.description, {
+    max: TEXT_DESCRIPTION_MAX,
+    label: 'La descripción',
+  });
+  if (!description.valid) errors.description = description.message;
+
   return validationResult(errors);
 }
 
-/** Documento admin/barbero — mínimo 5 dígitos (backend auth). */
+/** Documento admin/barbero — misma regla que cliente (longitud silenciosa). */
 export function validateAdminDocumentNumber(value) {
-  const num = String(value ?? '').replace(/\D/g, '');
-  if (!num) return { valid: false, message: 'El número de documento es obligatorio.' };
-  if (num.length < 5) return { valid: false, message: 'Mínimo 5 dígitos.' };
-  if (num.length > 20) return { valid: false, message: 'Máximo 20 dígitos.' };
-  if (!/^\d+$/.test(num)) return { valid: false, message: 'Solo se permiten números.' };
-  return { valid: true, message: '' };
+  const result = validateDocumentNumber(value);
+  if (result.valid) return result;
+  return {
+    valid: false,
+    message: result.message || 'Revisa el número de documento.',
+  };
+}
+
+/** Formulario admin de cliente (crear / editar). */
+export function validateClientForm(data) {
+  const errors = {};
+
+  const docType = validateDocumentType(data.documentType);
+  if (!docType.valid) errors.documentType = docType.message;
+
+  const docNum = validateDocumentNumber(data.documentNumber);
+  if (!docNum.valid) {
+    errors.documentNumber = fieldMessage(docNum, 'Revisa el número de documento.');
+  }
+
+  const firstName = validatePersonName(data.firstName, 'El nombre', {
+    minLength: CLIENT_FIRST_NAME_MIN,
+  });
+  if (!firstName.valid) errors.firstName = fieldMessage(firstName, 'Revisa el nombre.');
+
+  const lastName = validatePersonName(data.lastName, 'El apellido', {
+    minLength: CLIENT_LAST_NAME_MIN,
+  });
+  if (!lastName.valid) errors.lastName = fieldMessage(lastName, 'Revisa el apellido.');
+
+  const email = validateEmail(data.email);
+  if (!email.valid) errors.email = email.message;
+
+  const phone = validatePhone(data.phone, { required: false });
+  if (!phone.valid) errors.phone = phone.message;
+
+  const notes = validateNotes(data.notes);
+  if (!notes.valid) errors.notes = notes.message;
+
+  return validationResult(errors);
 }
 
 /** @returns {ValidationResult} */
@@ -213,11 +298,15 @@ export function validateBarberForm(data, isEdit = false) {
   const docNum = validateAdminDocumentNumber(data.documentNumber);
   if (!docNum.valid) errors.documentNumber = docNum.message;
 
-  const firstName = validateRequiredField(data.firstName, 'El nombre');
-  if (!firstName.valid) errors.firstName = firstName.message;
+  const firstName = validatePersonName(data.firstName, 'El nombre', {
+    minLength: CLIENT_FIRST_NAME_MIN,
+  });
+  if (!firstName.valid) errors.firstName = fieldMessage(firstName, 'Revisa el nombre.');
 
-  const lastName = validateRequiredField(data.lastName, 'El apellido');
-  if (!lastName.valid) errors.lastName = lastName.message;
+  const lastName = validatePersonName(data.lastName, 'El apellido', {
+    minLength: CLIENT_LAST_NAME_MIN,
+  });
+  if (!lastName.valid) errors.lastName = fieldMessage(lastName, 'Revisa el apellido.');
 
   if (!isEdit) {
     const email = validateEmail(data.email);
@@ -230,6 +319,11 @@ export function validateBarberForm(data, isEdit = false) {
   if (data.phone?.trim()) {
     const phone = validatePhone(data.phone, { required: false });
     if (!phone.valid) errors.phone = phone.message;
+  }
+
+  const specialties = String(data.specialties ?? '');
+  if (specialties.length > TEXT_SPECIALTIES_JOINED_MAX) {
+    errors.specialties = `Máximo ${TEXT_SPECIALTIES_JOINED_MAX} caracteres.`;
   }
 
   return validationResult(errors);
@@ -268,6 +362,14 @@ export function validatePaymentForm(data, mode, extras = {}) {
   if (!data.paymentMethodId) {
     errors.paymentMethodId = 'Selecciona un método de pago.';
   }
+
+  const reference = String(data.reference ?? '');
+  if (reference.length > TEXT_REFERENCE_MAX) {
+    errors.reference = `Máximo ${TEXT_REFERENCE_MAX} caracteres.`;
+  }
+
+  const notes = validateNotes(data.notes);
+  if (!notes.valid) errors.notes = notes.message;
 
   return validationResult(errors);
 }
@@ -328,6 +430,9 @@ export function validateAppointmentForm(data, { isEdit = false, isClient = false
     errors.serviceIds = 'Selecciona un servicio.';
   }
 
+  const notes = validateNotes(data.notes);
+  if (!notes.valid) errors.notes = notes.message;
+
   return validationResult(errors);
 }
 
@@ -340,11 +445,15 @@ export function validateBookingForm(form) {
   if (!form.appointmentDate) errors.appointmentDate = 'Selecciona una fecha.';
   if (!form.startTime) errors.startTime = 'Selecciona una hora disponible.';
 
-  const firstName = validateRequiredField(form.firstName, 'El nombre');
-  if (!firstName.valid) errors.firstName = firstName.message;
+  const firstName = validatePersonName(form.firstName, 'El nombre', {
+    minLength: CLIENT_FIRST_NAME_MIN,
+  });
+  if (!firstName.valid) errors.firstName = fieldMessage(firstName, 'Revisa el nombre.');
 
-  const lastName = validateRequiredField(form.lastName, 'El apellido');
-  if (!lastName.valid) errors.lastName = lastName.message;
+  const lastName = validatePersonName(form.lastName, 'El apellido', {
+    minLength: CLIENT_LAST_NAME_MIN,
+  });
+  if (!lastName.valid) errors.lastName = fieldMessage(lastName, 'Revisa el apellido.');
 
   const email = validateEmail(form.email);
   if (!email.valid) errors.email = email.message;
@@ -354,6 +463,22 @@ export function validateBookingForm(form) {
     if (!phone.valid) errors.phone = phone.message;
   }
 
+  const notes = validateNotes(form.notes);
+  if (!notes.valid) errors.notes = notes.message;
+
+  return validationResult(errors);
+}
+
+/** @returns {ValidationResult} */
+export function validateBarberSchedulesForm(schedules = []) {
+  const errors = {};
+  schedules.forEach((row) => {
+    if (!row?.isAvailable) return;
+    const range = validateTimeRange(row.startTime, row.endTime);
+    if (!range.valid) {
+      errors[`day_${row.dayOfWeek}`] = range.message;
+    }
+  });
   return validationResult(errors);
 }
 
@@ -401,5 +526,22 @@ export function validateCategoryName(name) {
   const errors = {};
   const result = validateRequiredField(name, 'El nombre');
   if (!result.valid) errors.name = result.message;
+  else if (String(name).trim().length > 100) {
+    errors.name = 'Máximo 100 caracteres.';
+  }
+  return validationResult(errors);
+}
+
+export function validateCategoryForm({ name, description }) {
+  const errors = {};
+  const nameResult = validateCategoryName(name);
+  if (!nameResult.valid) Object.assign(errors, nameResult.errors);
+
+  const desc = validateNotes(description, {
+    max: TEXT_CATEGORY_DESCRIPTION_MAX,
+    label: 'La descripción',
+  });
+  if (!desc.valid) errors.description = desc.message;
+
   return validationResult(errors);
 }

@@ -10,13 +10,13 @@ const idParam = param('id').isInt({ min: 1 }).withMessage('ID de categoría no v
 
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 100 }),
-  body('description').optional().trim(),
+  body('description').optional().trim().isLength({ max: 500 }),
   body('isActive').optional().isBoolean(),
 ];
 
 const updateValidation = [
   body('name').optional().trim().notEmpty().withMessage('El nombre no puede quedar vacío.').isLength({ max: 100 }),
-  body('description').optional({ nullable: true }).trim(),
+  body('description').optional({ nullable: true }).trim().isLength({ max: 500 }),
   body('isActive').optional().isBoolean(),
 ];
 

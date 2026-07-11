@@ -10,7 +10,7 @@ import * as appointmentService from '@/features/appointments/services/appointmen
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
 import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
-import { validatePaymentForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
+import { validatePaymentForm, getApiErrorMessage, validateMoney, validatePositiveInt, TEXT_REFERENCE_MAX } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
@@ -256,9 +256,13 @@ export function PaymentForm({
   };
 
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    let next = value;
+    if (name === 'reference') next = value.slice(0, TEXT_REFERENCE_MAX);
+    else if (name === 'notes' && value.length > 500) return;
+    setFormData((prev) => ({ ...prev, [name]: next }));
     setError('');
-    clearFieldError(e.target.name);
+    clearFieldError(name);
   };
 
   const handleSubmit = async (e) => {
@@ -348,7 +352,7 @@ export function PaymentForm({
       fullBleed={!embedded && !contained}
       compact={embedded || contained}
       contained={contained}
-      showBackNav={true}
+      showBackNav={!embedded && !contained}
       aside={paymentAside}
     >
       <AdminFormCard onSubmit={handleSubmit}>
@@ -553,6 +557,7 @@ export function PaymentForm({
               onChange={handleChange}
               placeholder="Nº operación, folio…"
               className={ADMIN_FORM_FIELD_COMPACT}
+              maxLength={TEXT_REFERENCE_MAX}
             />
             <button
               type="button"

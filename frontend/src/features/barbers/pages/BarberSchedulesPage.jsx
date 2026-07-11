@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import * as barberService from '@/features/barbers/services/barberService';
+import { validateBarberSchedulesForm, getApiErrorMessage } from '@/shared/utils/formValidation';
 import AdminFormShell, {
   AdminFormCardHeader,
   AdminFormFooterActions,
@@ -104,13 +105,17 @@ export default function BarberSchedulesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setError('');
+    const validation = validateBarberSchedulesForm(schedules);
+    if (!validation.valid) {
+      setError(validation.firstError || 'Revisa los horarios disponibles.');
+      return;
+    }
+    setSaving(true);
     try {
       await barberService.updateBarberSchedules(id, schedules);
-      setError('');
     } catch (err) {
-      setError(err?.message || 'Error al guardar');
+      setError(getApiErrorMessage(err, 'Error al guardar'));
     } finally {
       setSaving(false);
     }

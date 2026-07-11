@@ -7,7 +7,14 @@ import express from 'express';
 import { body, param } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
-import { strongPassword } from '../utils/validation.js';
+import {
+  strongPassword,
+  personNameField,
+  optionalPersonNameField,
+  optionalPhoneField,
+  documentTypeField,
+  documentNumberField,
+} from '../utils/validation.js';
 import * as barberController from '../controllers/barber.controller.js';
 
 const router = express.Router();
@@ -15,37 +22,23 @@ const router = express.Router();
 const createValidation = [
   body('email').isEmail().normalizeEmail(),
   ...strongPassword('password'),
-  body('firstName').trim().notEmpty().isLength({ max: 100 }),
-  body('lastName').trim().notEmpty().isLength({ max: 100 }),
-  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
-  body('documentType')
-    .trim()
-    .notEmpty()
-    .withMessage('El tipo de documento es obligatorio.')
-    .isLength({ max: 40 }),
-  body('documentNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('El número de documento es obligatorio.')
-    .isLength({ max: 80 }),
+  personNameField('firstName', 'El nombre'),
+  personNameField('lastName', 'El apellido'),
+  optionalPhoneField('phone'),
+  documentTypeField('documentType'),
+  documentNumberField('documentNumber'),
   body('specialties').optional({ checkFalsy: true }).isArray(),
+  body('specialties.*').optional().trim().isLength({ max: 80 }),
 ];
 
 const updateValidation = [
-  body('firstName').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
-  body('lastName').optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
-  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
-  body('documentType')
-    .trim()
-    .notEmpty()
-    .withMessage('El tipo de documento es obligatorio.')
-    .isLength({ max: 40 }),
-  body('documentNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('El número de documento es obligatorio.')
-    .isLength({ max: 80 }),
+  optionalPersonNameField('firstName', 'El nombre'),
+  optionalPersonNameField('lastName', 'El apellido'),
+  optionalPhoneField('phone'),
+  documentTypeField('documentType'),
+  documentNumberField('documentNumber'),
   body('specialties').optional({ checkFalsy: true }).isArray(),
+  body('specialties.*').optional().trim().isLength({ max: 80 }),
   body('isActive').optional({ checkFalsy: true }).isBoolean(),
 ];
 
@@ -71,11 +64,22 @@ const schedulesValidation = [
   body('schedules.*.isAvailable')
     .optional({ checkFalsy: true })
     .isBoolean(),
+  body('schedules.*').custom((row) => {
+    if (!row?.isAvailable) return true;
+    const start = String(row.startTime || '').trim();
+    const end = String(row.endTime || '').trim();
+    if (!start || !end) {
+      throw new Error('Indica hora de inicio y cierre para los días disponibles.');
+    }
+    if (start >= end) {
+      throw new Error('La hora de inicio debe ser anterior a la de cierre.');
+    }
+    return true;
+  }),
 ];
 
 router.use(auth);
 
-// Listar barberos: admin, barber y client (el cliente los necesita para agendar)
 router.get('/', authorize('admin', 'barber', 'client'), barberController.getAll);
 router.get('/:id/schedules', authorize('admin', 'barber', 'client'), idParam, validate, barberController.getSchedules);
 router.get('/:id', authorize('admin', 'barber', 'client'), idParam, validate, barberController.getById);

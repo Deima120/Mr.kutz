@@ -12,62 +12,43 @@ import { auth } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { loginThrottle } from '../middlewares/loginThrottle.js';
 import { publicThrottle } from '../middlewares/publicThrottle.js';
-import { strongPassword } from '../utils/validation.js';
+import {
+  strongPassword,
+  personNameField,
+  optionalPhoneField,
+  documentTypeField,
+  documentNumberField,
+} from '../utils/validation.js';
 import * as authController from '../controllers/auth.controller.js';
 
 const router = express.Router();
 
-// Validaciones para registro
 const registerValidation = [
   body('email')
     .isEmail()
     .withMessage('Indica un correo electrónico válido.')
     .normalizeEmail(),
   ...strongPassword('password'),
-  body('firstName')
-    .trim()
-    .notEmpty()
-    .withMessage('El nombre es obligatorio.')
-    .isLength({ max: 100 })
-    .withMessage('El nombre es demasiado largo.'),
-  body('lastName')
-    .trim()
-    .notEmpty()
-    .withMessage('El apellido es obligatorio.')
-    .isLength({ max: 100 })
-    .withMessage('El apellido es demasiado largo.'),
-  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
-  body('documentType')
-    .trim()
-    .notEmpty()
-    .withMessage('El tipo de documento es obligatorio.')
-    .isLength({ max: 40 }),
-  body('documentNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('El número de documento es obligatorio.')
-    .matches(/^\d+$/)
-    .withMessage('El número de documento solo puede contener dígitos.')
-    .isLength({ min: 5, max: 20 })
-    .withMessage('El número de documento debe tener entre 5 y 20 dígitos.'),
+  personNameField('firstName', 'El nombre'),
+  personNameField('lastName', 'El apellido'),
+  optionalPhoneField('phone'),
+  documentTypeField('documentType'),
+  documentNumberField('documentNumber'),
   body('role')
     .optional({ checkFalsy: true })
     .isIn(['client'])
     .withMessage('El registro público solo admite el rol cliente.'),
 ];
 
-// Validaciones para login
 const loginValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
   body('password').notEmpty().withMessage('La contraseña es obligatoria.'),
 ];
 
-// Validaciones para forgot password
 const forgotPasswordValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
 ];
 
-// Validaciones para verify code
 const verifyCodeValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
   body('code')
@@ -76,7 +57,6 @@ const verifyCodeValidation = [
     .withMessage('El código debe tener 6 dígitos.'),
 ];
 
-// Validaciones para reset password
 const resetPasswordValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
   body('code')

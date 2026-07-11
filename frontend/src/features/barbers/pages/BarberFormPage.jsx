@@ -9,14 +9,20 @@ import * as barberService from '@/features/barbers/services/barberService';
 import {
   sanitizeDocumentNumber,
   sanitizePhone,
+  sanitizePersonName,
   validateBarberForm,
   getApiErrorMessage,
   validateDocumentType,
   validateAdminDocumentNumber,
-  validateRequiredField,
+  validatePersonName,
   validateEmail,
   validatePassword,
   validatePhone,
+  DOCUMENT_TYPE_OPTIONS,
+  CLIENT_FIRST_NAME_MIN,
+  CLIENT_LAST_NAME_MIN,
+  CLIENT_NAME_MAX,
+  TEXT_SPECIALTIES_JOINED_MAX,
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
@@ -66,11 +72,17 @@ export function BarberForm({
     [formData.documentNumber]
   );
   const firstNameValidation = useMemo(
-    () => validateRequiredField(formData.firstName, 'El nombre'),
+    () =>
+      validatePersonName(formData.firstName, 'El nombre', {
+        minLength: CLIENT_FIRST_NAME_MIN,
+      }),
     [formData.firstName]
   );
   const lastNameValidation = useMemo(
-    () => validateRequiredField(formData.lastName, 'El apellido'),
+    () =>
+      validatePersonName(formData.lastName, 'El apellido', {
+        minLength: CLIENT_LAST_NAME_MIN,
+      }),
     [formData.lastName]
   );
   const emailValidation = useMemo(() => validateEmail(formData.email), [formData.email]);
@@ -109,6 +121,8 @@ export function BarberForm({
     let next = type === 'checkbox' ? checked : value;
     if (name === 'documentNumber') next = sanitizeDocumentNumber(value);
     else if (name === 'phone') next = sanitizePhone(value);
+    else if (name === 'firstName' || name === 'lastName') next = sanitizePersonName(value);
+    else if (name === 'specialties') next = String(value).slice(0, TEXT_SPECIALTIES_JOINED_MAX);
     setFormData((prev) => ({
       ...prev,
       [name]: next,
@@ -227,29 +241,28 @@ export function BarberForm({
               live={buildLiveHint('documentType', formData.documentType, documentTypeValidation, 'Tipo válido.')}
             >
               {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
-                <>
-                  <input
-                    id="barber-doc-type"
-                    name="documentType"
-                    list="barber-doc-types"
-                    value={formData.documentType}
-                    onChange={handleChange}
-                    onBlur={() => markTouched('documentType')}
-                    className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                    placeholder="Ej. CC, CE, NIT…"
-                    maxLength={40}
-                    autoComplete="off"
-                    aria-invalid={invalid || undefined}
-                    aria-describedby={errorId}
-                  />
-                  <datalist id="barber-doc-types">
-                    <option value="CC" />
-                    <option value="CE" />
-                    <option value="TI" />
-                    <option value="Pasaporte" />
-                    <option value="NIT" />
-                  </datalist>
-                </>
+                <select
+                  id="barber-doc-type"
+                  name="documentType"
+                  value={formData.documentType}
+                  onChange={handleChange}
+                  onBlur={() => markTouched('documentType')}
+                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={errorId}
+                >
+                  <option value="">Selecciona…</option>
+                  {DOCUMENT_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                  {isEdit &&
+                    formData.documentType &&
+                    !DOCUMENT_TYPE_OPTIONS.includes(formData.documentType) && (
+                      <option value={formData.documentType}>{formData.documentType}</option>
+                    )}
+                </select>
               )}
             </AdminFormField>
             <AdminFormField
@@ -295,6 +308,7 @@ export function BarberForm({
                   onChange={handleChange}
                   onBlur={() => markTouched('firstName')}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  maxLength={CLIENT_NAME_MAX}
                   aria-invalid={invalid || undefined}
                   aria-describedby={errorId}
                 />
@@ -315,6 +329,7 @@ export function BarberForm({
                   onChange={handleChange}
                   onBlur={() => markTouched('lastName')}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+                  maxLength={CLIENT_NAME_MAX}
                   aria-invalid={invalid || undefined}
                   aria-describedby={errorId}
                 />
@@ -405,6 +420,7 @@ export function BarberForm({
                 onChange={handleChange}
                 placeholder="Ej: Corte clásico, Barba, Degradado"
                 className={ADMIN_FORM_FIELD_COMPACT}
+                maxLength={TEXT_SPECIALTIES_JOINED_MAX}
               />
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as bookingService from '@/features/booking/services/publicBookingService';
-import { sanitizePhone, validateBookingForm, getApiErrorMessage } from '@/shared/utils/formValidation';
+import { sanitizePhone, sanitizePersonName, validateBookingForm, getApiErrorMessage, CLIENT_NAME_MAX, CLIENT_NOTES_MAX, CLIENT_PHONE_MAX_DIGITS } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { PublicFormField, FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
@@ -117,7 +117,10 @@ export default function BookingPage() {
 
   const onChange = (e) => {
     const { name, value } = e.target;
-    const next = name === 'phone' ? sanitizePhone(value) : value;
+    let next = value;
+    if (name === 'phone') next = sanitizePhone(value);
+    else if (name === 'firstName' || name === 'lastName') next = sanitizePersonName(value);
+    else if (name === 'notes' && value.length > CLIENT_NOTES_MAX) return;
     setForm((prev) => ({ ...prev, [name]: next }));
     setError('');
     clearFieldError(name);
@@ -335,6 +338,7 @@ export default function BookingPage() {
                     value={form.firstName}
                     onChange={onChange}
                     className={`input-premium ${invalid ? inputInvalidClass('firstName') : ''}`}
+                    maxLength={CLIENT_NAME_MAX}
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
                   />
@@ -349,6 +353,7 @@ export default function BookingPage() {
                     value={form.lastName}
                     onChange={onChange}
                     className={`input-premium ${invalid ? inputInvalidClass('lastName') : ''}`}
+                    maxLength={CLIENT_NAME_MAX}
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
                   />
@@ -380,7 +385,7 @@ export default function BookingPage() {
                     onChange={onChange}
                     className={`input-premium ${invalid ? inputInvalidClass('phone') : ''}`}
                     placeholder="Solo números"
-                    maxLength={15}
+                    maxLength={CLIENT_PHONE_MAX_DIGITS}
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
                   />
@@ -389,18 +394,25 @@ export default function BookingPage() {
             </div>
 
             <div>
-              <label className="label-premium" htmlFor="notes">
-                Notas
-              </label>
+              <div className="flex items-baseline justify-between gap-2 mb-1">
+                <label className="label-premium mb-0" htmlFor="notes">
+                  Notas
+                </label>
+                <span className="text-[10px] text-stone-400 tabular-nums">
+                  {form.notes.length}/{CLIENT_NOTES_MAX}
+                </span>
+              </div>
               <textarea
                 id="notes"
                 name="notes"
                 value={form.notes}
                 onChange={onChange}
-                className="input-premium resize-none"
+                className={`input-premium resize-none ${fieldError('notes') ? inputInvalidClass('notes') : ''}`}
                 rows={3}
+                maxLength={CLIENT_NOTES_MAX}
                 placeholder="Algo que el barbero deba saber (opcional)"
               />
+              <FieldErrorMessage message={fieldError('notes')} />
             </div>
 
             {(selectedService || selectedBarber) && (

@@ -14,7 +14,7 @@ const router = express.Router();
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
   body('categoryName').optional({ nullable: true }).trim().isLength({ max: 100 }),
-  body('description').optional().trim(),
+  body('description').optional().trim().isLength({ max: 1000 }),
   body('price').isFloat({ min: 0 }).withMessage('El precio debe ser mayor o igual a 0.'),
   body('durationMinutes').isInt({ min: 1 }).withMessage('La duración debe ser de al menos 1 minuto.'),
   body('isActive').optional().isBoolean(),
@@ -23,7 +23,7 @@ const createValidation = [
 const updateValidation = [
   body('name').optional().trim().isLength({ max: 150 }),
   body('categoryName').optional().trim().isLength({ max: 100 }),
-  body('description').optional().trim(),
+  body('description').optional().trim().isLength({ max: 1000 }),
   body('price').optional().isFloat({ min: 0 }),
   body('durationMinutes').optional().isInt({ min: 1 }),
   body('isActive').optional().isBoolean(),
