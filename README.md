@@ -641,6 +641,13 @@ En **Vercel**, **Netlify**, **Cloudflare Pages** u hosting estático:
 
 - En producción configura **`RESEND_API_KEY`** / **`RESEND_FROM`** o **SMTP** en las variables del backend (ver `backend/.env.example`).
 
+
+## Integrantes del equipo
+- [Emanuel Garcia Vanegas] - [Backend]
+- [Adrian Aguirre Jaimes] - [Frontend]
+- [Sebastian Arenas Vasquez] - [Tester]
+- [Juan Manuel Quiroz] - [Bases de datos]
+- [Emmanuel Echeverry] - [Fullstack]
 ---
 
 Este README describe el estado actual del proyecto: APIs, backend, frontend y base de datos, con nivel de detalle suficiente para desarrollar, mantener o desplegar Mr. Kutz.
