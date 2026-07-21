@@ -1,5 +1,15 @@
 import prisma from '../lib/prisma.js';
-import { changeStockAtomic } from './inventory.helpers.js';
+import {
+  changeStockAtomic,
+  ensureInventory,
+  weightedAverageCost,
+} from './inventory.helpers.js';
+
+function httpError(message, statusCode = 400) {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  return err;
+}
 
 const toDto = (p) => ({
   id: p.id,
@@ -121,7 +131,9 @@ export const getById = async (id) => {
 
 export const create = async (data, userId) => {
   const items = Array.isArray(data.items) ? data.items : [];
-  if (items.length === 0) throw new Error('La compra debe incluir al menos un artículo.');
+  if (items.length === 0) {
+    throw httpError('La compra debe incluir al menos un artículo.', 400);
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     const normalized = [];
@@ -130,7 +142,7 @@ export const create = async (data, userId) => {
       const quantity = parseInt(it.quantity, 10);
       const unitCost = Number(it.unitCost);
       if (!productId || quantity <= 0 || Number.isNaN(unitCost) || unitCost < 0) {
-        throw new Error('Artículo de compra no válido.');
+        throw httpError('Artículo de compra no válido.', 400);
       }
       normalized.push({
         productId,
@@ -138,6 +150,26 @@ export const create = async (data, userId) => {
         unitCost,
         subtotal: Number((quantity * unitCost).toFixed(2)),
       });
+    }
+
+    const productIds = [...new Set(normalized.map((i) => i.productId))];
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, isActive: true, costPrice: true, name: true },
+    });
+    const productById = new Map(products.map((p) => [p.id, p]));
+
+    for (const pid of productIds) {
+      const product = productById.get(pid);
+      if (!product) {
+        throw httpError(`Producto #${pid} no encontrado.`, 404);
+      }
+      if (!product.isActive) {
+        throw httpError(
+          `No se puede registrar una compra del producto inactivo «${product.name || pid}».`,
+          400
+        );
+      }
     }
 
     const totalAmount = Number(normalized.reduce((sum, i) => sum + i.subtotal, 0).toFixed(2));
@@ -153,6 +185,12 @@ export const create = async (data, userId) => {
     });
 
     for (const item of normalized) {
+      const product = productById.get(item.productId);
+      const inventory = await ensureInventory(tx, item.productId);
+      const oldQty = inventory.quantity;
+      const oldCost = product?.costPrice != null ? Number(product.costPrice) : null;
+      const newCost = weightedAverageCost(oldQty, oldCost, item.quantity, item.unitCost);
+
       await tx.purchaseItem.create({
         data: {
           purchaseId: purchase.id,
@@ -170,6 +208,17 @@ export const create = async (data, userId) => {
         notes: data.notes || `Ingreso por compra #${purchase.id}`,
         createdBy: userId || null,
       });
+
+      if (newCost != null) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { costPrice: newCost },
+        });
+        productById.set(item.productId, {
+          ...product,
+          costPrice: newCost,
+        });
+      }
     }
 
     return tx.purchase.findUnique({

@@ -82,7 +82,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
 
   useEffect(() => {
     productService
-      .getProducts({ limit: 200 })
+      .getProducts({ limit: 500 })
       .then((result) => setProducts(result?.data ?? []))
       .catch(() => setProducts([]));
   }, []);

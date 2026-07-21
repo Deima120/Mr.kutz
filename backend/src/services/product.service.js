@@ -150,7 +150,7 @@ export const getAll = async ({
   limit = 20,
   offset = 0,
 } = {}) => {
-  const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+  const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 500);
   const skip = Math.max(parseInt(offset, 10) || 0, 0);
 
   const result = lowStockOnly

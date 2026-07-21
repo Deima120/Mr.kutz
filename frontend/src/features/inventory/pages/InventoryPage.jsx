@@ -4,13 +4,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, ShoppingCart, History, SlidersHorizontal } from 'lucide-react';
+import { Plus, Pencil, ShoppingCart, History, SlidersHorizontal, Upload } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
 import * as productCategoryService from '@/features/inventory/services/productCategoryService';
 import { ProductForm } from '@/features/inventory/pages/ProductFormPage';
 import AdjustStockModal from '@/features/inventory/components/AdjustStockModal';
 import MovementHistoryModal from '@/features/inventory/components/MovementHistoryModal';
 import VoidMovementModal from '@/features/inventory/components/VoidMovementModal';
+import ImportProductsModal from '@/features/inventory/components/ImportProductsModal';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
@@ -77,6 +78,7 @@ export default function InventoryPage() {
   const [quickUpdating, setQuickUpdating] = useState(null);
   const [voidMovement, setVoidMovement] = useState(null);
   const [isVoiding, setIsVoiding] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const isCreating = formView === 'create';
   const editingId = typeof formView === 'number' ? formView : null;
@@ -379,6 +381,14 @@ export default function InventoryPage() {
               </Link>
               <button
                 type="button"
+                onClick={() => setImportOpen(true)}
+                className="btn-admin-outline inline-flex items-center gap-2 w-full sm:w-auto text-sm"
+              >
+                <Upload className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Importar CSV
+              </button>
+              <button
+                type="button"
                 onClick={() => setFormView('create')}
                 className="btn-admin inline-flex items-center gap-2 w-full sm:w-auto text-sm"
               >
@@ -648,6 +658,22 @@ export default function InventoryPage() {
         onConfirm={confirmVoidMovement}
         isSubmitting={isVoiding}
       />
+
+      {importOpen && (
+        <ImportProductsModal
+          onClose={() => setImportOpen(false)}
+          onSuccess={(data) => {
+            const created = data?.created ?? 0;
+            const failed = data?.failed ?? 0;
+            setSuccessMessage(
+              failed > 0
+                ? `Importación: ${created} creado(s), ${failed} con error.`
+                : `${created} producto(s) importado(s).`
+            );
+            fetchProducts(page, true);
+          }}
+        />
+      )}
 
       <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>

@@ -17,7 +17,9 @@
     "create-admin": "node scripts/create-admin.mjs",
     "remove-demo-users": "node scripts/remove-demo-users.mjs",
     "mail:test": "node scripts/probar-correo.mjs",
-    "cron:appointment-status": "node src/jobs/runAppointmentStatusSync.js"
+    "cron:appointment-status": "node src/jobs/runAppointmentStatusSync.js",
+    "test": "node --test src/services",
+    "test:inventory": "node --test src/services/inventory.helpers.test.js"
   },
   "engines": {
     "node": ">=18.0.0"

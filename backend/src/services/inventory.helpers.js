@@ -2,6 +2,22 @@
  * Operaciones atómicas de stock compartidas entre productos, pagos y compras.
  */
 
+/**
+ * Costo promedio ponderado tras un ingreso de compra.
+ * Si no hay stock previo con costo, usa el unitCost entrante.
+ */
+export function weightedAverageCost(oldQty, oldCost, addQty, unitCost) {
+  const incoming = Number(unitCost);
+  if (!Number.isFinite(incoming) || incoming < 0) return null;
+  if (!(oldQty > 0) || oldCost == null || !Number.isFinite(Number(oldCost))) {
+    return Number(incoming.toFixed(2));
+  }
+  const prev = Number(oldCost);
+  const qty = Number(addQty);
+  if (!Number.isFinite(qty) || qty <= 0) return Number(prev.toFixed(2));
+  return Number(((oldQty * prev + qty * incoming) / (oldQty + qty)).toFixed(2));
+}
+
 export async function ensureInventory(tx, productId) {
   const pid = parseInt(productId, 10);
   const existing = await tx.inventory.findUnique({ where: { productId: pid } });

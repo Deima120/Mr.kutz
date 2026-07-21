@@ -4,16 +4,18 @@ Documento de evidencia de los cambios de validación, UI de citas y módulo de p
 
 ## 1. Problemas / errores que se corregían
 
-| Problema | Antes | Después |
-|----------|--------|---------|
-| Documento exigía mínimo 10 dígitos con mensaje en pantalla | Mensaje “Mínimo 10 dígitos” | Rango 5–20; longitud sin mensaje escrito (`maxLength`) |
-| Nombre/apellido aceptaban 1 letra o basura | Solo “obligatorio” | Solo letras; mín. 2 (sin mensaje de longitud); máx. 100 |
-| Tipo de documento editable a mano (se podía cambiar “CC”) | Input + datalist libre | Select cerrado: CC, CE, TI, Pasaporte, NIT |
-| Validaciones inconsistentes entre formularios | Cada pantalla distinta | Helpers compartidos FE + BE |
-| Backend laxo (barberos, booking, auth teléfono) | Nombres/doc/teléfono permisivos | Alineado con reglas de cliente |
-| Control Cancelar/Confirmar de citas solapado | Thumb tapaba textos | Deslizante: Cancelar ← Agendada → Confirmar |
-| Pagos: buscador + “Nuevo registro de pago” | Ruido en UI | Eliminados |
-| Volver del formulario de pago dentro de la tarjeta | Confuso | Volver **fuera** de la tarjeta |
+
+| Problema                                                   | Antes                           | Después                                                 |
+| ---------------------------------------------------------- | ------------------------------- | ------------------------------------------------------- |
+| Documento exigía mínimo 10 dígitos con mensaje en pantalla | Mensaje “Mínimo 10 dígitos”     | Rango 5–20; longitud sin mensaje escrito (`maxLength`)  |
+| Nombre/apellido aceptaban 1 letra o basura                 | Solo “obligatorio”              | Solo letras; mín. 2 (sin mensaje de longitud); máx. 100 |
+| Tipo de documento editable a mano (se podía cambiar “CC”)  | Input + datalist libre          | Select cerrado: CC, CE, TI, Pasaporte, NIT              |
+| Validaciones inconsistentes entre formularios              | Cada pantalla distinta          | Helpers compartidos FE + BE                             |
+| Backend laxo (barberos, booking, auth teléfono)            | Nombres/doc/teléfono permisivos | Alineado con reglas de cliente                          |
+| Control Cancelar/Confirmar de citas solapado               | Thumb tapaba textos             | Deslizante: Cancelar ← Agendada → Confirmar             |
+| Pagos: buscador + “Nuevo registro de pago”                 | Ruido en UI                     | Eliminados                                              |
+| Volver del formulario de pago dentro de la tarjeta         | Confuso                         | Volver **fuera** de la tarjeta                          |
+
 
 ## 2. Resumen de cambios por área
 
@@ -46,39 +48,39 @@ Documento de evidencia de los cambios de validación, UI de citas y módulo de p
 
 ### Registro (`/register`) y Cliente admin
 
-- [ ] Tipo documento solo opciones del select  
-- [ ] Documento: no mensaje de “mínimo X”; no deja enviar con &lt; 5 dígitos  
-- [ ] Nombre “A” → no pasa; “Ana” → pasa (si solo letras)  
-- [ ] Números en nombre → bloqueados o mensaje “solo letras”  
-- [ ] Teléfono corto (&lt; 7) → error; vacío → OK  
-- [ ] Email inválido / ya usado → feedback  
+- [x] Tipo documento solo opciones del select  
+- [x] Documento: no mensaje de “mínimo X”; no deja enviar con < 5 dígitos  
+- [x] Nombre “A” → no pasa; “Ana” → pasa (si solo letras)  
+- [x] Números en nombre → bloqueados o mensaje “solo letras”  
+- [x] Teléfono corto (< 7) → error; vacío → OK  
+- [x] Email inválido / ya usado → feedback  
 
 ### Reserva pública (`/booking`)
 
-- [ ] Mismas reglas de nombre/teléfono/notas (máx. 500)  
+- [x] Mismas reglas de nombre/teléfono/notas (máx. 500)  
 
 ### Barberos
 
-- [ ] Documento y nombres con mismas reglas  
-- [ ] Horarios: inicio &lt; fin en días activos  
+- [x] Documento y nombres con mismas reglas  
+- [x] Horarios: inicio < fin en días activos  
 
 ### Citas (listado admin)
 
-- [ ] Deslizar a la izquierda → Cancelar (confirma diálogo)  
-- [ ] Centro → Agendada  
-- [ ] Derecha → Confirmar  
-- [ ] Editar alineado al control  
+- [x] Deslizar a la izquierda → Cancelar (confirma diálogo)  
+- [x] Centro → Agendada  
+- [x] Derecha → Confirmar  
+- [x] Editar alineado al control  
 
 ### Pagos
 
-- [ ] No aparece buscador ni “Nuevo registro de pago”  
-- [ ] Al abrir “Registrar pago”, **Volver** está **fuera** de la tarjeta y cierra el formulario  
+- [x] No aparece buscador ni “Nuevo registro de pago”  
+- [x] Al abrir “Registrar pago”, **Volver** está **fuera** de la tarjeta y cierra el formulario  
 
 ### Backend (smoke)
 
-- [ ] POST registro con nombre de 1 letra → 400  
-- [ ] POST cliente con documentType inventado → 400  
-- [ ] POST booking con teléfono de 3 dígitos → 400  
+- [x] POST registro con nombre de 1 letra → 400  
+- [x] POST cliente con documentType inventado → 400  
+- [x] POST booking con teléfono de 3 dígitos → 400  
 
 ## 4. Archivos principales (24)
 

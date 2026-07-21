@@ -17,6 +17,7 @@ import RatingStars from '@/shared/components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
 import AppointmentForm from '@/features/appointments/components/AppointmentForm';
 import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
+import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
 import {
   getEffectiveAppointmentStatus,
   canConfirmAppointment,
@@ -351,11 +352,8 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (!isClient || !isFormOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return undefined;
   }, [isClient, isFormOpen]);
 
   const inlineForm = isFormOpen ? (
@@ -378,9 +376,12 @@ export default function AppointmentsPage() {
   if (isClient) {
     if (isFormOpen) {
       return (
-        <div className="fixed inset-x-0 top-[calc(4rem+2px)] bottom-0 z-20 bg-stone-50 overflow-hidden">
-          <div className="container mx-auto h-full max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col min-h-0">
-            <div className="flex-1 min-h-0 overflow-hidden">{inlineForm}</div>
+        <div className="min-h-[calc(100vh-4.5rem)] bg-stone-50">
+          <div className="container mx-auto max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="mb-4">
+              <AdminBackNav label="Volver" onClick={() => setFormView(null)} />
+            </div>
+            {inlineForm}
           </div>
           {successToast}
         </div>

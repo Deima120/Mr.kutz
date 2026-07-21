@@ -28,7 +28,8 @@ const voidValidation = [
 ];
 
 router.use(auth);
-router.use(authorize('admin', 'barber'));
+// Alineado con la UI: solo admin gestiona pagos, ventas de producto y stock.
+router.use(authorize('admin'));
 
 router.get('/methods', paymentController.getPaymentMethods);
 router.get('/total', paymentController.getTotal);

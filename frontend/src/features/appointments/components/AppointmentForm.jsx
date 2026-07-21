@@ -512,8 +512,8 @@ export default function AppointmentForm({
     fullBleed: !embedded && !isClient,
     compact: embedded || !isClient,
     contained: isClient && embedded,
-    fillHeight: isClient && embedded,
-    showBackNav: true,
+    fillHeight: false,
+    showBackNav: !(isClient && embedded),
     backTo: '/appointments',
     onBackClick: embedded || isClient ? handleBack : undefined,
     modeBadge: isEdit ? 'Edición' : isClient ? 'Reserva' : 'Alta',
@@ -866,96 +866,120 @@ export default function AppointmentForm({
       ) : (
       <form
         onSubmit={handleSubmit}
-        className={`relative flex flex-col bg-white/95 border border-white ${embedded ? 'rounded-2xl h-full min-h-0 flex flex-col overflow-hidden' : 'rounded-[1.28rem] h-full min-h-0 overflow-hidden'}`}
+        noValidate
+        className={`relative flex flex-col bg-white border border-stone-200/90 shadow-sm ${
+          embedded ? 'rounded-2xl' : 'rounded-[1.28rem]'
+        }`}
       >
         <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
-        <div className={`flex flex-col flex-1 min-h-0 ${embedded ? 'px-5 sm:px-6 py-4 sm:py-5 gap-4 overflow-y-auto' : 'px-5 py-4 sm:px-7 sm:py-5 gap-4 overflow-y-auto'}`}>
+
+        <div className={`${embedded ? 'px-5 sm:px-6 pt-4 sm:pt-5' : 'px-5 sm:px-7 pt-4 sm:pt-5'} shrink-0`}>
           {!embedded ? (
             <AdminFormCardHeader
               eyebrow="Reserva"
               title={isEdit ? 'Modificar cita' : 'Agendar cita'}
             />
           ) : (
-            <div className="flex items-center justify-between gap-4 shrink-0 pb-1">
+            <div className="flex items-start justify-between gap-4 pb-1">
               <div>
                 <p className="text-[10px] font-semibold tracking-[0.28em] text-gold mb-1">
-                  {isEdit ? 'Edición' : 'Nueva cita'}
+                  {isEdit ? 'Edición' : 'Reserva'}
                 </p>
                 <h2 className="font-serif text-xl sm:text-2xl text-stone-900 font-medium leading-tight">
-                  {isEdit ? 'Editar cita' : 'Registrar cita'}
+                  {isEdit ? 'Modificar cita' : 'Agendar cita'}
                 </h2>
+                <p className="mt-1 text-xs text-stone-500">
+                  Elige barbero, servicio, fecha y hora disponibles.
+                </p>
               </div>
               {selectedServices.length > 0 && (
                 <div className="text-right shrink-0 rounded-xl bg-gold/10 border border-gold/25 px-3 py-2">
                   <p className="text-[10px] text-stone-500 uppercase tracking-wider">Total estimado</p>
                   <p className="text-base font-semibold text-gold tabular-nums">{formatPrice(totalPrice)}</p>
+                  <p className="text-[10px] text-stone-500 tabular-nums">{totalDuration} min</p>
                 </div>
               )}
             </div>
           )}
+        </div>
 
+        <div className={`${embedded ? 'px-5 sm:px-6 py-4 sm:py-5' : 'px-5 sm:px-7 py-4 sm:py-5'} flex flex-col gap-4`}>
           {isEdit && apptLoading && (
-            <p className="text-xs text-stone-600 shrink-0" role="status">Cargando cita…</p>
+            <p className="text-xs text-stone-600" role="status">Cargando cita…</p>
           )}
 
           {isEdit && loadError && !apptLoading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs p-2.5 shrink-0" role="alert">
+            <div className="rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs p-2.5" role="alert">
               <p>{loadError}</p>
             </div>
           )}
 
           {error && (
-            <div className="alert-error text-xs py-2 shrink-0" role="alert">{error}</div>
+            <div className="alert-error text-xs py-2" role="alert">{error}</div>
           )}
 
           {showFormFields && (
             <>
               {dataLoaded && barbers.length === 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs p-2.5 shrink-0" role="status">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs p-2.5" role="status">
                   No hay barberos disponibles en este momento.
                 </div>
               )}
 
-              <div className="grid gap-3.5 sm:grid-cols-1">
+              <div className="grid gap-4">
                 {barberSelect}
                 {clientServicesField}
-                {timeSelect}
                 {dateInput}
+                {timeSelect}
               </div>
 
               <div className="group">
-                <label className={labelClass}>Notas</label>
-                <input
+                <div className="flex items-baseline justify-between gap-2 mb-1.5">
+                  <label className={`${labelClass} mb-0`} htmlFor="client-appointment-notes">
+                    Notas
+                  </label>
+                  <span className="text-[10px] text-stone-400 tabular-nums">
+                    {formData.notes.length}/{CLIENT_NOTES_MAX}
+                  </span>
+                </div>
+                <textarea
+                  id="client-appointment-notes"
                   name="notes"
-                  type="text"
                   value={formData.notes}
                   onChange={handleChange}
-                  className={fieldClass}
-                  placeholder="Preferencias o indicaciones (opcional)"
+                  onBlur={handleBlur}
+                  rows={3}
                   maxLength={CLIENT_NOTES_MAX}
+                  className={`${fieldClass} resize-y min-h-[4.5rem]`}
+                  placeholder="Preferencias o indicaciones (opcional)"
                 />
               </div>
-
-              <AdminFormFooterActions className={`${embedded ? 'pt-3 mt-1' : 'mt-auto'} border-t border-stone-200/80`}>
-                <AdminFormPrimaryButton
-                  disabled={
-                    loading ||
-                    apptLoading ||
-                    !!loadError ||
-                    !dataLoaded ||
-                    barbers.length === 0 ||
-                    services.length === 0 ||
-                    (!isEdit && formData.serviceIds.length === 0)
-                  }
-                >
-                  {loading
-                    ? isEdit ? 'Guardando…' : 'Reservando…'
-                    : isEdit ? 'Guardar cambios' : 'Confirmar reserva'}
-                </AdminFormPrimaryButton>
-              </AdminFormFooterActions>
             </>
           )}
         </div>
+
+        {showFormFields && (
+          <div className={`sticky bottom-0 border-t border-stone-200/80 bg-white/95 backdrop-blur-sm ${embedded ? 'px-5 sm:px-6 py-3.5' : 'px-5 sm:px-7 py-3.5'} rounded-b-2xl`}>
+            <AdminFormPrimaryButton
+              disabled={
+                loading ||
+                apptLoading ||
+                !!loadError ||
+                !dataLoaded ||
+                barbers.length === 0 ||
+                services.length === 0 ||
+                (!isEdit && formData.serviceIds.length === 0)
+              }
+            >
+              <AdminFormLoadingButton
+                loading={loading}
+                loadingLabel={isEdit ? 'Guardando…' : 'Reservando…'}
+              >
+                {isEdit ? 'Guardar cambios' : 'Confirmar reserva'}
+              </AdminFormLoadingButton>
+            </AdminFormPrimaryButton>
+          </div>
+        )}
       </form>
       )}
     </AdminFormShell>
