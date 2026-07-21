@@ -403,7 +403,7 @@ export default function HomePage() {
             </Link>
             {services.length > 12 && (
               <span className="text-stone-500 text-sm">
-                + {services.length - 12} servicios más en el agendador
+                + {services.length - 12} servicios en el agendador
               </span>
             )}
           </div>
