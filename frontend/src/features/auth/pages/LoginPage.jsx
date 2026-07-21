@@ -31,7 +31,8 @@ export default function LoginPage() {
     e.preventDefault();
     const validation = validateLoginForm(email, password);
     if (!applyValidation(validation)) {
-      setError(validation.firstError);
+      setError('');
+      setErrorReason(null);
       return;
     }
     setError('');
@@ -108,7 +109,7 @@ export default function LoginPage() {
                       setError('');
                       clearFieldError('email');
                     }}
-                    className={`input-premium rounded-lg ${invalid ? inputInvalidClass('email') : ''}`}
+                    className={`input-premium rounded-lg ${invalid ? inputInvalidClass : ''}`}
                     placeholder="tu@email.com"
                     autoComplete="email"
                     aria-invalid={invalid || undefined}
@@ -129,7 +130,7 @@ export default function LoginPage() {
                         setError('');
                         clearFieldError('password');
                       }}
-                      className={`input-premium rounded-lg pr-11 ${invalid ? inputInvalidClass('password') : ''}`}
+                      className={`input-premium rounded-lg pr-11 ${invalid ? inputInvalidClass : ''}`}
                       placeholder="••••••••"
                       autoComplete="current-password"
                       aria-invalid={invalid || undefined}
@@ -168,17 +169,6 @@ export default function LoginPage() {
                 Regístrate
               </Link>
             </p>
-
-            <details className="mt-8">
-              <summary className="text-xs font-semibold text-stone-500 tracking-wider cursor-pointer">
-                Cuentas de prueba (solo desarrollo)
-              </summary>
-              <div className="mt-3 p-4 bg-stone-50 rounded-xl border border-stone-200 text-left">
-                <p className="text-xs text-stone-500 font-mono break-all">admin@mrkutz.com / password123</p>
-                <p className="text-xs text-stone-500 font-mono break-all">barber@mrkutz.com / password123</p>
-                <p className="text-xs text-stone-500 font-mono break-all">client@mrkutz.com / password123</p>
-              </div>
-            </details>
           </div>
         </div>
       </div>
