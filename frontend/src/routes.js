@@ -28,6 +28,7 @@ const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
+const SuppliersPage = lazy(() => import('@/features/suppliers/pages/SuppliersPage'));
 const NotFoundPage = lazy(() => import('@/features/not-found/pages/NotFoundPage'));
 const BookingPage = lazy(() => import('@/features/booking/pages/BookingPage'));
 
@@ -80,6 +81,7 @@ export default function AppRoutes() {
         { path: 'appointments/:id/edit', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         { path: 'payments', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'purchases', element: protectedPage(PurchasesPage, ['admin']) },
+        { path: 'suppliers', element: protectedPage(SuppliersPage, ['admin']) },
         { path: 'sales', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'payments/new', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'inventory', element: protectedPage(InventoryPage, ['admin']) },

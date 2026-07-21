@@ -46,7 +46,37 @@ export const getById = async (req, res, next) => {
 export const create = async (req, res, next) => {
   try {
     const data = await purchaseService.create(req.body, req.user?.id);
-    res.status(201).json({ success: true, message: 'Compra registrada correctamente.', data });
+    res.status(201).json({ success: true, message: 'Orden creada correctamente.', data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const submit = async (req, res, next) => {
+  try {
+    const data = await purchaseService.submit(req.params.id);
+    res.json({ success: true, message: 'Orden enviada al proveedor.', data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancel = async (req, res, next) => {
+  try {
+    const data = await purchaseService.cancel(req.params.id, {
+      reason: req.body?.voidReason ?? req.body?.reason,
+      userId: req.user?.id,
+    });
+    res.json({ success: true, message: 'Orden cancelada.', data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const receive = async (req, res, next) => {
+  try {
+    const data = await purchaseService.receive(req.params.id, req.body, req.user?.id);
+    res.status(201).json({ success: true, message: 'Recepción registrada.', data });
   } catch (error) {
     next(error);
   }
@@ -58,7 +88,7 @@ export const voidPurchase = async (req, res, next) => {
       voidReason: req.body?.voidReason,
       voidedBy: req.user?.id,
     });
-    res.json({ success: true, message: 'Compra anulada correctamente.', data });
+    res.json({ success: true, message: 'Orden cancelada correctamente.', data });
   } catch (error) {
     next(error);
   }

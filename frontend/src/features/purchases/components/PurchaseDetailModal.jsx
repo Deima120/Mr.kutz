@@ -1,6 +1,20 @@
 import { X } from 'lucide-react';
 import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/utils/purchaseFormatters';
 
+const STATUS_LABELS = {
+  draft: 'Borrador',
+  ordered: 'Ordenada',
+  partially_received: 'Recepción parcial',
+  received: 'Recibida',
+  cancelled: 'Cancelada',
+};
+
+const getStatus = (purchase) =>
+  purchase.status ?? (purchase.voided_at ? 'cancelled' : 'ordered');
+
+const itemNumber = (item, camel, snake, fallback = 0) =>
+  Number(item?.[camel] ?? item?.[snake] ?? fallback);
+
 function DetailRow({ label, value, mono = false }) {
   if (!value && value !== 0) return null;
   return (
@@ -16,7 +30,8 @@ function DetailRow({ label, value, mono = false }) {
 export default function PurchaseDetailModal({ purchase, onClose }) {
   if (!purchase) return null;
 
-  const isVoided = Boolean(purchase.voided_at);
+  const status = getStatus(purchase);
+  const isCancelled = status === 'cancelled';
   const items = Array.isArray(purchase.items) ? purchase.items : [];
 
   return (
@@ -41,21 +56,21 @@ export default function PurchaseDetailModal({ purchase, onClose }) {
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <span
               className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
-                isVoided
+                isCancelled
                   ? 'border-stone-200 bg-stone-100 text-stone-600'
                   : 'border-emerald-200 bg-emerald-50 text-emerald-800'
               }`}
             >
-              {isVoided ? 'Anulada' : 'Activa'}
+              {STATUS_LABELS[status] ?? status}
             </span>
             <span className="ml-auto font-serif text-xl font-medium text-gold tabular-nums">
-              {formatPurchaseAmount(purchase.total_amount)}
+              {formatPurchaseAmount(purchase.totalAmount ?? purchase.total_amount)}
             </span>
           </div>
 
-          <DetailRow label="Fecha" value={formatPurchaseDate(purchase.created_at)} />
-          <DetailRow label="Proveedor" value={purchase.supplier_name} />
-          <DetailRow label="Factura" value={purchase.invoice_number} mono />
+          <DetailRow label="Fecha" value={formatPurchaseDate(purchase.createdAt ?? purchase.created_at)} />
+          <DetailRow label="Proveedor" value={purchase.supplier?.name ?? purchase.supplier_name} />
+          <DetailRow label="Factura" value={purchase.invoiceNumber ?? purchase.invoice_number} mono />
           <DetailRow label="Notas" value={purchase.notes} />
           <DetailRow label="Registrado por" value={purchase.created_by_email} />
 
@@ -68,22 +83,25 @@ export default function PurchaseDetailModal({ purchase, onClose }) {
                     key={item.id}
                     className="rounded-lg border border-stone-100 bg-stone-50/80 px-3 py-2 text-xs text-stone-700"
                   >
-                    <span className="font-semibold text-stone-900">{item.product_name || `Producto #${item.product_id}`}</span>
-                    <span className="text-stone-500">
-                      {' '}
-                      · {item.quantity} uds. × {formatPurchaseAmount(item.unit_cost)} ={' '}
-                      <strong className="text-stone-800">{formatPurchaseAmount(item.subtotal)}</strong>
-                    </span>
+                    <span className="font-semibold text-stone-900">{item.product?.name ?? item.product_name ?? `Producto #${item.productId ?? item.product_id}`}</span>
+                    <div className="mt-1 grid grid-cols-3 gap-2 text-stone-500">
+                      <span>Pedido: <strong>{itemNumber(item, 'quantity', 'quantity')}</strong></span>
+                      <span>Recibido: <strong>{itemNumber(item, 'receivedQuantity', 'received_quantity')}</strong></span>
+                      <span>Pendiente: <strong>{Math.max(0, itemNumber(item, 'pendingQuantity', 'pending_quantity', itemNumber(item, 'quantity', 'quantity') - itemNumber(item, 'receivedQuantity', 'received_quantity')))}</strong></span>
+                    </div>
+                    <p className="mt-1 text-stone-500">
+                      {formatPurchaseAmount(item.unitCost ?? item.unit_cost)} c/u · <strong className="text-stone-800">{formatPurchaseAmount(item.subtotal)}</strong>
+                    </p>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {isVoided ? (
+          {isCancelled ? (
             <>
-              <DetailRow label="Anulada el" value={formatPurchaseDate(purchase.voided_at)} />
-              <DetailRow label="Motivo" value={purchase.void_reason} />
+              <DetailRow label="Cancelada el" value={formatPurchaseDate(purchase.cancelledAt ?? purchase.cancelled_at ?? purchase.voided_at)} />
+              <DetailRow label="Motivo" value={purchase.cancelReason ?? purchase.cancel_reason ?? purchase.void_reason} />
             </>
           ) : null}
         </div>

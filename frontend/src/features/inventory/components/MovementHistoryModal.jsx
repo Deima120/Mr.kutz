@@ -75,7 +75,7 @@ export default function MovementHistoryModal({
                         <p className="text-amber-700 text-xs mt-1">Motivo: {m.void_reason}</p>
                       )}
                       {ref && (
-                        <p className="text-xs mt-1">
+                        <div className="text-xs mt-1 text-stone-500">
                           {ref.type === 'payment' ? (
                             <Link
                               to="/payments"
@@ -93,7 +93,10 @@ export default function MovementHistoryModal({
                               {ref.label}
                             </Link>
                           )}
-                        </p>
+                          {ref.reference && <span> · Recepción {ref.reference}</span>}
+                          {!ref.reference && ref.receiptId && <span> · Recepción #{ref.receiptId}</span>}
+                          {ref.supplierName && <span> · {ref.supplierName}</span>}
+                        </div>
                       )}
                       {m.created_by_email && (
                         <p className="text-stone-400 text-xs mt-1">Por {m.created_by_email}</p>

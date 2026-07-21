@@ -55,8 +55,20 @@ const stockValidation = [
       }
       return true;
     }),
-  body('movementType').optional().isIn(['purchase', 'sale', 'adjustment', 'damage']),
-  body('notes').optional().trim().isLength({ max: 500 }),
+  body('movementType')
+    .isIn(['adjustment', 'damage'])
+    .withMessage('El ajuste manual debe ser adjustment o damage.'),
+  body('quantityChange').custom((value, { req }) => {
+    if (req.body.movementType === 'damage' && parseInt(value, 10) > 0) {
+      throw new Error('Un movimiento damage debe disminuir el inventario.');
+    }
+    return true;
+  }),
+  body('notes')
+    .trim()
+    .notEmpty()
+    .withMessage('Indica el motivo del ajuste.')
+    .isLength({ max: 500 }),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de producto no válido.');
@@ -65,7 +77,11 @@ const movementIdParam = param('movementId').isInt({ min: 1 }).withMessage('ID de
 
 const voidMovementValidation = [
   movementIdParam,
-  body('voidReason').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),
+  body('voidReason')
+    .trim()
+    .notEmpty()
+    .withMessage('Indica el motivo de anulación.')
+    .isLength({ max: 500 }),
 ];
 
 const importValidation = [

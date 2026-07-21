@@ -378,6 +378,10 @@ export function validatePaymentForm(data, mode, extras = {}) {
 export function validatePurchaseForm(form, products = []) {
   const errors = {};
 
+  if (!form.supplierId) {
+    errors.supplierId = 'Selecciona un proveedor activo.';
+  }
+
   const items = form.items
     .map((item, idx) => ({ ...item, idx }))
     .filter((i) => i.productId || i.quantity || i.unitCost);
@@ -387,11 +391,22 @@ export function validatePurchaseForm(form, products = []) {
     return validationResult(errors);
   }
 
+  const seenProducts = new Set();
   items.forEach((item) => {
     if (!item.productId) {
       errors[`items.${item.idx}.productId`] = 'Selecciona un producto.';
       return;
     }
+    const productKey = String(item.productId);
+    if (seenProducts.has(productKey)) {
+      errors[`items.${item.idx}.productId`] = 'El producto ya está incluido en la orden.';
+    } else if (
+      products.length > 0 &&
+      !products.some((product) => String(product.id) === productKey)
+    ) {
+      errors[`items.${item.idx}.productId`] = 'El producto no está disponible en el catálogo activo.';
+    }
+    seenProducts.add(productKey);
     const qty = validatePositiveInt(item.quantity, 'La cantidad', { required: true, min: 1 });
     if (!qty.valid) errors[`items.${item.idx}.quantity`] = qty.message;
 
@@ -399,9 +414,6 @@ export function validatePurchaseForm(form, products = []) {
     if (!cost.valid) errors[`items.${item.idx}.unitCost`] = cost.message;
   });
 
-  if (form.supplierName && form.supplierName.length > 150) {
-    errors.supplierName = 'Máximo 150 caracteres.';
-  }
   if (form.invoiceNumber && form.invoiceNumber.length > 80) {
     errors.invoiceNumber = 'Máximo 80 caracteres.';
   }

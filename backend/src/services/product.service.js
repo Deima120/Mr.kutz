@@ -4,7 +4,14 @@
 
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { changeStockAtomic, assertCategoryAssignable } from './inventory.helpers.js';
+import {
+  assertCategoryAssignable,
+  assertManualMovement,
+  changeStockAtomic,
+  lockProducts,
+  reverseMovementAtomic,
+  runSerializable,
+} from './inventory.helpers.js';
 import { toProductDto, toMovementDto } from './product.dto.js';
 
 /** SKU único automático (prefijo MK + sufijo alfanumérico). */
@@ -266,11 +273,14 @@ export const update = async (id, data) => {
 };
 
 export const updateStock = async (productId, quantityChange, movementType, notes, createdBy) => {
-  await prisma.$transaction(async (tx) => {
+  assertManualMovement(quantityChange, movementType);
+  await runSerializable(prisma, async (tx) => {
+    await lockProducts(tx, [productId]);
     await changeStockAtomic(tx, {
       productId,
       quantityChange,
       movementType,
+      sourceType: 'manual_adjustment',
       notes,
       createdBy,
       validateActiveProduct: true,
@@ -287,6 +297,26 @@ export const getMovements = async (productId, limit = 50) => {
     include: {
       creator: { select: { email: true } },
       voider: { select: { email: true } },
+      goodsReceiptItem: {
+        select: {
+          goodsReceipt: {
+            select: {
+              id: true,
+              receiptNumber: true,
+              purchaseId: true,
+              purchase: {
+                select: {
+                  orderNumber: true,
+                  supplier: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+      payment: { select: { id: true, reference: true } },
+      reversalOfMovement: { select: { id: true } },
+      reversalMovement: { select: { id: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -297,7 +327,10 @@ export const getMovements = async (productId, limit = 50) => {
 export const voidMovement = async (movementId, { voidReason, voidedBy } = {}) => {
   const mid = parseInt(movementId, 10);
 
-  await prisma.$transaction(async (tx) => {
+  await runSerializable(prisma, async (tx) => {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "InventoryMovement" WHERE "id" = ${mid} FOR UPDATE`
+    );
     const movement = await tx.inventoryMovement.findUnique({
       where: { id: mid },
     });
@@ -306,41 +339,20 @@ export const voidMovement = async (movementId, { voidReason, voidedBy } = {}) =>
       err.statusCode = 404;
       throw err;
     }
-    if (movement.voidedAt) {
-      const err = new Error('Este movimiento ya está anulado.');
-      err.statusCode = 400;
-      throw err;
-    }
-    if (!['adjustment', 'damage'].includes(movement.movementType)) {
+    if (
+      !['adjustment', 'damage'].includes(movement.movementType) ||
+      (movement.sourceType && movement.sourceType !== 'manual_adjustment')
+    ) {
       const err = new Error('Solo se pueden anular ajustes manuales.');
       err.statusCode = 400;
       throw err;
     }
-    const notes = movement.notes || '';
-    if (/pago #\d+/i.test(notes) || /compra #\d+/i.test(notes) || /anulación de ajuste/i.test(notes)) {
-      const err = new Error('Este movimiento no se puede anular desde inventario.');
-      err.statusCode = 400;
-      throw err;
-    }
-
     const voidedById = voidedBy != null ? parseInt(voidedBy, 10) : null;
-    await changeStockAtomic(tx, {
-      productId: movement.productId,
-      quantityChange: -movement.quantityChange,
-      movementType: 'adjustment',
-      notes: `Anulación de ajuste #${mid}`,
-      createdBy: Number.isFinite(voidedById) ? voidedById : null,
-      validateActiveProduct: true,
-      insufficientMessage: 'No hay stock suficiente para anular este ajuste.',
-    });
-
-    await tx.inventoryMovement.update({
-      where: { id: mid },
-      data: {
-        voidedAt: new Date(),
-        voidReason: voidReason || null,
-        voidedBy: Number.isFinite(voidedById) ? voidedById : null,
-      },
+    await lockProducts(tx, [movement.productId]);
+    await reverseMovementAtomic(tx, movement, {
+      voidReason,
+      voidedBy: Number.isFinite(voidedById) ? voidedById : null,
+      notes: `Anulación del ajuste #${mid}`,
     });
   });
 
