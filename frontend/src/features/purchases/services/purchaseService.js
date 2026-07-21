@@ -9,12 +9,15 @@ const extract = (r) => {
 
 export const getPurchases = async (params = {}) => {
   const res = await api.get(BASE, { params });
-  const purchases = Array.isArray(res?.data) ? res.data : [];
+  const payload = extract(res);
+  const purchases = Array.isArray(payload)
+    ? payload
+    : payload?.purchases ?? payload?.rows ?? [];
   return {
     purchases,
-    total: typeof res?.total === 'number' ? res.total : purchases.length,
-    limit: res?.limit ?? params.limit,
-    offset: res?.offset ?? params.offset ?? 0,
+    total: payload?.total ?? res?.total ?? purchases.length,
+    limit: payload?.limit ?? res?.limit ?? params.limit,
+    offset: payload?.offset ?? res?.offset ?? params.offset ?? 0,
   };
 };
 
@@ -33,7 +36,17 @@ export const createPurchase = async (data) => {
   return extract(response);
 };
 
-export const voidPurchase = async (id, body = {}) => {
-  const response = await api.post(`${BASE}/${id}/void`, body);
+export const submitPurchase = async (id) => {
+  const response = await api.post(`${BASE}/${id}/submit`);
+  return extract(response);
+};
+
+export const receivePurchase = async (id, data) => {
+  const response = await api.post(`${BASE}/${id}/receipts`, data);
+  return extract(response);
+};
+
+export const cancelPurchase = async (id, body = {}) => {
+  const response = await api.post(`${BASE}/${id}/cancel`, body);
   return extract(response);
 };

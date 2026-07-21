@@ -59,24 +59,35 @@ export function toCategoryDto(category) {
 
 export function toMovementDto(movement) {
   if (!movement) return null;
-  const notes = movement.notes || '';
-  const isManual = ['adjustment', 'damage'].includes(movement.movementType);
-  const linkedDoc = /pago #\d+/i.test(notes) || /compra #\d+/i.test(notes);
-  const isReversal = /anulación de ajuste/i.test(notes);
+  const isManual =
+    ['adjustment', 'damage'].includes(movement.movementType) &&
+    (!movement.sourceType || movement.sourceType === 'manual_adjustment');
 
   return {
     id: movement.id,
     product_id: movement.productId,
     quantity_change: movement.quantityChange,
     movement_type: movement.movementType,
+    source_type: movement.sourceType,
+    goods_receipt_item_id: movement.goodsReceiptItemId,
+    goods_receipt_id: movement.goodsReceiptItem?.goodsReceipt?.id ?? null,
+    goods_receipt_number:
+      movement.goodsReceiptItem?.goodsReceipt?.receiptNumber ?? null,
+    purchase_id: movement.goodsReceiptItem?.goodsReceipt?.purchaseId ?? null,
+    purchase_order_number:
+      movement.goodsReceiptItem?.goodsReceipt?.purchase?.orderNumber ?? null,
+    supplier_name:
+      movement.goodsReceiptItem?.goodsReceipt?.purchase?.supplier?.name ?? null,
+    payment_id: movement.paymentId,
+    payment_reference: movement.payment?.reference ?? null,
+    reversal_of_movement_id: movement.reversalOfMovementId,
+    reversal_movement_id: movement.reversalMovement?.id ?? null,
     notes: movement.notes,
     created_at: movement.createdAt,
     created_by_email: movement.creator?.email ?? null,
     voided_at: movement.voidedAt ?? null,
     void_reason: movement.voidReason ?? null,
     voided_by_email: movement.voider?.email ?? null,
-    can_void: Boolean(
-      !movement.voidedAt && isManual && !linkedDoc && !isReversal
-    ),
+    can_void: Boolean(!movement.voidedAt && isManual),
   };
 }

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Check, X } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import * as productService from '@/features/inventory/services/productService';
+import * as supplierService from '@/features/suppliers/services/supplierService';
 import { formatPurchaseAmount } from '@/features/purchases/utils/purchaseFormatters';
 import { validatePurchaseForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
@@ -69,8 +70,9 @@ function ItemFieldFeedback({ error, live }) {
 
 export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   const [products, setProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState({
-    supplierName: '',
+    supplierId: '',
     invoiceNumber: '',
     notes: '',
     items: [emptyItem()],
@@ -81,10 +83,19 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
     useFormValidation();
 
   useEffect(() => {
-    productService
-      .getProducts({ limit: 500 })
-      .then((result) => setProducts(result?.data ?? []))
-      .catch(() => setProducts([]));
+    Promise.all([
+      productService.getProducts({ limit: 500 }),
+      supplierService.getSuppliers({ active: 'true', limit: 100 }),
+    ]).then(([productResult, supplierResult]) => {
+      setProducts(productResult?.data ?? []);
+      setSuppliers((Array.isArray(supplierResult) ? supplierResult : []).filter(
+        (supplier) => (supplier.isActive ?? supplier.is_active) !== false
+      ));
+    }).catch(() => {
+      setProducts([]);
+      setSuppliers([]);
+      setError('No se pudieron cargar productos o proveedores.');
+    });
   }, []);
 
   const totalPreview = useMemo(
@@ -135,7 +146,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
         }));
 
       await purchaseService.createPurchase({
-        supplierName: form.supplierName.trim() || undefined,
+        supplierId: Number(form.supplierId),
         invoiceNumber: form.invoiceNumber.trim() || undefined,
         notes: form.notes.trim() || undefined,
         items,
@@ -151,13 +162,13 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   const aside = {
     kicker: 'Vista previa',
     title: 'Nueva compra',
-    subtitle: form.supplierName || 'Ingreso a inventario',
+    subtitle: suppliers.find((supplier) => String(supplier.id) === String(form.supplierId))?.name || 'Orden sin movimiento de stock',
     bullets: [],
     statusLabel: 'Total estimado',
     statusValue: formatPurchaseAmount(totalPreview),
     children: (
       <AdminFormPreviewPanel>
-        <AdminFormPreviewField label="Proveedor" value={form.supplierName} />
+        <AdminFormPreviewField label="Proveedor" value={suppliers.find((supplier) => String(supplier.id) === String(form.supplierId))?.name} />
         <AdminFormPreviewField label="Factura" value={form.invoiceNumber} />
         <AdminFormPreviewField label="Artículos" value={validItems.length ? `${validItems.length} producto(s)` : ''} />
         {validItems.slice(0, 4).map((item, idx) => {
@@ -190,20 +201,25 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
       aside={aside}
     >
       <AdminFormCard onSubmit={handleSubmit}>
-        <AdminFormCardHeader eyebrow="Abastecimiento" title="Registrar compra" />
+        <AdminFormCardHeader eyebrow="Abastecimiento" title="Crear orden de compra" />
 
         {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
         <div className={ADMIN_FORM_GRID_CLASS}>
           <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Proveedor</label>
-            <input
-              value={form.supplierName}
-              onChange={(e) => setForm((p) => ({ ...p, supplierName: e.target.value }))}
-              className={ADMIN_FORM_FIELD_COMPACT}
-              placeholder="Nombre del proveedor"
-              maxLength={150}
+            <label className={ADMIN_FORM_LABEL_CLASS}>Proveedor activo *</label>
+            <CustomSelect
+              value={form.supplierId}
+              onChange={(value) => {
+                setForm((current) => ({ ...current, supplierId: value }));
+                clearFieldError('supplierId');
+              }}
+              placeholder="Seleccionar proveedor…"
+              variant="formCompact"
+              selectClassName={fieldError('supplierId') ? '!border-red-400' : ''}
+              options={suppliers.map((supplier) => ({ id: String(supplier.id), label: supplier.name }))}
             />
+            <FieldErrorMessage message={fieldError('supplierId')} />
           </div>
           <div className="group">
             <label className={ADMIN_FORM_LABEL_CLASS}>No. factura</label>
@@ -330,7 +346,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
         <AdminFormFooterActions>
           <AdminFormPrimaryButton disabled={loading}>
             <AdminFormLoadingButton loading={loading} loadingLabel="Guardando…">
-              Registrar compra
+              Crear orden
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
         </AdminFormFooterActions>

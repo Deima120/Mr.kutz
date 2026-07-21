@@ -201,7 +201,6 @@ export default function PaymentsPage() {
         `Periodo: ${dateFrom} — ${dateTo}`,
         `Total en listado: ${exportRows.length}`,
         `Estado: ${statusLabel} · Tipo: ${typeLabel}`,
-        search ? `Búsqueda: «${search}»` : null,
         `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} cobros)`,
       ],
       columns: [
@@ -233,7 +232,6 @@ export default function PaymentsPage() {
       meta: [
         `Total en listado: ${exportRows.length}`,
         `Estado: ${statusLabel} · Tipo: ${typeLabel}`,
-        search ? `Búsqueda: «${search}»` : null,
         `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} cobros)`,
       ],
       orientation: 'landscape',

@@ -49,7 +49,6 @@ export default function InventoryPage() {
   const [products, setProducts] = useState([]);
   const [listTotal, setListTotal] = useState(0);
   const [summary, setSummary] = useState({ totalUnits: 0, lowStockCount: 0, inventoryValue: 0 });
-  const [lowStock, setLowStock] = useState([]);
   const [categories, setCategories] = useState([]);
 
   const [search, setSearch] = useState('');
@@ -138,15 +137,11 @@ export default function InventoryPage() {
         if (searchDebounced.trim()) params.search = searchDebounced.trim();
         if (categoryFilter) params.categoryId = categoryFilter;
 
-        const [listResult, lowData] = await Promise.all([
-          productService.getProducts(params),
-          productService.getLowStock(),
-        ]);
+        const listResult = await productService.getProducts(params);
 
         setProducts(listResult.data ?? []);
         setListTotal(listResult.total ?? 0);
         setSummary(listResult.summary ?? { totalUnits: 0, lowStockCount: 0 });
-        setLowStock(Array.isArray(lowData) ? lowData : (lowData?.data ?? []));
       } catch (err) {
         setError(err?.message || 'Error al cargar inventario');
         if (!silent) {
@@ -408,8 +403,8 @@ export default function InventoryPage() {
             <StatsCard label="Total productos" value={listTotal} />
             <StatsCard
               label="Stock bajo"
-              value={summary.lowStockCount ?? lowStock.length}
-              sublabel={(summary.lowStockCount ?? lowStock.length) > 0 ? 'Revisar alertas' : undefined}
+              value={summary.lowStockCount ?? 0}
+              sublabel={(summary.lowStockCount ?? 0) > 0 ? 'Revisar alertas' : undefined}
             />
             <StatsCard label="Unidades en stock" value={summary.totalUnits ?? 0} />
             <StatsCard
@@ -419,26 +414,15 @@ export default function InventoryPage() {
             />
           </div>
 
-          {lowStock.length > 0 && (
+          {(summary.lowStockCount ?? 0) > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
               <h3 className="font-medium text-amber-800 mb-2">
-                {lowStock.length} producto(s) con stock bajo o agotado
+                {summary.lowStockCount} producto(s) con stock bajo o agotado
               </h3>
-              <ul className="text-sm text-amber-700 space-y-1">
-                {lowStock.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      onClick={() => setFormView(p.id)}
-                      className="hover:underline font-medium text-left text-barber-dark hover:text-gold transition-colors"
-                    >
-                      {p.name}
-                    </button>
-                    : <strong>{p.quantity ?? 0}</strong> {formatProductUnit(p.unit, p.quantity)} (mínimo{' '}
-                    {p.min_stock ?? p.minStock ?? 0})
-                  </li>
-                ))}
-              </ul>
+              <button type="button" onClick={() => setShowLowStockOnly(true)}
+                className="text-sm font-semibold text-amber-800 underline underline-offset-2">
+                Ver productos con stock bajo
+              </button>
             </div>
           )}
 

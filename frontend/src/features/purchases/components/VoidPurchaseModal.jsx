@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ban } from 'lucide-react';
 import { formatPurchaseAmount } from '@/features/purchases/utils/purchaseFormatters';
 
 export default function VoidPurchaseModal({ purchase, onClose, onConfirm, isSubmitting }) {
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    setReason('');
+  }, [purchase?.id]);
 
   if (!purchase) return null;
 
@@ -17,17 +21,17 @@ export default function VoidPurchaseModal({ purchase, onClose, onConfirm, isSubm
         </div>
 
         <h3 className="font-serif text-lg font-semibold text-stone-900 text-center mb-1">
-          ¿Anular compra #{purchase.id}?
+          ¿Cancelar orden #{purchase.id}?
         </h3>
         <p className="text-stone-500 text-xs text-center mb-4">
-          Total <strong className="text-stone-800">{formatPurchaseAmount(purchase.total_amount)}</strong>
-          {purchase.supplier_name ? (
-            <> · <strong className="text-stone-800">{purchase.supplier_name}</strong></>
+          Total <strong className="text-stone-800">{formatPurchaseAmount(purchase.totalAmount ?? purchase.total_amount)}</strong>
+          {purchase.supplier?.name || purchase.supplier_name ? (
+            <> · <strong className="text-stone-800">{purchase.supplier?.name ?? purchase.supplier_name}</strong></>
           ) : null}
-          . Se descontará del inventario cada ítem ingresado.
+          . Solo puede cancelarse antes de recibir mercancía.
         </p>
 
-        <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo (opcional)</label>
+        <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -48,17 +52,17 @@ export default function VoidPurchaseModal({ purchase, onClose, onConfirm, isSubm
           </button>
           <button
             type="button"
-            disabled={isSubmitting}
-            onClick={() => onConfirm(reason.trim() || undefined)}
+            disabled={isSubmitting || !reason.trim()}
+            onClick={() => onConfirm(reason.trim())}
             className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5"
           >
             {isSubmitting ? (
               <>
                 <span className="inline-block h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Anulando…
+                Cancelando…
               </>
             ) : (
-              'Sí, anular'
+              'Sí, cancelar'
             )}
           </button>
         </div>

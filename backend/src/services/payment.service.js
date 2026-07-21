@@ -4,7 +4,13 @@
 
 import prisma from '../lib/prisma.js';
 import { randomBytes } from 'node:crypto';
-import { changeStockAtomic } from './inventory.helpers.js';
+import { Prisma } from '@prisma/client';
+import {
+  changeStockAtomic,
+  lockProducts,
+  reverseMovementAtomic,
+  runSerializable,
+} from './inventory.helpers.js';
 
 const REFERENCE_PREFIX = 'MKP';
 
@@ -269,7 +275,7 @@ export const create = async (data) => {
     throw err;
   }
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializable(prisma, async (tx) => {
     const paymentMethod = await tx.paymentMethod.findFirst({
       where: { id: paymentMethodId, isActive: true },
       select: { id: true },
@@ -292,6 +298,19 @@ export const create = async (data) => {
       }
     }
 
+    const payment = await tx.payment.create({
+      data: {
+        appointmentId,
+        productId: productId || null,
+        productQuantity: productId ? productQuantity : null,
+        amount,
+        paymentMethodId,
+        reference: await getOrCreateReference(tx, data.reference),
+        notes: String(data.notes || '').trim() || null,
+        createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
+      },
+    });
+
     if (productId) {
       const product = await tx.product.findUnique({
         where: { id: productId },
@@ -307,28 +326,18 @@ export const create = async (data) => {
         err.statusCode = 400;
         throw err;
       }
+      await lockProducts(tx, [productId]);
       await changeStockAtomic(tx, {
         productId,
         quantityChange: -productQuantity,
         movementType: 'sale',
+        sourceType: 'payment',
+        paymentId: payment.id,
         notes: data.notes || `Venta registrada (${productQuantity} uds.)`,
         createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
         insufficientMessage: 'Stock insuficiente para registrar esta venta.',
       });
     }
-
-    const payment = await tx.payment.create({
-      data: {
-        appointmentId,
-        productId: productId || null,
-        productQuantity: productId ? productQuantity : null,
-        amount,
-        paymentMethodId,
-        reference: await getOrCreateReference(tx, data.reference),
-        notes: String(data.notes || '').trim() || null,
-        createdBy: data.createdBy ? parseInt(data.createdBy, 10) : null,
-      },
-    });
 
     return tx.payment.findUnique({
       where: { id: payment.id },
@@ -366,7 +375,10 @@ const paymentIncludeForRow = {
  */
 export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
   const pid = parseInt(id, 10);
-  return prisma.$transaction(async (tx) => {
+  return runSerializable(prisma, async (tx) => {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${pid} FOR UPDATE`
+    );
     const existing = await tx.payment.findUnique({ where: { id: pid } });
     if (!existing) {
       const err = new Error('Pago no encontrado.');
@@ -374,31 +386,52 @@ export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
       throw err;
     }
     if (existing.voidedAt) {
-      const err = new Error('Este pago ya está anulado.');
-      err.statusCode = 400;
-      throw err;
+      return toPaymentRow(
+        await tx.payment.findUnique({ where: { id: pid }, include: paymentIncludeForRow })
+      );
     }
 
     const { productId } = existing;
     const pq = existing.productQuantity;
     if (productId && pq && pq > 0) {
-      await changeStockAtomic(tx, {
-        productId,
-        quantityChange: pq,
-        movementType: 'adjustment',
-        notes: `Devolución por anulación de pago #${pid}`,
-        createdBy: voidedBy ? parseInt(voidedBy, 10) : null,
+      await lockProducts(tx, [productId]);
+      const movement = await tx.inventoryMovement.findFirst({
+        where: { paymentId: pid, movementType: 'sale' },
+        orderBy: { id: 'asc' },
       });
+      if (movement) {
+        await reverseMovementAtomic(tx, movement, {
+          voidReason,
+          voidedBy: voidedBy ? parseInt(voidedBy, 10) : null,
+          notes: `Devolución por anulación de pago #${pid}`,
+        });
+      } else {
+        // Compatibilidad para pagos previos a la migración, sin vínculo confiable.
+        await changeStockAtomic(tx, {
+          productId,
+          quantityChange: pq,
+          movementType: 'reversal',
+          sourceType: 'reversal',
+          paymentId: pid,
+          notes: `Devolución legacy por anulación de pago #${pid}`,
+          createdBy: voidedBy ? parseInt(voidedBy, 10) : null,
+        });
+      }
     }
 
-    await tx.payment.update({
-      where: { id: pid },
+    const claimed = await tx.payment.updateMany({
+      where: { id: pid, voidedAt: null },
       data: {
         voidedAt: new Date(),
         voidReason: voidReason?.trim() ? voidReason.trim().slice(0, 500) : null,
         voidedBy: voidedBy ? parseInt(voidedBy, 10) : null,
       },
     });
+    if (claimed.count !== 1) {
+      const err = new Error('El pago fue anulado por otra operación.');
+      err.statusCode = 409;
+      throw err;
+    }
 
     const updated = await tx.payment.findUnique({
       where: { id: pid },

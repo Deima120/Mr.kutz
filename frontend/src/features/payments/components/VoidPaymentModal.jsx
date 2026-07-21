@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ban } from 'lucide-react';
 import { formatPaymentAmount } from '@/features/payments/utils/paymentFormatters';
 
 export default function VoidPaymentModal({ payment, onClose, onConfirm, isSubmitting }) {
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    setReason('');
+  }, [payment?.id]);
 
   if (!payment) return null;
 

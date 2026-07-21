@@ -18,26 +18,21 @@ export const getPaymentMethods = async () => {
 
 export const getPayments = async (params = {}) => {
   const response = await api.get(PAYMENTS_BASE, { params });
-  const res = response?.data ?? response;
-  const rows = res?.data ?? res;
-  if (Array.isArray(rows)) {
-    return { payments: rows, total: rows.length, limit: params.limit, offset: params.offset ?? 0 };
-  }
+  const envelope = response?.data ?? response;
+  const payload = envelope?.data ?? envelope;
+  const rows = Array.isArray(payload)
+    ? payload
+    : payload?.payments ?? payload?.rows ?? [];
   return {
-    payments: Array.isArray(rows?.payments) ? rows.payments : Array.isArray(rows) ? rows : [],
-    total: res?.total ?? 0,
-    limit: res?.limit,
-    offset: res?.offset ?? 0,
+    payments: Array.isArray(rows) ? rows : [],
+    total: payload?.total ?? envelope?.total ?? response?.total ?? rows.length,
+    limit: payload?.limit ?? envelope?.limit ?? params.limit,
+    offset: payload?.offset ?? envelope?.offset ?? params.offset ?? 0,
   };
 };
 
 export const getPaymentsTotal = async (params = {}) => {
   const response = await api.get(`${PAYMENTS_BASE}/total`, { params });
-  return extract(response);
-};
-
-export const getPaymentById = async (id) => {
-  const response = await api.get(`${PAYMENTS_BASE}/${id}`);
   return extract(response);
 };
 

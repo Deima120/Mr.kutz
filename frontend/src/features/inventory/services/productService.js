@@ -24,11 +24,6 @@ export const getProducts = async (params = {}) => {
   };
 };
 
-export const getLowStock = async () => {
-  const response = await api.get(`${PRODUCTS_BASE}/low-stock`);
-  return extract(response);
-};
-
 export const getProductById = async (id) => {
   const response = await api.get(`${PRODUCTS_BASE}/${id}`);
   return extract(response);
@@ -51,11 +46,6 @@ export const updateStock = async (id, data) => {
 
 export const getProductMovements = async (id, limit = 50) => {
   const response = await api.get(`${PRODUCTS_BASE}/${id}/movements`, { params: { limit } });
-  return extract(response);
-};
-
-export const getInventoryInsights = async () => {
-  const response = await api.get(`${PRODUCTS_BASE}/insights`);
   return extract(response);
 };
 

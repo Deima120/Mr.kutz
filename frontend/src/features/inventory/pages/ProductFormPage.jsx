@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
 import * as productCategoryService from '@/features/inventory/services/productCategoryService';
@@ -428,9 +428,4 @@ export function ProductForm({
       </AdminFormCard>
     </AdminFormShell>
   );
-}
-
-export default function ProductFormPage() {
-  const { id } = useParams();
-  return <ProductForm editId={id ? parseInt(id, 10) : null} />;
 }

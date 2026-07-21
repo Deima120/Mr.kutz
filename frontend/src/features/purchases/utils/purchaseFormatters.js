@@ -12,7 +12,3 @@ export function formatPurchaseDate(d) {
     minute: '2-digit',
   });
 }
-
-export function getPurchaseStatusLabel(purchase) {
-  return purchase?.voided_at ? 'Anulada' : 'Activa';
-}

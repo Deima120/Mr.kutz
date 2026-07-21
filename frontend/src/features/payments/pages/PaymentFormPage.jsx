@@ -593,7 +593,3 @@ export function PaymentForm({
     </AdminFormShell>
   );
 }
-
-export default function PaymentFormPage() {
-  return <PaymentForm />;
-}
