@@ -184,6 +184,13 @@ npm ci && npx prisma generate && npx prisma migrate deploy && npm start
 
 Plantillas: [`backend/render.yaml`](backend/render.yaml) · [`frontend/vercel.json`](frontend/vercel.json)
 
+
+## Integrantes del equipo
+- [Emanuel Garcia Vanegas] - [Backend]
+- [Adrian Aguirre Jaimes] - [Frontend]
+- [Sebastian Arenas Vasquez] - [Tester]
+- [Juan Manuel Quiroz] - [Bases de datos]
+- [Emmanuel Echeverry] - [Fullstack]
 ---
 
 ## Licencia
