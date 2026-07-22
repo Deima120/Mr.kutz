@@ -1,11 +1,13 @@
 /**
- * Compras — listado compacto, filtros, paginación y formulario inline en la misma tarjeta.
+ * Compras — órdenes y proveedores (tabs), formulario inline y recepción.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Eye, Ban } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, Search, Eye, Ban, PackageCheck, Send } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import DataCard from '@/shared/components/admin/DataCard';
+import PageHeader from '@/shared/components/admin/PageHeader';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
@@ -13,6 +15,9 @@ import SuccessToast from '@/shared/components/SuccessToast';
 import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
 import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
+import PurchaseReceiptModal from '@/features/purchases/components/PurchaseReceiptModal';
+import ReceivedProductsModal from '@/features/purchases/components/ReceivedProductsModal';
+import SuppliersPanel from '@/features/suppliers/components/SuppliersPanel';
 import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/utils/purchaseFormatters';
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
@@ -22,12 +27,25 @@ import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appoi
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 const STATUS_OPTIONS = [
   { value: '', label: 'Todas' },
-  { value: 'active', label: 'Activas' },
-  { value: 'voided', label: 'Anuladas' },
+  { value: 'draft', label: 'Borrador' },
+  { value: 'ordered', label: 'Ordenadas' },
+  { value: 'partially_received', label: 'Recepción parcial' },
+  { value: 'received', label: 'Recibidas' },
+  { value: 'cancelled', label: 'Canceladas' },
 ];
 const STATUS_SEGMENTS = STATUS_OPTIONS.map((o) => ({ id: o.value, label: o.label }));
+const STATUS_LABELS = Object.fromEntries(STATUS_OPTIONS.map((option) => [option.value, option.label]));
+const getStatus = (purchase) => purchase.status ?? (purchase.voided_at ? 'cancelled' : 'ordered');
+const getReceived = (item) => Number(item?.receivedQuantity ?? item?.received_quantity ?? 0);
+
+const TAB_ORDERS = 'orders';
+const TAB_SUPPLIERS = 'suppliers';
 
 export default function PurchasesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === TAB_SUPPLIERS ? TAB_SUPPLIERS : TAB_ORDERS;
+  const highlightSupplierId = searchParams.get('supplierId');
+
   const [purchases, setPurchases] = useState([]);
   const [listTotal, setListTotal] = useState(0);
   const [periodTotal, setPeriodTotal] = useState({ total: 0, count: 0 });
@@ -45,14 +63,65 @@ export default function PurchasesPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [initialProductId, setInitialProductId] = useState(null);
 
   const [detailPurchase, setDetailPurchase] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [voidTarget, setVoidTarget] = useState(null);
   const [isVoiding, setIsVoiding] = useState(false);
+  const [receiptTarget, setReceiptTarget] = useState(null);
+  const [receivedProducts, setReceivedProducts] = useState(null);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
   const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
+
+  const setTab = (tab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === TAB_SUPPLIERS) next.set('tab', TAB_SUPPLIERS);
+    else next.delete('tab');
+    if (tab !== TAB_SUPPLIERS) next.delete('supplierId');
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    const wantsNew = searchParams.get('new') === '1';
+    const productId = searchParams.get('productId');
+    if (!wantsNew && !productId) return;
+    setIsFormOpen(true);
+    if (productId) setInitialProductId(productId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('new');
+    next.delete('productId');
+    next.delete('tab');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const purchaseId = searchParams.get('purchaseId');
+    if (!purchaseId) return undefined;
+    let cancelled = false;
+    setIsFormOpen(false);
+    setDetailLoading(true);
+    purchaseService
+      .getPurchaseById(purchaseId)
+      .then((full) => {
+        if (!cancelled) setDetailPurchase(full);
+      })
+      .catch(() => {
+        if (!cancelled) setError('No se pudo abrir el detalle de la orden.');
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    const next = new URLSearchParams(searchParams);
+    next.delete('purchaseId');
+    next.delete('tab');
+    setSearchParams(next, { replace: true });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     setPage(1);
@@ -89,8 +158,8 @@ export default function PurchasesPage() {
   }, [dateFrom, dateTo, statusFilter, search, pageSize, page]);
 
   useEffect(() => {
-    if (!isFormOpen) fetchPurchases(page);
-  }, [fetchPurchases, isFormOpen, page]);
+    if (!isFormOpen && activeTab === TAB_ORDERS) fetchPurchases(page);
+  }, [fetchPurchases, isFormOpen, page, activeTab]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -115,18 +184,19 @@ export default function PurchasesPage() {
 
   const handleFormSuccess = () => {
     setIsFormOpen(false);
-    setSuccessMessage('Compra registrada correctamente.');
+    setInitialProductId(null);
+    setSuccessMessage('Orden creada. El stock no cambió.');
     setPage(1);
     fetchPurchases(1);
   };
 
-  const confirmVoid = async (voidReason) => {
+  const confirmVoid = async (reason) => {
     if (!voidTarget) return;
     setIsVoiding(true);
     try {
-      await purchaseService.voidPurchase(voidTarget.id, { voidReason });
+      await purchaseService.cancelPurchase(voidTarget.id, { reason });
       setVoidTarget(null);
-      setSuccessMessage('Compra anulada correctamente.');
+      setSuccessMessage('Orden cancelada correctamente.');
       await fetchPurchases(page);
     } catch (err) {
       setError(err?.message || 'No se pudo anular la compra');
@@ -135,14 +205,47 @@ export default function PurchasesPage() {
     }
   };
 
+  const submitOrder = async (purchase) => {
+    setActionLoadingId(purchase.id);
+    setError('');
+    try {
+      await purchaseService.submitPurchase(purchase.id);
+      setSuccessMessage('Orden enviada correctamente.');
+      await fetchPurchases(page);
+    } catch (err) {
+      setError(err?.message || 'No se pudo enviar la orden.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const openReceipt = async (purchase) => {
+    setActionLoadingId(purchase.id);
+    setError('');
+    try {
+      setReceiptTarget(await purchaseService.getPurchaseById(purchase.id));
+    } catch (err) {
+      setError(err?.message || 'No se pudo cargar la orden para recibirla.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleReceiptSuccess = async ({ products } = {}) => {
+    setReceiptTarget(null);
+    setSuccessMessage('Recepción registrada y stock actualizado.');
+    setReceivedProducts(Array.isArray(products) ? products : []);
+    await fetchPurchases(page);
+  };
+
   const exportRows = purchases.map((p) => ({
     id: p.id,
-    proveedor: p.supplier_name || '',
-    factura: p.invoice_number || '',
-    total: p.total_amount,
+    proveedor: p.supplier?.name ?? p.supplier_name ?? '',
+    factura: p.invoiceNumber ?? p.invoice_number ?? '',
+    total: p.totalAmount ?? p.total_amount,
     articulos: p.items_count ?? p.items?.length ?? 0,
-    estado: p.voided_at ? 'Anulada' : 'Activa',
-    fecha: p.created_at,
+    estado: STATUS_LABELS[getStatus(p)] ?? getStatus(p),
+    fecha: p.createdAt ?? p.created_at,
     notas: p.notes || '',
   }));
 
@@ -211,8 +314,51 @@ export default function PurchasesPage() {
 
   return (
     <div className="page-shell">
+      {!isFormOpen ? (
+        <PageHeader
+          title="Compras"
+          subtitle="Órdenes de compra y directorio de proveedores"
+          actions={
+            <div className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5">
+              <button
+                type="button"
+                onClick={() => setTab(TAB_ORDERS)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === TAB_ORDERS
+                    ? 'bg-white text-barber-dark shadow-sm'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                Órdenes
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab(TAB_SUPPLIERS)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === TAB_SUPPLIERS
+                    ? 'bg-white text-barber-dark shadow-sm'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                Proveedores
+              </button>
+            </div>
+          }
+        />
+      ) : null}
+
       {isFormOpen ? (
-        <PurchaseForm contained onSuccess={handleFormSuccess} onCancel={() => setIsFormOpen(false)} />
+        <PurchaseForm
+          contained
+          initialProductId={initialProductId}
+          onSuccess={handleFormSuccess}
+          onCancel={() => {
+            setIsFormOpen(false);
+            setInitialProductId(null);
+          }}
+        />
+      ) : activeTab === TAB_SUPPLIERS ? (
+        <SuppliersPanel highlightSupplierId={highlightSupplierId} />
       ) : (
       <DataCard compact>
         <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
@@ -254,7 +400,7 @@ export default function PurchasesPage() {
               />
               <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
                 <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                Nueva compra
+                Nueva orden
               </button>
             </div>
           </div>
@@ -285,7 +431,7 @@ export default function PurchasesPage() {
               <div className="py-10 text-center">
                 <p className="text-sm text-stone-500 mb-3">No hay compras con los filtros seleccionados.</p>
                 <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin text-sm">
-                  Registrar primera compra
+                  Crear primera orden
                 </button>
               </div>
             ) : (
@@ -303,8 +449,7 @@ export default function PurchasesPage() {
                   layout="bar"
                 />
 
-                <div className="overflow-x-auto">
-                  <Table>
+                <Table>
                     <TableHead>
                       <TableHeader compact>ID</TableHeader>
                       <TableHeader compact>Proveedor</TableHeader>
@@ -317,40 +462,45 @@ export default function PurchasesPage() {
                     </TableHead>
                     <TableBody>
                       {purchases.map((p) => {
-                        const isVoided = Boolean(p.voided_at);
+                        const status = getStatus(p);
+                        const isCancelled = status === 'cancelled';
+                        const hasReceipt = (p.items ?? []).some((item) => getReceived(item) > 0)
+                          || Number(p.receivedItemsCount ?? p.received_items_count ?? 0) > 0;
+                        const canReceive = status === 'ordered' || status === 'partially_received';
+                        const canCancel = (status === 'draft' || status === 'ordered') && !hasReceipt;
                         return (
-                          <TableRow key={p.id} className={isVoided ? 'opacity-75 bg-stone-50/60' : ''}>
+                          <TableRow key={p.id} className={isCancelled ? 'opacity-75 bg-stone-50/60' : ''}>
                             <TableCell compact className="text-xs font-mono">#{p.id}</TableCell>
                             <TableCell compact className="text-xs max-w-[10rem] truncate">
-                              {p.supplier_name || '—'}
+                              {p.supplier?.name ?? p.supplier_name ?? '—'}
                             </TableCell>
                             <TableCell compact className="text-xs font-mono max-w-[8rem] truncate">
-                              {p.invoice_number || '—'}
+                              {p.invoiceNumber ?? p.invoice_number ?? '—'}
                             </TableCell>
                             <TableCell compact className="text-xs tabular-nums">
-                              {p.items_count ?? p.items?.length ?? '—'}
+                              {p.itemsCount ?? p.items_count ?? p.items?.length ?? '—'}
                             </TableCell>
                             <TableCell compact>
                               <span
                                 className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
-                                  isVoided
+                                  isCancelled
                                     ? 'border-stone-200 bg-stone-100 text-stone-600'
                                     : 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                 }`}
                               >
-                                {isVoided ? 'Anulada' : 'Activa'}
+                                {STATUS_LABELS[status] ?? status}
                               </span>
                             </TableCell>
                             <TableCell compact className="text-xs whitespace-nowrap">
-                              {formatPurchaseDate(p.created_at)}
+                              {formatPurchaseDate(p.createdAt ?? p.created_at)}
                             </TableCell>
                             <TableCell
                               compact
                               className={`text-right text-xs font-semibold tabular-nums ${
-                                isVoided ? 'text-stone-500 line-through' : 'text-gold'
+                                isCancelled ? 'text-stone-500 line-through' : 'text-gold'
                               }`}
                             >
-                              {formatPurchaseAmount(p.total_amount)}
+                              {formatPurchaseAmount(p.totalAmount ?? p.total_amount)}
                             </TableCell>
                             <TableCell compact>
                               <div className="inline-flex items-center gap-1">
@@ -360,10 +510,26 @@ export default function PurchasesPage() {
                                   onClick={() => openDetail(p)}
                                   disabled={detailLoading}
                                 />
-                                {!isVoided ? (
+                                {status === 'draft' ? (
+                                  <AdminIconButton
+                                    icon={Send}
+                                    label="Enviar orden"
+                                    onClick={() => submitOrder(p)}
+                                    disabled={actionLoadingId === p.id}
+                                  />
+                                ) : null}
+                                {canReceive ? (
+                                  <AdminIconButton
+                                    icon={PackageCheck}
+                                    label="Recibir mercancía"
+                                    onClick={() => openReceipt(p)}
+                                    disabled={actionLoadingId === p.id}
+                                  />
+                                ) : null}
+                                {canCancel ? (
                                   <AdminIconButton
                                     icon={Ban}
-                                    label="Anular compra"
+                                    label="Cancelar orden"
                                     variant="danger"
                                     onClick={() => setVoidTarget(p)}
                                   />
@@ -375,7 +541,6 @@ export default function PurchasesPage() {
                       })}
                     </TableBody>
                   </Table>
-                </div>
               </>
             )}
       </DataCard>
@@ -387,6 +552,16 @@ export default function PurchasesPage() {
         onClose={() => !isVoiding && setVoidTarget(null)}
         onConfirm={confirmVoid}
         isSubmitting={isVoiding}
+      />
+      <PurchaseReceiptModal
+        purchase={receiptTarget}
+        onClose={() => setReceiptTarget(null)}
+        onSuccess={handleReceiptSuccess}
+      />
+      <ReceivedProductsModal
+        open={receivedProducts != null}
+        products={receivedProducts || []}
+        onClose={() => setReceivedProducts(null)}
       />
       <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>

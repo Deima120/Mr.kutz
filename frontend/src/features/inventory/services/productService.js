@@ -24,13 +24,13 @@ export const getProducts = async (params = {}) => {
   };
 };
 
-export const getLowStock = async () => {
-  const response = await api.get(`${PRODUCTS_BASE}/low-stock`);
+export const getProductById = async (id) => {
+  const response = await api.get(`${PRODUCTS_BASE}/${id}`);
   return extract(response);
 };
 
-export const getProductById = async (id) => {
-  const response = await api.get(`${PRODUCTS_BASE}/${id}`);
+export const getProductDossier = async (id, params = {}) => {
+  const response = await api.get(`${PRODUCTS_BASE}/${id}/dossier`, { params });
   return extract(response);
 };
 
@@ -49,14 +49,19 @@ export const updateStock = async (id, data) => {
   return extract(response);
 };
 
-export const getProductMovements = async (id, limit = 50) => {
-  const response = await api.get(`${PRODUCTS_BASE}/${id}/movements`, { params: { limit } });
-  return extract(response);
-};
-
-export const getInventoryInsights = async () => {
-  const response = await api.get(`${PRODUCTS_BASE}/insights`);
-  return extract(response);
+export const getProductMovements = async (id, params = {}) => {
+  const limit = params.limit ?? 20;
+  const offset = params.offset ?? 0;
+  const res = await api.get(`${PRODUCTS_BASE}/${id}/movements`, {
+    params: { limit, offset },
+  });
+  const data = Array.isArray(res?.data) ? res.data : [];
+  return {
+    data,
+    total: typeof res?.total === 'number' ? res.total : data.length,
+    limit: res?.limit ?? limit,
+    offset: res?.offset ?? offset,
+  };
 };
 
 export const voidMovement = async (movementId, data = {}) => {

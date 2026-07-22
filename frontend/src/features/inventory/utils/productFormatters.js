@@ -17,7 +17,7 @@ export function getProductRetailPrice(product) {
 
 export function getProductCostPrice(product) {
   const value = product?.cost_price ?? product?.costPrice;
-  if (value == null || value === '' || Number(value) < 0) return null;
+  if (value == null || value === '' || Number(value) <= 0) return null;
   return Number(value);
 }
 
@@ -45,7 +45,7 @@ export function formatInventoryValue(value) {
 }
 
 export function isMovementVoided(movement) {
-  return Boolean(movement?.voided_at);
+  return Boolean(movement?.voidedAt ?? movement?.voided_at);
 }
 
 export function formatProductRetailPrice(product) {
@@ -71,8 +71,41 @@ export function isLowStock(product) {
   return (product?.quantity ?? 0) <= getProductMinStock(product);
 }
 
-/** Extrae referencia a pago/compra desde las notas del movimiento. */
+/** Prioriza referencias estructuradas y conserva compatibilidad con notas legacy. */
 export function getMovementReference(movement) {
+  const structured = movement?.reference_data ?? movement?.referenceData ?? movement?.reference;
+  const orderNumber =
+    structured?.orderNumber ?? structured?.order_number ??
+    movement?.orderNumber ?? movement?.order_number ?? movement?.purchaseOrderNumber ??
+    movement?.purchase_order_number;
+  const supplierName =
+    structured?.supplierName ?? structured?.supplier_name ??
+    structured?.supplier?.name ?? movement?.supplier?.name ?? movement?.supplierName ??
+    movement?.supplier_name;
+  const reference =
+    structured?.receiptReference ?? structured?.receipt_reference ??
+    structured?.receipt?.reference ?? movement?.receipt?.reference ??
+    movement?.receipt_reference ?? movement?.goodsReceiptNumber ?? movement?.goods_receipt_number;
+  const receiptId =
+    structured?.receiptId ?? structured?.receipt_id ?? structured?.receipt?.id ??
+    movement?.receiptId ?? movement?.receipt_id ?? movement?.goodsReceiptId ??
+    movement?.goods_receipt_id ??
+    (movement?.reference_type === 'receipt' ? movement?.reference_id : undefined);
+  const purchaseId =
+    structured?.purchaseId ?? structured?.purchase_id ?? structured?.purchase?.id ??
+    movement?.purchaseId ?? movement?.purchase_id ?? movement?.purchase_order_id ??
+    (movement?.reference_type === 'purchase' ? movement?.reference_id : undefined);
+  if (purchaseId || receiptId || supplierName || reference) {
+    return {
+      type: 'purchase',
+      id: purchaseId,
+      label: orderNumber ? `Orden ${orderNumber}` : purchaseId ? `Orden #${purchaseId}` : 'Recepción de compra',
+      receiptId,
+      supplierName,
+      reference,
+    };
+  }
+
   const notes = movement?.notes || '';
   const paymentMatch = notes.match(/pago #(\d+)/i);
   if (paymentMatch) {

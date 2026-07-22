@@ -17,9 +17,10 @@
     "create-admin": "node scripts/create-admin.mjs",
     "remove-demo-users": "node scripts/remove-demo-users.mjs",
     "mail:test": "node scripts/probar-correo.mjs",
+    "inventory:audit": "node scripts/audit-inventory-consistency.mjs",
     "cron:appointment-status": "node src/jobs/runAppointmentStatusSync.js",
-    "test": "node --test src/services",
-    "test:inventory": "node --test src/services/inventory.helpers.test.js"
+    "test": "node --test src/services/inventory.helpers.test.js src/services/product.rules.test.js src/services/product.dossier.helpers.test.js src/services/purchase.helpers.test.js src/services/purchase.workflow.test.js src/services/supplier.service.test.js",
+    "test:inventory": "node --test src/services/inventory.helpers.test.js src/services/product.dossier.helpers.test.js"
   },
   "engines": {
     "node": ">=18.0.0"

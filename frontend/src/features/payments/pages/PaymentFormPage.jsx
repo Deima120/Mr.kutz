@@ -14,6 +14,7 @@ import { validatePaymentForm, getApiErrorMessage, validateMoney, validatePositiv
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
+import ProductPicker from '@/features/inventory/components/ProductPicker';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -58,7 +59,6 @@ export function PaymentForm({
 
   const [methods, setMethods] = useState([]);
   const [completedAppointments, setCompletedAppointments] = useState([]);
-  const [products, setProducts] = useState([]);
   const [paymentMode, setPaymentMode] = useState(prefillProductId ? 'product' : prefillAppointmentId ? 'service' : 'service');
 
   const [formData, setFormData] = useState({
@@ -121,14 +121,6 @@ export function PaymentForm({
     if (prefillProductId) setPaymentMode('product');
     else if (prefillAppointmentId) setPaymentMode('service');
   }, [prefillProductId, prefillAppointmentId]);
-
-  useEffect(() => {
-    if (paymentMode !== 'product') return;
-    productService
-      .getProducts({ limit: 200 })
-      .then((result) => setProducts(result?.data ?? []))
-      .catch(() => setProducts([]));
-  }, [paymentMode]);
 
   const loadProduct = (pid) => {
     if (!Number.isFinite(pid) || pid < 1) {
@@ -203,7 +195,7 @@ export function PaymentForm({
 
   useEffect(() => {
     if (!saleProduct) return;
-    const unit = Number(saleProduct.retail_price);
+    const unit = Number(saleProduct.retailPrice ?? saleProduct.retail_price);
     const q = Math.max(1, parseInt(productQty, 10) || 1);
     if (Number.isFinite(unit) && unit > 0) {
       setFormData((prev) => ({ ...prev, amount: (unit * q).toFixed(2) }));
@@ -237,9 +229,15 @@ export function PaymentForm({
     }
   };
 
-  const handleProductSelect = (e) => {
-    const idSel = e.target.value;
+  const handleProductSelect = (productId, product) => {
+    const idSel = productId ? String(productId) : '';
     setFormData((prev) => ({ ...prev, productId: idSel }));
+    clearFieldError('productId');
+    if (product) {
+      setSaleProduct(product);
+      setProductLoadError('');
+      return;
+    }
     if (idSel) loadProduct(parseInt(idSel, 10));
     else setSaleProduct(null);
   };
@@ -439,31 +437,25 @@ export function PaymentForm({
               live={buildLiveHint('productId', formData.productId, productValidation, 'Producto seleccionado.')}
             >
               {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
-                <CustomSelect
-                  name="productId"
+                <ProductPicker
                   value={formData.productId}
-                  onChange={(id) => handleProductSelect({ target: { value: String(id) } })}
+                  onChange={handleProductSelect}
                   onBlur={() => markTouched('productId')}
-                  placeholder="Seleccionar producto…"
-                  variant="formCompact"
-                  selectClassName={submitBorderClass || liveBorderClass}
+                  placeholder="Buscar producto con stock…"
+                  allowCreate={false}
                   disabled={!!prefillProductId}
+                  selectClassName={submitBorderClass || liveBorderClass}
                   ariaInvalid={invalid || undefined}
                   ariaDescribedBy={errorId}
-                  options={products
-                    .filter((p) => (p.quantity ?? 0) > 0)
-                    .map((p) => ({
-                      id: String(p.id),
-                      label: `${p.name}${p.sku ? ` · ${p.sku}` : ''} — Stock ${p.quantity ?? 0}`,
-                    }))}
                 />
               )}
             </AdminFormField>
             {saleProduct && (
               <div className="rounded-lg border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs text-stone-600">
                 Stock: <strong>{saleProduct.quantity ?? 0}</strong>
-                {saleProduct.retail_price != null && Number(saleProduct.retail_price) > 0 ? (
-                  <> · Precio: {formatPaymentAmount(saleProduct.retail_price)}</>
+                {(saleProduct.retailPrice ?? saleProduct.retail_price) != null &&
+                Number(saleProduct.retailPrice ?? saleProduct.retail_price) > 0 ? (
+                  <> · Precio: {formatPaymentAmount(saleProduct.retailPrice ?? saleProduct.retail_price)}</>
                 ) : (
                   <> · Indica el monto manualmente</>
                 )}
@@ -592,8 +584,4 @@ export function PaymentForm({
       </AdminFormCard>
     </AdminFormShell>
   );
-}
-
-export default function PaymentFormPage() {
-  return <PaymentForm />;
 }

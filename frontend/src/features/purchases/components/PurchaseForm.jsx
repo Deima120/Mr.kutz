@@ -6,11 +6,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Check, X } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import * as productService from '@/features/inventory/services/productService';
+import ProductPicker from '@/features/inventory/components/ProductPicker';
+import SupplierPicker from '@/features/suppliers/components/SupplierPicker';
+import { proposedUnitCostFromProduct } from '@/features/inventory/models/productFormModel';
 import { formatPurchaseAmount } from '@/features/purchases/utils/purchaseFormatters';
 import { validatePurchaseForm, getApiErrorMessage, validateMoney, validatePositiveInt } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
-import CustomSelect from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -67,10 +69,12 @@ function ItemFieldFeedback({ error, live }) {
   return <div className={ITEM_FIELD_FEEDBACK_CLASS} aria-hidden>&nbsp;</div>;
 }
 
-export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
-  const [products, setProducts] = useState([]);
+export function PurchaseForm({ contained = false, onSuccess, onCancel, initialProductId = null }) {
+  /** Catálogo local solo para validación/preview; se enriquece al elegir o crear. */
+  const [productsById, setProductsById] = useState({});
+  const [supplierName, setSupplierName] = useState('');
   const [form, setForm] = useState({
-    supplierName: '',
+    supplierId: '',
     invoiceNumber: '',
     notes: '',
     items: [emptyItem()],
@@ -80,12 +84,72 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint, fieldBorderClass } =
     useFormValidation();
 
+  const products = useMemo(() => Object.values(productsById), [productsById]);
+  const focusSupplier = Boolean(initialProductId);
+
   useEffect(() => {
+    const pid = parseInt(initialProductId, 10);
+    if (!Number.isFinite(pid) || pid < 1) return undefined;
+    let cancelled = false;
     productService
-      .getProducts({ limit: 500 })
-      .then((result) => setProducts(result?.data ?? []))
-      .catch(() => setProducts([]));
-  }, []);
+      .getProductById(pid)
+      .then((res) => {
+        if (cancelled) return;
+        const product = res?.data ?? res;
+        if (!product?.id) return;
+        setProductsById((prev) => ({ ...prev, [String(product.id)]: product }));
+        const proposed = proposedUnitCostFromProduct(product);
+        setForm((prev) => ({
+          ...prev,
+          items: [
+            {
+              productId: String(product.id),
+              quantity: '1',
+              unitCost: proposed || '',
+            },
+          ],
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setError('No se pudo precargar el producto en la orden.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialProductId]);
+
+  const rememberProduct = (product) => {
+    if (!product?.id) return;
+    setProductsById((prev) => ({ ...prev, [String(product.id)]: product }));
+  };
+
+  const selectProductForItem = (idx, productId, product) => {
+    if (product) rememberProduct(product);
+    setForm((prev) => {
+      const current = prev.items[idx];
+      if (!current) return prev;
+      const proposed = product ? proposedUnitCostFromProduct(product) : '';
+      const shouldPropose =
+        proposed &&
+        (current.unitCost === '' || current.unitCost == null || Number(current.unitCost) <= 0);
+      return {
+        ...prev,
+        items: prev.items.map((it, i) =>
+          i === idx
+            ? {
+                ...it,
+                productId: productId || '',
+                unitCost: shouldPropose ? proposed : it.unitCost,
+              }
+            : it
+        ),
+      };
+    });
+    setError('');
+    clearFieldError(`items.${idx}.productId`);
+    clearFieldError(`items.${idx}.unitCost`);
+    clearFieldError('items');
+  };
 
   const totalPreview = useMemo(
     () =>
@@ -135,7 +199,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
         }));
 
       await purchaseService.createPurchase({
-        supplierName: form.supplierName.trim() || undefined,
+        supplierId: Number(form.supplierId),
         invoiceNumber: form.invoiceNumber.trim() || undefined,
         notes: form.notes.trim() || undefined,
         items,
@@ -151,13 +215,13 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
   const aside = {
     kicker: 'Vista previa',
     title: 'Nueva compra',
-    subtitle: form.supplierName || 'Ingreso a inventario',
+    subtitle: supplierName || 'Orden sin movimiento de stock',
     bullets: [],
     statusLabel: 'Total estimado',
     statusValue: formatPurchaseAmount(totalPreview),
     children: (
       <AdminFormPreviewPanel>
-        <AdminFormPreviewField label="Proveedor" value={form.supplierName} />
+        <AdminFormPreviewField label="Proveedor" value={supplierName} />
         <AdminFormPreviewField label="Factura" value={form.invoiceNumber} />
         <AdminFormPreviewField label="Artículos" value={validItems.length ? `${validItems.length} producto(s)` : ''} />
         {validItems.slice(0, 4).map((item, idx) => {
@@ -190,20 +254,27 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
       aside={aside}
     >
       <AdminFormCard onSubmit={handleSubmit}>
-        <AdminFormCardHeader eyebrow="Abastecimiento" title="Registrar compra" />
+        <AdminFormCardHeader eyebrow="Abastecimiento" title="Crear orden de compra" />
 
         {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 
         <div className={ADMIN_FORM_GRID_CLASS}>
           <div className="group">
-            <label className={ADMIN_FORM_LABEL_CLASS}>Proveedor</label>
-            <input
-              value={form.supplierName}
-              onChange={(e) => setForm((p) => ({ ...p, supplierName: e.target.value }))}
-              className={ADMIN_FORM_FIELD_COMPACT}
-              placeholder="Nombre del proveedor"
-              maxLength={150}
+            <label className={ADMIN_FORM_LABEL_CLASS}>Proveedor activo *</label>
+            <SupplierPicker
+              value={form.supplierId}
+              onChange={(value, supplier) => {
+                setForm((current) => ({ ...current, supplierId: value }));
+                setSupplierName(supplier?.name || '');
+                clearFieldError('supplierId');
+              }}
+              onBlur={() => markTouched('supplierId')}
+              placeholder="Buscar o crear proveedor…"
+              autoFocus={focusSupplier}
+              selectClassName={fieldError('supplierId') ? '!border-red-400' : ''}
+              ariaInvalid={Boolean(fieldError('supplierId')) || undefined}
             />
+            <FieldErrorMessage message={fieldError('supplierId')} />
           </div>
           <div className="group">
             <label className={ADMIN_FORM_LABEL_CLASS}>No. factura</label>
@@ -254,7 +325,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
             });
             const costValidation = validateMoney(item.unitCost, 'El costo unitario', {
               required: !!item.productId,
-              min: 0,
+              min: 0.01,
             });
             const productLive = buildLiveHint(productKey, item.productId, productValidation, 'Producto seleccionado.');
             const qtyLive = buildLiveHint(qtyKey, item.quantity, qtyValidation, 'Cantidad válida.');
@@ -264,21 +335,17 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
             <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start rounded-lg border border-stone-200/80 bg-stone-50/60 p-2.5">
               <div className="sm:col-span-5">
                 <label className={ADMIN_FORM_LABEL_CLASS}>Producto</label>
-                <CustomSelect
+                <ProductPicker
                   value={item.productId}
-                  onChange={(next) => updateItem(idx, 'productId', next)}
+                  onChange={(nextId, product) => selectProductForItem(idx, nextId, product)}
                   onBlur={() => markTouched(productKey)}
-                  placeholder="Seleccionar…"
-                  variant="formCompact"
+                  placeholder="Buscar o crear…"
                   selectClassName={
                     fieldError(productKey)
                       ? fieldBorderClass(productKey, false, item.productId)
                       : fieldBorderClass(productKey, productValidation.valid, item.productId)
                   }
-                  options={products.map((p) => ({
-                    id: String(p.id),
-                    label: `${p.name}${p.sku ? ` · ${p.sku}` : ''}`,
-                  }))}
+                  ariaInvalid={Boolean(fieldError(productKey)) || undefined}
                 />
                 <ItemFieldFeedback error={fieldError(productKey)} live={productLive} />
               </div>
@@ -298,7 +365,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
                 <label className={ADMIN_FORM_LABEL_CLASS}>Costo unit. ($)</label>
                 <input
                   type="number"
-                  min="0"
+                  min="0.01"
                   step="0.01"
                   value={item.unitCost}
                   onChange={(e) => updateItem(idx, 'unitCost', e.target.value)}
@@ -330,7 +397,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel }) {
         <AdminFormFooterActions>
           <AdminFormPrimaryButton disabled={loading}>
             <AdminFormLoadingButton loading={loading} loadingLabel="Guardando…">
-              Registrar compra
+              Crear orden
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
         </AdminFormFooterActions>

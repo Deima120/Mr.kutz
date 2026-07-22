@@ -15,6 +15,7 @@ import paymentRoutes from './payment.routes.js';
 import productRoutes from './product.routes.js';
 import productCategoryRoutes from './product-category.routes.js';
 import purchaseRoutes from './purchase.routes.js';
+import supplierRoutes from './supplier.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import settingsRoutes from './settings.routes.js';
 import mobileRoutes from './mobile.routes.js';
@@ -38,6 +39,7 @@ router.get('/', (req, res) => {
       payments: '/api/payments',
       products: '/api/products',
       productCategories: '/api/product-categories',
+      suppliers: '/api/suppliers',
       purchases: '/api/purchases',
       dashboard: '/api/dashboard',
       settings: '/api/settings',
@@ -56,6 +58,7 @@ router.use('/testimonials', testimonialRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/products', productRoutes);
 router.use('/product-categories', productCategoryRoutes);
+router.use('/suppliers', supplierRoutes);
 router.use('/purchases', purchaseRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/settings', settingsRoutes);

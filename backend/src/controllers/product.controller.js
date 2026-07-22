@@ -33,24 +33,6 @@ export const getAll = async (req, res, next) => {
   }
 };
 
-export const getLowStock = async (req, res, next) => {
-  try {
-    const products = await productService.getLowStock();
-    res.json({ success: true, data: products });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getInsights = async (req, res, next) => {
-  try {
-    const insights = await productService.getInventoryInsights();
-    res.json({ success: true, data: insights });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const importProducts = async (req, res, next) => {
   try {
     const result = await productService.importProducts(req.body.rows);
@@ -87,6 +69,18 @@ export const getById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
     }
     res.json({ success: true, data: product });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDossier = async (req, res, next) => {
+  try {
+    const dossier = await productService.getDossier(req.params.id);
+    if (!dossier) {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
+    }
+    res.json({ success: true, data: dossier });
   } catch (error) {
     next(error);
   }
@@ -143,9 +137,16 @@ export const updateStock = async (req, res, next) => {
 
 export const getMovements = async (req, res, next) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
-    const movements = await productService.getMovements(req.params.id, limit);
-    res.json({ success: true, data: movements });
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const result = await productService.getMovements(req.params.id, { limit, offset });
+    res.json({
+      success: true,
+      data: result.data,
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset,
+    });
   } catch (error) {
     next(error);
   }

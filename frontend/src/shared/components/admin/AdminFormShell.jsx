@@ -15,12 +15,12 @@ export const ADMIN_FORM_FIELD_CLASS =
 export const ADMIN_FORM_LABEL_CLASS =
   'block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5 group-focus-within:text-gold-dark transition-colors';
 
-/** Tarjeta del formulario — blanca, flotante sobre el panel. */
+/** Tarjeta del formulario — fluye con el scroll de AdminLayout.main (sin scroll interno). */
 export const ADMIN_FORM_CARD_CLASS =
-  'relative h-full min-h-0 flex flex-col rounded-[1.28rem] bg-white border border-stone-100/90 shadow-[0_8px_32px_rgba(0,0,0,0.07)] overflow-hidden';
+  'relative flex flex-col rounded-[1.28rem] bg-white border border-stone-100/90 shadow-[0_8px_32px_rgba(0,0,0,0.07)] overflow-visible';
 
 export const ADMIN_FORM_INNER_CLASS =
-  'px-4 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0 gap-2.5 flex-1 overflow-y-auto';
+  'px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-2.5';
 
 export const ADMIN_FORM_FIELD_COMPACT = `${ADMIN_FORM_FIELD_CLASS} py-2 text-sm`;
 
@@ -208,7 +208,7 @@ export default function AdminFormShell({
 
   return (
     <div
-      className={`relative flex-1 min-h-0 w-full min-w-0 flex flex-col overflow-x-hidden ${contained || fillHeight ? 'overflow-y-visible' : 'overflow-y-hidden'} ${contained ? '' : 'animate-fade-in-up'}`}
+      className={`relative w-full min-w-0 flex flex-col overflow-x-hidden overflow-y-visible ${contained ? '' : 'animate-fade-in-up'}`}
     >
       {showBackNav && (
         <div className={`absolute top-0 left-0 z-20 ${compact ? '' : 'md:left-1'}`}>
@@ -220,25 +220,23 @@ export default function AdminFormShell({
         </div>
       )}
 
-      <div className={`relative z-[1] flex-1 min-h-0 flex flex-col ${fillHeight ? 'h-full' : ''} ${contentPad} ${backNavOffset}`}>
+      <div className={`relative z-[1] flex flex-col ${contentPad} ${backNavOffset}`}>
         <div
-          className={`flex-1 min-h-0 grid items-stretch max-w-[88rem] mx-auto w-full ${
-            fillHeight ? 'h-full overflow-hidden' : ''
-          } ${
+          className={`grid items-start max-w-[88rem] mx-auto w-full ${
             compact ? 'gap-4 lg:gap-5' : 'gap-5 lg:gap-6 xl:gap-8'
           } ${
             asideVisible ? 'grid-cols-1 lg:grid-cols-12' : 'grid-cols-1'
           }`}
         >
-          <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col min-h-0 ${fillHeight ? 'h-full overflow-hidden' : ''}` : `flex flex-col min-h-0 ${fillHeight ? 'h-full overflow-hidden' : ''}`}>
-            <div className={`${formWrapClass} ${fillHeight ? 'h-full min-h-0 flex flex-col overflow-hidden' : ''}`}>
+          <div className={asideVisible ? `${compact ? 'lg:col-span-7' : 'lg:col-span-7 xl:col-span-8'} flex flex-col` : 'flex flex-col'}>
+            <div className={formWrapClass}>
               {children}
             </div>
           </div>
 
           {asideVisible && (
-            <aside className={`${fillHeight ? 'hidden lg:flex' : 'flex'} flex-col min-h-0 ${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'} ${fillHeight ? 'h-full overflow-hidden' : ''}`}>
-              <div className={`min-h-0 rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col ${fillHeight ? 'h-full' : ''}`}>
+            <aside className={`flex flex-col ${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'}`}>
+              <div className={`rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}>
                 <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                 <div className="relative flex flex-col">

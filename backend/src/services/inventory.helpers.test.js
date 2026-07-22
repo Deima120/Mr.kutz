@@ -6,7 +6,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  assertManualMovement,
   changeStockAtomic,
+  reverseMovementAtomic,
+  runSerializable,
   weightedAverageCost,
 } from './inventory.helpers.js';
 
@@ -16,6 +19,7 @@ function createMockTx({
 } = {}) {
   let inv = inventory ? { ...inventory } : null;
   const movements = [];
+  const voidedMovementIds = new Set();
 
   return {
     get inventoryState() {
@@ -28,6 +32,10 @@ function createMockTx({
       findUnique: async () => product,
     },
     inventory: {
+      upsert: async ({ create }) => {
+        if (!inv) inv = { productId: create.productId, quantity: create.quantity ?? 0 };
+        return { ...inv };
+      },
       findUnique: async () => (inv ? { ...inv } : null),
       create: async ({ data }) => {
         inv = { productId: data.productId, quantity: data.quantity ?? 0 };
@@ -49,8 +57,18 @@ function createMockTx({
     },
     inventoryMovement: {
       create: async ({ data }) => {
-        movements.push(data);
-        return data;
+        const created = { id: movements.length + 100, ...data };
+        movements.push(created);
+        return created;
+      },
+      findUnique: async ({ where }) =>
+        movements.find(
+          (movement) => movement.reversalOfMovementId === where.reversalOfMovementId
+        ) || null,
+      updateMany: async ({ where }) => {
+        if (voidedMovementIds.has(where.id)) return { count: 0 };
+        voidedMovementIds.add(where.id);
+        return { count: 1 };
       },
     },
   };
@@ -69,7 +87,21 @@ describe('weightedAverageCost', () => {
 
   it('rechaza costos inválidos', () => {
     assert.equal(weightedAverageCost(5, 10, 2, -1), null);
+    assert.equal(weightedAverageCost(5, 10, 2, 0), null);
     assert.equal(weightedAverageCost(5, 10, 2, Number.NaN), null);
+  });
+});
+
+describe('assertManualMovement', () => {
+  it('permite ajustes positivos o negativos y daños negativos', () => {
+    assert.doesNotThrow(() => assertManualMovement(2, 'adjustment'));
+    assert.doesNotThrow(() => assertManualMovement(-2, 'adjustment'));
+    assert.doesNotThrow(() => assertManualMovement(-1, 'damage'));
+  });
+
+  it('rechaza tipos de sistema y daños positivos', () => {
+    assert.throws(() => assertManualMovement(1, 'purchase'), /adjustment o damage/);
+    assert.throws(() => assertManualMovement(1, 'damage'), /disminuir/);
   });
 });
 
@@ -159,5 +191,60 @@ describe('changeStockAtomic', () => {
         return true;
       }
     );
+  });
+});
+
+describe('reverseMovementAtomic', () => {
+  it('crea un solo reverso y es idempotente por reversalOfMovementId', async () => {
+    const tx = createMockTx({ inventory: { productId: 1, quantity: 5 } });
+    const original = {
+      id: 42,
+      productId: 1,
+      quantityChange: -2,
+      voidedAt: null,
+    };
+    const first = await reverseMovementAtomic(tx, original, { voidReason: 'error' });
+    const second = await reverseMovementAtomic(tx, original, { voidReason: 'error' });
+
+    assert.equal(first.id, second.id);
+    assert.equal(tx.inventoryState.quantity, 7);
+    assert.equal(tx.movements.length, 1);
+    assert.equal(tx.movements[0].reversalOfMovementId, 42);
+  });
+});
+
+describe('runSerializable', () => {
+  it('reintenta conflictos serializables y conserva el resultado final', async () => {
+    let attempts = 0;
+    const client = {
+      $transaction: async (operation) => {
+        attempts += 1;
+        if (attempts < 3) {
+          const error = new Error('write conflict');
+          error.code = 'P2034';
+          throw error;
+        }
+        return operation({});
+      },
+    };
+
+    const result = await runSerializable(client, async () => 'ok');
+    assert.equal(result, 'ok');
+    assert.equal(attempts, 3);
+  });
+
+  it('no reintenta errores que no son conflictos de concurrencia', async () => {
+    let attempts = 0;
+    const client = {
+      $transaction: async () => {
+        attempts += 1;
+        const error = new Error('validation failed');
+        error.code = 'P2003';
+        throw error;
+      },
+    };
+
+    await assert.rejects(() => runSerializable(client, async () => 'never'), /validation failed/);
+    assert.equal(attempts, 1);
   });
 });
