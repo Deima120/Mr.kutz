@@ -19,6 +19,7 @@ import {
   TodayAppointmentsRing,
 } from '@/features/dashboard/components/AdminDashboardCharts';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+import { formatMoney } from '@/shared/utils/money';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -32,9 +33,7 @@ const STATUS_LABELS = {
 function BarberDashboard() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
-  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [metricsLoading, setMetricsLoading] = useState(true);
   const [error, setError] = useState('');
   const [ratingSummary, setRatingSummary] = useState(null);
   const [ratingLoading, setRatingLoading] = useState(true);
@@ -59,27 +58,6 @@ function BarberDashboard() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!user?.barberId) return;
-    let cancelled = false;
-    setMetricsLoading(true);
-    dashboardService
-      .getStats()
-      .then((data) => {
-        if (!cancelled && data?.role === 'barber') setMetrics(data);
-        else if (!cancelled) setMetrics(null);
-      })
-      .catch(() => {
-        if (!cancelled) setMetrics(null);
-      })
-      .finally(() => {
-        if (!cancelled) setMetricsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.barberId]);
 
   useEffect(() => {
     if (user?.barberId) refreshAll();
@@ -137,32 +115,6 @@ function BarberDashboard() {
     }
     return s.slice(0, 5);
   };
-
-  const KpiBlock = ({ title, subtitle, children }) => (
-    <div className="relative overflow-hidden rounded-2xl border border-stone-200/90 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-      <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-[100%] bg-gold/5 pointer-events-none" aria-hidden />
-      <h3 className="text-xs font-bold tracking-[0.18em] text-gold mb-1">{title}</h3>
-      {subtitle && <p className="text-[11px] text-stone-500 mb-4">{subtitle}</p>}
-      {children}
-    </div>
-  );
-
-  const TripleRow = ({ day, week, month }) => (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-      <div className="rounded-xl bg-stone-50/90 border border-stone-100 px-2 py-3">
-        <p className="text-[10px] font-semibold text-stone-500 tracking-wide mb-1">Hoy</p>
-        <p className="text-sm sm:text-base font-semibold text-stone-900 tabular-nums leading-tight">{day}</p>
-      </div>
-      <div className="rounded-xl bg-stone-50/90 border border-stone-100 px-2 py-3">
-        <p className="text-[10px] font-semibold text-stone-500 tracking-wide mb-1">Semana</p>
-        <p className="text-sm sm:text-base font-semibold text-stone-900 tabular-nums leading-tight">{week}</p>
-      </div>
-      <div className="rounded-xl bg-stone-50/90 border border-stone-100 px-2 py-3">
-        <p className="text-[10px] font-semibold text-stone-500 tracking-wide mb-1">Mes</p>
-        <p className="text-sm sm:text-base font-semibold text-stone-900 tabular-nums leading-tight">{month}</p>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-8">
@@ -365,7 +317,6 @@ function AdminDashboard() {
     }
   };
 
-  const formatAmount = (n) => `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
   const formatTime = (t) => {
     if (!t) return '';
     if (t instanceof Date) {
@@ -489,7 +440,7 @@ function AdminDashboard() {
                       <DualBarKpiChart
                         leftLabel="Ingresos"
                         leftValue={kpiRevenue}
-                        leftValueText={formatAmount(kpiRevenue)}
+                        leftValueText={formatMoney(kpiRevenue)}
                         rightLabel="Transacciones"
                         rightValue={kpiTrans}
                         rightValueText={String(kpiTrans)}

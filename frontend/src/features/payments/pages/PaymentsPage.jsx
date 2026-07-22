@@ -21,8 +21,11 @@ import {
   formatPaymentMethodName,
   getPaymentClientName,
   getPaymentConcept,
+  getPaymentType,
   getPaymentTypeLabel,
+  isPaymentVoided,
 } from '@/features/payments/utils/paymentFormatters';
+import { getApiErrorMessage } from '@/shared/utils/formValidation';
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
@@ -41,6 +44,7 @@ const TYPE_OPTIONS = [
   { value: 'service', label: 'Servicios' },
   { value: 'product', label: 'Productos' },
   { value: 'cash', label: 'Caja' },
+  { value: 'mixed', label: 'Mixtos' },
 ];
 const TYPE_SEGMENTS = TYPE_OPTIONS.map((o) => ({ id: o.value, label: o.label }));
 
@@ -85,7 +89,9 @@ export default function PaymentsPage() {
   const [paymentPrefill, setPaymentPrefill] = useState(() => resolvePrefillFromSearch(location.search));
 
   const [detailPayment, setDetailPayment] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [voidTarget, setVoidTarget] = useState(null);
+  const [voidLine, setVoidLine] = useState(null);
   const [isVoiding, setIsVoiding] = useState(false);
 
   const isFormOpen = formView === 'create';
@@ -161,16 +167,38 @@ export default function PaymentsPage() {
     setFormView('create');
   };
 
+  const openDetail = async (payment) => {
+    setDetailPayment(payment);
+    setDetailLoading(true);
+    setError('');
+    try {
+      const fresh = await paymentService.getPaymentById(payment.id);
+      setDetailPayment(fresh || payment);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'No se pudo cargar el detalle del pago.'));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const confirmVoid = async (voidReason) => {
     if (!voidTarget) return;
+    const isLineVoid = Boolean(voidLine);
+    const lineId = voidLine?.id;
     setIsVoiding(true);
     try {
-      await paymentService.voidPayment(voidTarget.id, { voidReason });
+      const updated = isLineVoid
+        ? await paymentService.voidPaymentLine(voidTarget.id, lineId, { voidReason })
+        : await paymentService.voidPayment(voidTarget.id, { voidReason });
       setVoidTarget(null);
-      setSuccessMessage('Pago anulado correctamente.');
+      setVoidLine(null);
+      setSuccessMessage(isLineVoid ? 'Línea anulada correctamente.' : 'Pago anulado correctamente.');
+      if (detailPayment?.id === voidTarget.id) {
+        setDetailPayment(updated);
+      }
       await fetchPayments(page);
     } catch (err) {
-      setError(err?.message || 'Error al anular el pago');
+      setError(getApiErrorMessage(err, 'Error al anular'));
     } finally {
       setIsVoiding(false);
     }
@@ -178,16 +206,16 @@ export default function PaymentsPage() {
 
   const exportRows = payments.map((p) => ({
     id: p.id,
-    fecha: p.created_at,
-    estado: p.voided_at ? 'Anulado' : 'Vigente',
-    tipo: p.payment_type || (p.product_id ? 'product' : p.appointment_id ? 'service' : 'cash'),
+    fecha: p.createdAt || p.created_at,
+    estado: isPaymentVoided(p) ? 'Anulado' : 'Vigente',
+    tipo: getPaymentType(p),
     referencia: p.reference || '',
     cliente: getPaymentClientName(p),
     concepto: getPaymentConcept(p),
-    metodo: formatPaymentMethodName(p.payment_method_name),
+    metodo: formatPaymentMethodName(p.paymentMethodName || p.payment_method_name),
     monto: p.amount,
     notas: p.notes || '',
-    motivo_anulacion: p.void_reason || '',
+    motivo_anulacion: p.voidReason || p.void_reason || '',
   }));
 
   const handleExportExcel = () => {
@@ -269,6 +297,7 @@ export default function PaymentsPage() {
     <PaymentForm
       embedded
       contained
+      methods={methods}
       prefillProductId={paymentPrefill.productId}
       prefillAppointmentId={paymentPrefill.appointmentId}
       onSuccess={handleFormSuccess}
@@ -400,11 +429,11 @@ export default function PaymentsPage() {
                     </TableHead>
                     <TableBody>
                       {payments.map((p) => {
-                        const isVoided = Boolean(p.voided_at);
+                        const isVoided = isPaymentVoided(p);
                         return (
                           <TableRow key={p.id} className={isVoided ? 'opacity-75 bg-stone-50/60' : ''}>
                             <TableCell compact className="text-xs whitespace-nowrap">
-                              {formatPaymentDateTime(p.created_at, p.start_time)}
+                              {formatPaymentDateTime(p.createdAt || p.created_at, p.start_time)}
                             </TableCell>
                             <TableCell compact>
                               <PaymentTypeBadge payment={p} />
@@ -430,7 +459,7 @@ export default function PaymentsPage() {
                               {getPaymentConcept(p)}
                             </TableCell>
                             <TableCell compact className="text-xs">
-                              {formatPaymentMethodName(p.payment_method_name)}
+                              {formatPaymentMethodName(p.paymentMethodName || p.payment_method_name)}
                             </TableCell>
                             <TableCell
                               compact
@@ -445,14 +474,17 @@ export default function PaymentsPage() {
                                 <AdminIconButton
                                   icon={Eye}
                                   label="Ver detalle"
-                                  onClick={() => setDetailPayment(p)}
+                                  onClick={() => openDetail(p)}
                                 />
                                 {!isVoided ? (
                                   <AdminIconButton
                                     icon={Ban}
                                     label="Anular pago"
                                     variant="danger"
-                                    onClick={() => setVoidTarget(p)}
+                                    onClick={() => {
+                                      setVoidLine(null);
+                                      setVoidTarget(p);
+                                    }}
                                   />
                                 ) : null}
                               </div>
@@ -469,10 +501,27 @@ export default function PaymentsPage() {
         )}
       </DataCard>
 
-      <PaymentDetailModal payment={detailPayment} onClose={() => setDetailPayment(null)} />
+      <PaymentDetailModal
+        payment={detailPayment}
+        loading={detailLoading || isVoiding}
+        onClose={() => setDetailPayment(null)}
+        onVoidPayment={(payment) => {
+          setVoidLine(null);
+          setVoidTarget(payment);
+        }}
+        onVoidLine={(payment, line) => {
+          setVoidTarget(payment);
+          setVoidLine(line);
+        }}
+      />
       <VoidPaymentModal
         payment={voidTarget}
-        onClose={() => !isVoiding && setVoidTarget(null)}
+        line={voidLine}
+        onClose={() => {
+          if (isVoiding) return;
+          setVoidTarget(null);
+          setVoidLine(null);
+        }}
         onConfirm={confirmVoid}
         isSubmitting={isVoiding}
       />

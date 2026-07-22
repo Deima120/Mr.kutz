@@ -4,6 +4,7 @@ const STYLES = {
   service: 'border-sky-200 bg-sky-50 text-sky-800',
   product: 'border-violet-200 bg-violet-50 text-violet-800',
   cash: 'border-stone-200 bg-stone-100 text-stone-700',
+  mixed: 'border-amber-200 bg-amber-50 text-amber-900',
 };
 
 export default function PaymentTypeBadge({ payment }) {

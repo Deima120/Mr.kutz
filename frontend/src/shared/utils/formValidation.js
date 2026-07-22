@@ -336,10 +336,10 @@ export function validatePaymentForm(data, mode, extras = {}) {
           ? 'No hay citas completadas pendientes de cobro.'
           : 'Selecciona la cita a cobrar.';
     }
+  } else if (mode === 'cash') {
+    const amount = validateMoney(data.amount, 'El monto', { required: true, min: 0.01 });
+    if (!amount.valid) errors.amount = amount.message;
   }
-
-  const amount = validateMoney(data.amount, 'El monto', { required: true, min: 0.01 });
-  if (!amount.valid) errors.amount = amount.message;
 
   if (!data.paymentMethodId) {
     errors.paymentMethodId = 'Selecciona un método de pago.';
@@ -352,6 +352,43 @@ export function validatePaymentForm(data, mode, extras = {}) {
 
   const notes = validateNotes(data.notes);
   if (!notes.valid) errors.notes = notes.message;
+
+  return validationResult(errors);
+}
+
+/** Carrito de cobro multi-línea. */
+export function validatePaymentCartForm({ paymentMethodId, reference, notes, lines = [] } = {}) {
+  const errors = {};
+
+  if (!paymentMethodId) errors.paymentMethodId = 'Selecciona un método de pago.';
+  if (!Array.isArray(lines) || lines.length === 0) {
+    errors.lines = 'Agrega al menos una línea al cobro.';
+  } else {
+    lines.forEach((line, index) => {
+      if (line.type === 'service' && !line.appointmentId) {
+        errors[`lines.${index}`] = 'Línea de servicio sin cita.';
+      }
+      if (line.type === 'product') {
+        if (!line.productId) errors[`lines.${index}`] = 'Línea de producto sin producto.';
+        const qty = validatePositiveInt(line.quantity, 'La cantidad', { required: true, min: 1 });
+        if (!qty.valid) errors[`lines.${index}`] = qty.message;
+      }
+      if (line.type === 'manual') {
+        const amount = validateMoney(line.unitPrice, 'El monto', { required: true, min: 0.01 });
+        if (!amount.valid) errors[`lines.${index}`] = amount.message;
+        if (!String(line.description || '').trim()) {
+          errors[`lines.${index}`] = 'La descripción es obligatoria en líneas de caja.';
+        }
+      }
+    });
+  }
+
+  const ref = String(reference ?? '');
+  if (ref.length > TEXT_REFERENCE_MAX) {
+    errors.reference = `Máximo ${TEXT_REFERENCE_MAX} caracteres.`;
+  }
+  const notesResult = validateNotes(notes);
+  if (!notesResult.valid) errors.notes = notesResult.message;
 
   return validationResult(errors);
 }
