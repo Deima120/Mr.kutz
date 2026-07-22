@@ -220,12 +220,8 @@ export function validateProductForm(data) {
   }
 
   if (data.retailPrice !== '' && data.retailPrice != null) {
-    const retail = validateMoney(data.retailPrice, 'El precio de venta', { required: false, min: 0 });
+    const retail = validateMoney(data.retailPrice, 'El precio de venta', { required: false, min: 0.01 });
     if (!retail.valid) errors.retailPrice = retail.message;
-  }
-  if (data.costPrice !== '' && data.costPrice != null) {
-    const cost = validateMoney(data.costPrice, 'El precio de costo', { required: false, min: 0 });
-    if (!cost.valid) errors.costPrice = cost.message;
   }
 
   const minStock = validateNonNegativeInt(
@@ -410,7 +406,7 @@ export function validatePurchaseForm(form, products = []) {
     const qty = validatePositiveInt(item.quantity, 'La cantidad', { required: true, min: 1 });
     if (!qty.valid) errors[`items.${item.idx}.quantity`] = qty.message;
 
-    const cost = validateMoney(item.unitCost, 'El costo unitario', { required: true, min: 0 });
+    const cost = validateMoney(item.unitCost, 'El costo unitario', { required: true, min: 0.01 });
     if (!cost.valid) errors[`items.${item.idx}.unitCost`] = cost.message;
   });
 

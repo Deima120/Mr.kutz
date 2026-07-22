@@ -58,20 +58,20 @@ const detailInclude = {
 function receiptDto(receipt) {
   return {
     id: receipt.id,
-    purchase_id: receipt.purchaseId,
-    receipt_number: receipt.receiptNumber,
-    received_at: receipt.receivedAt,
+    purchaseId: receipt.purchaseId,
+    receiptNumber: receipt.receiptNumber,
+    receivedAt: receipt.receivedAt,
     notes: receipt.notes,
-    created_at: receipt.createdAt,
-    created_by_email: receipt.creator?.email ?? null,
+    createdAt: receipt.createdAt,
+    createdByEmail: receipt.creator?.email ?? null,
     items: (receipt.items || []).map((item) => ({
       id: item.id,
-      purchase_item_id: item.purchaseItemId,
-      product_id: item.purchaseItem?.productId,
-      product_name: item.purchaseItem?.product?.name,
+      purchaseItemId: item.purchaseItemId,
+      productId: item.purchaseItem?.productId,
+      productName: item.purchaseItem?.product?.name,
       quantity: item.quantity,
-      unit_cost: item.unitCost,
-      inventory_movement_id: item.movement?.id ?? null,
+      unitCost: item.unitCost,
+      inventoryMovementId: item.movement?.id ?? null,
     })),
   };
 }
@@ -80,38 +80,30 @@ function toDto(p) {
   const supplierName = p.supplier?.name ?? p.supplierName ?? null;
   return {
     id: p.id,
-    supplier_id: p.supplierId,
     supplierId: p.supplierId,
-    supplier_name: supplierName,
     supplierName,
     supplier: p.supplier ?? null,
-    order_number: p.orderNumber,
     orderNumber: p.orderNumber,
-    invoice_number: p.invoiceNumber,
     invoiceNumber: p.invoiceNumber,
     status: p.status,
-    ordered_at: p.orderedAt,
-    expected_at: p.expectedAt,
+    orderedAt: p.orderedAt,
+    expectedAt: p.expectedAt,
     notes: p.notes,
-    total_amount: p.totalAmount,
     totalAmount: p.totalAmount,
-    voided_at: p.voidedAt,
-    void_reason: p.voidReason,
-    voided_by: p.voidedBy,
-    created_at: p.createdAt,
-    updated_at: p.updatedAt,
-    created_by_email: p.creator?.email ?? null,
-    items_count: p._count?.items ?? p.items?.length ?? 0,
+    voidedAt: p.voidedAt,
+    voidReason: p.voidReason,
+    voidedBy: p.voidedBy,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    createdByEmail: p.creator?.email ?? null,
+    itemsCount: p._count?.items ?? p.items?.length ?? 0,
     items: (p.items || []).map((item) => ({
       id: item.id,
-      product_id: item.productId,
       productId: item.productId,
-      product_name: item.product?.name,
+      productName: item.product?.name,
       quantity: item.quantity,
-      received_quantity: item.receivedQuantity,
       receivedQuantity: item.receivedQuantity,
-      pending_quantity: Math.max(0, item.quantity - item.receivedQuantity),
-      unit_cost: item.unitCost,
+      pendingQuantity: Math.max(0, item.quantity - item.receivedQuantity),
       unitCost: item.unitCost,
       subtotal: item.subtotal,
     })),
@@ -212,8 +204,9 @@ export const create = async (data, userId) => {
     throw httpError('La fecha esperada no es válida.');
   }
 
-  const row = await prisma.$transaction(async (tx) => {
+  const row = await runSerializable(prisma, async (tx) => {
     const supplier = await resolveSupplier(tx, data);
+    await lockProducts(tx, items.map((item) => item.productId));
     const products = await tx.product.findMany({
       where: { id: { in: items.map((item) => item.productId) } },
       select: { id: true, name: true, isActive: true },
@@ -366,7 +359,7 @@ export const receive = async (id, data, userId) => {
 
     for (const requestedItem of requested) {
       const orderedItem = purchaseItems.get(requestedItem.purchaseItemId);
-      const unitCost = requestedItem.unitCost ?? Number(orderedItem.unitCost);
+      const unitCost = requestedItem.unitCost;
       const inventory = await ensureInventory(tx, orderedItem.productId);
       const oldCost = productCosts.get(orderedItem.productId);
       const newCost = weightedAverageCost(
@@ -413,7 +406,3 @@ export const receive = async (id, data, userId) => {
   });
   return toDto(row);
 };
-
-// Compatibilidad temporal con el endpoint legado: ahora cancela y nunca revierte stock recibido.
-export const voidPurchase = (id, { voidReason, voidedBy } = {}) =>
-  cancel(id, { reason: voidReason, userId: voidedBy });

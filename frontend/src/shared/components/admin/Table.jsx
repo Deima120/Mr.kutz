@@ -2,12 +2,12 @@
  * Tabla administrativa — diseño premium (stone, gold accents)
  */
 
-export default function Table({ children }) {
+export default function Table({ children, scroll = true, className = '' }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-stone-200/80">
-      <table className="w-full text-sm">
-        {children}
-      </table>
+    <div
+      className={`${scroll ? 'overflow-x-auto' : 'overflow-x-hidden'} rounded-xl border border-stone-200/80`}
+    >
+      <table className={`w-full text-sm ${className}`.trim()}>{children}</table>
     </div>
   );
 }

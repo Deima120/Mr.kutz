@@ -13,6 +13,16 @@ import {
   runSerializable,
 } from './inventory.helpers.js';
 import { toProductDto, toMovementDto } from './product.dto.js';
+import {
+  assertNoManualCost,
+  assertProductCanDeactivate,
+  parsePositiveOptionalMoney,
+} from './product.rules.js';
+import {
+  buildCostSummaryFromReceipts,
+  buildSuppliersFromReceipts,
+  clampMovementsPage,
+} from './product.dossier.helpers.js';
 
 /** SKU único automático (prefijo MK + sufijo alfanumérico). */
 async function generateUniqueSku(tx) {
@@ -143,12 +153,6 @@ export const getInventoryInsights = async () => {
   };
 };
 
-function parseOptionalPrice(value) {
-  if (value == null || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 ? n : null;
-}
-
 export const getAll = async ({
   activeOnly = true,
   lowStockOnly = false,
@@ -195,6 +199,95 @@ export const getById = async (id) => {
   return toProductDto(product);
 };
 
+/**
+ * Ficha de producto: catálogo, stock, órdenes, recepciones y proveedores.
+ * El kardex se pagina por GET /products/:id/movements.
+ */
+export const getDossier = async (id) => {
+  const productId = parseInt(id, 10);
+  if (!Number.isFinite(productId) || productId < 1) return null;
+
+  const product = await getById(productId);
+  if (!product) return null;
+
+  const [purchaseItems, receiptItems] = await Promise.all([
+    prisma.purchaseItem.findMany({
+      where: { productId },
+      include: {
+        purchase: {
+          include: {
+            supplier: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
+    prisma.goodsReceiptItem.findMany({
+      where: { purchaseItem: { productId } },
+      include: {
+        goodsReceipt: {
+          include: {
+            purchase: {
+              include: {
+                supplier: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        purchaseItem: { select: { id: true, productId: true } },
+        movement: { select: { id: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
+  ]);
+
+  const orders = purchaseItems.map((item) => {
+    const purchase = item.purchase;
+    return {
+      purchaseId: purchase.id,
+      orderNumber: purchase.orderNumber,
+      status: purchase.status,
+      invoiceNumber: purchase.invoiceNumber,
+      orderedAt: purchase.orderedAt,
+      createdAt: purchase.createdAt,
+      supplierId: purchase.supplierId,
+      supplierName: purchase.supplier?.name ?? purchase.supplierName ?? null,
+      quantity: item.quantity,
+      receivedQuantity: item.receivedQuantity,
+      pendingQuantity: Math.max(0, item.quantity - item.receivedQuantity),
+      unitCost: Number(item.unitCost),
+      subtotal: Number(item.subtotal),
+    };
+  });
+
+  const receipts = receiptItems.map((item) => {
+    const receipt = item.goodsReceipt;
+    const purchase = receipt?.purchase;
+    return {
+      receiptId: receipt.id,
+      receiptNumber: receipt.receiptNumber,
+      receivedAt: receipt.receivedAt,
+      purchaseId: purchase?.id ?? receipt.purchaseId,
+      orderNumber: purchase?.orderNumber ?? null,
+      supplierId: purchase?.supplierId ?? null,
+      supplierName: purchase?.supplier?.name ?? null,
+      quantity: item.quantity,
+      unitCost: Number(item.unitCost),
+      inventoryMovementId: item.movement?.id ?? null,
+    };
+  });
+
+  return {
+    product,
+    orders,
+    receipts,
+    suppliers: buildSuppliersFromReceipts(receipts),
+    costSummary: buildCostSummaryFromReceipts(receipts, product.costPrice),
+  };
+};
+
 export const getLowStock = async () => {
   const products = await prisma.$queryRaw`
     SELECT p.id, p.name, p."min_stock" as min_stock, COALESCE(i.quantity, 0) as quantity
@@ -207,29 +300,34 @@ export const getLowStock = async () => {
   return products.map((p) => ({
     id: p.id,
     name: p.name,
-    min_stock: Number(p.min_stock),
+    minStock: Number(p.min_stock),
     quantity: Number(p.quantity),
   }));
 };
 
 export const create = async (data) => {
-  const { name, description, unit, minStock, categoryId, retailPrice, costPrice } = data;
+  assertNoManualCost(data);
+  const { name, description, unit, minStock, categoryId, retailPrice } = data;
+  const normalizedName = String(name || '').trim();
+  if (!normalizedName) {
+    const error = new Error('El nombre es obligatorio.');
+    error.statusCode = 400;
+    throw error;
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     await assertCategoryAssignable(tx, categoryId);
     const sku = await generateUniqueSku(tx);
     const productData = {
-        name,
+        name: normalizedName,
         description: description || null,
         sku,
         unit: unit || 'unit',
         minStock: minStock ?? 0,
         categoryId: categoryId ? parseInt(categoryId, 10) : null,
       };
-      const retail = parseOptionalPrice(retailPrice);
-      const cost = parseOptionalPrice(costPrice);
+      const retail = parsePositiveOptionalMoney(retailPrice, 'El precio de venta');
       if (retail != null) productData.retailPrice = retail;
-      if (cost != null) productData.costPrice = cost;
 
       const product = await tx.product.create({ data: productData });
     await tx.inventory.create({
@@ -243,23 +341,53 @@ export const create = async (data) => {
 
 export const update = async (id, data) => {
   const pid = parseInt(id, 10);
+  assertNoManualCost(data);
   const patch = {};
-  if (data.name !== undefined) patch.name = data.name;
+  if (data.name !== undefined) {
+    const normalizedName = String(data.name).trim();
+    if (!normalizedName) {
+      const error = new Error('El nombre es obligatorio.');
+      error.statusCode = 400;
+      throw error;
+    }
+    patch.name = normalizedName;
+  }
   if (data.description !== undefined) patch.description = data.description;
   if (data.unit !== undefined) patch.unit = data.unit;
   if (data.minStock !== undefined) patch.minStock = data.minStock;
-  if (data.isActive !== undefined) patch.isActive = data.isActive;
+  if (data.isActive !== undefined) {
+    patch.isActive = data.isActive === true || data.isActive === 'true';
+  }
   if (data.categoryId !== undefined) {
     patch.categoryId = data.categoryId ? parseInt(data.categoryId, 10) : null;
   }
   if (data.retailPrice !== undefined) {
-    patch.retailPrice = parseOptionalPrice(data.retailPrice);
-  }
-  if (data.costPrice !== undefined) {
-    patch.costPrice = parseOptionalPrice(data.costPrice);
+    patch.retailPrice = parsePositiveOptionalMoney(data.retailPrice, 'El precio de venta');
   }
 
-  await prisma.$transaction(async (tx) => {
+  await runSerializable(prisma, async (tx) => {
+    await lockProducts(tx, [pid]);
+    const existing = await tx.product.findUnique({
+      where: { id: pid },
+      select: { id: true, isActive: true, inventory: { select: { quantity: true } } },
+    });
+    if (!existing) {
+      const error = new Error('Producto no encontrado.');
+      error.statusCode = 404;
+      throw error;
+    }
+    if (existing.isActive && patch.isActive === false) {
+      const openOrderCount = await tx.purchaseItem.count({
+        where: {
+          productId: pid,
+          purchase: { status: { in: ['draft', 'ordered', 'partially_received'] } },
+        },
+      });
+      assertProductCanDeactivate({
+        quantity: existing.inventory?.quantity ?? 0,
+        openOrderCount,
+      });
+    }
     if (data.categoryId !== undefined) {
       await assertCategoryAssignable(tx, data.categoryId);
     }
@@ -291,37 +419,51 @@ export const updateStock = async (productId, quantityChange, movementType, notes
   return getById(productId);
 };
 
-export const getMovements = async (productId, limit = 50) => {
-  const movements = await prisma.inventoryMovement.findMany({
-    where: { productId: parseInt(productId, 10) },
-    include: {
-      creator: { select: { email: true } },
-      voider: { select: { email: true } },
-      goodsReceiptItem: {
-        select: {
-          goodsReceipt: {
-            select: {
-              id: true,
-              receiptNumber: true,
-              purchaseId: true,
-              purchase: {
-                select: {
-                  orderNumber: true,
-                  supplier: { select: { name: true } },
+export const getMovements = async (productId, { limit = 20, offset = 0 } = {}) => {
+  const pid = parseInt(productId, 10);
+  const { limit: take, offset: skip } = clampMovementsPage({ limit, offset });
+  const where = { productId: pid };
+
+  const [total, movements] = await Promise.all([
+    prisma.inventoryMovement.count({ where }),
+    prisma.inventoryMovement.findMany({
+      where,
+      include: {
+        creator: { select: { email: true } },
+        voider: { select: { email: true } },
+        goodsReceiptItem: {
+          select: {
+            goodsReceipt: {
+              select: {
+                id: true,
+                receiptNumber: true,
+                purchaseId: true,
+                purchase: {
+                  select: {
+                    orderNumber: true,
+                    supplier: { select: { name: true } },
+                  },
                 },
               },
             },
           },
         },
+        payment: { select: { id: true, reference: true } },
+        reversalOfMovement: { select: { id: true } },
+        reversalMovement: { select: { id: true } },
       },
-      payment: { select: { id: true, reference: true } },
-      reversalOfMovement: { select: { id: true } },
-      reversalMovement: { select: { id: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  });
-  return movements.map(toMovementDto);
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+    }),
+  ]);
+
+  return {
+    data: movements.map(toMovementDto),
+    total,
+    limit: take,
+    offset: skip,
+  };
 };
 
 export const voidMovement = async (movementId, { voidReason, voidedBy } = {}) => {
@@ -389,6 +531,12 @@ export const importProducts = async (rows = []) => {
         if (!cat) throw new Error(`Categoría "${categoryName}" no encontrada.`);
         categoryId = cat.id;
       }
+      const importedCost = row.costPrice ?? row.cost_price ?? row.precio_costo;
+      if (importedCost != null && importedCost !== '') {
+        throw new Error(
+          'El costo promedio no se importa; se calcula al recibir mercancía.'
+        );
+      }
 
       await create({
         name,
@@ -397,7 +545,6 @@ export const importProducts = async (rows = []) => {
         minStock: row.minStock ?? row.min_stock ?? 0,
         categoryId,
         retailPrice: row.retailPrice ?? row.retail_price ?? row.precio_venta,
-        costPrice: row.costPrice ?? row.cost_price ?? row.precio_costo,
       });
       results.created += 1;
     } catch (e) {

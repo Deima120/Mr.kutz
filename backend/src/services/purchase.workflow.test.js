@@ -44,7 +44,7 @@ describe('flujo orden → recepción → inventario', () => {
     );
     assert.throws(
       () => normalizeOrderItems([{ productId: 10, quantity: 1, unitCost: -1 }]),
-      /mayor o igual a cero/
+      /mayor que cero/
     );
     assert.throws(
       () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 0, unitCost: 20 }]),

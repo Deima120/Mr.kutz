@@ -26,7 +26,6 @@ import {
   CreditCard,
   ShoppingCart,
   Package,
-  Truck,
   FileBarChart,
 } from 'lucide-react';
 
@@ -54,8 +53,7 @@ const adminNavSections = [
     items: [
       { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
       { path: '/payments', label: 'Pagos', description: 'Registro de pagos', Icon: CreditCard },
-      { path: '/purchases', label: 'Compras', description: 'Proveedores', Icon: ShoppingCart },
-      { path: '/suppliers', label: 'Proveedores', description: 'Directorio de compras', Icon: Truck },
+      { path: '/purchases', label: 'Compras', description: 'Órdenes y proveedores', Icon: ShoppingCart },
       { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
     ],
   },

@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
+import {
+  sanitizeImportRows,
+  validateImportProductRow,
+} from '@/features/inventory/models/productFormModel';
+import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 
-const TEMPLATE_HEADERS = 'nombre,descripcion,unidad,min_stock,categoria,precio_venta,precio_costo';
+const TEMPLATE_HEADERS = 'nombre,descripcion,unidad,min_stock,categoria,precio_venta';
 
 function parseCsvLine(line) {
   const result = [];
@@ -82,7 +86,7 @@ export default function ImportProductsModal({ onClose, onSuccess }) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const rows = parseProductsCsv(reader.result);
+        const rows = sanitizeImportRows(parseProductsCsv(reader.result));
         if (rows.length === 0) {
           setError('El archivo no tiene filas válidas.');
           setPreview([]);
@@ -93,6 +97,15 @@ export default function ImportProductsModal({ onClose, onSuccess }) {
           setPreview(rows.slice(0, 200));
           return;
         }
+
+        const invalid = rows.find((row) => !validateImportProductRow(row).valid);
+        if (invalid) {
+          const validation = validateImportProductRow(invalid);
+          setError(`Fila «${invalid.name}»: ${validation.firstError}`);
+          setPreview(rows);
+          return;
+        }
+
         setPreview(rows);
       } catch {
         setError('No se pudo leer el archivo CSV.');
@@ -104,10 +117,16 @@ export default function ImportProductsModal({ onClose, onSuccess }) {
 
   const handleImport = async () => {
     if (preview.length === 0) return;
+    const invalid = preview.find((row) => !validateImportProductRow(row).valid);
+    if (invalid) {
+      const validation = validateImportProductRow(invalid);
+      setError(`Fila «${invalid.name}»: ${validation.firstError}`);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      const data = await productService.importProducts(preview);
+      const data = await productService.importProducts(sanitizeImportRows(preview));
       setResult(data);
       onSuccess?.(data);
     } catch (err) {
@@ -118,53 +137,15 @@ export default function ImportProductsModal({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl border border-stone-200 shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-5 border-b border-stone-200/80">
-          <h3 className="font-serif text-lg font-semibold text-stone-900 flex items-center gap-2">
-            <Upload className="w-5 h-5 text-gold" aria-hidden />
-            Importar productos (CSV)
-          </h3>
-          <p className="text-sm text-stone-500 mt-1">
-            Columnas: <code className="text-xs bg-stone-100 px-1 rounded">{TEMPLATE_HEADERS}</code>
-          </p>
-        </div>
-
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
-          {error && <div className="alert-error text-sm py-2" role="alert">{error}</div>}
-
-          {result && (
-            <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm text-emerald-800">
-              {result.created ?? 0} creado(s), {result.failed ?? 0} con error.
-            </div>
-          )}
-
-          <input type="file" accept=".csv,text/csv" onChange={handleFile} className="text-sm w-full" />
-
-          {preview.length > 0 && (
-            <div>
-              <p className="text-xs text-stone-500 mb-2">
-                Vista previa ({preview.length} fila{preview.length !== 1 ? 's' : ''})
-              </p>
-              <ul className="text-sm space-y-1 max-h-40 overflow-y-auto border border-stone-100 rounded-lg p-2">
-                {preview.slice(0, 8).map((row, i) => (
-                  <li key={i} className="text-stone-700">
-                    <strong>{row.name}</strong>
-                    {row.categoryName ? ` · ${row.categoryName}` : ''}
-                  </li>
-                ))}
-                {preview.length > 8 && (
-                  <li className="text-stone-400 text-xs">… y {preview.length - 8} más</li>
-                )}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 border-t border-stone-200/80 flex gap-2">
+    <AdminModalShell
+      open
+      onClose={onClose}
+      title="Importar productos (CSV)"
+      subtitle={`Columnas: ${TEMPLATE_HEADERS}`}
+      size="lg"
+      preventClose={loading}
+      footer={
+        <div className="flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 btn-admin-outline text-sm">
             {result ? 'Cerrar' : 'Cancelar'}
           </button>
@@ -179,7 +160,36 @@ export default function ImportProductsModal({ onClose, onSuccess }) {
             </button>
           )}
         </div>
-      </div>
-    </div>
+      }
+    >
+      {error && <div className="alert-error text-sm py-2 mb-3" role="alert">{error}</div>}
+
+      {result && (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm text-emerald-800 mb-3">
+          {result.created ?? 0} creado(s), {result.failed ?? 0} con error.
+        </div>
+      )}
+
+      <input type="file" accept=".csv,text/csv" onChange={handleFile} className="text-sm w-full" />
+
+      {preview.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-stone-500 mb-2">
+            Vista previa ({preview.length} fila{preview.length !== 1 ? 's' : ''})
+          </p>
+          <ul className="text-sm space-y-1 max-h-40 overflow-y-auto border border-stone-100 rounded-lg p-2">
+            {preview.slice(0, 8).map((row, i) => (
+              <li key={i} className="text-stone-700">
+                <strong>{row.name}</strong>
+                {row.categoryName ? ` · ${row.categoryName}` : ''}
+              </li>
+            ))}
+            {preview.length > 8 && (
+              <li className="text-stone-400 text-xs">… y {preview.length - 8} más</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </AdminModalShell>
   );
 }
