@@ -77,9 +77,17 @@ const listValidation = [
   optionalDateQuery('dateTo', 'Fecha final'),
   query('barberId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Barbero no válido.'),
   query('clientId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Cliente no válido.'),
+  // Acepta un estado o varios separados por coma (OR), p.ej. scheduled,confirmed,in_progress
   query('status')
     .optional({ checkFalsy: true })
-    .isIn(APPOINTMENT_STATUSES)
+    .custom((value) => {
+      const parts = String(value)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!parts.length) return false;
+      return parts.every((s) => APPOINTMENT_STATUSES.includes(s));
+    })
     .withMessage('Estado de cita no válido.'),
   ...paginationQuery({ maxLimit: 200 }),
 ];
