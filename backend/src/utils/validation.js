@@ -1,4 +1,4 @@
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 
 export const DOCUMENT_TYPES = ['CC', 'CE', 'TI', 'Pasaporte', 'NIT'];
 
@@ -71,3 +71,29 @@ export const optionalNotesField = (field = 'notes', max = 500) =>
     .trim()
     .isLength({ max })
     .withMessage(`Las notas no pueden superar ${max} caracteres.`);
+
+/** Identificación fiscal laxa: trim, máx. 50, letras/números/guiones. */
+export const optionalTaxIdField = (field = 'taxId') =>
+  body(field)
+    .optional({ checkFalsy: true, nullable: true })
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('La identificación fiscal no puede superar 50 caracteres.')
+    .matches(/^[A-Za-z0-9-]+$/)
+    .withMessage('La identificación fiscal solo puede contener letras, números y guiones.');
+
+/** Fecha opcional en query (ISO8601 / YYYY-MM-DD). */
+export const optionalDateQuery = (field, label) =>
+  query(field)
+    .optional({ checkFalsy: true })
+    .isISO8601()
+    .withMessage(`${label} no válida.`);
+
+/** Paginación común en listados GET. */
+export const paginationQuery = ({ maxLimit = 100 } = {}) => [
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: maxLimit })
+    .withMessage(`El límite debe ser un entero entre 1 y ${maxLimit}.`),
+  query('offset').optional().isInt({ min: 0 }).withMessage('El offset debe ser un entero ≥ 0.'),
+];

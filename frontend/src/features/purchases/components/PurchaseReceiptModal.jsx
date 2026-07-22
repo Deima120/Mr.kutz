@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PackageCheck } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
+import { getApiErrorMessage, validatePurchaseReceiptForm } from '@/shared/utils/formValidation';
 
 const itemValue = (item, camel, snake, fallback = 0) => item?.[camel] ?? item?.[snake] ?? fallback;
 
@@ -56,22 +57,13 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
 
   const submit = async (event) => {
     event.preventDefault();
-    const selected = receivable.filter((item) => Number(item.quantity) > 0);
-    if (!reference.trim()) return setError('La referencia de recepción es obligatoria.');
-    if (selected.length === 0) return setError('Indica al menos una cantidad recibida.');
-    const invalid = selected.find((item) => {
-      const unitCostText = String(item.unitCost ?? '').trim();
-      const unitCost = Number(unitCostText);
-      return (
-        !Number.isInteger(Number(item.quantity)) ||
-        Number(item.quantity) > item.pending ||
-        !unitCostText ||
-        !Number.isFinite(unitCost) ||
-        unitCost <= 0
-      );
-    });
-    if (invalid) return setError(`Revisa cantidad y costo de ${invalid.name}.`);
+    const validation = validatePurchaseReceiptForm({ reference, notes, receivable });
+    if (!validation.valid) {
+      setError(validation.firstError || 'Revisa los datos de la recepción.');
+      return;
+    }
 
+    const selected = receivable.filter((item) => Number(item.quantity) > 0);
     setLoading(true);
     setError('');
     try {
@@ -96,7 +88,7 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
           })),
       });
     } catch (err) {
-      setError(err?.message || 'No se pudo registrar la recepción.');
+      setError(getApiErrorMessage(err, 'No se pudo registrar la recepción.'));
     } finally {
       setLoading(false);
     }

@@ -3,9 +3,10 @@
  */
 
 import express from 'express';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { paginationQuery } from '../utils/validation.js';
 import * as productController from '../controllers/product.controller.js';
 
 const router = express.Router();
@@ -105,13 +106,29 @@ const importValidation = [
   body('rows.*.name').trim().notEmpty().withMessage('Cada fila debe tener nombre.'),
 ];
 
+const listValidation = [
+  query('active').optional().isIn(['true', 'false']).withMessage('Filtro active no válido.'),
+  query('lowStock').optional().isIn(['true', 'false']).withMessage('Filtro lowStock no válido.'),
+  query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
+  query('categoryId')
+    .optional({ checkFalsy: true })
+    .isInt({ min: 1 })
+    .withMessage('Categoría no válida.'),
+  ...paginationQuery({ maxLimit: 500 }),
+];
+
+const movementsListValidation = [
+  idParam,
+  ...paginationQuery({ maxLimit: 100 }),
+];
+
 router.use(auth);
 router.use(authorize('admin'));
 
 router.post('/import', importValidation, validate, productController.importProducts);
 router.post('/movements/:movementId/void', voidMovementValidation, validate, productController.voidMovement);
-router.get('/', productController.getAll);
-router.get('/:id/movements', idParam, validate, productController.getMovements);
+router.get('/', listValidation, validate, productController.getAll);
+router.get('/:id/movements', movementsListValidation, validate, productController.getMovements);
 router.get('/:id/dossier', idParam, validate, productController.getDossier);
 router.get('/:id', idParam, validate, productController.getById);
 router.post('/', createValidation, validate, productController.create);

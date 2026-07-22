@@ -11,6 +11,7 @@ import {
   reverseMovementAtomic,
   runSerializable,
 } from './inventory.helpers.js';
+import { assertVoidReason, normalizeOptionalAppointmentId } from './payment.rules.js';
 
 const REFERENCE_PREFIX = 'MKP';
 
@@ -251,7 +252,7 @@ export const create = async (data) => {
     throw err;
   }
 
-  const appointmentId = data.appointmentId ? parseInt(data.appointmentId, 10) : null;
+  const appointmentId = normalizeOptionalAppointmentId(data.appointmentId);
   const productId = data.productId ? parseInt(data.productId, 10) : null;
   const paymentMethodId = data.paymentMethodId ? parseInt(data.paymentMethodId, 10) : null;
   const productQuantity =
@@ -286,6 +287,15 @@ export const create = async (data) => {
       throw err;
     }
     if (appointmentId) {
+      const appointment = await tx.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { id: true },
+      });
+      if (!appointment) {
+        const err = new Error('La cita indicada no existe.');
+        err.statusCode = 404;
+        throw err;
+      }
       const existingForAppointment = await tx.payment.findFirst({
         where: { appointmentId, voidedAt: null },
         select: { id: true, reference: true },
@@ -374,6 +384,7 @@ const paymentIncludeForRow = {
  * Anula un pago (no borra el registro). Si era venta de inventario, devuelve el stock.
  */
 export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
+  const reason = assertVoidReason(voidReason);
   const pid = parseInt(id, 10);
   return runSerializable(prisma, async (tx) => {
     await tx.$queryRaw(
@@ -401,7 +412,7 @@ export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
       });
       if (movement) {
         await reverseMovementAtomic(tx, movement, {
-          voidReason,
+          voidReason: reason,
           voidedBy: voidedBy ? parseInt(voidedBy, 10) : null,
           notes: `Devolución por anulación de pago #${pid}`,
         });
@@ -423,7 +434,7 @@ export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
       where: { id: pid, voidedAt: null },
       data: {
         voidedAt: new Date(),
-        voidReason: voidReason?.trim() ? voidReason.trim().slice(0, 500) : null,
+        voidReason: reason,
         voidedBy: voidedBy ? parseInt(voidedBy, 10) : null,
       },
     });

@@ -32,9 +32,7 @@ export default function VoidPaymentModal({ payment, onClose, onConfirm, isSubmit
           {payment.product_id ? ' El stock del producto volverá al inventario.' : ''}
         </p>
 
-        <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-          Motivo (opcional)
-        </label>
+        <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -55,8 +53,8 @@ export default function VoidPaymentModal({ payment, onClose, onConfirm, isSubmit
           </button>
           <button
             type="button"
-            disabled={isSubmitting}
-            onClick={() => onConfirm(reason.trim() || undefined)}
+            disabled={isSubmitting || !reason.trim()}
+            onClick={() => onConfirm(reason.trim())}
             className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5"
           >
             {isSubmitting ? (

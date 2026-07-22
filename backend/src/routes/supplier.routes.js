@@ -2,6 +2,7 @@ import express from 'express';
 import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { optionalPhoneField, optionalTaxIdField } from '../utils/validation.js';
 import * as supplierController from '../controllers/supplier.controller.js';
 
 const router = express.Router();
@@ -15,20 +16,28 @@ const listValidation = [
 
 const fields = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
-  body('taxId').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 50 }),
+  optionalTaxIdField('taxId'),
   body('contactName').optional({ nullable: true }).trim().isLength({ max: 150 }),
-  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().normalizeEmail(),
-  body('phone').optional({ nullable: true }).trim().isLength({ max: 30 }),
+  body('email')
+    .optional({ nullable: true, checkFalsy: true })
+    .isEmail()
+    .withMessage('Ingresa un correo válido.')
+    .normalizeEmail(),
+  optionalPhoneField('phone'),
   body('address').optional({ nullable: true }).trim().isLength({ max: 500 }),
   body('notes').optional({ nullable: true }).trim().isLength({ max: 1000 }),
 ];
 
 const updateFields = [
-  body('name').optional().trim().notEmpty().isLength({ max: 150 }),
-  body('taxId').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 50 }),
+  body('name').optional().trim().notEmpty().withMessage('El nombre no puede quedar vacío.').isLength({ max: 150 }),
+  optionalTaxIdField('taxId'),
   body('contactName').optional({ nullable: true }).trim().isLength({ max: 150 }),
-  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().normalizeEmail(),
-  body('phone').optional({ nullable: true }).trim().isLength({ max: 30 }),
+  body('email')
+    .optional({ nullable: true, checkFalsy: true })
+    .isEmail()
+    .withMessage('Ingresa un correo válido.')
+    .normalizeEmail(),
+  optionalPhoneField('phone'),
   body('address').optional({ nullable: true }).trim().isLength({ max: 500 }),
   body('notes').optional({ nullable: true }).trim().isLength({ max: 1000 }),
   body('isActive').optional().isBoolean(),

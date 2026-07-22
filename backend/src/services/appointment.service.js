@@ -16,6 +16,7 @@ import {
   isManualAdminStatus,
   resolveAutomaticStatus,
 } from './appointmentStatusAutomation.js';
+import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
 /** Días hacia atrás que revisa el job de estados (citas confirmadas sin actualizar). */
 export const STATUS_SYNC_LOOKBACK_DAYS = 30;
@@ -439,17 +440,14 @@ export const create = async (data) => {
   const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
   const servicesLabel = orderedServices.map((s) => s.name).join(', ');
 
-  const start = typeof startTime === 'string' && startTime ? startTime : '09:00';
-  const parts = start.split(':');
-  const h = parseInt(parts[0], 10) || 9;
-  const m = parseInt(parts[1], 10) || 0;
-  const startMinutes = h * 60 + m;
+  const parsedStart = parseClockTime(startTime, { required: true });
+  const startMinutes = parsedStart.totalMinutes;
   const endMinutes = startMinutes + duration;
   const endH = Math.floor(endMinutes / 60);
   const endM = endMinutes % 60;
   const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
 
-  const startDate = new Date(`1970-01-01T${start.length === 5 ? `${start}:00` : start}Z`);
+  const startDate = clockTimeToDate(parsedStart);
   const endDate = new Date(`1970-01-01T${endTime}Z`);
 
   await assertNoOverlap({
@@ -506,8 +504,8 @@ export const update = async (id, data, existingAppointment = null) => {
 
   let nextStartTime = existing.startTime;
   if (data.startTime !== undefined) {
-    const s = typeof data.startTime === 'string' && data.startTime ? data.startTime : toTimeStr(existing.startTime);
-    nextStartTime = new Date(`1970-01-01T${s.length === 5 ? `${s}:00` : s}Z`);
+    const parsed = parseClockTime(data.startTime, { required: true });
+    nextStartTime = clockTimeToDate(parsed);
   }
 
   const timingChanged =
@@ -517,12 +515,9 @@ export const update = async (id, data, existingAppointment = null) => {
 
   let nextEndTime = existing.endTime;
   if (timingChanged) {
-    const startStr = toTimeStr(nextStartTime);
-    const parts = startStr.split(':');
-    const h = parseInt(parts[0], 10) || 9;
-    const m = parseInt(parts[1], 10) || 0;
+    const parsedStart = parseClockTime(toTimeStr(nextStartTime), { required: true });
     const duration = Number(service.durationMinutes);
-    const endMinutes = h * 60 + m + duration;
+    const endMinutes = parsedStart.totalMinutes + duration;
     const endH = Math.floor(endMinutes / 60);
     const endM = endMinutes % 60;
     const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
