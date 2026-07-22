@@ -3,9 +3,9 @@
  * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Star, Plus, ArrowRight, Pencil } from 'lucide-react';
+import { Star, Plus, ArrowRight, Pencil, Clock, User, Ban, CalendarDays } from 'lucide-react';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as barberService from '@/features/barbers/services/barberService';
 import { useAuth } from '@/shared/contexts/AuthContext';
@@ -18,6 +18,7 @@ import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/componen
 import AppointmentForm from '@/features/appointments/components/AppointmentForm';
 import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
+import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 import {
   getEffectiveAppointmentStatus,
   canConfirmAppointment,
@@ -34,8 +35,37 @@ import {
 } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const CLIENT_PAGE_SIZE_OPTIONS = [3, 6, 9, 12];
+/** Altura estimada de una tarjeta en la grilla cliente. */
+const CLIENT_CARD_ESTIMATE_PX = 152;
 
-function AppointmentsPagination({ total, page, pageSize, onPageChange, onPageSizeChange, itemLabel = 'citas' }) {
+/** Filtro de estado en vista cliente → valores API (coma = OR). */
+const CLIENT_STATUS_FILTER_OPTIONS = [
+  { id: 'scheduled', label: 'Agendada', apiStatus: 'scheduled,confirmed,in_progress' },
+  { id: 'completed', label: 'Completada', apiStatus: 'completed' },
+  { id: 'cancelled', label: 'Cancelada', apiStatus: 'cancelled' },
+];
+
+function clientStatusApiParam(filterId) {
+  return CLIENT_STATUS_FILTER_OPTIONS.find((o) => o.id === filterId)?.apiStatus || '';
+}
+
+function clientGridCols(width) {
+  if (width >= 1024) return 3;
+  if (width >= 640) return 2;
+  return 1;
+}
+
+function AppointmentsPagination({
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  itemLabel = 'citas',
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
+  className = '',
+}) {
   return (
     <AdminPagination
       idPrefix="appointments"
@@ -44,11 +74,90 @@ function AppointmentsPagination({ total, page, pageSize, onPageChange, onPageSiz
       total={total}
       onPageChange={onPageChange}
       onPageSizeChange={onPageSizeChange}
-      pageSizeOptions={PAGE_SIZE_OPTIONS}
+      pageSizeOptions={pageSizeOptions}
       itemLabel={itemLabel}
       showSummary
       layout="bar"
+      className={className}
     />
+  );
+}
+
+/** Barra de filtros/paginación a ancho completo (vista cliente). */
+function ClientAppointmentsToolbar({
+  filterStatus,
+  onFilterStatusChange,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const isDisabled = total <= 0;
+
+  return (
+    <div className="w-full flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4 pb-3 border-b border-stone-200/80 animate-fade-in">
+      <FilterSelect
+        id="client-appointments-status"
+        label="Estado"
+        value={filterStatus}
+        onChange={onFilterStatusChange}
+        ariaLabel="Filtrar citas por estado"
+        className="w-full sm:w-48 lg:w-52 shrink-0"
+        options={CLIENT_STATUS_FILTER_OPTIONS.map(({ id, label }) => ({ id, label }))}
+      />
+
+      <p className="text-xs sm:text-sm text-stone-500 font-semibold lg:flex-1 lg:text-center lg:pb-2.5 order-last lg:order-none">
+        Página {safePage} de {totalPages} · {total} citas
+      </p>
+
+      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full lg:w-auto lg:ml-auto shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <label htmlFor="client-appointments-page-size" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+            Por página
+          </label>
+          <select
+            id="client-appointments-page-size"
+            value={String(pageSize)}
+            disabled={isDisabled}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="h-9 min-w-[4.5rem] rounded-lg border border-stone-200 bg-white px-2 text-sm font-medium text-stone-800 focus:border-gold/50 focus:ring-2 focus:ring-gold/25 outline-none disabled:opacity-50"
+          >
+            {(CLIENT_PAGE_SIZE_OPTIONS.includes(pageSize)
+              ? CLIENT_PAGE_SIZE_OPTIONS
+              : [...CLIENT_PAGE_SIZE_OPTIONS, pageSize].sort((a, b) => a - b)
+            ).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
+          <button
+            type="button"
+            disabled={isDisabled || safePage <= 1}
+            onClick={() => onPageChange(Math.max(1, safePage - 1))}
+            className="h-9 px-3 rounded-lg border border-stone-200 bg-white text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          >
+            Anterior
+          </button>
+          <span className="text-sm font-semibold text-stone-800 tabular-nums min-w-[2.75rem] text-center">
+            {safePage}/{totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={isDisabled || safePage >= totalPages}
+            onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
+            className="h-9 px-3 rounded-lg border border-stone-200 bg-white text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -63,6 +172,96 @@ function EditAppointmentButton({ onClick, className = '' }) {
     >
       <Pencil className="w-4 h-4" strokeWidth={2} aria-hidden />
     </button>
+  );
+}
+
+function CancelAppointmentButton({ onClick, className = '', disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-xl border border-red-200 bg-white text-red-600 text-xs sm:text-sm font-medium shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 ${className}`}
+      aria-label="Cancelar cita"
+      title="Cancelar cita"
+    >
+      <Ban className="w-4 h-4" strokeWidth={2} aria-hidden />
+      <span className="whitespace-nowrap">Cancelar</span>
+    </button>
+  );
+}
+
+function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirming }) {
+  if (!appointment) return null;
+
+  const serviceName = appointment.service_name || 'Servicio';
+  const dateLabel = formatAppointmentCalendarDate(appointment.appointment_date);
+  const timeLabel = formatAppointmentClockTime(appointment.start_time);
+
+  return (
+    <AdminModalShell
+      open={open}
+      onClose={onClose}
+      title="¿Deseas cancelar esta cita?"
+      size="sm"
+      preventClose={confirming}
+      panelClassName="animate-fade-in-up"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 w-full">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={confirming}
+            className="btn-outline w-full sm:w-auto"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            data-autofocus
+            onClick={onConfirm}
+            disabled={confirming}
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-60"
+          >
+            {confirming ? 'Cancelando…' : 'Sí, cancelar cita'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1">Servicio</p>
+          <p className="font-serif text-lg sm:text-xl font-semibold text-stone-900 leading-snug">
+            {serviceName}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 flex items-center gap-1">
+              <CalendarDays className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
+              Fecha
+            </p>
+            <p className="text-sm sm:text-base font-semibold text-stone-900 capitalize leading-snug">
+              {dateLabel}
+            </p>
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
+              Hora
+            </p>
+            <p className="text-sm sm:text-base font-semibold text-stone-900 tabular-nums leading-snug">
+              {timeLabel}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-sm text-stone-600 leading-relaxed">
+          Esta acción marcará la cita como cancelada. Podrás agendar una nueva cuando quieras.
+        </p>
+      </div>
+    </AdminModalShell>
   );
 }
 
@@ -194,11 +393,15 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState(null);
-  const [cancelConfirmId, setCancelConfirmId] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('scheduled');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(6);
   const [formView, setFormView] = useState(null);
   const [clock, setClock] = useState(() => new Date());
+  const clientListRef = useRef(null);
+  const pageSizeManualRef = useRef(false);
 
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
@@ -217,6 +420,8 @@ export default function AppointmentsPage() {
       if (isBarber && user?.barberId) params.barberId = user.barberId;
       if (isClient) {
         params.clientId = user?.clientId;
+        const statusParam = clientStatusApiParam(filterStatus);
+        if (statusParam) params.status = statusParam;
       }
       const data = await appointmentService.getAppointments(params);
       setAppointments(data.appointments ?? []);
@@ -242,11 +447,11 @@ export default function AppointmentsPage() {
     if (isBarber && !user?.barberId) return;
     if (isClient && !user?.clientId) return;
     fetchAppointments();
-  }, [filterDate, filterBarber, user?.barberId, user?.clientId, page, pageSize]);
+  }, [filterDate, filterBarber, filterStatus, user?.barberId, user?.clientId, page, pageSize]);
 
   useEffect(() => {
     setPage(1);
-  }, [filterDate, filterBarber, pageSize, isClient, isAdmin, isBarber]);
+  }, [filterDate, filterBarber, filterStatus, pageSize, isClient, isAdmin, isBarber]);
 
   useEffect(() => {
     const tick = window.setInterval(() => setClock(new Date()), 10_000);
@@ -294,11 +499,18 @@ export default function AppointmentsPage() {
   const handleStatusChange = async (id, newStatus) => {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus });
-      setCancelConfirmId(null);
-      fetchAppointments();
+      setCancelTarget(null);
+      setCancelling(false);
+
       if (isClient && newStatus === 'cancelled') {
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, status: 'cancelled' } : a))
+        );
         setSuccessMessage('Cita cancelada correctamente.');
+        return;
       }
+
+      fetchAppointments();
       if (isAdmin && newStatus === 'confirmed') {
         setSuccessMessage('Cita confirmada.');
       }
@@ -309,6 +521,7 @@ export default function AppointmentsPage() {
         setSuccessMessage('Cita cancelada.');
       }
     } catch (err) {
+      setCancelling(false);
       setError(err?.message || 'Error al actualizar');
     }
   };
@@ -325,11 +538,47 @@ export default function AppointmentsPage() {
 
   const handleCancelClick = (id) => {
     if (isClient) {
-      setCancelConfirmId(id);
+      const target = appointments.find((a) => a.id === id) || null;
+      setCancelTarget(target);
     } else {
       handleStatusChange(id, 'cancelled');
     }
   };
+
+  const handleClientCancelConfirm = async () => {
+    if (!cancelTarget?.id) return;
+    setCancelling(true);
+    await handleStatusChange(cancelTarget.id, 'cancelled');
+  };
+
+  const handleClientPageSizeChange = useCallback((next) => {
+    pageSizeManualRef.current = true;
+    setPageSize(next);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || formView != null) return undefined;
+    const el = clientListRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+
+    const measure = () => {
+      if (pageSizeManualRef.current) return;
+      const height = el.clientHeight;
+      const width = el.clientWidth;
+      if (height < 80 || width < 80) return;
+      const cols = clientGridCols(width);
+      const rows = Math.max(1, Math.floor(height / CLIENT_CARD_ESTIMATE_PX));
+      const fit = Math.max(cols, rows * cols);
+      const auto =
+        [...CLIENT_PAGE_SIZE_OPTIONS].reverse().find((n) => n <= fit) || CLIENT_PAGE_SIZE_OPTIONS[0];
+      setPageSize((prev) => (prev === auto ? prev : auto));
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isClient, formView, loading, appointments.length]);
 
   const formatTime = formatAppointmentClockTime;
 
@@ -372,11 +621,11 @@ export default function AppointmentsPage() {
     <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />
   );
 
-  // ——— Vista cliente: diseño premium y sencillo ———
+  // ——— Vista cliente: pantalla completa, sin scroll de página ———
   if (isClient) {
     if (isFormOpen) {
       return (
-        <div className="min-h-[calc(100vh-4.5rem)] bg-stone-50">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-stone-50">
           <div className="container mx-auto max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="mb-4">
               <AdminBackNav label="Volver" onClick={() => setFormView(null)} />
@@ -389,147 +638,179 @@ export default function AppointmentsPage() {
     }
 
     return (
-      <div className="min-h-[60vh] bg-stone-50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className="max-w-2xl mx-auto">
-            <p className="section-label text-gold">Reservas</p>
-            <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight mb-2">
-              Mis citas
-            </h1>
-            <p className="text-stone-500 mb-8">
-              Aquí ves todas tus citas. Puedes agendar una nueva cuando quieras.
-            </p>
-
+      <div className="flex-1 min-h-0 flex flex-col bg-stone-50 overflow-hidden">
+        <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-5 flex-1 min-h-0 flex flex-col">
+          <header className="shrink-0 mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6">
+            <div className="min-w-0">
+              <p className="section-label text-gold">Reservas</p>
+              <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 font-medium tracking-tight mb-1">
+                Mis citas
+              </h1>
+              <p className="text-stone-500 text-sm sm:text-base max-w-xl">
+                Aquí ves todas tus citas. Puedes agendar una nueva cuando quieras.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setFormView('create')}
-              className="inline-flex items-center gap-2 w-full sm:w-auto justify-center px-6 py-3.5 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors mb-8"
+              className="inline-flex items-center gap-2 w-full sm:w-auto justify-center shrink-0 px-5 py-2.5 sm:px-6 sm:py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors"
             >
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Agendar nueva cita
             </button>
+          </header>
 
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="shrink-0 mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+              {error}
+            </div>
+          )}
 
-            <AppointmentsPagination
+          <div className="shrink-0 mb-3">
+            <ClientAppointmentsToolbar
+              filterStatus={filterStatus}
+              onFilterStatusChange={(next) => {
+                pageSizeManualRef.current = false;
+                setFilterStatus(next);
+              }}
               total={total}
               page={page}
               pageSize={pageSize}
               onPageChange={setPage}
-              onPageSizeChange={setPageSize}
+              onPageSizeChange={handleClientPageSizeChange}
             />
+          </div>
 
+          <div
+            ref={clientListRef}
+            className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden transition-opacity duration-300"
+            key={filterStatus}
+          >
             {loading ? (
-              <div className="py-16 text-center">
+              <div className="py-12 text-center">
                 <p className="text-stone-500">Cargando tus citas...</p>
               </div>
             ) : appointments.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-10 sm:p-14 text-center">
-                <p className="text-stone-500 mb-6">Aún no tienes citas agendadas.</p>
-                <button
-                  type="button"
-                  onClick={() => setFormView('create')}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
-                >
-                  Agendar mi primera cita
-                  <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                </button>
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-8 sm:p-10 text-center animate-fade-in max-w-lg mx-auto">
+                <p className="text-stone-500 mb-5">
+                  {filterStatus === 'scheduled'
+                    ? 'No tienes citas agendadas.'
+                    : filterStatus === 'completed'
+                      ? 'No tienes citas completadas.'
+                      : 'No tienes citas canceladas.'}
+                </p>
+                {filterStatus === 'scheduled' && (
+                  <button
+                    type="button"
+                    onClick={() => setFormView('create')}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
+                  >
+                    Agendar mi primera cita
+                    <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                  </button>
+                )}
               </div>
             ) : (
-              <ul className="space-y-4">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start h-full md:overflow-hidden">
                 {appointments.map((a) => {
                   const noteText = appointmentNotesOf(a);
+                  const effectiveStatus = getEffectiveAppointmentStatus(a, clock);
+                  const canAct = !['cancelled', 'no_show', 'completed'].includes(a.status);
                   return (
-                  <li key={a.id}>
-                    <article className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:shadow-card-hover hover:border-stone-300 transition-all duration-300">
-                      <div className="p-5 sm:p-6">
-                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_BADGE_CLASS[getEffectiveAppointmentStatus(a, clock)] || 'bg-stone-100 text-stone-700'}`}>
-                            {STATUS_LABELS[getEffectiveAppointmentStatus(a, clock)] || a.status}
-                          </span>
-                          <div className="flex flex-col items-end gap-2 shrink-0 text-right">
+                    <li key={a.id} className="min-w-0 animate-fade-in">
+                      <article className="h-full bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:border-stone-300 transition-all duration-300 flex flex-col">
+                        <div className="px-4 py-3 sm:px-4 sm:py-3.5 flex flex-col flex-1 min-h-0">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span
+                              className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                STATUS_BADGE_CLASS[effectiveStatus] || 'bg-stone-100 text-stone-700 border-stone-200'
+                              }`}
+                            >
+                              {STATUS_LABELS[effectiveStatus] || a.status}
+                            </span>
                             <time
-                              className="text-sm text-stone-500"
+                              className="text-xs sm:text-sm text-stone-500 tabular-nums shrink-0"
                               dateTime={extractAppointmentDateYmd(a.appointment_date) || undefined}
                             >
                               {formatAppointmentCalendarDate(a.appointment_date)}
                             </time>
-                            {!['cancelled', 'no_show', 'completed'].includes(a.status) && (
-                              <div className="flex flex-wrap items-center justify-end gap-2">
-                                <EditAppointmentButton onClick={() => openEditForm(a.id)} />
-                                {cancelConfirmId === a.id ? (
-                                  <div className="flex flex-wrap items-center justify-end gap-2">
-                                    <span className="text-sm text-stone-600">¿Cancelar?</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleStatusChange(a.id, 'cancelled')}
-                                      className="text-sm font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-                                    >
-                                      Sí
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setCancelConfirmId(null)}
-                                      className="text-sm font-medium text-stone-600 hover:text-stone-800 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 transition-colors"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCancelClick(a.id)}
-                                    className="text-sm text-red-600 hover:text-red-700 font-medium whitespace-nowrap"
-                                  >
-                                    Cancelar esta cita
-                                  </button>
-                                )}
-                              </div>
-                            )}
                           </div>
-                        </div>
-                        <p className="font-semibold text-stone-900 text-lg">
-                          {a.service_name}
-                        </p>
-                        <p className="text-stone-600 text-sm mt-1">
-                          {formatTime(a.start_time)} · {a.barber_first_name} {a.barber_last_name}
-                        </p>
-                        {noteText ? (
-                          <AppointmentNoteBlock
-                            text={noteText}
-                            maxLength={160}
-                            className="text-stone-600 text-sm mt-3 pl-3 border-l-2 border-gold/35"
-                          />
-                        ) : null}
-                        {a.status === 'completed' && clientRatingOf(a) == null && (
-                          <ClientAppointmentRatingForm appointmentId={a.id} onSuccess={fetchAppointments} />
-                        )}
-                        {a.status === 'completed' && clientRatingOf(a) != null && (
-                          <div className="mt-4 pt-4 border-t border-stone-100">
-                            <p className="text-sm text-stone-600 inline-flex flex-wrap items-center gap-1">
-                              <span>Tu valoración:</span>
-                              <RatingStars value={clientRatingOf(a)} sizeClass="w-4 h-4" />
-                            </p>
-                            {clientRatingCommentOf(a) ? (
-                              <p className="text-sm text-stone-500 mt-1 italic">
-                                "{clientRatingCommentOf(a)}"
+
+                          {canAct && (
+                            <div className="flex items-center justify-end gap-2 mb-2">
+                              <EditAppointmentButton onClick={() => openEditForm(a.id)} />
+                              <CancelAppointmentButton onClick={() => handleCancelClick(a.id)} />
+                            </div>
+                          )}
+
+                          <p className="font-semibold text-stone-900 text-sm sm:text-base leading-snug line-clamp-2">
+                            {a.service_name}
+                          </p>
+                          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-stone-600 text-xs sm:text-sm">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" strokeWidth={2} aria-hidden />
+                              {formatTime(a.start_time)}
+                            </span>
+                            <span className="text-stone-300" aria-hidden>
+                              ·
+                            </span>
+                            <span className="inline-flex items-center gap-1 min-w-0">
+                              <User className="w-3.5 h-3.5 text-stone-400 shrink-0" strokeWidth={2} aria-hidden />
+                              <span className="truncate">
+                                {a.barber_first_name} {a.barber_last_name}
+                              </span>
+                            </span>
+                          </p>
+
+                          {noteText ? (
+                            <AppointmentNoteBlock
+                              text={noteText}
+                              maxLength={80}
+                              className="text-stone-600 text-xs sm:text-sm mt-2 pl-2.5 border-l-2 border-gold/35 line-clamp-2"
+                            />
+                          ) : null}
+
+                          {a.status === 'completed' && clientRatingOf(a) == null && (
+                            <div className="mt-auto pt-2">
+                              <ClientAppointmentRatingForm
+                                appointmentId={a.id}
+                                onSuccess={() => fetchAppointments()}
+                              />
+                            </div>
+                          )}
+                          {a.status === 'completed' && clientRatingOf(a) != null && (
+                            <div className="mt-auto pt-2 border-t border-stone-100">
+                              <p className="text-xs sm:text-sm text-stone-600 inline-flex flex-wrap items-center gap-1">
+                                <span>Tu valoración:</span>
+                                <RatingStars value={clientRatingOf(a)} sizeClass="w-3.5 h-3.5" />
                               </p>
-                            ) : null}
-                          </div>
-                        )}
-                      </div>
-                    </article>
-                  </li>
-                );
+                              {clientRatingCommentOf(a) ? (
+                                <p className="text-xs text-stone-500 mt-1 italic line-clamp-2">
+                                  "{clientRatingCommentOf(a)}"
+                                </p>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    </li>
+                  );
                 })}
               </ul>
             )}
           </div>
         </div>
+
+        <CancelAppointmentModal
+          appointment={cancelTarget}
+          open={Boolean(cancelTarget)}
+          onClose={() => {
+            if (cancelling) return;
+            setCancelTarget(null);
+          }}
+          onConfirm={handleClientCancelConfirm}
+          confirming={cancelling}
+        />
         {successToast}
       </div>
     );

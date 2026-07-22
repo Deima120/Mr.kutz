@@ -31,6 +31,9 @@ export default function MainLayout() {
 
   const isAdminOrBarber = isAuthenticated && (user?.role === 'admin' || user?.role === 'barber');
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+  const isClientAppointments =
+    isAuthenticated && user?.role === 'client' && location.pathname.startsWith('/appointments');
+  const fillMainViewport = isAuthPage || isClientAppointments;
 
   const closeMobile = () => setMobileMenuOpen(false);
   const profileInitial = (user?.firstName || user?.email || 'U').trim().charAt(0).toUpperCase();
@@ -283,11 +286,11 @@ export default function MainLayout() {
         )}
       </header>
 
-      <main className={isAuthPage ? 'flex-1 flex flex-col min-h-0' : 'flex-1'}>
+      <main className={fillMainViewport ? 'flex-1 flex flex-col min-h-0' : 'flex-1'}>
         <Outlet />
       </main>
 
-      {isAuthPage ? (
+      {isClientAppointments ? null : isAuthPage ? (
         <footer className="shrink-0 border-t border-stone-200 bg-stone-50 py-3 text-center text-xs text-stone-500">
           © {new Date().getFullYear()} {businessName}
         </footer>
