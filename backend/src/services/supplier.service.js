@@ -49,6 +49,7 @@ export const getAll = async ({ search = '', active, limit = 50, offset = 0 } = {
             { name: { contains: term, mode: 'insensitive' } },
             { contactName: { contains: term, mode: 'insensitive' } },
             { email: { contains: term, mode: 'insensitive' } },
+            { taxId: { contains: term, mode: 'insensitive' } },
           ],
         }
       : {}),

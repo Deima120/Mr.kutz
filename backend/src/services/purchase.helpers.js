@@ -14,10 +14,10 @@ function requiredPositiveInteger(value, field) {
   return parsed;
 }
 
-function requiredNonNegativeAmount(value, field) {
+function requiredPositiveAmount(value, field) {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw validationError(`${field} debe ser un número mayor o igual a cero.`);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw validationError(`${field} debe ser un número mayor que cero.`);
   }
   return Number(parsed.toFixed(2));
 }
@@ -41,7 +41,7 @@ export function normalizeOrderItems(items) {
     }
     seenProducts.add(productId);
     const quantity = requiredPositiveInteger(item.quantity, `items[${index}].quantity`);
-    const unitCost = requiredNonNegativeAmount(item.unitCost, `items[${index}].unitCost`);
+    const unitCost = requiredPositiveAmount(item.unitCost, `items[${index}].unitCost`);
     return {
       productId,
       quantity,
@@ -64,10 +64,10 @@ export function normalizeReceiptItems(items) {
     }
     seenPurchaseItems.add(purchaseItemId);
     const quantity = requiredPositiveInteger(item.quantity, `items[${index}].quantity`);
-    const unitCost =
-      item.unitCost == null || item.unitCost === ''
-        ? null
-        : requiredNonNegativeAmount(item.unitCost, `items[${index}].unitCost`);
+    const unitCost = requiredPositiveAmount(
+      item.unitCost,
+      `items[${index}].unitCost`
+    );
     return { purchaseItemId, quantity, unitCost };
   });
 }

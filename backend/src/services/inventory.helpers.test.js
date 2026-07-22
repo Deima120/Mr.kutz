@@ -87,6 +87,7 @@ describe('weightedAverageCost', () => {
 
   it('rechaza costos inválidos', () => {
     assert.equal(weightedAverageCost(5, 10, 2, -1), null);
+    assert.equal(weightedAverageCost(5, 10, 2, 0), null);
     assert.equal(weightedAverageCost(5, 10, 2, Number.NaN), null);
   });
 });

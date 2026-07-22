@@ -81,15 +81,3 @@ export const receive = async (req, res, next) => {
     next(error);
   }
 };
-
-export const voidPurchase = async (req, res, next) => {
-  try {
-    const data = await purchaseService.voidPurchase(req.params.id, {
-      voidReason: req.body?.voidReason,
-      voidedBy: req.user?.id,
-    });
-    res.json({ success: true, message: 'Orden cancelada correctamente.', data });
-  } catch (error) {
-    next(error);
-  }
-};

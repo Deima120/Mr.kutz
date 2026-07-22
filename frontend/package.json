@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "node --test src/features/inventory/utils/kardexPagination.test.js src/features/inventory/utils/productFormatters.test.js src/features/inventory/models/productFormPayload.test.js",
     "list-cortes": "node scripts/list-cortes.js"
   },
   "dependencies": {

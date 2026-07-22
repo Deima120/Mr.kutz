@@ -14,7 +14,7 @@ describe('normalizeOrderItems', () => {
     );
   });
 
-  it('rechaza productos repetidos, costos negativos y más de 100 artículos', () => {
+  it('rechaza productos repetidos, costos no positivos y más de 100 artículos', () => {
     assert.throws(
       () =>
         normalizeOrderItems([
@@ -25,7 +25,11 @@ describe('normalizeOrderItems', () => {
     );
     assert.throws(
       () => normalizeOrderItems([{ productId: 1, quantity: 1, unitCost: -1 }]),
-      /mayor o igual a cero/
+      /mayor que cero/
+    );
+    assert.throws(
+      () => normalizeOrderItems([{ productId: 1, quantity: 1, unitCost: 0 }]),
+      /mayor que cero/
     );
     assert.throws(
       () =>
@@ -42,29 +46,37 @@ describe('normalizeOrderItems', () => {
 });
 
 describe('normalizeReceiptItems', () => {
-  it('acepta costo opcional y nombres snake_case legacy', () => {
+  it('acepta costo positivo y nombres snake_case legacy', () => {
     assert.deepEqual(
       normalizeReceiptItems([
-        { purchase_item_id: '8', quantity: '2' },
-        { purchaseItemId: 9, quantity: 1, unitCost: 0 },
+        { purchase_item_id: '8', quantity: '2', unitCost: 4.5 },
+        { purchaseItemId: 9, quantity: 1, unitCost: 2 },
       ]),
       [
-        { purchaseItemId: 8, quantity: 2, unitCost: null },
-        { purchaseItemId: 9, quantity: 1, unitCost: 0 },
+        { purchaseItemId: 8, quantity: 2, unitCost: 4.5 },
+        { purchaseItemId: 9, quantity: 1, unitCost: 2 },
       ]
     );
   });
 
-  it('rechaza cantidades no positivas y líneas repetidas', () => {
+  it('rechaza cantidades/costos no positivos y líneas repetidas', () => {
     assert.throws(
       () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 0 }]),
       /entero positivo/
     );
     assert.throws(
+      () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 1, unitCost: '' }]),
+      /mayor que cero/
+    );
+    assert.throws(
+      () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 1, unitCost: 0 }]),
+      /mayor que cero/
+    );
+    assert.throws(
       () =>
         normalizeReceiptItems([
-          { purchaseItemId: 1, quantity: 1 },
-          { purchaseItemId: 1, quantity: 1 },
+          { purchaseItemId: 1, quantity: 1, unitCost: 2 },
+          { purchaseItemId: 1, quantity: 1, unitCost: 2 },
         ]),
       /repetido/
     );

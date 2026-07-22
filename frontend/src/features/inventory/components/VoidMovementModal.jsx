@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Ban } from 'lucide-react';
+import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 
 export default function VoidMovementModal({ movement, onClose, onConfirm, isSubmitting }) {
   const [reason, setReason] = useState('');
@@ -10,40 +11,20 @@ export default function VoidMovementModal({ movement, onClose, onConfirm, isSubm
 
   if (!movement) return null;
 
-  const qty = movement.quantity_change ?? 0;
+  const qty = movement.quantityChange ?? movement.quantity_change ?? 0;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl p-5 max-w-md w-full relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" aria-hidden />
-
-        <div className="w-11 h-11 bg-amber-50 border border-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-3">
-          <Ban className="w-5 h-5" aria-hidden />
-        </div>
-
-        <h3 className="font-serif text-lg font-semibold text-stone-900 text-center mb-1">
-          ¿Anular este ajuste?
-        </h3>
-        <p className="text-stone-500 text-xs text-center mb-4">
-          Movimiento <strong className="text-stone-800">#{movement.id}</strong> ·{' '}
-          <strong className={qty >= 0 ? 'text-emerald-700' : 'text-red-700'}>
-            {qty >= 0 ? '+' : ''}
-            {qty}
-          </strong>{' '}
-          unidades. Se revertirá el stock automáticamente.
-        </p>
-
-        <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={3}
-          maxLength={500}
-          placeholder="Ej. error de digitación, conteo incorrecto…"
-          className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-gold focus:ring-2 focus:ring-gold/30 outline-none resize-none"
-        />
-
-        <div className="flex gap-2 mt-4">
+    <AdminModalShell
+      open
+      onClose={() => !isSubmitting && onClose()}
+      title="¿Anular este ajuste?"
+      size="md"
+      zIndexClass="z-[60]"
+      showClose={false}
+      preventClose={isSubmitting}
+      closeOnBackdrop={!isSubmitting}
+      footer={
+        <div className="flex gap-2">
           <button
             type="button"
             disabled={isSubmitting}
@@ -68,7 +49,29 @@ export default function VoidMovementModal({ movement, onClose, onConfirm, isSubm
             )}
           </button>
         </div>
+      }
+    >
+      <div className="w-11 h-11 bg-amber-50 border border-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-3">
+        <Ban className="w-5 h-5" aria-hidden />
       </div>
-    </div>
+      <p className="text-stone-500 text-xs text-center mb-4">
+        Movimiento <strong className="text-stone-800">#{movement.id}</strong> ·{' '}
+        <strong className={qty >= 0 ? 'text-emerald-700' : 'text-red-700'}>
+          {qty >= 0 ? '+' : ''}
+          {qty}
+        </strong>{' '}
+        unidades. Se revertirá el stock automáticamente.
+      </p>
+      <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
+      <textarea
+        value={reason}
+        data-autofocus
+        onChange={(e) => setReason(e.target.value)}
+        rows={3}
+        maxLength={500}
+        placeholder="Ej. error de digitación, conteo incorrecto…"
+        className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-gold focus:ring-2 focus:ring-gold/30 outline-none resize-none"
+      />
+    </AdminModalShell>
   );
 }
