@@ -158,7 +158,14 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
   }
   if (barberId) where.barberId = parseInt(barberId, 10);
   if (clientId) where.clientId = parseInt(clientId, 10);
-  if (status) where.status = status;
+  if (status) {
+    const statuses = String(status)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (statuses.length === 1) where.status = statuses[0];
+    else if (statuses.length > 1) where.status = { in: statuses };
+  }
 
   const [appointments, total] = await Promise.all([
     prisma.appointment.findMany({
