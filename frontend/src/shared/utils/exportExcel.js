@@ -2,6 +2,8 @@
  * Exportación Excel (.xls) con diseño Mr. Kutz — HTML + estilos (sin dependencias extra).
  */
 
+import { formatMoney } from '@/shared/utils/money';
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -162,9 +164,6 @@ export function downloadReportExcel(report, { businessName = 'Mr. Kutz', dateFro
   const r = report.ratings || {};
   const dist = r.distribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
-  const formatAmount = (n) =>
-    `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
-
   const formatTrend = (value) => {
     if (value == null || Number.isNaN(Number(value))) return '—';
     const n = Number(value);
@@ -173,13 +172,13 @@ export function downloadReportExcel(report, { businessName = 'Mr. Kutz', dateFro
   };
 
   const summaryRows = [
-    { indicador: 'Ventas totales', actual: formatAmount(c.sales?.total), anterior: formatAmount(p.sales?.total), variacion: formatTrend(cmp.salesTotal) },
+    { indicador: 'Ventas totales', actual: formatMoney(c.sales?.total), anterior: formatMoney(p.sales?.total), variacion: formatTrend(cmp.salesTotal) },
     { indicador: 'Transacciones', actual: String(c.sales?.count ?? 0), anterior: String(p.sales?.count ?? 0), variacion: formatTrend(cmp.salesCount) },
     { indicador: 'Citas completadas', actual: String(c.appointments?.completed ?? 0), anterior: String(p.appointments?.completed ?? 0), variacion: formatTrend(cmp.appointmentsCompleted) },
     { indicador: 'Citas totales', actual: String(c.appointments?.total ?? 0), anterior: String(p.appointments?.total ?? 0), variacion: formatTrend(cmp.appointmentsTotal) },
     { indicador: 'Clientes totales', actual: String(c.totalClients ?? 0), anterior: String(p.totalClients ?? 0), variacion: '—' },
     { indicador: 'Productos stock bajo', actual: String(c.lowStockCount ?? 0), anterior: '—', variacion: '—' },
-    { indicador: 'Valor inventario (costo)', actual: formatAmount(c.inventoryValue ?? 0), anterior: '—', variacion: '—' },
+    { indicador: 'Valor inventario (costo)', actual: formatMoney(c.inventoryValue ?? 0), anterior: '—', variacion: '—' },
   ];
 
   const summaryCols = [

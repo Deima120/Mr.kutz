@@ -1,12 +1,13 @@
 /**
- * Compras — listado compacto, filtros, paginación y formulario inline en la misma tarjeta.
+ * Compras — órdenes y proveedores (tabs), formulario inline y recepción.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Eye, Ban, PackageCheck, Send } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import DataCard from '@/shared/components/admin/DataCard';
+import PageHeader from '@/shared/components/admin/PageHeader';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
@@ -15,6 +16,8 @@ import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
 import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
 import PurchaseReceiptModal from '@/features/purchases/components/PurchaseReceiptModal';
+import ReceivedProductsModal from '@/features/purchases/components/ReceivedProductsModal';
+import SuppliersPanel from '@/features/suppliers/components/SuppliersPanel';
 import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/utils/purchaseFormatters';
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
@@ -35,7 +38,14 @@ const STATUS_LABELS = Object.fromEntries(STATUS_OPTIONS.map((option) => [option.
 const getStatus = (purchase) => purchase.status ?? (purchase.voided_at ? 'cancelled' : 'ordered');
 const getReceived = (item) => Number(item?.receivedQuantity ?? item?.received_quantity ?? 0);
 
+const TAB_ORDERS = 'orders';
+const TAB_SUPPLIERS = 'suppliers';
+
 export default function PurchasesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === TAB_SUPPLIERS ? TAB_SUPPLIERS : TAB_ORDERS;
+  const highlightSupplierId = searchParams.get('supplierId');
+
   const [purchases, setPurchases] = useState([]);
   const [listTotal, setListTotal] = useState(0);
   const [periodTotal, setPeriodTotal] = useState({ total: 0, count: 0 });
@@ -53,16 +63,65 @@ export default function PurchasesPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [initialProductId, setInitialProductId] = useState(null);
 
   const [detailPurchase, setDetailPurchase] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [voidTarget, setVoidTarget] = useState(null);
   const [isVoiding, setIsVoiding] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState(null);
+  const [receivedProducts, setReceivedProducts] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
+
+  const setTab = (tab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === TAB_SUPPLIERS) next.set('tab', TAB_SUPPLIERS);
+    else next.delete('tab');
+    if (tab !== TAB_SUPPLIERS) next.delete('supplierId');
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    const wantsNew = searchParams.get('new') === '1';
+    const productId = searchParams.get('productId');
+    if (!wantsNew && !productId) return;
+    setIsFormOpen(true);
+    if (productId) setInitialProductId(productId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('new');
+    next.delete('productId');
+    next.delete('tab');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const purchaseId = searchParams.get('purchaseId');
+    if (!purchaseId) return undefined;
+    let cancelled = false;
+    setIsFormOpen(false);
+    setDetailLoading(true);
+    purchaseService
+      .getPurchaseById(purchaseId)
+      .then((full) => {
+        if (!cancelled) setDetailPurchase(full);
+      })
+      .catch(() => {
+        if (!cancelled) setError('No se pudo abrir el detalle de la orden.');
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    const next = new URLSearchParams(searchParams);
+    next.delete('purchaseId');
+    next.delete('tab');
+    setSearchParams(next, { replace: true });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     setPage(1);
@@ -99,8 +158,8 @@ export default function PurchasesPage() {
   }, [dateFrom, dateTo, statusFilter, search, pageSize, page]);
 
   useEffect(() => {
-    if (!isFormOpen) fetchPurchases(page);
-  }, [fetchPurchases, isFormOpen, page]);
+    if (!isFormOpen && activeTab === TAB_ORDERS) fetchPurchases(page);
+  }, [fetchPurchases, isFormOpen, page, activeTab]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -125,6 +184,7 @@ export default function PurchasesPage() {
 
   const handleFormSuccess = () => {
     setIsFormOpen(false);
+    setInitialProductId(null);
     setSuccessMessage('Orden creada. El stock no cambió.');
     setPage(1);
     fetchPurchases(1);
@@ -171,9 +231,10 @@ export default function PurchasesPage() {
     }
   };
 
-  const handleReceiptSuccess = async () => {
+  const handleReceiptSuccess = async ({ products } = {}) => {
     setReceiptTarget(null);
     setSuccessMessage('Recepción registrada y stock actualizado.');
+    setReceivedProducts(Array.isArray(products) ? products : []);
     await fetchPurchases(page);
   };
 
@@ -253,8 +314,51 @@ export default function PurchasesPage() {
 
   return (
     <div className="page-shell">
+      {!isFormOpen ? (
+        <PageHeader
+          title="Compras"
+          subtitle="Órdenes de compra y directorio de proveedores"
+          actions={
+            <div className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5">
+              <button
+                type="button"
+                onClick={() => setTab(TAB_ORDERS)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === TAB_ORDERS
+                    ? 'bg-white text-barber-dark shadow-sm'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                Órdenes
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab(TAB_SUPPLIERS)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === TAB_SUPPLIERS
+                    ? 'bg-white text-barber-dark shadow-sm'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                Proveedores
+              </button>
+            </div>
+          }
+        />
+      ) : null}
+
       {isFormOpen ? (
-        <PurchaseForm contained onSuccess={handleFormSuccess} onCancel={() => setIsFormOpen(false)} />
+        <PurchaseForm
+          contained
+          initialProductId={initialProductId}
+          onSuccess={handleFormSuccess}
+          onCancel={() => {
+            setIsFormOpen(false);
+            setInitialProductId(null);
+          }}
+        />
+      ) : activeTab === TAB_SUPPLIERS ? (
+        <SuppliersPanel highlightSupplierId={highlightSupplierId} />
       ) : (
       <DataCard compact>
         <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
@@ -298,9 +402,6 @@ export default function PurchasesPage() {
                 <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
                 Nueva orden
               </button>
-              <Link to="/suppliers" className="btn-admin-outline text-xs py-2 px-3">
-                Proveedores
-              </Link>
             </div>
           </div>
 
@@ -348,8 +449,7 @@ export default function PurchasesPage() {
                   layout="bar"
                 />
 
-                <div className="overflow-x-auto">
-                  <Table>
+                <Table>
                     <TableHead>
                       <TableHeader compact>ID</TableHeader>
                       <TableHeader compact>Proveedor</TableHeader>
@@ -378,7 +478,7 @@ export default function PurchasesPage() {
                               {p.invoiceNumber ?? p.invoice_number ?? '—'}
                             </TableCell>
                             <TableCell compact className="text-xs tabular-nums">
-                              {p.items_count ?? p.items?.length ?? '—'}
+                              {p.itemsCount ?? p.items_count ?? p.items?.length ?? '—'}
                             </TableCell>
                             <TableCell compact>
                               <span
@@ -441,7 +541,6 @@ export default function PurchasesPage() {
                       })}
                     </TableBody>
                   </Table>
-                </div>
               </>
             )}
       </DataCard>
@@ -458,6 +557,11 @@ export default function PurchasesPage() {
         purchase={receiptTarget}
         onClose={() => setReceiptTarget(null)}
         onSuccess={handleReceiptSuccess}
+      />
+      <ReceivedProductsModal
+        open={receivedProducts != null}
+        products={receivedProducts || []}
+        onClose={() => setReceivedProducts(null)}
       />
       <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>

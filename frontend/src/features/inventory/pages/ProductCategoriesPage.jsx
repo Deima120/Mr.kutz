@@ -134,7 +134,7 @@ export default function ProductCategoriesPage() {
   };
 
   const remove = async (r) => {
-    const count = r.product_count ?? 0;
+    const count = r.productCount ?? r.product_count ?? 0;
     const message =
       count > 0
         ? `¿Eliminar categoría "${r.name}"?\n\n${count} producto(s) quedarán sin categoría.`
@@ -150,7 +150,7 @@ export default function ProductCategoriesPage() {
   };
 
   const isCategoryActive = (r) => (r.isActive ?? r.is_active) !== false;
-  const getProductCount = (r) => r.product_count ?? 0;
+  const getProductCount = (r) => r.productCount ?? r.product_count ?? 0;
 
   const categoryExportRows = rows.map((r) => ({
     id: r.id,

@@ -57,7 +57,7 @@ export async function lockProducts(tx, productIds) {
  */
 export function weightedAverageCost(oldQty, oldCost, addQty, unitCost) {
   const incoming = Number(unitCost);
-  if (!Number.isFinite(incoming) || incoming < 0) return null;
+  if (!Number.isFinite(incoming) || incoming <= 0) return null;
   if (!(oldQty > 0) || oldCost == null || !Number.isFinite(Number(oldCost))) {
     return Number(incoming.toFixed(2));
   }
@@ -93,6 +93,7 @@ export async function changeStockAtomic(
     sourceType = null,
     goodsReceiptItemId = null,
     paymentId = null,
+    paymentLineId = null,
     reversalOfMovementId = null,
   }
 ) {
@@ -158,6 +159,7 @@ export async function changeStockAtomic(
       sourceType,
       goodsReceiptItemId,
       paymentId,
+      paymentLineId,
       reversalOfMovementId,
       notes: notes || null,
       createdBy: createdBy || null,

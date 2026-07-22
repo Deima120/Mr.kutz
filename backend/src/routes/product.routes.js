@@ -3,12 +3,23 @@
  */
 
 import express from 'express';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { paginationQuery } from '../utils/validation.js';
 import * as productController from '../controllers/product.controller.js';
 
 const router = express.Router();
+
+const rejectManualCost = () =>
+  body('costPrice').custom((value, { req }) => {
+    if (Object.prototype.hasOwnProperty.call(req.body, 'costPrice')) {
+      throw new Error(
+        'El costo promedio no se edita manualmente; se calcula desde las recepciones.'
+      );
+    }
+    return true;
+  });
 
 const createValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es obligatorio.').isLength({ max: 150 }),
@@ -23,12 +34,15 @@ const createValidation = [
       if (!Number.isFinite(n) || n < 1) throw new Error('Categoría no válida.');
       return true;
     }),
-  body('retailPrice').optional({ nullable: true }).isFloat({ min: 0 }),
-  body('costPrice').optional({ nullable: true }).isFloat({ min: 0 }),
+  body('retailPrice')
+    .optional({ nullable: true })
+    .isFloat({ gt: 0 })
+    .withMessage('El precio de venta debe ser mayor que cero.'),
+  rejectManualCost(),
 ];
 
 const updateValidation = [
-  body('name').optional().trim().isLength({ max: 150 }),
+  body('name').optional().trim().notEmpty().withMessage('El nombre no puede estar vacío.').isLength({ max: 150 }),
   body('description').optional().trim().isLength({ max: 1000 }),
   body('unit').optional().trim().isLength({ max: 20 }),
   body('minStock').optional().isInt({ min: 0 }),
@@ -41,8 +55,11 @@ const updateValidation = [
       return true;
     }),
   body('isActive').optional().isBoolean(),
-  body('retailPrice').optional({ nullable: true }).isFloat({ min: 0 }),
-  body('costPrice').optional({ nullable: true }).isFloat({ min: 0 }),
+  body('retailPrice')
+    .optional({ nullable: true })
+    .isFloat({ gt: 0 })
+    .withMessage('El precio de venta debe ser mayor que cero.'),
+  rejectManualCost(),
 ];
 
 const stockValidation = [
@@ -89,15 +106,30 @@ const importValidation = [
   body('rows.*.name').trim().notEmpty().withMessage('Cada fila debe tener nombre.'),
 ];
 
+const listValidation = [
+  query('active').optional().isIn(['true', 'false']).withMessage('Filtro active no válido.'),
+  query('lowStock').optional().isIn(['true', 'false']).withMessage('Filtro lowStock no válido.'),
+  query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
+  query('categoryId')
+    .optional({ checkFalsy: true })
+    .isInt({ min: 1 })
+    .withMessage('Categoría no válida.'),
+  ...paginationQuery({ maxLimit: 500 }),
+];
+
+const movementsListValidation = [
+  idParam,
+  ...paginationQuery({ maxLimit: 100 }),
+];
+
 router.use(auth);
 router.use(authorize('admin'));
 
-router.get('/insights', productController.getInsights);
-router.get('/low-stock', productController.getLowStock);
 router.post('/import', importValidation, validate, productController.importProducts);
 router.post('/movements/:movementId/void', voidMovementValidation, validate, productController.voidMovement);
-router.get('/', productController.getAll);
-router.get('/:id/movements', idParam, validate, productController.getMovements);
+router.get('/', listValidation, validate, productController.getAll);
+router.get('/:id/movements', movementsListValidation, validate, productController.getMovements);
+router.get('/:id/dossier', idParam, validate, productController.getDossier);
 router.get('/:id', idParam, validate, productController.getById);
 router.post('/', createValidation, validate, productController.create);
 router.put('/:id', [idParam, ...updateValidation], validate, productController.update);

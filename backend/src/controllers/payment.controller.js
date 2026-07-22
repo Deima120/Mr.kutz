@@ -98,3 +98,15 @@ export const voidPayment = async (req, res, next) => {
     next(error);
   }
 };
+
+export const voidPaymentLine = async (req, res, next) => {
+  try {
+    const row = await paymentService.voidPaymentLine(req.params.id, req.params.lineId, {
+      voidReason: req.body?.voidReason,
+      voidedBy: req.user?.id,
+    });
+    res.json({ success: true, message: 'Línea anulada correctamente.', data: row });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -14,9 +14,7 @@ import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appoi
 import { downloadReportExcel } from '@/shared/utils/exportExcel';
 import { downloadReportPDF } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
-
-const formatAmount = (n) =>
-  `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
+import { formatMoney } from '@/shared/utils/money';
 
 function TrendBadge({ value, positiveIsGood = true }) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -146,7 +144,7 @@ export default function ReportsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           label="Ventas totales"
-          value={formatAmount(c.sales?.total)}
+          value={formatMoney(c.sales?.total)}
           sublabel={
             <span className="inline-flex items-center gap-2">
               {`${c.sales?.count || 0} transacciones`}

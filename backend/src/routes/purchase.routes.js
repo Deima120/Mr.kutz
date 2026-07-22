@@ -34,12 +34,14 @@ const createValidation = [
   body('items').isArray({ min: 1, max: 100 }).withMessage('Incluye entre 1 y 100 artículos.'),
   body('items.*.productId').isInt({ min: 1 }).withMessage('Producto no válido.'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Cantidad no válida.'),
-  body('items.*.unitCost').isFloat({ min: 0 }).withMessage('Costo unitario no válido.'),
+  body('items.*.unitCost')
+    .isFloat({ gt: 0 })
+    .withMessage('El costo unitario debe ser mayor que cero.'),
 ];
 
-const voidValidation = [
+const cancelValidation = [
   idParam,
-  body('voidReason')
+  body('reason')
     .trim()
     .notEmpty()
     .withMessage('Indica el motivo de cancelación.')
@@ -57,9 +59,8 @@ const receiptValidation = [
     .withMessage('Artículo de orden no válido.'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Cantidad no válida.'),
   body('items.*.unitCost')
-    .optional({ nullable: true })
-    .isFloat({ min: 0 })
-    .withMessage('Costo unitario no válido.'),
+    .isFloat({ gt: 0 })
+    .withMessage('El costo unitario debe ser mayor que cero.'),
 ];
 
 router.use(auth);
@@ -68,10 +69,8 @@ router.use(authorize('admin'));
 router.get('/total', totalValidation, validate, purchaseController.getTotal);
 router.get('/', listValidation, validate, purchaseController.getAll);
 router.post('/:id/submit', idParam, validate, purchaseController.submit);
-router.post('/:id/order', idParam, validate, purchaseController.submit);
-router.post('/:id/cancel', voidValidation, validate, purchaseController.cancel);
+router.post('/:id/cancel', cancelValidation, validate, purchaseController.cancel);
 router.post('/:id/receipts', receiptValidation, validate, purchaseController.receive);
-router.post('/:id/void', voidValidation, validate, purchaseController.voidPurchase);
 router.get('/:id', idParam, validate, purchaseController.getById);
 router.post('/', createValidation, validate, purchaseController.create);
 

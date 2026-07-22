@@ -16,7 +16,10 @@ export const getStats = async (dateFrom, dateTo) => {
 
   const [sales, appointments, servicesTop, barbersTop, inventoryInsights, clientsCount] = await Promise.all([
     prisma.payment.aggregate({
-      where: { createdAt: { gte: fromDate, lte: toDate } },
+      where: {
+        voidedAt: null,
+        createdAt: { gte: fromDate, lte: toDate },
+      },
       _sum: { amount: true },
       _count: true,
     }),
@@ -241,15 +244,25 @@ export const getBarberStats = async (barberId) => {
 
   const barberWhere = { barberId: bid };
 
-  const revenueBetween = async (start, end) => {
-    const r = await prisma.payment.aggregate({
-      where: {
-        appointment: { is: barberWhere },
+  /** Ingresos del barbero = líneas de servicio activas (soporta cobros multi-línea). */
+  const serviceLineWhere = (start, end) => ({
+    voidedAt: null,
+    lineType: 'service',
+    appointment: { is: barberWhere },
+    payment: {
+      is: {
+        voidedAt: null,
         createdAt: { gte: start, lte: end },
       },
-      _sum: { amount: true },
+    },
+  });
+
+  const revenueBetween = async (start, end) => {
+    const r = await prisma.paymentLine.aggregate({
+      where: serviceLineWhere(start, end),
+      _sum: { lineAmount: true },
     });
-    return Number(r._sum?.amount ?? 0);
+    return Number(r._sum?.lineAmount ?? 0);
   };
 
   const cutsBetween = async (start, end) =>
@@ -310,12 +323,12 @@ export const getBarberStats = async (barberId) => {
       distinctClientsBetween(dayS, dayE),
       distinctClientsBetween(weekS, weekE),
       distinctClientsBetween(monthS, monthE),
-      prisma.payment.findMany({
-        where: {
-          appointment: { is: barberWhere },
-          createdAt: { gte: chartRangeStart, lte: dayE },
+      prisma.paymentLine.findMany({
+        where: serviceLineWhere(chartRangeStart, dayE),
+        select: {
+          lineAmount: true,
+          payment: { select: { createdAt: true } },
         },
-        select: { amount: true, createdAt: true },
       }),
       prisma.appointment.findMany({
         where: {
@@ -330,9 +343,13 @@ export const getBarberStats = async (barberId) => {
   const revMap = Object.fromEntries(chartDays.map((k) => [k, 0]));
   const cutMap = Object.fromEntries(chartDays.map((k) => [k, 0]));
 
-  payList.forEach((p) => {
-    const k = formatYMD(new Date(p.createdAt));
-    if (Object.prototype.hasOwnProperty.call(revMap, k)) revMap[k] += Number(p.amount);
+  payList.forEach((line) => {
+    const createdAt = line.payment?.createdAt;
+    if (!createdAt) return;
+    const k = formatYMD(new Date(createdAt));
+    if (Object.prototype.hasOwnProperty.call(revMap, k)) {
+      revMap[k] += Number(line.lineAmount);
+    }
   });
   completedList.forEach((a) => {
     const k = formatYMD(new Date(a.appointmentDate));

@@ -1,25 +1,30 @@
 /**
- * Formulario para registrar pago (cita, inventario o caja libre)
+ * Carrito de cobro: servicio + producto(s) + línea manual en un solo pago.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useId } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarCheck, Package, Wallet } from 'lucide-react';
+import { CalendarCheck, Package, Wallet, Plus, Trash2 } from 'lucide-react';
 import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
 import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
-import { validatePaymentForm, getApiErrorMessage, validateMoney, validatePositiveInt, TEXT_REFERENCE_MAX } from '@/shared/utils/formValidation';
-import { useFormValidation } from '@/shared/hooks/useFormValidation';
-import { AdminFormField } from '@/shared/components/FormValidationFields';
-import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
+import {
+  validatePaymentCartForm,
+  getApiErrorMessage,
+  validateMoney,
+  validatePositiveInt,
+  TEXT_REFERENCE_MAX,
+} from '@/shared/utils/formValidation';
+import CustomSelect from '@/shared/components/CustomSelect';
+import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
+import ProductPicker from '@/features/inventory/components/ProductPicker';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
   ADMIN_FORM_FIELD_COMPACT,
   ADMIN_FORM_LABEL_CLASS,
-  ADMIN_FORM_ERROR_CLASS,
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
@@ -27,12 +32,6 @@ import AdminFormShell, {
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
-
-const PAYMENT_MODES = [
-  { id: 'service', label: 'Servicio', icon: CalendarCheck },
-  { id: 'product', label: 'Producto', icon: Package },
-  { id: 'cash', label: 'Caja', icon: Wallet },
-];
 
 function generatePaymentReference() {
   const now = new Date();
@@ -43,258 +42,289 @@ function generatePaymentReference() {
   return `MKP-${yyyy}${mm}${dd}-${random}`;
 }
 
+function lineKey() {
+  return `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function appointmentLabel(a) {
+  if (!a) return '';
+  const client = `${a.client_first_name || ''} ${a.client_last_name || ''}`.trim();
+  const date = extractAppointmentDateYmd(a.appointment_date) || '—';
+  const time = formatAppointmentClockTime(a.start_time) || '';
+  const service = a.service_name || 'Servicio';
+  return `${client || 'Cliente'} · ${service} · ${date}${time ? ` ${time}` : ''}`;
+}
+
 export function PaymentForm({
   embedded = false,
   contained = false,
   onSuccess,
   onCancel,
+  methods: methodsProp = null,
   prefillProductId: prefillProductIdProp = null,
   prefillAppointmentId: prefillAppointmentIdProp = null,
 }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prefillProductId = prefillProductIdProp ?? searchParams.get('productId');
-  const prefillAppointmentId = prefillProductId ? null : (prefillAppointmentIdProp ?? searchParams.get('appointmentId'));
+  const prefillAppointmentId = prefillAppointmentIdProp ?? searchParams.get('appointmentId');
+  const draftManualId = useId();
 
-  const [methods, setMethods] = useState([]);
+  const [methodsLocal, setMethodsLocal] = useState([]);
+  const methods = Array.isArray(methodsProp) && methodsProp.length ? methodsProp : methodsLocal;
+
+  const [lines, setLines] = useState([]);
+  const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [reference, setReference] = useState(generatePaymentReference);
+  const [notes, setNotes] = useState('');
+
   const [completedAppointments, setCompletedAppointments] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [paymentMode, setPaymentMode] = useState(prefillProductId ? 'product' : prefillAppointmentId ? 'service' : 'service');
-
-  const [formData, setFormData] = useState({
-    amount: '',
-    paymentMethodId: '',
-    appointmentId: '',
-    productId: '',
-    reference: generatePaymentReference(),
-    notes: '',
-  });
+  const [appointmentPick, setAppointmentPick] = useState('');
+  const [productPick, setProductPick] = useState(null);
   const [productQty, setProductQty] = useState('1');
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualAmount, setManualAmount] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [saleProduct, setSaleProduct] = useState(null);
-  const [productLoadError, setProductLoadError] = useState('');
-  const [appointmentFromUrl, setAppointmentFromUrl] = useState(null);
-  const [appointmentPrefillError, setAppointmentPrefillError] = useState('');
-  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } = useFormValidation();
-
-  const amountValidation = useMemo(
-    () => validateMoney(formData.amount, 'El monto', { required: true, min: 0.01 }),
-    [formData.amount]
-  );
-  const methodValidation = useMemo(
-    () =>
-      formData.paymentMethodId
-        ? { valid: true, message: '' }
-        : { valid: false, message: 'Selecciona un método de pago.' },
-    [formData.paymentMethodId]
-  );
-  const productValidation = useMemo(
-    () =>
-      formData.productId
-        ? { valid: true, message: '' }
-        : { valid: false, message: 'Selecciona un producto.' },
-    [formData.productId]
-  );
-  const appointmentValidation = useMemo(
-    () =>
-      formData.appointmentId
-        ? { valid: true, message: '' }
-        : { valid: false, message: 'Selecciona la cita a cobrar.' },
-    [formData.appointmentId]
-  );
-  const qtyValidation = useMemo(() => {
-    const base = validatePositiveInt(productQty, 'La cantidad', { required: true, min: 1 });
-    if (!base.valid) return base;
-    const max = saleProduct != null ? Number(saleProduct.quantity) || 0 : 0;
-    if (max > 0 && parseInt(productQty, 10) > max) {
-      return { valid: false, message: `Stock insuficiente (máx. ${max}).` };
-    }
-    return { valid: true, message: '' };
-  }, [productQty, saleProduct]);
+  const [prefillHints, setPrefillHints] = useState([]);
 
   useEffect(() => {
-    paymentService.getPaymentMethods().then((m) => setMethods(Array.isArray(m) ? m : []));
-  }, []);
+    if (Array.isArray(methodsProp) && methodsProp.length) return undefined;
+    let cancelled = false;
+    paymentService.getPaymentMethods().then((m) => {
+      if (!cancelled) setMethodsLocal(Array.isArray(m) ? m : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [methodsProp]);
 
   useEffect(() => {
-    if (prefillProductId) setPaymentMode('product');
-    else if (prefillAppointmentId) setPaymentMode('service');
-  }, [prefillProductId, prefillAppointmentId]);
-
-  useEffect(() => {
-    if (paymentMode !== 'product') return;
-    productService
-      .getProducts({ limit: 200 })
-      .then((result) => setProducts(result?.data ?? []))
-      .catch(() => setProducts([]));
-  }, [paymentMode]);
-
-  const loadProduct = (pid) => {
-    if (!Number.isFinite(pid) || pid < 1) {
-      setSaleProduct(null);
-      setProductLoadError('Producto no válido.');
-      return;
-    }
-    setProductLoadError('');
-    productService
-      .getProductById(pid)
-      .then((res) => setSaleProduct(res?.data ?? res))
-      .catch(() => {
-        setSaleProduct(null);
-        setProductLoadError('No se pudo cargar el producto.');
-      });
-  };
-
-  useEffect(() => {
-    if (!prefillProductId) return;
-    const pid = parseInt(prefillProductId, 10);
-    setFormData((prev) => ({ ...prev, productId: String(pid) }));
-    loadProduct(pid);
-  }, [prefillProductId]);
-
-  useEffect(() => {
-    if (prefillProductId) return;
-    if (!prefillAppointmentId) {
-      setAppointmentFromUrl(null);
-      setAppointmentPrefillError('');
-      return;
-    }
-    const aid = parseInt(prefillAppointmentId, 10);
-    if (!Number.isFinite(aid) || aid < 1) {
-      setAppointmentPrefillError('Cita no válida.');
-      return;
-    }
-    setAppointmentPrefillError('');
-    appointmentService
-      .getAppointmentById(aid)
-      .then((row) => {
-        const a = row?.data ?? row;
-        if (!a) {
-          setAppointmentPrefillError('Cita no encontrada.');
-          return;
-        }
-        if (a.status !== 'completed') {
-          setAppointmentPrefillError('La cita debe estar completada para cobrar.');
-          return;
-        }
-        if (a.has_active_payment) {
-          setAppointmentPrefillError('Esta cita ya tiene un pago registrado.');
-          return;
-        }
-        setAppointmentFromUrl(a);
-        const price = a.price ?? a.service_price;
-        setFormData((prev) => ({
-          ...prev,
-          appointmentId: String(a.id),
-          amount: price != null && !Number.isNaN(Number(price)) ? String(Number(price)) : prev.amount,
-        }));
-      })
-      .catch(() => setAppointmentPrefillError('No se pudo cargar la cita.'));
-  }, [prefillAppointmentId, prefillProductId]);
-
-  useEffect(() => {
-    if (paymentMode !== 'service') return;
     appointmentService
       .getAppointments({ status: 'completed', limit: 100 })
       .then((data) => setCompletedAppointments(data.appointments ?? []))
       .catch(() => setCompletedAppointments([]));
-  }, [paymentMode]);
+  }, []);
+
+  const appointmentOptions = useMemo(() => {
+    const taken = new Set(
+      lines.filter((l) => l.type === 'service').map((l) => String(l.appointmentId))
+    );
+    return (completedAppointments || []).filter(
+      (a) => !a?.has_active_payment && !taken.has(String(a.id))
+    );
+  }, [completedAppointments, lines]);
+
+  const cartTotal = useMemo(
+    () =>
+      lines.reduce((sum, line) => {
+        const unit = Number(line.unitPrice) || 0;
+        const qty = Number(line.quantity) || 1;
+        return sum + unit * qty;
+      }, 0),
+    [lines]
+  );
+
+  const addLine = (line) => {
+    setLines((prev) => [...prev, { key: lineKey(), ...line }]);
+    setError('');
+  };
+
+  const removeLine = (key) => {
+    setLines((prev) => prev.filter((l) => l.key !== key));
+    setError('');
+  };
 
   useEffect(() => {
-    if (!saleProduct) return;
-    const unit = Number(saleProduct.retail_price);
-    const q = Math.max(1, parseInt(productQty, 10) || 1);
-    if (Number.isFinite(unit) && unit > 0) {
-      setFormData((prev) => ({ ...prev, amount: (unit * q).toFixed(2) }));
+    if (!prefillAppointmentId) return;
+    const aid = parseInt(prefillAppointmentId, 10);
+    if (!Number.isFinite(aid) || aid < 1) {
+      setPrefillHints((h) => [...h, 'Cita de enlace no válida.']);
+      return;
     }
-  }, [saleProduct, productQty]);
+    appointmentService
+      .getAppointmentById(aid)
+      .then((row) => {
+        const a = row?.data ?? row;
+        if (!a) return setPrefillHints((h) => [...h, 'Cita no encontrada.']);
+        if (a.status !== 'completed') {
+          return setPrefillHints((h) => [...h, 'La cita debe estar completada para cobrar.']);
+        }
+        if (a.has_active_payment) {
+          return setPrefillHints((h) => [...h, 'Esta cita ya tiene un cobro activo.']);
+        }
+        setLines((prev) => {
+          if (prev.some((l) => l.type === 'service' && String(l.appointmentId) === String(a.id))) {
+            return prev;
+          }
+          const price = Number(a.price ?? a.service_price);
+          return [
+            ...prev,
+            {
+              key: lineKey(),
+              type: 'service',
+              appointmentId: a.id,
+              label: appointmentLabel(a),
+              unitPrice: Number.isFinite(price) ? price : 0,
+              quantity: 1,
+            },
+          ];
+        });
+      })
+      .catch(() => setPrefillHints((h) => [...h, 'No se pudo cargar la cita del enlace.']));
+  }, [prefillAppointmentId]);
 
-  const appointmentSelectRows = useMemo(() => {
-    const rows = completedAppointments.filter((x) => !x?.has_active_payment);
-    if (appointmentFromUrl && !rows.some((x) => x.id === appointmentFromUrl.id)) {
-      if (!appointmentFromUrl?.has_active_payment) rows.unshift(appointmentFromUrl);
+  useEffect(() => {
+    if (!prefillProductId) return;
+    const pid = parseInt(prefillProductId, 10);
+    if (!Number.isFinite(pid) || pid < 1) {
+      setPrefillHints((h) => [...h, 'Producto de enlace no válido.']);
+      return;
     }
-    return rows;
-  }, [completedAppointments, appointmentFromUrl]);
+    productService
+      .getProductById(pid)
+      .then((res) => {
+        const product = res?.data ?? res;
+        if (!product) return setPrefillHints((h) => [...h, 'Producto no encontrado.']);
+        const unit = Number(product.retailPrice ?? product.retail_price);
+        if (!Number.isFinite(unit) || unit <= 0) {
+          return setPrefillHints((h) => [...h, 'El producto no tiene precio de venta.']);
+        }
+        setLines((prev) => {
+          if (prev.some((l) => l.type === 'product' && String(l.productId) === String(product.id))) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              key: lineKey(),
+              type: 'product',
+              productId: product.id,
+              label: product.name,
+              unitPrice: unit,
+              quantity: 1,
+              maxStock: Number(product.quantity) || 0,
+            },
+          ];
+        });
+      })
+      .catch(() => setPrefillHints((h) => [...h, 'No se pudo cargar el producto del enlace.']));
+  }, [prefillProductId]);
 
-  const selectedAppointment = appointmentSelectRows.find(
-    (a) => a.id === parseInt(formData.appointmentId, 10)
-  ) || appointmentFromUrl;
-
-  const selectedMethod = methods.find((m) => String(m.id) === String(formData.paymentMethodId));
-
-  const handleModeChange = (mode) => {
-    setPaymentMode(mode);
-    setError('');
-    setProductLoadError('');
-    if (mode !== 'product') {
-      setSaleProduct(null);
-      setFormData((prev) => ({ ...prev, productId: '' }));
+  const handleAddService = () => {
+    const apt = appointmentOptions.find((a) => String(a.id) === String(appointmentPick));
+    if (!apt) {
+      setError('Selecciona una cita completada pendiente de cobro.');
+      return;
     }
-    if (mode !== 'service') {
-      setFormData((prev) => ({ ...prev, appointmentId: '' }));
-    }
+    const price = Number(apt.price ?? apt.service_price);
+    addLine({
+      type: 'service',
+      appointmentId: apt.id,
+      label: appointmentLabel(apt),
+      unitPrice: Number.isFinite(price) ? price : 0,
+      quantity: 1,
+    });
+    setAppointmentPick('');
   };
 
-  const handleProductSelect = (e) => {
-    const idSel = e.target.value;
-    setFormData((prev) => ({ ...prev, productId: idSel }));
-    if (idSel) loadProduct(parseInt(idSel, 10));
-    else setSaleProduct(null);
+  const handleAddProduct = () => {
+    if (!productPick?.id) {
+      setError('Selecciona un producto.');
+      return;
+    }
+    const qtyCheck = validatePositiveInt(productQty, 'La cantidad', { required: true, min: 1 });
+    if (!qtyCheck.valid) {
+      setError(qtyCheck.message);
+      return;
+    }
+    const qty = parseInt(productQty, 10);
+    const max = Number(productPick.quantity) || 0;
+    if (max > 0 && qty > max) {
+      setError(`Stock insuficiente (máx. ${max}).`);
+      return;
+    }
+    const unit = Number(productPick.retailPrice ?? productPick.retail_price);
+    if (!Number.isFinite(unit) || unit <= 0) {
+      setError('El producto no tiene precio de venta válido.');
+      return;
+    }
+    if (lines.some((l) => l.type === 'product' && String(l.productId) === String(productPick.id))) {
+      setError('Ese producto ya está en el cobro. Quita la línea o ajusta la cantidad.');
+      return;
+    }
+    addLine({
+      type: 'product',
+      productId: productPick.id,
+      label: productPick.name,
+      unitPrice: unit,
+      quantity: qty,
+      maxStock: max,
+    });
+    setProductPick(null);
+    setProductQty('1');
   };
 
-  const handleAppointmentSelect = (e) => {
-    const idSel = e.target.value;
-    const apt = appointmentSelectRows.find((a) => a.id === parseInt(idSel, 10));
-    const p = apt?.price ?? apt?.service_price;
-    setFormData((prev) => ({
-      ...prev,
-      appointmentId: idSel || '',
-      amount: idSel && p != null && !Number.isNaN(Number(p)) ? String(Number(p)) : prev.amount,
-    }));
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    let next = value;
-    if (name === 'reference') next = value.slice(0, TEXT_REFERENCE_MAX);
-    else if (name === 'notes' && value.length > 500) return;
-    setFormData((prev) => ({ ...prev, [name]: next }));
-    setError('');
-    clearFieldError(name);
+  const handleAddManual = () => {
+    const amountCheck = validateMoney(manualAmount, 'El monto', { required: true, min: 0.01 });
+    if (!amountCheck.valid) {
+      setError(amountCheck.message);
+      return;
+    }
+    const description = String(manualDescription || '').trim();
+    if (!description) {
+      setError('Indica una descripción para la línea de caja.');
+      return;
+    }
+    addLine({
+      type: 'manual',
+      description,
+      label: description,
+      unitPrice: Number(manualAmount),
+      quantity: 1,
+    });
+    setManualDescription('');
+    setManualAmount('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validation = validatePaymentForm(formData, paymentMode, {
-      saleProduct,
-      productQty,
-      appointmentSelectRows,
+    const validation = validatePaymentCartForm({
+      paymentMethodId,
+      reference,
+      notes,
+      lines,
     });
-    if (!applyValidation(validation)) {
+    if (!validation.valid) {
       setError(validation.firstError);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const payload = {
-        amount: parseFloat(formData.amount),
-        paymentMethodId: parseInt(formData.paymentMethodId, 10),
-        reference: formData.reference || undefined,
-        notes: formData.notes.trim() || undefined,
-      };
-
-      if (paymentMode === 'product') {
-        const q = Math.max(1, parseInt(productQty, 10) || 1);
-        payload.productId = saleProduct.id;
-        payload.productQuantity = q;
-      } else if (paymentMode === 'service') {
-        payload.appointmentId = parseInt(formData.appointmentId, 10);
-      }
-
-      await paymentService.createPayment(payload);
+      await paymentService.createPayment({
+        paymentMethodId: parseInt(paymentMethodId, 10),
+        reference: reference || undefined,
+        notes: notes.trim() || undefined,
+        lines: lines.map((line) => {
+          if (line.type === 'service') {
+            return { type: 'service', appointmentId: Number(line.appointmentId) };
+          }
+          if (line.type === 'product') {
+            return {
+              type: 'product',
+              productId: Number(line.productId),
+              quantity: Number(line.quantity),
+            };
+          }
+          return {
+            type: 'manual',
+            unitPrice: Number(line.unitPrice),
+            description: line.description || line.label,
+          };
+        }),
+      });
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {
@@ -309,287 +339,236 @@ export function PaymentForm({
     else navigate(-1);
   };
 
-  const maxQty = saleProduct != null ? Math.max(0, Number(saleProduct.quantity) || 0) : undefined;
+  const selectedMethod = methods.find((m) => String(m.id) === String(paymentMethodId));
 
   const paymentAside = {
     kicker: 'Vista previa',
-    title:
-      paymentMode === 'product'
-        ? 'Venta de producto'
-        : paymentMode === 'service'
-        ? 'Cobro de servicio'
-        : 'Cobro en caja',
-    subtitle: saleProduct?.name || selectedAppointment?.service_name || 'Completa los datos',
-    bullets: [],
-    statusLabel: 'Origen',
-    statusValue:
-      paymentMode === 'product' ? 'Inventario' : paymentMode === 'service' ? 'Cita completada' : 'Caja libre',
+    title: 'Resumen del cobro',
     children: (
       <AdminFormPreviewPanel>
-        {saleProduct ? <AdminFormPreviewField label="Producto" value={saleProduct.name} /> : null}
-        {selectedAppointment && paymentMode === 'service' ? (
-          <AdminFormPreviewField
-            label="Cliente"
-            value={`${selectedAppointment.client_first_name || ''} ${selectedAppointment.client_last_name || ''}`.trim()}
-          />
-        ) : null}
         <AdminFormPreviewField
-          label="Monto"
-          value={formData.amount ? formatPaymentAmount(formData.amount) : ''}
+          label="Método"
+          value={selectedMethod ? formatPaymentMethodName(selectedMethod.description || selectedMethod.name) : '—'}
         />
-        <AdminFormPreviewField label="Método" value={formatPaymentMethodName(selectedMethod?.description || selectedMethod?.name)} />
-        <AdminFormPreviewField label="Referencia" value={formData.reference} breakAll />
-        {formData.notes ? <AdminFormPreviewField label="Notas" value={formData.notes} multiline /> : null}
+        <AdminFormPreviewField label="Líneas" value={String(lines.length)} />
+        <AdminFormPreviewField label="Total" value={formatPaymentAmount(cartTotal)} />
+        <AdminFormPreviewField label="Referencia" value={reference} breakAll />
       </AdminFormPreviewPanel>
     ),
   };
 
   return (
     <AdminFormShell
-      backTo="/payments"
-      onBackClick={embedded || contained ? handleCancel : undefined}
-      modeBadge="Registro"
-      fullBleed={!embedded && !contained}
-      compact={embedded || contained}
+      embedded={embedded}
       contained={contained}
-      showBackNav={!embedded && !contained}
+      title="Registrar cobro"
+      subtitle="Agrega servicio, productos o caja en un solo pago. El total se calcula solo."
+      onCancel={handleCancel}
       aside={paymentAside}
     >
-      <AdminFormCard onSubmit={handleSubmit}>
-        <AdminFormCardHeader eyebrow="Cobro" title="Registrar pago" />
-
-        {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
-        {productLoadError && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
-            {productLoadError}
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {error ? (
+          <div className="alert-error text-sm" role="alert">
+            {error}
           </div>
-        )}
-        {appointmentPrefillError && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs py-2 px-2.5 shrink-0">
-            {appointmentPrefillError}
+        ) : null}
+        {prefillHints.length > 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {prefillHints.map((hint) => (
+              <p key={hint}>{hint}</p>
+            ))}
           </div>
-        )}
-        {appointmentFromUrl && paymentMode === 'service' && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-xs py-2 px-2.5 shrink-0">
-            Cobro sugerido:{' '}
-            <span className="font-semibold">
-              {appointmentFromUrl.client_first_name} {appointmentFromUrl.client_last_name} — {appointmentFromUrl.service_name}
-            </span>
-          </div>
-        )}
+        ) : null}
 
-        <div className="flex flex-wrap gap-2 shrink-0">
-          {PAYMENT_MODES.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => handleModeChange(id)}
-              disabled={!!prefillProductId && id !== 'product'}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                paymentMode === id
-                  ? 'border-barber-dark bg-barber-dark text-white'
-                  : 'border-stone-200 bg-white text-stone-700 hover:border-gold/40'
-              } disabled:opacity-50`}
-            >
-              <Icon className="w-3.5 h-3.5" aria-hidden />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {paymentMode === 'service' && (
-          <AdminFormField
-            label="Cita completada"
-            required
-            error={fieldError('appointmentId')}
-            live={buildLiveHint('appointmentId', formData.appointmentId, appointmentValidation, 'Cita seleccionada.')}
-          >
-            {({ invalid, errorId, liveBorderClass, submitBorderClass }) =>
-              appointmentSelectRows.length > 0 ? (
-                <CustomSelect
-                  name="appointmentId"
-                  value={formData.appointmentId}
-                  onChange={(id) => handleAppointmentSelect({ target: { value: String(id) } })}
-                  onBlur={() => markTouched('appointmentId')}
-                  placeholder="Seleccionar cita…"
-                  variant="formCompact"
-                  selectClassName={submitBorderClass || liveBorderClass}
-                  ariaInvalid={invalid || undefined}
-                  ariaDescribedBy={errorId}
-                  options={appointmentSelectRows.map((a) => ({
-                    id: String(a.id),
-                    label: `${a.client_first_name} ${a.client_last_name} — ${a.service_name} — $${a.price ?? a.service_price ?? 0} — ${extractAppointmentDateYmd(a.appointment_date)} ${formatAppointmentClockTime(a.start_time)}`,
-                  }))}
-                />
-              ) : (
-                <p className="text-xs text-stone-500 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
-                  No hay citas completadas pendientes de cobro.
-                </p>
-              )
-            }
-          </AdminFormField>
-        )}
-
-        {paymentMode === 'product' && (
-          <div className="space-y-2 shrink-0">
-            <AdminFormField
-              label="Producto"
-              required
-              error={fieldError('productId')}
-              live={buildLiveHint('productId', formData.productId, productValidation, 'Producto seleccionado.')}
-            >
-              {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
-                <CustomSelect
-                  name="productId"
-                  value={formData.productId}
-                  onChange={(id) => handleProductSelect({ target: { value: String(id) } })}
-                  onBlur={() => markTouched('productId')}
-                  placeholder="Seleccionar producto…"
-                  variant="formCompact"
-                  selectClassName={submitBorderClass || liveBorderClass}
-                  disabled={!!prefillProductId}
-                  ariaInvalid={invalid || undefined}
-                  ariaDescribedBy={errorId}
-                  options={products
-                    .filter((p) => (p.quantity ?? 0) > 0)
-                    .map((p) => ({
-                      id: String(p.id),
-                      label: `${p.name}${p.sku ? ` · ${p.sku}` : ''} — Stock ${p.quantity ?? 0}`,
-                    }))}
-                />
-              )}
-            </AdminFormField>
-            {saleProduct && (
-              <div className="rounded-lg border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs text-stone-600">
-                Stock: <strong>{saleProduct.quantity ?? 0}</strong>
-                {saleProduct.retail_price != null && Number(saleProduct.retail_price) > 0 ? (
-                  <> · Precio: {formatPaymentAmount(saleProduct.retail_price)}</>
-                ) : (
-                  <> · Indica el monto manualmente</>
-                )}
-              </div>
-            )}
-            {saleProduct && (
-              <AdminFormField
-                label="Cantidad"
-                required
-                error={fieldError('productQty')}
-                live={buildLiveHint('productQty', productQty, qtyValidation, 'Cantidad válida.')}
-              >
-                {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
-                  <input
-                    type="number"
-                    min={1}
-                    max={maxQty > 0 ? maxQty : undefined}
-                    value={productQty}
-                    onChange={(e) => {
-                      setProductQty(e.target.value);
-                      setError('');
-                      clearFieldError('productQty');
-                    }}
-                    onBlur={() => markTouched('productQty')}
-                    className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                    aria-invalid={invalid || undefined}
-                    aria-describedby={errorId}
-                  />
-                )}
-              </AdminFormField>
-            )}
-          </div>
-        )}
-
-        <div className={ADMIN_FORM_GRID_CLASS}>
-          <AdminFormField
-            label="Monto ($)"
-            htmlFor="payment-amount"
-            required
-            error={fieldError('amount')}
-            live={buildLiveHint('amount', formData.amount, amountValidation, 'Monto válido.')}
-          >
-            {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
-              <input
-                id="payment-amount"
-                name="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={handleChange}
-                onBlur={() => markTouched('amount')}
-                className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                aria-invalid={invalid || undefined}
-                aria-describedby={errorId}
-              />
-            )}
-          </AdminFormField>
-          <AdminFormField
-            label="Método de pago"
-            required
-            error={fieldError('paymentMethodId')}
-            live={buildLiveHint('paymentMethodId', formData.paymentMethodId, methodValidation, 'Método seleccionado.')}
-          >
-            {({ invalid, errorId, liveBorderClass, submitBorderClass }) => (
+        <AdminFormCard>
+          <AdminFormCardHeader title="Método y folio" />
+          <div className={ADMIN_FORM_GRID_CLASS}>
+            <label className="group">
+              <span className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</span>
               <CustomSelect
-                name="paymentMethodId"
-                value={formData.paymentMethodId}
-                onChange={formSelectEvent('paymentMethodId', handleChange)}
-                onBlur={() => markTouched('paymentMethodId')}
-                placeholder="Seleccionar…"
+                value={paymentMethodId}
+                onChange={onCustomSelectValue(setPaymentMethodId)}
                 variant="formCompact"
-                selectClassName={submitBorderClass || liveBorderClass}
-                ariaInvalid={invalid || undefined}
-                ariaDescribedBy={errorId}
+                selectClassName={ADMIN_FORM_FIELD_COMPACT}
                 options={methods.map((m) => ({
                   id: String(m.id),
                   label: formatPaymentMethodName(m.description || m.name),
                 }))}
+                placeholder="Selecciona…"
               />
-            )}
-          </AdminFormField>
-        </div>
-
-        <div className="group">
-          <label className={ADMIN_FORM_LABEL_CLASS}>Referencia</label>
-          <div className="flex gap-2">
-            <input
-              name="reference"
-              value={formData.reference}
-              onChange={handleChange}
-              placeholder="Nº operación, folio…"
-              className={ADMIN_FORM_FIELD_COMPACT}
-              maxLength={TEXT_REFERENCE_MAX}
-            />
-            <button
-              type="button"
-              onClick={() => setFormData((prev) => ({ ...prev, reference: generatePaymentReference() }))}
-              className="px-3 rounded-lg border border-stone-300 text-xs text-stone-700 hover:bg-stone-50 shrink-0"
-            >
-              Generar
-            </button>
+            </label>
+            <label className="group">
+              <span className={ADMIN_FORM_LABEL_CLASS}>Referencia</span>
+              <input
+                value={reference}
+                onChange={(e) => setReference(e.target.value.slice(0, TEXT_REFERENCE_MAX))}
+                className={ADMIN_FORM_FIELD_COMPACT}
+                maxLength={TEXT_REFERENCE_MAX}
+                placeholder="Nº operación, folio…"
+              />
+            </label>
           </div>
-        </div>
+        </AdminFormCard>
 
-        <div className="group">
-          <label className={ADMIN_FORM_LABEL_CLASS}>Notas internas</label>
+        <AdminFormCard>
+          <AdminFormCardHeader title="Líneas del cobro" />
+          <div className="space-y-4">
+            <div className="rounded-xl border border-stone-200 p-3 space-y-2">
+              <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
+                <CalendarCheck className="h-3.5 w-3.5 text-sky-700" /> Agregar servicio (cita)
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <CustomSelect
+                    value={appointmentPick}
+                    onChange={onCustomSelectValue(setAppointmentPick)}
+                    variant="formCompact"
+                    selectClassName={ADMIN_FORM_FIELD_COMPACT}
+                    options={appointmentOptions.map((a) => ({
+                      id: String(a.id),
+                      label: appointmentLabel(a),
+                    }))}
+                    placeholder={
+                      appointmentOptions.length ? 'Cita completada…' : 'No hay citas pendientes'
+                    }
+                  />
+                </div>
+                <button type="button" onClick={handleAddService} className="btn-admin-outline text-sm inline-flex items-center gap-1">
+                  <Plus className="h-3.5 w-3.5" /> Agregar
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-stone-200 p-3 space-y-2">
+              <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5 text-violet-700" /> Agregar producto
+              </p>
+              <div className="grid gap-2 sm:grid-cols-[1fr_6rem_auto] sm:items-end">
+                <ProductPicker
+                  value={productPick?.id ? String(productPick.id) : ''}
+                  onChange={(id, product) => {
+                    setProductPick(product || null);
+                  }}
+                />
+                <label>
+                  <span className={ADMIN_FORM_LABEL_CLASS}>Cant.</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={productQty}
+                    onChange={(e) => setProductQty(e.target.value)}
+                    className={ADMIN_FORM_FIELD_COMPACT}
+                  />
+                </label>
+                <button type="button" onClick={handleAddProduct} className="btn-admin-outline text-sm inline-flex items-center gap-1">
+                  <Plus className="h-3.5 w-3.5" /> Agregar
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-stone-200 p-3 space-y-2">
+              <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-stone-700" /> Agregar caja (manual)
+              </p>
+              <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
+                <label>
+                  <span className={ADMIN_FORM_LABEL_CLASS}>Descripción</span>
+                  <input
+                    id={draftManualId}
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value.slice(0, 200))}
+                    className={ADMIN_FORM_FIELD_COMPACT}
+                    placeholder="Ej. producto sin catálogo, ajuste…"
+                    maxLength={200}
+                  />
+                </label>
+                <label>
+                  <span className={ADMIN_FORM_LABEL_CLASS}>Monto</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={manualAmount}
+                    onChange={(e) => setManualAmount(e.target.value)}
+                    className={ADMIN_FORM_FIELD_COMPACT}
+                  />
+                </label>
+                <button type="button" onClick={handleAddManual} className="btn-admin-outline text-sm inline-flex items-center gap-1">
+                  <Plus className="h-3.5 w-3.5" /> Agregar
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {lines.length === 0 ? (
+                <p className="py-4 text-center text-sm text-stone-500">Aún no hay líneas en el cobro.</p>
+              ) : (
+                lines.map((line) => (
+                  <div
+                    key={line.key}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                        {line.type === 'service' ? 'Servicio' : line.type === 'product' ? 'Producto' : 'Caja'}
+                      </p>
+                      <p className="text-sm font-medium text-stone-900 truncate">{line.label}</p>
+                      <p className="text-xs text-stone-500">
+                        {line.type === 'product'
+                          ? `${formatPaymentAmount(line.unitPrice)} × ${line.quantity}`
+                          : formatPaymentAmount(line.unitPrice)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-semibold tabular-nums text-stone-900">
+                        {formatPaymentAmount((Number(line.unitPrice) || 0) * (Number(line.quantity) || 1))}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeLine(line.key)}
+                        className="rounded-lg border border-stone-200 p-1.5 text-stone-500 hover:bg-white hover:text-rose-700"
+                        aria-label="Quitar línea"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-stone-100 pt-3">
+              <span className="text-sm font-semibold text-stone-600">Total del cobro</span>
+              <span className="font-serif text-xl font-medium text-gold tabular-nums">
+                {formatPaymentAmount(cartTotal)}
+              </span>
+            </div>
+          </div>
+        </AdminFormCard>
+
+        <AdminFormCard>
+          <AdminFormCardHeader title="Notas" />
           <textarea
-            name="notes"
-            value={formData.notes}
-            onChange={handleChange}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value.slice(0, 500))}
             rows={2}
             maxLength={500}
-            placeholder="Opcional: detalle del cobro, observaciones…"
+            placeholder="Opcional: detalle del cobro…"
             className={`${ADMIN_FORM_FIELD_COMPACT} resize-none`}
           />
-        </div>
+        </AdminFormCard>
 
-        <AdminFormFooterActions className="mt-1">
-          <AdminFormPrimaryButton disabled={loading}>
+        <AdminFormFooterActions>
+          <AdminFormPrimaryButton disabled={loading || lines.length === 0}>
             <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
-              Registrar pago
+              Confirmar cobro
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
         </AdminFormFooterActions>
-      </AdminFormCard>
+      </form>
     </AdminFormShell>
   );
 }
+
+export default PaymentForm;

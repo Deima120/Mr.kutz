@@ -20,6 +20,7 @@ const BarberSchedulesPage = lazy(() => import('@/features/barbers/pages/BarberSc
 const AppointmentsPage = lazy(() => import('@/features/appointments/pages/AppointmentsPage'));
 const PaymentsPage = lazy(() => import('@/features/payments/pages/PaymentsPage'));
 const InventoryPage = lazy(() => import('@/features/inventory/pages/InventoryPage'));
+const ProductDetailPage = lazy(() => import('@/features/inventory/pages/ProductDetailPage'));
 const ProductCategoriesPage = lazy(() => import('@/features/inventory/pages/ProductCategoriesPage'));
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'));
 const AgendaPage = lazy(() => import('@/features/agenda/pages/AgendaPage'));
@@ -28,7 +29,6 @@ const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
-const SuppliersPage = lazy(() => import('@/features/suppliers/pages/SuppliersPage'));
 const NotFoundPage = lazy(() => import('@/features/not-found/pages/NotFoundPage'));
 const BookingPage = lazy(() => import('@/features/booking/pages/BookingPage'));
 
@@ -81,13 +81,13 @@ export default function AppRoutes() {
         { path: 'appointments/:id/edit', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         { path: 'payments', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'purchases', element: protectedPage(PurchasesPage, ['admin']) },
-        { path: 'suppliers', element: protectedPage(SuppliersPage, ['admin']) },
-        { path: 'sales', element: protectedPage(PaymentsPage, ['admin']) },
+        { path: 'suppliers', element: createElement(Navigate, { to: '/purchases?tab=suppliers', replace: true }) },
         { path: 'payments/new', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'inventory', element: protectedPage(InventoryPage, ['admin']) },
         { path: 'inventory/new', element: protectedPage(InventoryPage, ['admin']) },
         { path: 'inventory/categories', element: protectedPage(ProductCategoriesPage, ['admin']) },
         { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin']) },
+        { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin']) },
         { path: 'profile', element: protectedPage(ProfilePage, ['client']) },
         { path: 'dashboard', element: protectedPage(DashboardPage, ['admin', 'barber']) },
         { path: 'agenda', element: protectedPage(AgendaPage, ['barber']) },

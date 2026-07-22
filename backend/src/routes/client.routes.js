@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import {
@@ -13,6 +13,7 @@ import {
   documentTypeField,
   documentNumberField,
   optionalNotesField,
+  paginationQuery,
 } from '../utils/validation.js';
 import * as clientController from '../controllers/client.controller.js';
 
@@ -35,10 +36,16 @@ const clientValidation = [
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');
 
+const listValidation = [
+  query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
+  query('document').optional({ checkFalsy: true }).trim().isLength({ max: 30 }),
+  ...paginationQuery({ maxLimit: 100 }),
+];
+
 router.use(auth);
 router.use(authorize('admin'));
 
-router.get('/', clientController.getAll);
+router.get('/', listValidation, validate, clientController.getAll);
 router.get('/:id/history', idParam, validate, clientController.getHistory);
 router.get('/:id', idParam, validate, clientController.getById);
 router.post('/', clientValidation, validate, clientController.create);

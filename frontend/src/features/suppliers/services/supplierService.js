@@ -11,7 +11,11 @@ export async function getSuppliers(params = {}) {
   const response = await api.get(BASE, { params });
   const payload = unwrap(response);
   if (Array.isArray(payload)) return payload;
-  return payload?.suppliers ?? payload?.rows ?? [];
+  return payload?.suppliers ?? payload?.rows ?? payload?.data ?? [];
+}
+
+export async function getSupplierById(id) {
+  return unwrap(await api.get(`${BASE}/${id}`));
 }
 
 export async function createSupplier(data) {
