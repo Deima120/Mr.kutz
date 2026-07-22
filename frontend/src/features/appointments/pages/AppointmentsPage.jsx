@@ -3,7 +3,7 @@
  * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Star, Plus, ArrowRight, Pencil, Clock, User, Ban, CalendarDays } from 'lucide-react';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
@@ -36,8 +36,8 @@ import {
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const CLIENT_PAGE_SIZE_OPTIONS = [3, 6, 9, 12];
-/** Altura estimada de una tarjeta en la grilla cliente. */
-const CLIENT_CARD_ESTIMATE_PX = 152;
+/** Altura mínima estable del área de tarjetas (evita saltos de scrollbar). */
+const CLIENT_LIST_MIN_HEIGHT = '22rem';
 
 /** Filtro de estado en vista cliente → valores API (coma = OR). */
 const CLIENT_STATUS_FILTER_OPTIONS = [
@@ -48,12 +48,6 @@ const CLIENT_STATUS_FILTER_OPTIONS = [
 
 function clientStatusApiParam(filterId) {
   return CLIENT_STATUS_FILTER_OPTIONS.find((o) => o.id === filterId)?.apiStatus || '';
-}
-
-function clientGridCols(width) {
-  if (width >= 1024) return 3;
-  if (width >= 640) return 2;
-  return 1;
 }
 
 function AppointmentsPagination({
@@ -400,8 +394,6 @@ export default function AppointmentsPage() {
   const [pageSize, setPageSize] = useState(6);
   const [formView, setFormView] = useState(null);
   const [clock, setClock] = useState(() => new Date());
-  const clientListRef = useRef(null);
-  const pageSizeManualRef = useRef(false);
 
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
@@ -410,6 +402,8 @@ export default function AppointmentsPage() {
   const fetchAppointments = async (targetPage = page) => {
     setLoading(true);
     setError('');
+    // Evita mostrar tarjetas del filtro anterior mientras llega la nueva página
+    if (isClient) setAppointments([]);
     try {
       const params = {
         limit: pageSize,
@@ -419,7 +413,12 @@ export default function AppointmentsPage() {
       if (isAdmin && filterBarber) params.barberId = filterBarber;
       if (isBarber && user?.barberId) params.barberId = user.barberId;
       if (isClient) {
-        params.clientId = user?.clientId;
+        if (!user?.clientId) {
+          setAppointments([]);
+          setTotal(0);
+          return;
+        }
+        params.clientId = user.clientId;
         const statusParam = clientStatusApiParam(filterStatus);
         if (statusParam) params.status = statusParam;
       }
@@ -445,7 +444,12 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (isBarber && !user?.barberId) return;
-    if (isClient && !user?.clientId) return;
+    if (isClient && !user?.clientId) {
+      setLoading(false);
+      setAppointments([]);
+      setTotal(0);
+      return;
+    }
     fetchAppointments();
   }, [filterDate, filterBarber, filterStatus, user?.barberId, user?.clientId, page, pageSize]);
 
@@ -503,10 +507,9 @@ export default function AppointmentsPage() {
       setCancelling(false);
 
       if (isClient && newStatus === 'cancelled') {
-        setAppointments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, status: 'cancelled' } : a))
-        );
         setSuccessMessage('Cita cancelada correctamente.');
+        // Refetch para sacar la cita del filtro Agendada y actualizar totales/paginación
+        await fetchAppointments(page);
         return;
       }
 
@@ -550,35 +553,6 @@ export default function AppointmentsPage() {
     setCancelling(true);
     await handleStatusChange(cancelTarget.id, 'cancelled');
   };
-
-  const handleClientPageSizeChange = useCallback((next) => {
-    pageSizeManualRef.current = true;
-    setPageSize(next);
-  }, []);
-
-  useEffect(() => {
-    if (!isClient || formView != null) return undefined;
-    const el = clientListRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-
-    const measure = () => {
-      if (pageSizeManualRef.current) return;
-      const height = el.clientHeight;
-      const width = el.clientWidth;
-      if (height < 80 || width < 80) return;
-      const cols = clientGridCols(width);
-      const rows = Math.max(1, Math.floor(height / CLIENT_CARD_ESTIMATE_PX));
-      const fit = Math.max(cols, rows * cols);
-      const auto =
-        [...CLIENT_PAGE_SIZE_OPTIONS].reverse().find((n) => n <= fit) || CLIENT_PAGE_SIZE_OPTIONS[0];
-      setPageSize((prev) => (prev === auto ? prev : auto));
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isClient, formView, loading, appointments.length]);
 
   const formatTime = formatAppointmentClockTime;
 
@@ -669,49 +643,58 @@ export default function AppointmentsPage() {
           <div className="shrink-0 mb-3">
             <ClientAppointmentsToolbar
               filterStatus={filterStatus}
-              onFilterStatusChange={(next) => {
-                pageSizeManualRef.current = false;
-                setFilterStatus(next);
-              }}
+              onFilterStatusChange={setFilterStatus}
               total={total}
               page={page}
               pageSize={pageSize}
               onPageChange={setPage}
-              onPageSizeChange={handleClientPageSizeChange}
+              onPageSizeChange={setPageSize}
             />
           </div>
 
           <div
-            ref={clientListRef}
-            className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden transition-opacity duration-300"
-            key={filterStatus}
+            className="flex-1 min-h-0 overflow-hidden relative"
+            style={{ minHeight: CLIENT_LIST_MIN_HEIGHT }}
+            aria-busy={loading}
           >
-            {loading ? (
-              <div className="py-12 text-center">
+            {loading && appointments.length === 0 ? (
+              <div
+                className="flex items-center justify-center text-center"
+                style={{ minHeight: CLIENT_LIST_MIN_HEIGHT }}
+              >
                 <p className="text-stone-500">Cargando tus citas...</p>
               </div>
             ) : appointments.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-8 sm:p-10 text-center animate-fade-in max-w-lg mx-auto">
-                <p className="text-stone-500 mb-5">
-                  {filterStatus === 'scheduled'
-                    ? 'No tienes citas agendadas.'
-                    : filterStatus === 'completed'
-                      ? 'No tienes citas completadas.'
-                      : 'No tienes citas canceladas.'}
-                </p>
-                {filterStatus === 'scheduled' && (
-                  <button
-                    type="button"
-                    onClick={() => setFormView('create')}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
-                  >
-                    Agendar mi primera cita
-                    <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                  </button>
-                )}
+              <div
+                className="flex items-center justify-center"
+                style={{ minHeight: CLIENT_LIST_MIN_HEIGHT }}
+              >
+                <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-8 sm:p-10 text-center animate-fade-in max-w-lg w-full mx-auto">
+                  <p className="text-stone-500 mb-5">
+                    {filterStatus === 'scheduled'
+                      ? 'No tienes citas agendadas.'
+                      : filterStatus === 'completed'
+                        ? 'No tienes citas completadas.'
+                        : 'No tienes citas canceladas.'}
+                  </p>
+                  {filterStatus === 'scheduled' && (
+                    <button
+                      type="button"
+                      onClick={() => setFormView('create')}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
+                    >
+                      Agendar mi primera cita
+                      <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
-              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start h-full md:overflow-hidden">
+              <ul
+                className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-start h-full overflow-hidden transition-opacity duration-200 ${
+                  loading ? 'opacity-60 pointer-events-none' : 'opacity-100'
+                }`}
+              >
                 {appointments.map((a) => {
                   const noteText = appointmentNotesOf(a);
                   const effectiveStatus = getEffectiveAppointmentStatus(a, clock);
