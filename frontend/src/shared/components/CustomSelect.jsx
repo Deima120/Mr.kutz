@@ -10,6 +10,8 @@ import {
   ADMIN_FORM_FIELD_COMPACT,
 } from '@/shared/components/admin/AdminFormShell';
 
+export { formSelectEvent } from '@/shared/utils/customSelectAdapters';
+
 const TRIGGER_BASE =
   'flex w-full items-center justify-between gap-2 text-left transition-all duration-200';
 
@@ -32,11 +34,6 @@ const PANEL_VARIANT = {
   formCompact: 'rounded-xl border border-stone-200 bg-white shadow-[0_14px_32px_rgba(28,25,23,0.12)]',
   public: 'rounded-xl border border-stone-200 bg-white shadow-[0_18px_45px_rgba(28,25,23,0.14)]',
 };
-
-/** Adapta CustomSelect a handlers de formulario que esperan event.target.name/value. */
-export function formSelectEvent(name, handler) {
-  return (value) => handler({ target: { name, value: String(value ?? '') } });
-}
 
 function optionClassName(variant, isSelected, isHighlighted) {
   const base =

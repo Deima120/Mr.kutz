@@ -18,6 +18,7 @@ import {
   TEXT_REFERENCE_MAX,
 } from '@/shared/utils/formValidation';
 import CustomSelect from '@/shared/components/CustomSelect';
+import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
 import ProductPicker from '@/features/inventory/components/ProductPicker';
 import AdminFormShell, {
   AdminFormCard,
@@ -386,7 +387,7 @@ export function PaymentForm({
               <span className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</span>
               <CustomSelect
                 value={paymentMethodId}
-                onChange={(e) => setPaymentMethodId(e.target.value)}
+                onChange={onCustomSelectValue(setPaymentMethodId)}
                 variant="formCompact"
                 selectClassName={ADMIN_FORM_FIELD_COMPACT}
                 options={methods.map((m) => ({
@@ -420,7 +421,7 @@ export function PaymentForm({
                 <div className="flex-1">
                   <CustomSelect
                     value={appointmentPick}
-                    onChange={(e) => setAppointmentPick(e.target.value)}
+                    onChange={onCustomSelectValue(setAppointmentPick)}
                     variant="formCompact"
                     selectClassName={ADMIN_FORM_FIELD_COMPACT}
                     options={appointmentOptions.map((a) => ({
