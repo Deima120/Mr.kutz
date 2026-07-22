@@ -4,6 +4,7 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatMoney } from '@/shared/utils/money';
 
 const BRAND = {
   gold: [201, 169, 98],
@@ -173,9 +174,6 @@ export function downloadReportPDF(report, { businessName = 'Mr. Kutz', dateFrom,
   const r = report.ratings || {};
   const dist = r.distribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
-  const formatAmount = (n) =>
-    `$${Math.round(parseFloat(n || 0)).toLocaleString('es-CO')}`;
-
   const formatTrend = (value) => {
     if (value == null || Number.isNaN(Number(value))) return '—';
     const n = Number(value);
@@ -194,13 +192,13 @@ export function downloadReportPDF(report, { businessName = 'Mr. Kutz', dateFrom,
     startY: y,
     head: [['Indicador', 'Periodo actual', 'Periodo anterior', 'Variación']],
     body: [
-      ['Ventas totales', formatAmount(c.sales?.total), formatAmount(p.sales?.total), formatTrend(cmp.salesTotal)],
+      ['Ventas totales', formatMoney(c.sales?.total), formatMoney(p.sales?.total), formatTrend(cmp.salesTotal)],
       ['Transacciones', String(c.sales?.count ?? 0), String(p.sales?.count ?? 0), formatTrend(cmp.salesCount)],
       ['Citas completadas', String(c.appointments?.completed ?? 0), String(p.appointments?.completed ?? 0), formatTrend(cmp.appointmentsCompleted)],
       ['Citas totales', String(c.appointments?.total ?? 0), String(p.appointments?.total ?? 0), formatTrend(cmp.appointmentsTotal)],
       ['Clientes totales', String(c.totalClients ?? 0), String(p.totalClients ?? 0), '—'],
       ['Productos stock bajo', String(c.lowStockCount ?? 0), '—', '—'],
-      ['Valor inventario (costo)', formatAmount(c.inventoryValue ?? 0), '—', '—'],
+      ['Valor inventario (costo)', formatMoney(c.inventoryValue ?? 0), '—', '—'],
     ],
     theme: 'plain',
     styles: { fontSize: 8, cellPadding: 2.5 },

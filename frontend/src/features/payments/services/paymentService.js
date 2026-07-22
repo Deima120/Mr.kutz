@@ -31,6 +31,11 @@ export const getPayments = async (params = {}) => {
   };
 };
 
+export const getPaymentById = async (id) => {
+  const response = await api.get(`${PAYMENTS_BASE}/${id}`);
+  return extract(response);
+};
+
 export const getPaymentsTotal = async (params = {}) => {
   const response = await api.get(`${PAYMENTS_BASE}/total`, { params });
   return extract(response);
@@ -41,8 +46,14 @@ export const createPayment = async (data) => {
   return extract(response);
 };
 
-/** Anula un pago (conserva registro; devuelve stock si era venta de producto). */
+/** Anula un pago completo. */
 export const voidPayment = async (id, body = {}) => {
   const response = await api.post(`${PAYMENTS_BASE}/${id}/void`, body);
+  return extract(response);
+};
+
+/** Anula una línea del cobro. */
+export const voidPaymentLine = async (paymentId, lineId, body = {}) => {
+  const response = await api.post(`${PAYMENTS_BASE}/${paymentId}/lines/${lineId}/void`, body);
   return extract(response);
 };

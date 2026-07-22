@@ -140,7 +140,7 @@ export function validatePhone(value, { required = false } = {}) {
   if (!digits) {
     return required
       ? { valid: false, message: 'El teléfono es obligatorio.' }
-      : { valid: true, message: '' };
+      : { valid: true, message: '', value: null };
   }
   if (digits.length < 7) {
     return { valid: false, message: 'El teléfono debe tener al menos 7 dígitos.' };
@@ -148,7 +148,27 @@ export function validatePhone(value, { required = false } = {}) {
   if (digits.length > 15) {
     return { valid: false, message: 'El teléfono no puede superar 15 dígitos.' };
   }
-  return { valid: true, message: '' };
+  return { valid: true, message: '', value: digits };
+}
+
+/** Identificación fiscal laxa (proveedores): letras, números y guiones. */
+export function validateTaxId(value, { required = false } = {}) {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return required
+      ? { valid: false, message: 'La identificación fiscal es obligatoria.' }
+      : { valid: true, message: '', value: null };
+  }
+  if (raw.length > 50) {
+    return { valid: false, message: 'La identificación fiscal no puede superar 50 caracteres.' };
+  }
+  if (!/^[A-Za-z0-9-]+$/.test(raw)) {
+    return {
+      valid: false,
+      message: 'La identificación fiscal solo puede contener letras, números y guiones.',
+    };
+  }
+  return { valid: true, message: '', value: raw };
 }
 
 export function validatePassword(value, { required = true } = {}) {
@@ -195,7 +215,7 @@ export function validateServiceForm(data) {
     errors.name = `Máximo ${TEXT_NAME_MAX} caracteres.`;
   }
 
-  const price = validateMoney(data.price, 'El precio', { required: true, min: 0 });
+  const price = validateMoney(data.price, 'El precio', { required: true, min: 0.01 });
   if (!price.valid) errors.price = price.message;
 
   const duration = validatePositiveInt(data.durationMinutes, 'La duración', { required: true, min: 1 });
@@ -248,40 +268,6 @@ export function validateAdminDocumentNumber(value) {
     valid: false,
     message: result.message || 'Revisa el número de documento.',
   };
-}
-
-/** Formulario admin de cliente (crear / editar). */
-export function validateClientForm(data) {
-  const errors = {};
-
-  const docType = validateDocumentType(data.documentType);
-  if (!docType.valid) errors.documentType = docType.message;
-
-  const docNum = validateDocumentNumber(data.documentNumber);
-  if (!docNum.valid) {
-    errors.documentNumber = fieldMessage(docNum, 'Revisa el número de documento.');
-  }
-
-  const firstName = validatePersonName(data.firstName, 'El nombre', {
-    minLength: CLIENT_FIRST_NAME_MIN,
-  });
-  if (!firstName.valid) errors.firstName = fieldMessage(firstName, 'Revisa el nombre.');
-
-  const lastName = validatePersonName(data.lastName, 'El apellido', {
-    minLength: CLIENT_LAST_NAME_MIN,
-  });
-  if (!lastName.valid) errors.lastName = fieldMessage(lastName, 'Revisa el apellido.');
-
-  const email = validateEmail(data.email);
-  if (!email.valid) errors.email = email.message;
-
-  const phone = validatePhone(data.phone, { required: false });
-  if (!phone.valid) errors.phone = phone.message;
-
-  const notes = validateNotes(data.notes);
-  if (!notes.valid) errors.notes = notes.message;
-
-  return validationResult(errors);
 }
 
 /** @returns {ValidationResult} */
@@ -350,10 +336,10 @@ export function validatePaymentForm(data, mode, extras = {}) {
           ? 'No hay citas completadas pendientes de cobro.'
           : 'Selecciona la cita a cobrar.';
     }
+  } else if (mode === 'cash') {
+    const amount = validateMoney(data.amount, 'El monto', { required: true, min: 0.01 });
+    if (!amount.valid) errors.amount = amount.message;
   }
-
-  const amount = validateMoney(data.amount, 'El monto', { required: true, min: 0.01 });
-  if (!amount.valid) errors.amount = amount.message;
 
   if (!data.paymentMethodId) {
     errors.paymentMethodId = 'Selecciona un método de pago.';
@@ -366,6 +352,81 @@ export function validatePaymentForm(data, mode, extras = {}) {
 
   const notes = validateNotes(data.notes);
   if (!notes.valid) errors.notes = notes.message;
+
+  return validationResult(errors);
+}
+
+/** Carrito de cobro multi-línea. */
+export function validatePaymentCartForm({ paymentMethodId, reference, notes, lines = [] } = {}) {
+  const errors = {};
+
+  if (!paymentMethodId) errors.paymentMethodId = 'Selecciona un método de pago.';
+  if (!Array.isArray(lines) || lines.length === 0) {
+    errors.lines = 'Agrega al menos una línea al cobro.';
+  } else {
+    lines.forEach((line, index) => {
+      if (line.type === 'service' && !line.appointmentId) {
+        errors[`lines.${index}`] = 'Línea de servicio sin cita.';
+      }
+      if (line.type === 'product') {
+        if (!line.productId) errors[`lines.${index}`] = 'Línea de producto sin producto.';
+        const qty = validatePositiveInt(line.quantity, 'La cantidad', { required: true, min: 1 });
+        if (!qty.valid) errors[`lines.${index}`] = qty.message;
+      }
+      if (line.type === 'manual') {
+        const amount = validateMoney(line.unitPrice, 'El monto', { required: true, min: 0.01 });
+        if (!amount.valid) errors[`lines.${index}`] = amount.message;
+        if (!String(line.description || '').trim()) {
+          errors[`lines.${index}`] = 'La descripción es obligatoria en líneas de caja.';
+        }
+      }
+    });
+  }
+
+  const ref = String(reference ?? '');
+  if (ref.length > TEXT_REFERENCE_MAX) {
+    errors.reference = `Máximo ${TEXT_REFERENCE_MAX} caracteres.`;
+  }
+  const notesResult = validateNotes(notes);
+  if (!notesResult.valid) errors.notes = notesResult.message;
+
+  return validationResult(errors);
+}
+
+/** Recepción de compra: referencia + cantidades/costos con helpers compartidos. */
+export function validatePurchaseReceiptForm({ reference, notes, receivable = [] } = {}) {
+  const errors = {};
+
+  const ref = validateRequiredField(reference, 'La referencia');
+  if (!ref.valid) errors.reference = ref.message;
+  else if (String(reference).trim().length > 80) {
+    errors.reference = 'Máximo 80 caracteres.';
+  }
+
+  const notesResult = validateNotes(notes, { max: 500 });
+  if (!notesResult.valid) errors.notes = notesResult.message;
+
+  const selected = receivable.filter((item) => String(item.quantity ?? '').trim() !== '');
+  const withQty = selected.filter((item) => Number(item.quantity) > 0);
+  if (withQty.length === 0) {
+    errors.items = 'Indica al menos una cantidad recibida.';
+    return validationResult(errors);
+  }
+
+  withQty.forEach((item) => {
+    const qty = validatePositiveInt(item.quantity, 'La cantidad', { required: true, min: 1 });
+    if (!qty.valid) {
+      errors[`item.${item.purchaseItemId}.quantity`] = qty.message;
+    } else if (Number(item.quantity) > Number(item.pending)) {
+      errors[`item.${item.purchaseItemId}.quantity`] =
+        `No puedes recibir más de ${item.pending} unidades de ${item.name}.`;
+    }
+
+    const cost = validateMoney(item.unitCost, 'El costo unitario', { required: true, min: 0.01 });
+    if (!cost.valid) {
+      errors[`item.${item.purchaseItemId}.unitCost`] = cost.message;
+    }
+  });
 
   return validationResult(errors);
 }

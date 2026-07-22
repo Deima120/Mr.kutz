@@ -11,6 +11,7 @@ import express from 'express';
 import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { loginThrottle } from '../middlewares/loginThrottle.js';
 import * as authController from '../controllers/auth.controller.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 
@@ -30,7 +31,7 @@ const loginValidation = [
   body('password').notEmpty().withMessage('La contraseña es obligatoria.'),
 ];
 
-router.post('/auth/login', loginValidation, validate, authController.login);
+router.post('/auth/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/auth/me', auth, authController.getProfile);
 
 // ====== CLIENTE (requiere rol client) ======
@@ -59,8 +60,9 @@ router.post(
     body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
     body('appointmentDate').isISO8601().withMessage('Indica una fecha válida.'),
     body('startTime')
-      .optional({ checkFalsy: true })
       .trim()
+      .notEmpty()
+      .withMessage('La hora de inicio es obligatoria.')
       .matches(/^\d{1,2}:\d{2}$/)
       .withMessage('La hora debe tener formato HH:MM.'),
     body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 500 }),

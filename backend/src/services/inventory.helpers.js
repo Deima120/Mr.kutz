@@ -93,6 +93,7 @@ export async function changeStockAtomic(
     sourceType = null,
     goodsReceiptItemId = null,
     paymentId = null,
+    paymentLineId = null,
     reversalOfMovementId = null,
   }
 ) {
@@ -158,6 +159,7 @@ export async function changeStockAtomic(
       sourceType,
       goodsReceiptItemId,
       paymentId,
+      paymentLineId,
       reversalOfMovementId,
       notes: notes || null,
       createdBy: createdBy || null,

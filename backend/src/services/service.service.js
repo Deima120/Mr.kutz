@@ -3,6 +3,7 @@
  */
 
 import prisma from '../lib/prisma.js';
+import { assertServicePrice } from './service.rules.js';
 
 /** Sin categorías legacy General/Barbas; por defecto Cortes. */
 function resolveCategoryLabel(raw) {
@@ -100,11 +101,13 @@ export const create = async (data) => {
     throw err;
   }
 
+  const price = assertServicePrice(data.price);
+
   const service = await prisma.service.create({
     data: {
       name,
       description: data.description,
-      price: parseFloat(data.price),
+      price,
       durationMinutes: parseInt(data.durationMinutes, 10),
       categoryId: category?.id ?? null,
       isActive: data.isActive === undefined ? true : data.isActive !== false && data.isActive !== 'false',
@@ -157,10 +160,15 @@ export const update = async (id, data) => {
     throw err;
   }
 
+  let nextPrice;
+  if (data.price != null) {
+    nextPrice = assertServicePrice(data.price);
+  }
+
   const patch = {
       name: name != null ? name : undefined,
       description: data.description,
-      price: data.price != null ? parseFloat(data.price) : undefined,
+      price: nextPrice,
       durationMinutes: data.durationMinutes != null ? parseInt(data.durationMinutes, 10) : undefined,
       categoryId: categoryName != null ? nextCategoryId : undefined,
     };

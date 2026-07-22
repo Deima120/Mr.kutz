@@ -11,6 +11,8 @@ import {
   personNameField,
   optionalPhoneField,
   optionalNotesField,
+  optionalDateQuery,
+  paginationQuery,
 } from '../utils/validation.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 import * as publicBookingController from '../controllers/publicBooking.controller.js';
@@ -34,8 +36,9 @@ const createValidation = [
   body('serviceIds.*').optional().isInt({ min: 1 }).withMessage('Servicio no válido.'),
   body('appointmentDate').isDate().withMessage('Indica una fecha válida.'),
   body('startTime')
-    .optional({ checkFalsy: true })
     .trim()
+    .notEmpty()
+    .withMessage('La hora de inicio es obligatoria.')
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora debe tener formato HH:MM.'),
   optionalNotesField('notes', 500),
@@ -49,12 +52,37 @@ const updateValidation = [
   body('startTime')
     .optional({ checkFalsy: true })
     .trim()
-    .matches(/^\d{1,2}:\d{2}$/),
+    .notEmpty()
+    .withMessage('La hora de inicio es obligatoria.')
+    .matches(/^\d{1,2}:\d{2}$/)
+    .withMessage('La hora debe tener formato HH:MM.'),
   body('status').optional({ checkFalsy: true }).isIn(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']),
   optionalNotesField('notes', 500),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cita no válido.');
+
+const APPOINTMENT_STATUSES = [
+  'scheduled',
+  'confirmed',
+  'in_progress',
+  'completed',
+  'cancelled',
+  'no_show',
+];
+
+const listValidation = [
+  query('date').optional({ checkFalsy: true }).isISO8601().withMessage('Fecha no válida.'),
+  optionalDateQuery('dateFrom', 'Fecha inicial'),
+  optionalDateQuery('dateTo', 'Fecha final'),
+  query('barberId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Barbero no válido.'),
+  query('clientId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Cliente no válido.'),
+  query('status')
+    .optional({ checkFalsy: true })
+    .isIn(APPOINTMENT_STATUSES)
+    .withMessage('Estado de cita no válido.'),
+  ...paginationQuery({ maxLimit: 200 }),
+];
 
 const clientRatingBody = [
   body('rating').isInt({ min: 1, max: 5 }).withMessage('La valoración debe ser un entero entre 1 y 5.'),
@@ -90,6 +118,8 @@ const publicBookingValidation = [
     .withMessage('Indica una fecha válida.'),
   body('startTime')
     .trim()
+    .notEmpty()
+    .withMessage('La hora de inicio es obligatoria.')
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora debe tener formato HH:MM.'),
   optionalNotesField('notes', 500),
@@ -122,7 +152,7 @@ router.use(authorize('admin', 'barber', 'client'));
  * Rutas literales y segmentos fijos antes de `/:id` para que Express no interprete
  * "slots", "rating-summary" o `…/rating` como IDs.
  */
-router.get('/', appointmentController.getAll);
+router.get('/', listValidation, validate, appointmentController.getAll);
 router.get('/slots', [
   query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   query('date').isDate().withMessage('Indica una fecha válida.'),
@@ -133,7 +163,14 @@ router.get(
   authorize('admin', 'barber'),
   [
     query('barberId').optional({ values: 'falsy' }).isInt({ min: 1 }).withMessage('barberId no válido.'),
-    query('days').optional({ values: 'falsy' }).trim(),
+    query('days')
+      .optional({ values: 'falsy' })
+      .custom((value) => {
+        if (value === 'all') return true;
+        const n = parseInt(String(value), 10);
+        if (Number.isFinite(n) && n >= 1 && n <= 3650) return true;
+        throw new Error('days debe ser "all" o un entero entre 1 y 3650.');
+      }),
   ],
   validate,
   appointmentController.getRatingSummary,

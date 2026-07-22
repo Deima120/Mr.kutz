@@ -82,7 +82,6 @@ export default function AppRoutes() {
         { path: 'payments', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'purchases', element: protectedPage(PurchasesPage, ['admin']) },
         { path: 'suppliers', element: createElement(Navigate, { to: '/purchases?tab=suppliers', replace: true }) },
-        { path: 'sales', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'payments/new', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'inventory', element: protectedPage(InventoryPage, ['admin']) },
         { path: 'inventory/new', element: protectedPage(InventoryPage, ['admin']) },

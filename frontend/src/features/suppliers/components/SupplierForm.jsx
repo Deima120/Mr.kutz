@@ -129,10 +129,12 @@ export default function SupplierForm({
           Teléfono
           <input
             type="tel"
+            inputMode="numeric"
             value={form.phone}
-            onChange={(e) => setField('phone', e.target.value)}
+            onChange={(e) => setField('phone', e.target.value.replace(/\D/g, '').slice(0, 15))}
             className={`${fieldClass} mt-1`}
-            maxLength={30}
+            maxLength={15}
+            placeholder="Solo dígitos"
           />
         </label>
         <label className="text-xs font-semibold text-stone-600">
