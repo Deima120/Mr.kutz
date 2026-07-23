@@ -23,29 +23,13 @@ import cronRoutes from './cron.routes.js';
 
 const router = express.Router();
 
-// Placeholder - API info
+// Info pública mínima (sin mapa de endpoints)
 router.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'API Mr. Kutz v1.0',
-    endpoints: {
-      auth: '/api/auth',
-      clients: '/api/clients',
-      services: '/api/services',
-      barbers: '/api/barbers',
-      appointments: '/api/appointments',
-      appointmentsPublicSatisfaction: '/api/appointments/public-satisfaction',
-      testimonials: '/api/testimonials',
-      payments: '/api/payments',
-      products: '/api/products',
-      productCategories: '/api/product-categories',
-      suppliers: '/api/suppliers',
-      purchases: '/api/purchases',
-      dashboard: '/api/dashboard',
-      settings: '/api/settings',
-      mobile: '/api/mobile',
-      cron: '/api/cron (POST, requiere CRON_SECRET)',
-    },
+    message: 'API Mr. Kutz funcionando correctamente.',
+    version: '1.0.0',
+    status: 'OK',
   });
 });
 

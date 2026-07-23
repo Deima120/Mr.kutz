@@ -11,6 +11,7 @@ import prisma from './lib/prisma.js';
 
 import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { notFound } from './middlewares/notFound.js';
 import { getMailConfigDiagnostics } from './lib/mailer.js';
 import routes from './routes/index.js';
 import {
@@ -98,6 +99,9 @@ app.use('/api', routes);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ========== 404 (después de todas las rutas) ==========
+app.use(notFound);
 
 // ========== MANEJO DE ERRORES ==========
 app.use(errorHandler);
