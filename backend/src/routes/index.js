@@ -28,7 +28,8 @@ router.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'API Mr. Kutz funcionando correctamente.',
-    status: 'ok',
+    version: '1.0.0',
+    status: 'OK',
   });
 });
 
