@@ -70,6 +70,22 @@ function normalizeError(error) {
     };
   }
 
+  // Respuesta no JSON (p. ej. HTML "Cannot PUT /api/..." de un backend desactualizado)
+  const raw =
+    typeof data === 'string'
+      ? data
+      : typeof error.response?.data === 'string'
+        ? error.response.data
+        : '';
+  if (/Cannot\s+(GET|PUT|POST|PATCH|DELETE)\s+\//i.test(raw) || status === 404) {
+    return {
+      success: false,
+      message:
+        'El servidor no tiene esta función disponible todavía. Hay que desplegar la versión actualizada del backend.',
+      status,
+    };
+  }
+
   return {
     success: false,
     message: error.response?.status === 500

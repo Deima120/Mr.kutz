@@ -206,15 +206,30 @@ function endTimeFromStartAndDuration(startTimeValue, durationMinutes) {
 /**
  * Resuelve la lista ordenada de servicios de una cita (IDs en notes, nombres legacy o serviceId).
  */
+function normalizeServiceLabel(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
 async function resolveOrderedServicesForAppointment(a) {
   let ids = parseServiceIdsFromNotes(a.notes);
   if (!ids.length) {
     const names = parseServiceNamesFromNotes(a.notes);
     if (names.length > 1) {
-      const found = await prisma.service.findMany({ where: { name: { in: names } } });
-      const byName = new Map(found.map((s) => [s.name, s]));
-      const ordered = names.map((n) => byName.get(n)).filter(Boolean);
-      if (ordered.length === names.length) return ordered;
+      const found = await prisma.service.findMany({
+        where: {
+          OR: names.map((n) => ({
+            name: { equals: n, mode: 'insensitive' },
+          })),
+        },
+      });
+      const byName = new Map(found.map((s) => [normalizeServiceLabel(s.name), s]));
+      const ordered = names.map((n) => byName.get(normalizeServiceLabel(n))).filter(Boolean);
+      // Preferir coincidencia parcial (≥2) sobre quedarse solo con el serviceId primario
+      if (ordered.length === names.length || ordered.length >= 2) return ordered;
     }
     ids = a.serviceId ? [a.serviceId] : [];
   }
