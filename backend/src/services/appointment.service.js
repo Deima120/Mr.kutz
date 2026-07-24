@@ -10,6 +10,7 @@ import {
 import {
   addDaysToYmd,
   getColombiaTodayYmd,
+  getColombiaNowParts,
   ymdToUtcDate,
 } from '../utils/colombiaTime.js';
 import {
@@ -136,16 +137,106 @@ export async function syncAutomaticAppointmentStatuses() {
   return { checked: candidates.length, updated };
 }
 
+/** Prefijos en notes para citas multi-servicio (sin tabla de unión). */
+const SERVICES_IDS_PREFIX_RE = /\[ServiciosIds:\s*([^\]]+)\]\s*/i;
+const SERVICES_NAMES_PREFIX_RE = /\[Servicios:\s*([^\]]+)\]\s*/i;
+
+function parseServiceIdsFromNotes(notes) {
+  const match = String(notes || '').match(SERVICES_IDS_PREFIX_RE);
+  if (!match) return [];
+  return [
+    ...new Set(
+      match[1]
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    ),
+  ];
+}
+
+function parseServiceNamesFromNotes(notes) {
+  const match = String(notes || '').match(SERVICES_NAMES_PREFIX_RE);
+  if (!match) return [];
+  return match[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /** Extrae etiqueta de servicios múltiples guardada en notas al crear la cita. */
 function displayServiceName(notes, fallbackName) {
-  const match = String(notes || '').match(/^\[Servicios:\s*([^\]]+)\]/);
-  if (match) return match[1].trim();
+  const names = parseServiceNamesFromNotes(notes);
+  if (names.length) return names.join(', ');
   return fallbackName;
 }
 
-/** Quita el prefijo de servicios múltiples de las notas para mostrar solo el texto del usuario. */
+/** Quita prefijos de servicios múltiples; deja solo el texto del usuario. */
 function userNotesOnly(notes) {
-  return String(notes || '').replace(/^\[Servicios:[^\]]+\]\s*/, '').trim() || null;
+  return String(notes || '')
+    .replace(SERVICES_IDS_PREFIX_RE, '')
+    .replace(SERVICES_NAMES_PREFIX_RE, '')
+    .trim() || null;
+}
+
+function buildMultiServiceNotes(orderedServices, userNotes) {
+  const u = typeof userNotes === 'string' ? userNotes.trim() : '';
+  if (!orderedServices?.length || orderedServices.length === 1) {
+    return u || null;
+  }
+  const ids = orderedServices.map((s) => s.id).join(',');
+  const names = orderedServices.map((s) => s.name).join(', ');
+  const prefix = `[ServiciosIds:${ids}][Servicios: ${names}]`;
+  return u ? `${prefix} ${u}` : prefix;
+}
+
+function endTimeFromStartAndDuration(startTimeValue, durationMinutes) {
+  const parsedStart = parseClockTime(toTimeStr(startTimeValue) || startTimeValue, { required: true });
+  const endMinutes = parsedStart.totalMinutes + Number(durationMinutes);
+  const endH = Math.floor(endMinutes / 60);
+  const endM = endMinutes % 60;
+  const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+  return {
+    startDate: clockTimeToDate(parsedStart),
+    endDate: new Date(`1970-01-01T${endTimeStr}Z`),
+    startMinutes: parsedStart.totalMinutes,
+    endMinutes,
+  };
+}
+
+/**
+ * Resuelve la lista ordenada de servicios de una cita (IDs en notes, nombres legacy o serviceId).
+ */
+async function resolveOrderedServicesForAppointment(a) {
+  let ids = parseServiceIdsFromNotes(a.notes);
+  if (!ids.length) {
+    const names = parseServiceNamesFromNotes(a.notes);
+    if (names.length > 1) {
+      const found = await prisma.service.findMany({ where: { name: { in: names } } });
+      const byName = new Map(found.map((s) => [s.name, s]));
+      const ordered = names.map((n) => byName.get(n)).filter(Boolean);
+      if (ordered.length === names.length) return ordered;
+    }
+    ids = a.serviceId ? [a.serviceId] : [];
+  }
+  if (!ids.length) return a.service ? [a.service] : [];
+
+  const records = await prisma.service.findMany({ where: { id: { in: ids } } });
+  const byId = new Map(records.map((s) => [s.id, s]));
+  const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+  if (!ordered.length && a.service) return [a.service];
+  return ordered;
+}
+
+function mapAppointmentServicesFields(orderedServices, fallbackService) {
+  const list = orderedServices?.length ? orderedServices : fallbackService ? [fallbackService] : [];
+  const primary = list[0] || fallbackService || null;
+  return {
+    service_id: primary?.id ?? null,
+    service_ids: list.map((s) => s.id),
+    service_name: list.map((s) => s.name).filter(Boolean).join(', ') || primary?.name || null,
+    price: list.reduce((sum, s) => sum + Number(s.price || 0), 0),
+    duration_minutes: list.reduce((sum, s) => sum + Number(s.durationMinutes || 0), 0),
+  };
 }
 
 export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
@@ -191,30 +282,39 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
 
   await applyAutomaticStatusUpdates(appointments);
 
+  const enriched = await Promise.all(
+    appointments.map(async (a) => {
+      const ordered = await resolveOrderedServicesForAppointment(a);
+      const svc = mapAppointmentServicesFields(ordered, a.service);
+      return {
+        id: a.id,
+        client_id: a.clientId,
+        barber_id: a.barberId,
+        service_id: svc.service_id,
+        service_ids: svc.service_ids,
+        appointment_date: a.appointmentDate,
+        start_time: toTimeStr(a.startTime),
+        end_time: toTimeStr(a.endTime),
+        status: a.status,
+        notes: userNotesOnly(a.notes),
+        created_at: a.createdAt,
+        client_first_name: a.client.firstName,
+        client_last_name: a.client.lastName,
+        barber_first_name: a.barber.firstName,
+        barber_last_name: a.barber.lastName,
+        service_name: svc.service_name || displayServiceName(a.notes, a.service.name),
+        price: svc.price,
+        duration_minutes: svc.duration_minutes,
+        has_active_payment: (a.paymentLines?.length || 0) > 0,
+        clientRating: a.clientRating,
+        clientRatingComment: a.clientRatingComment,
+        clientRatedAt: a.clientRatedAt,
+      };
+    }),
+  );
+
   return {
-    appointments: appointments.map((a) => ({
-      id: a.id,
-      client_id: a.clientId,
-      barber_id: a.barberId,
-      service_id: a.serviceId,
-      appointment_date: a.appointmentDate,
-      start_time: toTimeStr(a.startTime),
-      end_time: toTimeStr(a.endTime),
-      status: a.status,
-      notes: userNotesOnly(a.notes),
-      created_at: a.createdAt,
-      client_first_name: a.client.firstName,
-      client_last_name: a.client.lastName,
-      barber_first_name: a.barber.firstName,
-      barber_last_name: a.barber.lastName,
-      service_name: displayServiceName(a.notes, a.service.name),
-      price: a.service.price,
-      duration_minutes: a.service.durationMinutes,
-      has_active_payment: (a.paymentLines?.length || 0) > 0,
-      clientRating: a.clientRating,
-      clientRatingComment: a.clientRatingComment,
-      clientRatedAt: a.clientRatedAt,
-    })),
+    appointments: enriched,
     total,
     limit,
     offset,
@@ -237,11 +337,14 @@ export const getById = async (id) => {
   });
   if (!a) return null;
   await applyAutomaticStatusUpdates([a]);
+  const ordered = await resolveOrderedServicesForAppointment(a);
+  const svc = mapAppointmentServicesFields(ordered, a.service);
   return {
     id: a.id,
     client_id: a.clientId,
     barber_id: a.barberId,
-    service_id: a.serviceId,
+    service_id: svc.service_id,
+    service_ids: svc.service_ids,
     appointment_date: a.appointmentDate,
     start_time: toTimeStr(a.startTime),
     end_time: toTimeStr(a.endTime),
@@ -255,9 +358,9 @@ export const getById = async (id) => {
     client_email: a.client.email,
     barber_first_name: a.barber.firstName,
     barber_last_name: a.barber.lastName,
-    service_name: displayServiceName(a.notes, a.service.name),
-    price: a.service.price,
-    duration_minutes: a.service.durationMinutes,
+    service_name: svc.service_name || displayServiceName(a.notes, a.service.name),
+    price: svc.price,
+    duration_minutes: svc.duration_minutes,
     has_active_payment: (a.paymentLines?.length || 0) > 0,
     clientRating: a.clientRating,
     clientRatingComment: a.clientRatingComment,
@@ -445,17 +548,14 @@ export const create = async (data) => {
   const orderedServices = ids.map((id) => serviceById.get(id));
   const primaryService = orderedServices[0];
   const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
-  const servicesLabel = orderedServices.map((s) => s.name).join(', ');
 
-  const parsedStart = parseClockTime(startTime, { required: true });
-  const startMinutes = parsedStart.totalMinutes;
-  const endMinutes = startMinutes + duration;
-  const endH = Math.floor(endMinutes / 60);
-  const endM = endMinutes % 60;
-  const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+  const userNotes = typeof notes === 'string' ? notes.trim() : '';
+  const storedNotes = buildMultiServiceNotes(orderedServices, userNotes);
 
-  const startDate = clockTimeToDate(parsedStart);
-  const endDate = new Date(`1970-01-01T${endTime}Z`);
+  const { startDate, endDate, startMinutes, endMinutes } = endTimeFromStartAndDuration(
+    startTime,
+    duration,
+  );
 
   await assertNoOverlap({
     barberId,
@@ -463,11 +563,6 @@ export const create = async (data) => {
     startMin: startMinutes,
     endMin: endMinutes,
   });
-
-  const userNotes = typeof notes === 'string' ? notes.trim() : '';
-  const storedNotes = ids.length > 1
-    ? `[Servicios: ${servicesLabel}]${userNotes ? ` ${userNotes}` : ''}`
-    : (userNotes || null);
 
   const created = await prisma.appointment.create({
     data: {
@@ -495,16 +590,40 @@ export const update = async (id, data, existingAppointment = null) => {
 
   const nextClientId = data.clientId != null ? parseInt(data.clientId, 10) : existing.clientId;
   const nextBarberId = data.barberId != null ? parseInt(data.barberId, 10) : existing.barberId;
-  const nextServiceId = data.serviceId != null ? parseInt(data.serviceId, 10) : existing.serviceId;
 
-  const service = await prisma.service.findUnique({
-    where: { id: nextServiceId },
-  });
-  if (!service) {
+  const hasServiceIds = Array.isArray(data.serviceIds) && data.serviceIds.length > 0;
+  const hasServiceId = data.serviceId != null;
+
+  let orderedServices;
+  if (hasServiceIds || hasServiceId) {
+    const ids = hasServiceIds
+      ? [...new Set(data.serviceIds.map((sid) => parseInt(sid, 10)).filter((n) => Number.isFinite(n) && n > 0))]
+      : [parseInt(data.serviceId, 10)];
+    if (!ids.length || !Number.isFinite(ids[0])) {
+      const err = new Error('Indica al menos un servicio válido.');
+      err.statusCode = 400;
+      throw err;
+    }
+    const serviceRecords = await prisma.service.findMany({ where: { id: { in: ids } } });
+    if (serviceRecords.length !== ids.length) {
+      const err = new Error('Uno o más servicios no existen.');
+      err.statusCode = 400;
+      throw err;
+    }
+    const byId = new Map(serviceRecords.map((s) => [s.id, s]));
+    orderedServices = ids.map((sid) => byId.get(sid));
+  } else {
+    orderedServices = await resolveOrderedServicesForAppointment(existing);
+  }
+
+  if (!orderedServices.length) {
     const err = new Error('Servicio no encontrado.');
     err.statusCode = 400;
     throw err;
   }
+
+  const primaryService = orderedServices[0];
+  const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
 
   const nextAppointmentDate =
     data.appointmentDate != null ? new Date(data.appointmentDate) : existing.appointmentDate;
@@ -515,31 +634,35 @@ export const update = async (id, data, existingAppointment = null) => {
     nextStartTime = clockTimeToDate(parsed);
   }
 
+  const servicesChanged = hasServiceIds || hasServiceId;
   const timingChanged =
-    data.serviceId != null ||
+    servicesChanged ||
     data.startTime !== undefined ||
     data.appointmentDate != null;
 
   let nextEndTime = existing.endTime;
   if (timingChanged) {
-    const parsedStart = parseClockTime(toTimeStr(nextStartTime), { required: true });
-    const duration = Number(service.durationMinutes);
-    const endMinutes = parsedStart.totalMinutes + duration;
-    const endH = Math.floor(endMinutes / 60);
-    const endM = endMinutes % 60;
-    const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
-    nextEndTime = new Date(`1970-01-01T${endTimeStr}Z`);
+    const timing = endTimeFromStartAndDuration(nextStartTime, duration);
+    nextEndTime = timing.endDate;
   }
 
   const updateData = {};
   if (data.clientId != null) updateData.clientId = nextClientId;
   if (data.barberId != null) updateData.barberId = nextBarberId;
-  if (data.serviceId != null) updateData.serviceId = nextServiceId;
+  if (servicesChanged) updateData.serviceId = primaryService.id;
   if (data.appointmentDate != null) updateData.appointmentDate = nextAppointmentDate;
   if (data.startTime !== undefined) updateData.startTime = nextStartTime;
   if (timingChanged) updateData.endTime = nextEndTime;
   if (data.status) updateData.status = data.status;
-  if (data.notes !== undefined) updateData.notes = data.notes === '' ? null : data.notes;
+
+  // Preservar prefijos multi-servicio al guardar notas del usuario
+  if (data.notes !== undefined || servicesChanged) {
+    const userPart =
+      data.notes !== undefined
+        ? (data.notes === '' ? '' : String(data.notes).trim())
+        : (userNotesOnly(existing.notes) || '');
+    updateData.notes = buildMultiServiceNotes(orderedServices, userPart);
+  }
 
   if (data.status != null) {
     if (!isManualAdminStatus(data.status)) {
@@ -646,7 +769,14 @@ export const getAvailableSlots = async (barberId, date, excludeAppointmentId = n
   );
 
   const slots = [];
+  const todayYmd = getColombiaTodayYmd();
+  const now = getColombiaNowParts();
+  const nowMinutes = now.hour * 60 + now.minute;
+
   for (let mins = startMinutes; mins + duration <= endMinutes; mins += SLOT_GRID_MINUTES) {
+    // No ofrecer horarios ya pasados cuando la fecha es hoy
+    if (dateStr === todayYmd && mins <= nowMinutes) continue;
+
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     const startStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;

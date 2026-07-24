@@ -186,12 +186,12 @@ export const update = async (req, res, next) => {
       if (body.status && !['cancelled'].includes(body.status)) {
         return res.status(403).json({
           success: false,
-          message: 'Como cliente solo puedes cancelar la cita o usar «Editar» para cambiar fecha y hora.',
+          message: 'Como cliente solo puedes cancelar la cita o usar «Editar» para cambiar fecha, hora y servicios.',
         });
       }
       delete body.clientId;
       delete body.barberId;
-      delete body.serviceId;
+      delete body.serviceId; // el cliente actualiza servicios con serviceIds
     }
 
     const appointment = await appointmentService.update(req.params.id, body);

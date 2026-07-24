@@ -48,6 +48,11 @@ const updateValidation = [
   body('clientId').optional({ checkFalsy: true }).isInt({ min: 1 }),
   body('barberId').optional({ checkFalsy: true }).isInt({ min: 1 }),
   body('serviceId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('serviceIds')
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage('Indica al menos un servicio.'),
+  body('serviceIds.*').optional().isInt({ min: 1 }).withMessage('Servicio no válido.'),
   body('appointmentDate').optional({ checkFalsy: true }).isDate(),
   body('startTime')
     .optional({ checkFalsy: true })

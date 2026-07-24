@@ -10,10 +10,10 @@ import { getBookAppointmentPath } from '@/shared/utils/bookAppointmentPath';
 import HeroCarousel from '@/features/home/components/HeroCarousel';
 import CustomSelect from '@/shared/components/CustomSelect';
 import MobileAppFloating from '@/features/home/components/MobileAppFloating';
+import LandingSatisfactionSection from '@/features/home/components/LandingSatisfactionSection';
 import * as serviceService from '@/features/services/services/serviceService';
 
 const GalleryCarousel3D = lazy(() => import('@/features/home/components/GalleryCarousel3D'));
-const LandingSatisfactionSection = lazy(() => import('@/features/home/components/LandingSatisfactionSection'));
 const CortesGallery = lazy(() => import('@/features/home/components/CortesGallery'));
 
 const SERVICES_FALLBACK = [
@@ -413,9 +413,7 @@ export default function HomePage() {
       <Suspense fallback={<LandingBlockFallback text="Cargando sección de ambiente..." />}>
         <GalleryCarousel3D />
       </Suspense>
-      <Suspense fallback={<LandingBlockFallback text="Cargando satisfacción..." />}>
-        <LandingSatisfactionSection />
-      </Suspense>
+      <LandingSatisfactionSection />
 
       {/* ——— UBICACIÓN Y HORARIO ——— */}
       <section id="ubicacion" className="landing-section bg-stone-100 text-stone-900 relative overflow-hidden scroll-mt-20">

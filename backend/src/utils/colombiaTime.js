@@ -72,6 +72,29 @@ export function getColombiaTodayYmd(date = new Date()) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** Instantánea de la hora actual en Colombia. */
+export function getColombiaNowParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
+  return {
+    year: parseInt(parts.year, 10),
+    month: parseInt(parts.month, 10),
+    day: parseInt(parts.day, 10),
+    hour: parseInt(parts.hour, 10),
+    minute: parseInt(parts.minute, 10),
+    second: parseInt(parts.second, 10),
+  };
+}
+
 /** Suma días a YYYY-MM-DD (calendario UTC, suficiente para ventanas de citas). */
 export function addDaysToYmd(ymd, deltaDays) {
   const [y, m, d] = String(ymd).split('-').map(Number);
