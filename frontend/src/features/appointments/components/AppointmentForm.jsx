@@ -44,6 +44,44 @@ function isClockTimePastToday(timeStr) {
   return slotMins <= nowMins;
 }
 
+function normalizeServiceLabel(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+/**
+ * Prefill de servicios al editar: prioriza `service_ids`; si el backend viejo no los manda,
+ * intenta recuperarlos desde `service_name` ("A, B, C") contra el catálogo cargado.
+ */
+function resolveLoadedServiceIds(appointment, catalog = []) {
+  if (Array.isArray(appointment?.service_ids) && appointment.service_ids.length) {
+    return appointment.service_ids.map((id) => String(id));
+  }
+
+  const label = String(appointment?.service_name || '').trim();
+  if (label.includes(',') && catalog.length) {
+    const parts = label
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const byName = new Map(
+      catalog.map((s) => [normalizeServiceLabel(s.name), s]),
+    );
+    const matched = parts
+      .map((part) => byName.get(normalizeServiceLabel(part)))
+      .filter(Boolean);
+    if (matched.length >= 2) {
+      return matched.map((s) => String(s.id));
+    }
+  }
+
+  if (appointment?.service_id) return [String(appointment.service_id)];
+  return [];
+}
+
 const FORM_FIELD_CLASS =
   'w-full px-3.5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-[15px] text-stone-900 placeholder-stone-400 transition-all duration-200 min-h-[42px] ' +
   'bg-stone-50/90 border border-stone-200/90 focus:bg-white focus:border-gold/50 focus:ring-2 focus:ring-gold/20 outline-none';
@@ -212,11 +250,7 @@ export default function AppointmentForm({
         } else if (apptDate === today && startTime && isClockTimePastToday(startTime)) {
           startTime = '';
         }
-        const loadedServiceIds = Array.isArray(a.service_ids) && a.service_ids.length
-          ? a.service_ids.map((id) => String(id))
-          : a.service_id
-            ? [String(a.service_id)]
-            : [];
+        const loadedServiceIds = resolveLoadedServiceIds(a, services);
         setFormData({
           clientId: String(a.client_id ?? ''),
           barberId: String(a.barber_id ?? ''),
@@ -235,6 +269,8 @@ export default function AppointmentForm({
     return () => {
       cancelled = true;
     };
+    // `services` se lee del render en que `dataLoaded` pasa a true (mismo batch que setServices).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- evitar resetear el form si cambia la ref del catálogo
   }, [isEdit, editId, dataLoaded]);
 
   const slotOptions = useMemo(() => {
