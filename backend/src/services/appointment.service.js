@@ -549,6 +549,11 @@ export const create = async (data) => {
     err.statusCode = 400;
     throw err;
   }
+  if (ids.length > 3) {
+    const err = new Error('Para agendar más servicios debes crear otra cita.');
+    err.statusCode = 400;
+    throw err;
+  }
 
   const serviceRecords = await prisma.service.findMany({
     where: { id: { in: ids } },

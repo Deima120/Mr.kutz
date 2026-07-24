@@ -125,7 +125,16 @@ const publicBookingValidation = [
     .normalizeEmail(),
   optionalPhoneField('phone'),
   body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
-  body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
+  body('serviceIds')
+    .isArray({ min: 1, max: 3 })
+    .withMessage('Indica entre 1 y 3 servicios.'),
+  body('serviceIds.*')
+    .isInt({ min: 1 })
+    .withMessage('Cada servicio debe ser un identificador válido.'),
+  body('serviceId')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1 })
+    .withMessage('Indica un servicio válido.'),
   body('appointmentDate')
     .isDate()
     .withMessage('Indica una fecha válida.'),

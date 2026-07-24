@@ -81,6 +81,7 @@ async function resolveClient({ firstName, lastName, email, phone }) {
 
 /**
  * Flujo principal: valida slot, crea/recupera cliente y agenda la cita.
+ * Acepta `serviceIds` (1–3) o un solo `serviceId` legacy.
  */
 export const createPublicBooking = async ({
   firstName,
@@ -89,11 +90,47 @@ export const createPublicBooking = async ({
   phone,
   barberId,
   serviceId,
+  serviceIds,
   appointmentDate,
   startTime,
   notes,
 }) => {
-  const slots = await appointmentService.getAvailableSlots(barberId, appointmentDate);
+  const ids = Array.isArray(serviceIds) && serviceIds.length
+    ? [...new Set(serviceIds.map((id) => parseInt(id, 10)).filter((n) => Number.isFinite(n) && n > 0))]
+    : serviceId != null
+      ? [parseInt(serviceId, 10)].filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
+  if (!ids.length) {
+    const err = new Error('Indica al menos un servicio válido.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (ids.length > 3) {
+    const err = new Error('Para agendar más servicios debes crear otra cita.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const serviceRecords = await prisma.service.findMany({
+    where: { id: { in: ids }, isActive: true },
+    select: { id: true, durationMinutes: true },
+  });
+  if (serviceRecords.length !== ids.length) {
+    const err = new Error('Uno o más servicios no existen o no están disponibles.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const durationById = new Map(serviceRecords.map((s) => [s.id, Number(s.durationMinutes || 0)]));
+  const durationMinutes = ids.reduce((sum, id) => sum + (durationById.get(id) || 0), 0);
+
+  const slots = await appointmentService.getAvailableSlots(
+    barberId,
+    appointmentDate,
+    null,
+    durationMinutes > 0 ? durationMinutes : 30,
+  );
   if (!slots.includes(startTime)) {
     const err = new Error('La hora seleccionada ya no está disponible. Elige otra.');
     err.statusCode = 409;
@@ -105,7 +142,7 @@ export const createPublicBooking = async ({
   return appointmentService.create({
     clientId: client.id,
     barberId,
-    serviceId,
+    serviceIds: ids,
     appointmentDate,
     startTime,
     notes,

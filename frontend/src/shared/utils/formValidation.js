@@ -537,7 +537,11 @@ export function validateClientProfileForm(form) {
 export function validateBookingForm(form) {
   const errors = {};
 
-  if (!form.serviceId) errors.serviceId = 'Selecciona un servicio.';
+  if (!form.serviceIds?.length) {
+    errors.serviceIds = 'Agrega al menos un servicio.';
+  } else if (form.serviceIds.length > 3) {
+    errors.serviceIds = 'Para agendar más servicios debes crear otra cita.';
+  }
   if (!form.barberId) errors.barberId = 'Selecciona un barbero.';
   if (!form.appointmentDate) errors.appointmentDate = 'Selecciona una fecha.';
   if (!form.startTime) errors.startTime = 'Selecciona una hora disponible.';
