@@ -32,9 +32,12 @@ async function request(path, { method = 'GET', params, body } = {}) {
   const json = isJson ? await res.json().catch(() => null) : null;
 
   if (!res.ok) {
-    const err = new Error(json?.message || 'Error de red');
+    const apiErrors = Array.isArray(json?.errors) ? json.errors : undefined;
+    const firstFieldMsg = apiErrors?.[0]?.message;
+    const err = new Error(firstFieldMsg || json?.message || 'Error de red');
     err.status = res.status;
     err.data = json;
+    err.errors = apiErrors;
     throw err;
   }
 

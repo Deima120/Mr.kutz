@@ -126,15 +126,24 @@ const publicBookingValidation = [
   optionalPhoneField('phone'),
   body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   body('serviceIds')
+    .optional({ values: 'falsy' })
     .isArray({ min: 1, max: 3 })
     .withMessage('Indica entre 1 y 3 servicios.'),
   body('serviceIds.*')
+    .optional()
     .isInt({ min: 1 })
     .withMessage('Cada servicio debe ser un identificador válido.'),
   body('serviceId')
     .optional({ values: 'falsy' })
     .isInt({ min: 1 })
     .withMessage('Indica un servicio válido.'),
+  body().custom((_, { req }) => {
+    const ids = req.body?.serviceIds;
+    const one = req.body?.serviceId;
+    if (Array.isArray(ids) && ids.length >= 1 && ids.length <= 3) return true;
+    if (one != null && one !== '') return true;
+    throw new Error('Indica entre 1 y 3 servicios.');
+  }),
   body('appointmentDate')
     .isDate()
     .withMessage('Indica una fecha válida.'),
@@ -161,7 +170,12 @@ router.get(
 );
 router.post(
   '/public',
-  publicThrottle({ scope: 'public-booking', max: 6, windowMs: 10 * 60 * 1000 }),
+  publicThrottle({
+    scope: 'public-booking',
+    // En local se prueba mucho; en producción se mantiene un tope más estricto.
+    max: process.env.NODE_ENV === 'production' ? 12 : 60,
+    windowMs: 10 * 60 * 1000,
+  }),
   publicBookingValidation,
   validate,
   publicBookingController.createBooking,
