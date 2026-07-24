@@ -80,10 +80,11 @@ export function mapApiErrors(apiErrors) {
 }
 
 export function getApiErrorMessage(err, fallback = 'Algo salió mal.') {
-  const fieldErrors = mapApiErrors(err?.errors);
+  const apiErrors = err?.errors || err?.data?.errors;
+  const fieldErrors = mapApiErrors(apiErrors);
   const firstField = Object.values(fieldErrors)[0];
   if (firstField) return firstField;
-  if (Array.isArray(err?.errors) && err.errors[0]?.message) return err.errors[0].message;
+  if (Array.isArray(apiErrors) && apiErrors[0]?.message) return apiErrors[0].message;
   return err?.message || fallback;
 }
 

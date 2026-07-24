@@ -250,6 +250,7 @@ export default function BookingPage() {
         phone: form.phone.trim() || undefined,
         barberId: Number(form.barberId),
         serviceIds: form.serviceIds.map((id) => Number(id)),
+        serviceId: Number(form.serviceIds[0]),
         appointmentDate: form.appointmentDate,
         startTime: form.startTime,
         notes: form.notes.trim() || undefined,
