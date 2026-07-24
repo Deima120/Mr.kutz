@@ -51,6 +51,16 @@ export const getProfile = async () => {
   return res?.data ?? res;
 };
 
+/**
+ * Actualiza el perfil del cliente autenticado
+ * @param {{ firstName: string, lastName: string, email: string, phone?: string }} data
+ */
+export const updateProfile = async (data) => {
+  const response = await api.put(`${AUTH_BASE}/me`, data);
+  const res = response?.data ?? response;
+  return res?.data ?? res;
+};
+
 export const forgotPassword = async (email) => {
   const response = await api.post(
     `${AUTH_BASE}/forgot-password`,

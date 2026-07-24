@@ -59,15 +59,30 @@ function getMenuPosition(triggerEl) {
   const maxHeight = 280;
   const spaceBelow = window.innerHeight - rect.bottom - gap;
   const spaceAbove = rect.top - gap;
-  const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
-  const available = openUp ? spaceAbove : spaceBelow;
-  const height = Math.max(120, Math.min(maxHeight, available));
+
+  // Preferir abrir debajo del campo; solo subir si casi no hay espacio abajo
+  const openUp = spaceBelow < 100 && spaceAbove > spaceBelow;
+  const available = openUp ? spaceAbove : Math.max(spaceBelow, 140);
+  const height = Math.min(maxHeight, available);
+
+  if (openUp) {
+    // Anclar al borde superior del trigger para que el contenido corto
+    // quede pegado al campo (no flotando al inicio de un panel alto vacío).
+    return {
+      left: rect.left,
+      width: rect.width,
+      maxHeight: height,
+      top: 'auto',
+      bottom: window.innerHeight - rect.top + gap,
+    };
+  }
 
   return {
     left: rect.left,
     width: rect.width,
     maxHeight: height,
-    top: openUp ? rect.top - gap - height : rect.bottom + gap,
+    top: rect.bottom + gap,
+    bottom: 'auto',
   };
 }
 
@@ -118,6 +133,27 @@ export default function CustomSelect({
     if (shouldBlur) onBlurRef.current?.();
     requestAnimationFrame(() => triggerRef.current?.focus());
   }, []);
+
+  const openMenu = useCallback(() => {
+    const el = triggerRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // Acercar el campo al centro si está muy abajo, para abrir el menú debajo
+      if (spaceBelow < 160) {
+        el.scrollIntoView({ block: 'center', behavior: 'auto' });
+        requestAnimationFrame(() => setOpen(true));
+        return;
+      }
+    }
+    setOpen(true);
+  }, []);
+
+  const toggleMenu = useCallback(() => {
+    if (disabled) return;
+    if (open) close(true);
+    else openMenu();
+  }, [close, disabled, open, openMenu]);
 
   const selectOption = useCallback(
     (option) => {
@@ -192,14 +228,15 @@ export default function CustomSelect({
   };
 
   const handleTriggerKeyDown = (event) => {
-    if (disabled || !options.length) return;
+    if (disabled) return;
 
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       if (!open) {
-        setOpen(true);
+        openMenu();
         return;
       }
+      if (!options.length) return;
       moveHighlight(event.key === 'ArrowDown' ? 1 : -1);
       return;
     }
@@ -207,7 +244,7 @@ export default function CustomSelect({
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       if (!open) {
-        setOpen(true);
+        openMenu();
         return;
       }
       const option = options[highlightIndex >= 0 ? highlightIndex : 0];
@@ -224,7 +261,8 @@ export default function CustomSelect({
             aria-label={ariaLabel}
             style={{
               position: 'fixed',
-              top: menuPosition.top,
+              top: menuPosition.top === 'auto' ? 'auto' : menuPosition.top,
+              bottom: menuPosition.bottom === 'auto' ? 'auto' : menuPosition.bottom,
               left: menuPosition.left,
               width: menuPosition.width,
               maxHeight: menuPosition.maxHeight,
@@ -286,7 +324,7 @@ export default function CustomSelect({
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
           disabled={disabled}
-          onClick={() => !disabled && setOpen((prev) => !prev)}
+          onClick={toggleMenu}
           onKeyDown={handleTriggerKeyDown}
           className={`${triggerClass} ${selectClassName} ${
             open ? 'border-gold/50 ring-2 ring-gold/25 bg-white' : ''

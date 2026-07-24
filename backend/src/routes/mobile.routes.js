@@ -33,6 +33,18 @@ const loginValidation = [
 
 router.post('/auth/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/auth/me', auth, authController.getProfile);
+router.put(
+  '/auth/me',
+  auth,
+  [
+    body('firstName').trim().notEmpty().withMessage('El nombre es obligatorio.'),
+    body('lastName').trim().notEmpty().withMessage('El apellido es obligatorio.'),
+    body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+    body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  ],
+  validate,
+  authController.updateProfile,
+);
 
 // ====== CLIENTE (requiere rol client) ======
 

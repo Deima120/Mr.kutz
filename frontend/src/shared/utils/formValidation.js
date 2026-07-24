@@ -498,9 +498,37 @@ export function validateAppointmentForm(data, { isEdit = false, isClient = false
   } else if (!data.serviceIds?.length) {
     errors.serviceIds = 'Selecciona un servicio.';
   }
+  if (data.serviceIds?.length > 3) {
+    errors.serviceIds = 'Para agendar más servicios debes crear otra cita.';
+  }
 
   const notes = validateNotes(data.notes);
   if (!notes.valid) errors.notes = notes.message;
+
+  return validationResult(errors);
+}
+
+/** @returns {ValidationResult} */
+export function validateClientProfileForm(form) {
+  const errors = {};
+
+  const firstName = validatePersonName(form.firstName, 'El nombre', {
+    minLength: CLIENT_FIRST_NAME_MIN,
+  });
+  if (!firstName.valid) errors.firstName = fieldMessage(firstName, 'Revisa el nombre.');
+
+  const lastName = validatePersonName(form.lastName, 'El apellido', {
+    minLength: CLIENT_LAST_NAME_MIN,
+  });
+  if (!lastName.valid) errors.lastName = fieldMessage(lastName, 'Revisa el apellido.');
+
+  const email = validateEmail(form.email);
+  if (!email.valid) errors.email = email.message;
+
+  if (form.phone?.trim()) {
+    const phone = validatePhone(form.phone, { required: false });
+    if (!phone.valid) errors.phone = phone.message;
+  }
 
   return validationResult(errors);
 }

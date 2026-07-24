@@ -84,6 +84,23 @@ export const getProfile = async (req, res, next) => {
 };
 
 /**
+ * PUT /api/auth/me
+ * Actualiza el perfil del cliente autenticado
+ */
+export const updateProfile = async (req, res, next) => {
+  try {
+    const profile = await authService.updateProfile(req.user.id, req.body);
+    res.json({
+      success: true,
+      message: 'Perfil actualizado correctamente.',
+      data: profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/auth/forgot-password
  * Solicita recuperación de contraseña
  */
