@@ -126,12 +126,13 @@ export function AdminFormPrimaryButton({ children, disabled, type = 'submit', cl
   );
 }
 
-export function AdminFormSecondaryButton({ children, onClick, type = 'button', className = '' }) {
+export function AdminFormSecondaryButton({ children, onClick, type = 'button', disabled = false, className = '' }) {
   return (
     <button
       type={type}
       onClick={onClick}
-      className={`inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-stone-600 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 transition-all ${className}`}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-stone-600 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 disabled:opacity-50 transition-all ${className}`}
     >
       {children}
     </button>

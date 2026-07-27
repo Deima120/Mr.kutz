@@ -1,5 +1,5 @@
 /**
- * Carrito de cobro: servicio + producto(s) + línea manual en un solo pago.
+ * Carrito de venta: servicio + producto(s) + línea manual en un solo registro.
  */
 
 import { useState, useEffect, useMemo, useId } from 'react';
@@ -28,6 +28,7 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
+  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
@@ -152,7 +153,7 @@ export function PaymentForm({
           return setPrefillHints((h) => [...h, 'La cita debe estar completada para cobrar.']);
         }
         if (a.has_active_payment) {
-          return setPrefillHints((h) => [...h, 'Esta cita ya tiene un cobro activo.']);
+          return setPrefillHints((h) => [...h, 'Esta cita ya tiene una venta activa.']);
         }
         setLines((prev) => {
           if (prev.some((l) => l.type === 'service' && String(l.appointmentId) === String(a.id))) {
@@ -215,7 +216,7 @@ export function PaymentForm({
   const handleAddService = () => {
     const apt = appointmentOptions.find((a) => String(a.id) === String(appointmentPick));
     if (!apt) {
-      setError('Selecciona una cita completada pendiente de cobro.');
+      setError('Selecciona una cita completada pendiente de venta.');
       return;
     }
     const price = Number(apt.price ?? apt.service_price);
@@ -251,7 +252,7 @@ export function PaymentForm({
       return;
     }
     if (lines.some((l) => l.type === 'product' && String(l.productId) === String(productPick.id))) {
-      setError('Ese producto ya está en el cobro. Quita la línea o ajusta la cantidad.');
+      setError('Ese producto ya está en la venta. Quita la línea o ajusta la cantidad.');
       return;
     }
     addLine({
@@ -328,22 +329,22 @@ export function PaymentForm({
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Error al registrar pago'));
+      setError(getApiErrorMessage(err, 'Error al registrar venta'));
     } finally {
       setLoading(false);
     }
   };
 
+  const selectedMethod = methods.find((m) => String(m.id) === String(paymentMethodId));
+
   const handleCancel = () => {
     if (embedded || contained) onCancel?.();
-    else navigate(-1);
+    else navigate('/payments', { replace: true });
   };
-
-  const selectedMethod = methods.find((m) => String(m.id) === String(paymentMethodId));
 
   const paymentAside = {
     kicker: 'Vista previa',
-    title: 'Resumen del cobro',
+    title: 'Resumen de la venta',
     children: (
       <AdminFormPreviewPanel>
         <AdminFormPreviewField
@@ -361,9 +362,7 @@ export function PaymentForm({
     <AdminFormShell
       embedded={embedded}
       contained={contained}
-      title="Registrar cobro"
-      subtitle="Agrega servicio, productos o caja en un solo pago. El total se calcula solo."
-      onCancel={handleCancel}
+      showBackNav={false}
       aside={paymentAside}
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -411,7 +410,7 @@ export function PaymentForm({
         </AdminFormCard>
 
         <AdminFormCard>
-          <AdminFormCardHeader title="Líneas del cobro" />
+          <AdminFormCardHeader title="Líneas de la venta" />
           <div className="space-y-4">
             <div className="rounded-xl border border-stone-200 p-3 space-y-2">
               <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
@@ -502,7 +501,7 @@ export function PaymentForm({
 
             <div className="space-y-2">
               {lines.length === 0 ? (
-                <p className="py-4 text-center text-sm text-stone-500">Aún no hay líneas en el cobro.</p>
+                <p className="py-4 text-center text-sm text-stone-500">Aún no hay líneas en la venta.</p>
               ) : (
                 lines.map((line) => (
                   <div
@@ -539,7 +538,7 @@ export function PaymentForm({
             </div>
 
             <div className="flex items-center justify-between border-t border-stone-100 pt-3">
-              <span className="text-sm font-semibold text-stone-600">Total del cobro</span>
+              <span className="text-sm font-semibold text-stone-600">Total de la venta</span>
               <span className="font-serif text-xl font-medium text-gold tabular-nums">
                 {formatPaymentAmount(cartTotal)}
               </span>
@@ -554,15 +553,18 @@ export function PaymentForm({
             onChange={(e) => setNotes(e.target.value.slice(0, 500))}
             rows={2}
             maxLength={500}
-            placeholder="Opcional: detalle del cobro…"
+            placeholder="Opcional: detalle de la venta…"
             className={`${ADMIN_FORM_FIELD_COMPACT} resize-none`}
           />
         </AdminFormCard>
 
         <AdminFormFooterActions>
+          <AdminFormSecondaryButton onClick={handleCancel} disabled={loading}>
+            Cancelar
+          </AdminFormSecondaryButton>
           <AdminFormPrimaryButton disabled={loading || lines.length === 0}>
             <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
-              Confirmar cobro
+              Confirmar venta
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
         </AdminFormFooterActions>

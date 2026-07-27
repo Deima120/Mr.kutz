@@ -334,7 +334,7 @@ export function validatePaymentForm(data, mode, extras = {}) {
     if (!data.appointmentId) {
       errors.appointmentId =
         appointmentSelectRows.length === 0
-          ? 'No hay citas completadas pendientes de cobro.'
+          ? 'No hay citas completadas pendientes de venta.'
           : 'Selecciona la cita a cobrar.';
     }
   } else if (mode === 'cash') {
@@ -357,13 +357,13 @@ export function validatePaymentForm(data, mode, extras = {}) {
   return validationResult(errors);
 }
 
-/** Carrito de cobro multi-línea. */
+/** Carrito de venta multi-línea. */
 export function validatePaymentCartForm({ paymentMethodId, reference, notes, lines = [] } = {}) {
   const errors = {};
 
   if (!paymentMethodId) errors.paymentMethodId = 'Selecciona un método de pago.';
   if (!Array.isArray(lines) || lines.length === 0) {
-    errors.lines = 'Agrega al menos una línea al cobro.';
+    errors.lines = 'Agrega al menos una línea a la venta.';
   } else {
     lines.forEach((line, index) => {
       if (line.type === 'service' && !line.appointmentId) {

@@ -46,7 +46,7 @@ export default function PaymentDetailModal({
     <AdminModalShell
       open
       onClose={() => !loading && onClose()}
-      title={`Cobro #${payment.id}`}
+      title={`Venta #${payment.id}`}
       subtitle="Detalle y líneas"
       size="xl"
       preventClose={loading}
@@ -60,7 +60,7 @@ export default function PaymentDetailModal({
               onClick={() => onVoidPayment?.(payment)}
               className="btn-admin-outline text-sm inline-flex items-center gap-1.5 text-amber-800 border-amber-200"
             >
-              <Ban className="h-3.5 w-3.5" /> Anular cobro completo
+              <Ban className="h-3.5 w-3.5" /> Anular venta completa
             </button>
           ) : null}
           <button type="button" onClick={onClose} disabled={loading} className="btn-admin text-sm">

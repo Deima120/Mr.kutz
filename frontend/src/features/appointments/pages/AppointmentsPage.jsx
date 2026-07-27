@@ -1010,10 +1010,10 @@ export default function AppointmentsPage() {
                           to={`/payments/new?appointmentId=${a.id}`}
                           className="inline-flex items-center rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold-dark hover:bg-gold/20 transition-colors"
                         >
-                          Registrar pago
+                          Registrar venta
                         </Link>
                       ) : (
-                        <span className="text-xs text-stone-400">Pagada</span>
+                        <span className="text-xs text-stone-400">Con venta</span>
                       )
                     ) : ['cancelled', 'no_show'].includes(effectiveStatus) ? null : (
                       <AppointmentActionToggles

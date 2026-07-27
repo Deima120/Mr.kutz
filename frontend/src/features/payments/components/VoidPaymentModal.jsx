@@ -21,7 +21,7 @@ export default function VoidPaymentModal({
 
   const title = isLine
     ? `¿Anular línea #${line.id}?`
-    : `¿Anular cobro #${payment.id}?`;
+    : `¿Anular venta #${payment.id}?`;
   const amount = isLine
     ? line.lineAmount ?? line.line_amount
     : payment.amount;
