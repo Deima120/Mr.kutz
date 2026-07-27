@@ -1,5 +1,5 @@
 /**
- * Listado de pagos — diseño compacto, filtros, paginación y formulario inline.
+ * Listado de ventas — diseño compacto, filtros, paginación y formulario inline.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -29,7 +29,6 @@ import { getApiErrorMessage } from '@/shared/utils/formValidation';
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
-import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -138,7 +137,7 @@ export default function PaymentsPage() {
       setListTotal(listData.total ?? 0);
       setPeriodTotal(totalData || { total: 0, count: 0 });
     } catch (err) {
-      setError(err?.message || 'Error al cargar pagos');
+      setError(err?.message || 'Error al cargar ventas');
       setPayments([]);
       setListTotal(0);
     } finally {
@@ -157,7 +156,7 @@ export default function PaymentsPage() {
   const handleFormSuccess = () => {
     setFormView(null);
     setPaymentPrefill({ productId: null, appointmentId: null });
-    setSuccessMessage('Pago registrado correctamente.');
+    setSuccessMessage('Venta registrada correctamente.');
     setPage(1);
     fetchPayments(1);
   };
@@ -175,7 +174,7 @@ export default function PaymentsPage() {
       const fresh = await paymentService.getPaymentById(payment.id);
       setDetailPayment(fresh || payment);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'No se pudo cargar el detalle del pago.'));
+      setError(getApiErrorMessage(err, 'No se pudo cargar el detalle de la venta.'));
     } finally {
       setDetailLoading(false);
     }
@@ -192,7 +191,7 @@ export default function PaymentsPage() {
         : await paymentService.voidPayment(voidTarget.id, { voidReason });
       setVoidTarget(null);
       setVoidLine(null);
-      setSuccessMessage(isLineVoid ? 'Línea anulada correctamente.' : 'Pago anulado correctamente.');
+      setSuccessMessage(isLineVoid ? 'Línea anulada correctamente.' : 'Venta anulada correctamente.');
       if (detailPayment?.id === voidTarget.id) {
         setDetailPayment(updated);
       }
@@ -223,13 +222,13 @@ export default function PaymentsPage() {
     const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todos';
     const typeLabel = TYPE_OPTIONS.find((o) => o.value === typeFilter)?.label || 'Todos';
     downloadExcelTable({
-      sheetName: 'Pagos',
-      title: 'Registro de pagos',
+      sheetName: 'Ventas',
+      title: 'Registro de ventas',
       meta: [
         `Periodo: ${dateFrom} — ${dateTo}`,
         `Total en listado: ${exportRows.length}`,
         `Estado: ${statusLabel} · Tipo: ${typeLabel}`,
-        `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} cobros)`,
+        `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} ventas)`,
       ],
       columns: [
         { header: 'ID', key: 'id', align: 'center' },
@@ -245,7 +244,7 @@ export default function PaymentsPage() {
         { header: 'Motivo anulación', key: 'motivo_anulacion' },
       ],
       rows: exportRows,
-      fileBase: 'pagos-mrkutz',
+      fileBase: 'ventas-mrkutz',
     });
   };
 
@@ -254,13 +253,13 @@ export default function PaymentsPage() {
     const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todos';
     const typeLabel = TYPE_OPTIONS.find((o) => o.value === typeFilter)?.label || 'Todos';
     downloadTablePDF({
-      filename: `pagos-mrkutz-${pdfFileDateSuffix()}.pdf`,
-      title: 'Registro de pagos',
+      filename: `ventas-mrkutz-${pdfFileDateSuffix()}.pdf`,
+      title: 'Registro de ventas',
       subtitle: `Periodo: ${dateFrom} — ${dateTo}`,
       meta: [
         `Total en listado: ${exportRows.length}`,
         `Estado: ${statusLabel} · Tipo: ${typeLabel}`,
-        `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} cobros)`,
+        `Total vigente del periodo: ${formatPaymentAmount(periodTotal.total)} (${periodTotal.count} ventas)`,
       ],
       orientation: 'landscape',
       columns: [
@@ -315,12 +314,6 @@ export default function PaymentsPage() {
 
   return (
     <div className="page-shell">
-      {isFormOpen && (
-        <div className="mb-3">
-          <AdminBackNav label="Volver" onClick={closeForm} />
-        </div>
-      )}
-
       <DataCard compact>
         {!isFormOpen && (
         <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
@@ -334,7 +327,7 @@ export default function PaymentsPage() {
                   </p>
                 </div>
                 <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
-                  {periodTotal.count} cobro{periodTotal.count === 1 ? '' : 's'}
+                  {periodTotal.count} venta{periodTotal.count === 1 ? '' : 's'}
                 </span>
               </div>
               <AdminExportButtons
@@ -346,7 +339,7 @@ export default function PaymentsPage() {
               />
               <button type="button" onClick={openCreateForm} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
                 <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                Registrar pago
+                Registrar venta
               </button>
             </div>
           </div>
@@ -359,14 +352,14 @@ export default function PaymentsPage() {
               options={STATUS_SEGMENTS}
               value={statusFilter}
               onChange={setStatusFilter}
-              ariaLabel="Estado del pago"
+              ariaLabel="Estado de la venta"
             />
             <FilterSelect
               label="Tipo"
               options={TYPE_SEGMENTS}
               value={typeFilter}
               onChange={setTypeFilter}
-              ariaLabel="Tipo de pago"
+              ariaLabel="Tipo de venta"
             />
             <FilterSelect
               label="Método"
@@ -390,13 +383,13 @@ export default function PaymentsPage() {
             {loading ? (
             <div className="py-10 text-center text-stone-500">
               <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
-              <p className="text-sm">Cargando pagos…</p>
+              <p className="text-sm">Cargando ventas…</p>
             </div>
           ) : payments.length === 0 ? (
             <div className="py-10 text-center">
-              <p className="text-sm text-stone-500 mb-3">No hay pagos con los filtros seleccionados.</p>
+              <p className="text-sm text-stone-500 mb-3">No hay ventas con los filtros seleccionados.</p>
               <button type="button" onClick={openCreateForm} className="btn-admin text-sm">
-                Registrar primer pago
+                Registrar primera venta
               </button>
             </div>
           ) : (
@@ -479,7 +472,7 @@ export default function PaymentsPage() {
                                 {!isVoided ? (
                                   <AdminIconButton
                                     icon={Ban}
-                                    label="Anular pago"
+                                    label="Anular venta"
                                     variant="danger"
                                     onClick={() => {
                                       setVoidLine(null);

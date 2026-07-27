@@ -49,7 +49,7 @@ export function getPaymentConcept(payment) {
   if (payment?.service_name || payment?.serviceName) {
     return payment.service_name || payment.serviceName;
   }
-  return 'Cobro en caja';
+  return 'Venta en caja';
 }
 
 export function getPaymentClientName(payment) {
@@ -73,7 +73,7 @@ export function getLineLabel(line) {
   if (line.lineType === 'service' || line.type === 'service') {
     return line.serviceName || line.description || 'Servicio';
   }
-  return line.description || 'Cobro manual';
+  return line.description || 'Venta manual';
 }
 
 export function isPaymentVoided(payment) {
