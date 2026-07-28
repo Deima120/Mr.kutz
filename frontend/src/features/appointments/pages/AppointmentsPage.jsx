@@ -18,14 +18,14 @@ import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/componen
 import AppointmentForm from '@/features/appointments/components/AppointmentForm';
 import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
-import AdminModalShell from '@/shared/components/admin/AdminModalShell';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import {
   getEffectiveAppointmentStatus,
   canConfirmAppointment,
   canCancelAppointment,
   isAppointmentActionsLocked,
 } from '@/features/appointments/utils/appointmentStatusAutomation';
-import SuccessToast from '@/shared/components/SuccessToast';
 import {
   formatAppointmentClockTime,
   formatAppointmentCalendarDate,
@@ -193,39 +193,22 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
   const timeLabel = formatAppointmentClockTime(appointment.start_time);
 
   return (
-    <AdminModalShell
+    <AdminConfirmModal
       open={open}
-      onClose={onClose}
-      title="¿Deseas cancelar esta cita?"
+      variant="danger"
       size="sm"
-      preventClose={confirming}
-      panelClassName="animate-fade-in-up"
-      footer={
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 w-full">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={confirming}
-            className="btn-outline w-full sm:w-auto"
-          >
-            Volver
-          </button>
-          <button
-            type="button"
-            data-autofocus
-            onClick={onConfirm}
-            disabled={confirming}
-            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-60"
-          >
-            {confirming ? 'Cancelando…' : 'Sí, cancelar cita'}
-          </button>
-        </div>
-      }
+      title="¿Deseas cancelar esta cita?"
+      confirmLabel="Sí, cancelar cita"
+      cancelLabel="Volver"
+      submittingLabel="Cancelando…"
+      isSubmitting={confirming}
+      onCancel={onClose}
+      onConfirm={onConfirm}
     >
-      <div className="space-y-4">
+      <div className="space-y-4 -mt-1">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1">Servicio</p>
-          <p className="font-serif text-lg sm:text-xl font-semibold text-stone-900 leading-snug">
+          <p className="font-serif text-lg sm:text-xl font-semibold text-stone-900 leading-snug text-center sm:text-left">
             {serviceName}
           </p>
         </div>
@@ -251,11 +234,11 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
           </div>
         </div>
 
-        <p className="text-sm text-stone-600 leading-relaxed">
+        <p className="text-sm text-stone-600 leading-relaxed text-center">
           Esta acción marcará la cita como cancelada. Podrás agendar una nueva cuando quieras.
         </p>
       </div>
-    </AdminModalShell>
+    </AdminConfirmModal>
   );
 }
 
@@ -375,6 +358,7 @@ function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const location = useLocation();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
@@ -385,8 +369,6 @@ export default function AppointmentsPage() {
   );
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [filterStatus, setFilterStatus] = useState('scheduled');
@@ -401,7 +383,6 @@ export default function AppointmentsPage() {
 
   const fetchAppointments = async (targetPage = page) => {
     setLoading(true);
-    setError('');
     // Evita mostrar tarjetas del filtro anterior mientras llega la nueva página
     if (isClient) setAppointments([]);
     try {
@@ -426,7 +407,7 @@ export default function AppointmentsPage() {
       setAppointments(data.appointments ?? []);
       setTotal(data.total ?? 0);
     } catch (err) {
-      setError(err?.message || 'Error al cargar citas');
+      toast.error(err?.message || 'Error al cargar citas');
       setAppointments([]);
       setTotal(0);
     } finally {
@@ -482,8 +463,8 @@ export default function AppointmentsPage() {
 
   const handleFormSuccess = ({ created, updated } = {}) => {
     setFormView(null);
-    if (created) setSuccessMessage('Cita agendada correctamente.');
-    if (updated) setSuccessMessage('Cita actualizada correctamente.');
+    if (created) toast.success('Cita agendada correctamente.');
+    if (updated) toast.success('Cita actualizada correctamente.');
     fetchAppointments(1);
     setPage(1);
   };
@@ -492,13 +473,13 @@ export default function AppointmentsPage() {
   useEffect(() => {
     const st = location.state;
     if (st?.appointmentCreated) {
-      setSuccessMessage('Cita agendada correctamente.');
+      toast.success('Cita agendada correctamente.');
       navigate(location.pathname, { replace: true, state: {} });
     } else if (st?.appointmentUpdated) {
-      setSuccessMessage('Cita actualizada correctamente.');
+      toast.success('Cita actualizada correctamente.');
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, location.pathname, navigate]);
+  }, [location.state, location.pathname, navigate, toast]);
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -507,7 +488,7 @@ export default function AppointmentsPage() {
       setCancelling(false);
 
       if (isClient && newStatus === 'cancelled') {
-        setSuccessMessage('Cita cancelada correctamente.');
+        toast.success('Cita cancelada correctamente.');
         // Refetch para sacar la cita del filtro Agendada y actualizar totales/paginación
         await fetchAppointments(page);
         return;
@@ -515,17 +496,17 @@ export default function AppointmentsPage() {
 
       fetchAppointments();
       if (isAdmin && newStatus === 'confirmed') {
-        setSuccessMessage('Cita confirmada.');
+        toast.success('Cita confirmada.');
       }
       if (isAdmin && newStatus === 'scheduled') {
-        setSuccessMessage('Confirmación retirada; cita agendada.');
+        toast.success('Confirmación retirada; cita agendada.');
       }
       if (isAdmin && newStatus === 'cancelled') {
-        setSuccessMessage('Cita cancelada.');
+        toast.success('Cita cancelada.');
       }
     } catch (err) {
       setCancelling(false);
-      setError(err?.message || 'Error al actualizar');
+      toast.error(err?.message || 'Error al actualizar');
     }
   };
 
@@ -533,22 +514,21 @@ export default function AppointmentsPage() {
     handleStatusChange(id, confirmed ? 'confirmed' : 'scheduled');
   };
 
+  const openCancelModal = (id) => {
+    const target = appointments.find((a) => a.id === id) || null;
+    if (!target) return;
+    setCancelTarget(target);
+  };
+
   const handleCancelRequest = (id) => {
-    if (window.confirm('¿Cancelar esta cita?')) {
-      handleStatusChange(id, 'cancelled');
-    }
+    openCancelModal(id);
   };
 
   const handleCancelClick = (id) => {
-    if (isClient) {
-      const target = appointments.find((a) => a.id === id) || null;
-      setCancelTarget(target);
-    } else {
-      handleStatusChange(id, 'cancelled');
-    }
+    openCancelModal(id);
   };
 
-  const handleClientCancelConfirm = async () => {
+  const handleCancelConfirm = async () => {
     if (!cancelTarget?.id) return;
     setCancelling(true);
     await handleStatusChange(cancelTarget.id, 'cancelled');
@@ -590,11 +570,6 @@ export default function AppointmentsPage() {
 
   const openEditForm = (id) => setFormView(id);
 
-  const dismissSuccessMessage = () => setSuccessMessage(null);
-  const successToast = (
-    <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />
-  );
-
   // ——— Vista cliente: pantalla completa, sin scroll de página ———
   if (isClient) {
     if (isFormOpen) {
@@ -606,7 +581,6 @@ export default function AppointmentsPage() {
             </div>
             {inlineForm}
           </div>
-          {successToast}
         </div>
       );
     }
@@ -633,12 +607,6 @@ export default function AppointmentsPage() {
               Agendar nueva cita
             </button>
           </header>
-
-          {error && (
-            <div className="shrink-0 mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-              {error}
-            </div>
-          )}
 
           <div className="shrink-0 mb-3">
             <ClientAppointmentsToolbar
@@ -791,10 +759,9 @@ export default function AppointmentsPage() {
             if (cancelling) return;
             setCancelTarget(null);
           }}
-          onConfirm={handleClientCancelConfirm}
+          onConfirm={handleCancelConfirm}
           confirming={cancelling}
         />
-        {successToast}
       </div>
     );
   }
@@ -821,12 +788,6 @@ export default function AppointmentsPage() {
             />
           </div>
         </div>
-
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-            {error}
-          </div>
-        )}
 
         <AppointmentsPagination
           total={total}
@@ -886,7 +847,6 @@ export default function AppointmentsPage() {
             })}
           </ul>
         )}
-        {successToast}
       </div>
     );
   }
@@ -930,10 +890,6 @@ export default function AppointmentsPage() {
             </button>
           }
         />
-      )}
-
-      {error && !isFormOpen && (
-        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {inlineForm}
@@ -1035,7 +991,16 @@ export default function AppointmentsPage() {
           </Table>
         </DataCard>
       ) : null}
-      {successToast}
+      <CancelAppointmentModal
+        appointment={cancelTarget}
+        open={Boolean(cancelTarget)}
+        onClose={() => {
+          if (cancelling) return;
+          setCancelTarget(null);
+        }}
+        onConfirm={handleCancelConfirm}
+        confirming={cancelling}
+      />
     </div>
   );
 }

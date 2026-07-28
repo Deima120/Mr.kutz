@@ -1,5 +1,6 @@
 import { formatProductUnit } from '@/features/inventory/utils/productFormatters';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 
 export default function AdjustStockModal({
   product,
@@ -69,9 +70,9 @@ export default function AdjustStockModal({
         className="input-premium text-center text-lg"
       />
       {!canSubtract && (
-        <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+        <AppInlineAlert variant="warning" className="mt-3 text-xs py-2 px-3">
           No puedes restar más de {currentQty} unidad{currentQty !== 1 ? 'es' : ''}.
-        </p>
+        </AppInlineAlert>
       )}
     </AdminModalShell>
   );

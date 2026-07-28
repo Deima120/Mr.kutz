@@ -9,7 +9,7 @@ import * as productCategoryService from '@/features/inventory/services/productCa
 
 export const INVENTORY_PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-export function useInventoryList() {
+export function useInventoryList({ onError } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,7 +29,6 @@ export function useInventoryList() {
   const [pageSize, setPageSize] = useState(20);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [formView, setFormView] = useState(null);
 
   const isCreating = formView === 'create';
@@ -79,7 +78,6 @@ export function useInventoryList() {
   const fetchProducts = useCallback(
     async (targetPage = page, silent = false) => {
       if (!silent) setLoading(true);
-      setError('');
       try {
         const params = {
           limit: pageSize,
@@ -96,7 +94,7 @@ export function useInventoryList() {
         setListTotal(listResult.total ?? 0);
         setSummary(listResult.summary ?? { totalUnits: 0, lowStockCount: 0 });
       } catch (err) {
-        setError(err?.message || 'Error al cargar inventario');
+        onError?.(err?.message || 'Error al cargar inventario');
         if (!silent) {
           setProducts([]);
           setListTotal(0);
@@ -105,7 +103,7 @@ export function useInventoryList() {
         if (!silent) setLoading(false);
       }
     },
-    [page, pageSize, showInactive, showLowStockOnly, searchDebounced, categoryFilter]
+    [page, pageSize, showInactive, showLowStockOnly, searchDebounced, categoryFilter, onError]
   );
 
   useEffect(() => {
@@ -136,8 +134,6 @@ export function useInventoryList() {
     setPageSize,
     safePage,
     loading,
-    error,
-    setError,
     formView,
     setFormView,
     isCreating,

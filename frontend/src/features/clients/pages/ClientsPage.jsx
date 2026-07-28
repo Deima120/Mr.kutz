@@ -9,8 +9,8 @@ import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination } from '@/shared/components/admin/AdminListControls';
-import SuccessToast from '@/shared/components/SuccessToast';
-import ClientDeleteModal from '@/features/clients/components/ClientDeleteModal';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import { downloadClientsExcel } from '@/features/clients/utils/exportClientsExcel';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 
@@ -20,6 +20,7 @@ const SEARCH_DEBOUNCE_MS = 350;
 
 export default function ClientsPage() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
   
@@ -28,7 +29,6 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   
   // Estados de paginación
   const [page, setPage] = useState(1);
@@ -37,7 +37,6 @@ export default function ClientsPage() {
   // Estados de confirmación de eliminación premium
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name } o null
   const [isDeleting, setIsDeleting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [exporting, setExporting] = useState(false);
 
   const location = useLocation();
@@ -54,10 +53,10 @@ export default function ClientsPage() {
 
   useEffect(() => {
     if (location.state?.successMessage) {
-      setSuccessMessage(location.state.successMessage);
+      toast.success(location.state.successMessage);
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, toast]);
 
   const isCreating = formView === 'create';
   const editingId = typeof formView === 'number' ? formView : null;
@@ -73,7 +72,6 @@ export default function ClientsPage() {
 
   const fetchClients = useCallback(async (targetPage) => {
     setLoading(true);
-    setError('');
     try {
       const data = await clientService.getClients({
         search: debouncedSearch || undefined,
@@ -83,11 +81,11 @@ export default function ClientsPage() {
       setClients(data.clients || []);
       setTotal(data.total ?? 0);
     } catch (err) {
-      setError(err?.message || 'Error al cargar clientes');
+      toast.error(err?.message || 'Error al cargar clientes');
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, pageSize]);
+  }, [debouncedSearch, pageSize, toast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -116,10 +114,10 @@ export default function ClientsPage() {
     try {
       await clientService.deleteClient(deleteTarget.id);
       setDeleteTarget(null);
-      setSuccessMessage(`Cliente "${deleteTarget.name}" eliminado correctamente.`);
+      toast.success(`Cliente "${deleteTarget.name}" eliminado correctamente.`);
       fetchClients();
     } catch (err) {
-      setError(err?.message || 'Error al eliminar');
+      toast.error(err?.message || 'Error al eliminar');
     } finally {
       setIsDeleting(false);
     }
@@ -127,8 +125,8 @@ export default function ClientsPage() {
 
   const handleFormSuccess = ({ created, updated } = {}) => {
     setFormView(null);
-    if (created) setSuccessMessage('Cliente registrado correctamente.');
-    if (updated) setSuccessMessage('Cliente actualizado correctamente.');
+    if (created) toast.success('Cliente registrado correctamente.');
+    if (updated) toast.success('Cliente actualizado correctamente.');
     fetchClients(1);
     setPage(1);
   };
@@ -137,7 +135,6 @@ export default function ClientsPage() {
 
   const handleExportExcel = async () => {
     setExporting(true);
-    setError('');
     try {
       const data = await clientService.getClients({
         search: debouncedSearch || undefined,
@@ -146,12 +143,12 @@ export default function ClientsPage() {
       });
       const allClients = data.clients || [];
       if (allClients.length === 0) {
-        setError('No hay clientes para exportar.');
+        toast.error('No hay clientes para exportar.');
         return;
       }
       downloadClientsExcel(allClients, { search: debouncedSearch });
     } catch (err) {
-      setError(err?.message || 'Error al exportar clientes');
+      toast.error(err?.message || 'Error al exportar clientes');
     } finally {
       setExporting(false);
     }
@@ -165,9 +162,6 @@ export default function ClientsPage() {
       onCancel={() => setFormView(null)}
     />
   ) : null;
-
-  const dismissSuccessMessage = () => setSuccessMessage('');
-  const successToast = <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />;
 
   // Cálculos de paginación
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -211,12 +205,6 @@ export default function ClientsPage() {
           </div>
 
           <div className="p-6">
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-                {error}
-              </div>
-            )}
-
             {loading ? (
               <div className="py-16 text-center text-stone-500">
                 <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-gold border-t-transparent mb-2"></div>
@@ -328,12 +316,6 @@ export default function ClientsPage() {
           />
 
           <DataCard compact>
-        {error && (
-          <div className="mb-3 alert-error text-sm py-2" role="alert">
-            {error}
-          </div>
-        )}
-
         {loading ? (
           <div className="py-10 text-center text-stone-500">
             <div className="inline-block animate-spin rounded-full h-7 w-7 border-3 border-gold border-t-transparent mb-2"></div>
@@ -425,15 +407,27 @@ export default function ClientsPage() {
         </>
       )}
 
-      <ClientDeleteModal
+      <AdminConfirmModal
         open={Boolean(deleteTarget)}
-        clientName={deleteTarget?.name}
-        isDeleting={isDeleting}
-        onCancel={() => setDeleteTarget(null)}
+        variant="danger"
+        title="¿Eliminar cliente?"
+        description={
+          deleteTarget ? (
+            <>
+              ¿Eliminar permanentemente el expediente de{' '}
+              <strong className="text-stone-800">{deleteTarget.name}</strong>? Esta acción no se puede
+              deshacer.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, eliminar"
+        submittingLabel="Eliminando…"
+        isSubmitting={isDeleting}
+        onCancel={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
         onConfirm={confirmDelete}
       />
-
-      {successToast}
     </div>
   );
 }

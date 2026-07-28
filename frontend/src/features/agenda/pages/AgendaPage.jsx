@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/shared/contexts/AuthContext';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
@@ -23,6 +24,7 @@ import { getLocalDateToday } from '@/shared/utils/appointmentTime';
 
 export default function AgendaPage() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const [view, setView] = useState(() => {
     if (typeof window === 'undefined') return 'week';
     return window.matchMedia?.('(max-width: 768px)')?.matches ? 'list' : 'week';
@@ -30,7 +32,6 @@ export default function AgendaPage() {
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(getLocalDateToday()));
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [detailAppointment, setDetailAppointment] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -61,7 +62,6 @@ export default function AgendaPage() {
       return;
     }
     setLoading(true);
-    setError('');
     try {
       const data = await agendaService.getWeekAppointments({
         dateFrom,
@@ -70,12 +70,12 @@ export default function AgendaPage() {
       });
       setAppointments(data.appointments ?? []);
     } catch (err) {
-      setError(err?.message || 'Error al cargar agenda');
+      toast.error(err?.message || 'Error al cargar agenda');
       setAppointments([]);
     } finally {
       setLoading(false);
     }
-  }, [barberId, dateFrom, dateTo]);
+  }, [barberId, dateFrom, dateTo, toast]);
 
   useEffect(() => {
     fetchAppointments();
@@ -138,14 +138,8 @@ export default function AgendaPage() {
         <StatsCard label="Canceladas / no show" value={summary.cancelled} />
       </div>
 
-      {error && (
-        <div className="alert-error text-sm py-2.5" role="alert">
-          {error}
-        </div>
-      )}
-
       <DataCard>
-        {!loading && appointments.length === 0 && !error ? (
+        {!loading && appointments.length === 0 ? (
           <div className="py-10 text-center text-stone-500 text-sm mb-4">
             No tienes citas programadas en esta semana.
           </div>

@@ -14,6 +14,7 @@ import { validateAppointmentForm, getApiErrorMessage, CLIENT_NOTES_MAX } from '@
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -667,9 +668,9 @@ export default function AppointmentForm({
           </button>
         </div>
         {atMaxServices && (
-          <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2" role="status">
+          <AppInlineAlert variant="warning" className="mt-2 text-xs py-2 px-3">
             {MAX_SERVICES_MESSAGE}
-          </p>
+          </AppInlineAlert>
         )}
         {formData.serviceIds.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -871,9 +872,9 @@ export default function AppointmentForm({
         </div>
       )}
       {atMaxServices && (
-        <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2" role="status">
+        <AppInlineAlert variant="warning" className="mt-2 text-xs py-2 px-3">
           {MAX_SERVICES_MESSAGE}
-        </p>
+        </AppInlineAlert>
       )}
     </div>
   );
@@ -911,9 +912,9 @@ export default function AppointmentForm({
           )}
 
           {isEdit && loadError && !apptLoading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs p-2.5 shrink-0" role="alert">
-              <p>{loadError}</p>
-            </div>
+            <AppInlineAlert variant="error" className="text-xs py-2.5 shrink-0">
+              {loadError}
+            </AppInlineAlert>
           )}
 
           {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
@@ -921,9 +922,9 @@ export default function AppointmentForm({
           {showFormFields && (
             <>
               {dataLoaded && barbers.length === 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs p-2.5 shrink-0" role="status">
+                <AppInlineAlert variant="warning" className="text-xs py-2.5 shrink-0">
                   No hay barberos disponibles en este momento.
-                </div>
+                </AppInlineAlert>
               )}
 
               {clientSelect}
@@ -1011,9 +1012,9 @@ export default function AppointmentForm({
           )}
 
           {isEdit && loadError && !apptLoading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs p-2.5" role="alert">
-              <p>{loadError}</p>
-            </div>
+            <AppInlineAlert variant="error" className="text-xs py-2.5">
+              {loadError}
+            </AppInlineAlert>
           )}
 
           {error && (
@@ -1023,9 +1024,9 @@ export default function AppointmentForm({
           {showFormFields && (
             <>
               {dataLoaded && barbers.length === 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs p-2.5" role="status">
+                <AppInlineAlert variant="warning" className="text-xs py-2.5">
                   No hay barberos disponibles en este momento.
-                </div>
+                </AppInlineAlert>
               )}
 
               <div className="grid gap-4">

@@ -17,7 +17,7 @@ import {
   AdminListToolbar,
   FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
-import SuccessToast from '@/shared/components/SuccessToast';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 
 const BARBER_STATUS_FILTERS = [
   { id: 'active', label: 'Activos' },
@@ -27,13 +27,12 @@ const BARBER_STATUS_FILTERS = [
 
 export default function BarbersPage() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const isAdmin = user?.role === 'admin';
   const [barbers, setBarbers] = useState([]);
   const [statusFilter, setStatusFilter] = useState('active');
   const [documentFilter, setDocumentFilter] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [formView, setFormView] = useState(null);
 
   const location = useLocation();
@@ -58,7 +57,6 @@ export default function BarbersPage() {
 
   const fetchBarbers = async () => {
     setLoading(true);
-    setError('');
     try {
       const activeParam =
         statusFilter === 'inactive'
@@ -72,7 +70,7 @@ export default function BarbersPage() {
       });
       setBarbers(Array.isArray(data) ? data : data?.data ?? data?.barbers ?? []);
     } catch (err) {
-      setError(err?.message || 'Error al cargar barberos');
+      toast.error(err?.message || 'Error al cargar barberos');
       setBarbers([]);
     } finally {
       setLoading(false);
@@ -131,8 +129,8 @@ export default function BarbersPage() {
 
   const handleFormSuccess = ({ created, updated } = {}) => {
     setFormView(null);
-    if (created) setSuccessMessage('Barbero registrado correctamente.');
-    if (updated) setSuccessMessage('Barbero actualizado correctamente.');
+    if (created) toast.success('Barbero registrado correctamente.');
+    if (updated) toast.success('Barbero actualizado correctamente.');
     fetchBarbers();
   };
 
@@ -146,10 +144,6 @@ export default function BarbersPage() {
       onCancel={() => setFormView(null)}
     />
   ) : null;
-
-  const successToast = (
-    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
-  );
 
   return (
     <div className="page-shell animate-fade-in-up">
@@ -173,10 +167,6 @@ export default function BarbersPage() {
       ) : (
         <>
           {listToolbar}
-
-          {error && (
-            <div className="alert-error text-sm py-2.5" role="alert">{error}</div>
-          )}
 
           {loading ? (
             <DataCard compact>
@@ -259,7 +249,6 @@ export default function BarbersPage() {
           )}
         </>
       )}
-      {successToast}
     </div>
   );
 }

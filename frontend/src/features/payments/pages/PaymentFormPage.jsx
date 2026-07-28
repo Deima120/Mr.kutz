@@ -20,6 +20,7 @@ import {
 import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
 import ProductPicker from '@/features/inventory/components/ProductPicker';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -372,11 +373,11 @@ export function PaymentForm({
           </div>
         ) : null}
         {prefillHints.length > 0 ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <AppInlineAlert variant="warning" className="text-xs py-2 px-3">
             {prefillHints.map((hint) => (
               <p key={hint}>{hint}</p>
             ))}
-          </div>
+          </AppInlineAlert>
         ) : null}
 
         <AdminFormCard>

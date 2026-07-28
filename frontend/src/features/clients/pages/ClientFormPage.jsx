@@ -42,6 +42,7 @@ import AdminFormShell, {
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 
 function fieldTouched(touched, name, value) {
   return Boolean(touched[name] || String(value ?? '').length > 0);
@@ -55,6 +56,7 @@ export function ClientForm({
 }) {
   const isEdit = Boolean(editId);
   const navigate = useNavigate();
+  const toast = useAppToast();
   const initialEmailRef = useRef('');
 
   const [formData, setFormData] = useState({
@@ -70,7 +72,6 @@ export function ClientForm({
   const [emailAvailability, setEmailAvailability] = useState('idle');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (isEdit && editId) {
@@ -277,8 +278,8 @@ export function ClientForm({
       if (embedded) {
         onSuccess?.({ created: !isEdit, updated: isEdit });
       } else {
-        setSuccess(true);
-        setTimeout(() => navigate('/clients', { replace: true }), 1500);
+        toast.success(isEdit ? 'Cliente actualizado correctamente' : 'Cliente registrado correctamente');
+        navigate('/clients', { replace: true });
       }
     } catch (err) {
       const msg = err?.errors?.[0]?.message || err?.message || 'Error al guardar';
@@ -341,12 +342,6 @@ export function ClientForm({
           eyebrow="Ficha de cliente"
           title={isEdit ? 'Actualizar datos' : 'Registrar cliente'}
         />
-
-        {success && !embedded && (
-          <div className="alert-success shrink-0 text-xs py-2 flex items-center justify-between" role="status">
-            <span>{isEdit ? '✓ Cliente actualizado correctamente' : '✓ Cliente registrado correctamente'}</span>
-          </div>
-        )}
 
         {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
 

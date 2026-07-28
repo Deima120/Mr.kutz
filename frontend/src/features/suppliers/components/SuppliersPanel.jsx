@@ -9,29 +9,31 @@ import SupplierForm from '@/features/suppliers/components/SupplierForm';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import { getApiErrorMessage } from '@/shared/utils/formValidation';
 
 const isActive = (supplier) => (supplier.isActive ?? supplier.is_active) !== false;
 
 export default function SuppliersPanel({ highlightSupplierId = null }) {
+  const toast = useAppToast();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [formMode, setFormMode] = useState(null); // 'create' | number (edit id)
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
       setSuppliers(await supplierService.getSuppliers({ active: 'all', limit: 100 }));
     } catch (err) {
-      setError(getApiErrorMessage(err, 'No se pudieron cargar los proveedores.'));
+      toast.error(getApiErrorMessage(err, 'No se pudieron cargar los proveedores.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     load();
@@ -45,29 +47,32 @@ export default function SuppliersPanel({ highlightSupplierId = null }) {
 
   const toggleActive = async (supplier) => {
     setSaving(true);
-    setError('');
     try {
       await supplierService.updateSupplier(supplier.id, { isActive: !isActive(supplier) });
       await load();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'No se pudo cambiar el estado.'));
+      toast.error(getApiErrorMessage(err, 'No se pudo cambiar el estado.'));
     } finally {
       setSaving(false);
     }
   };
 
-  const remove = async (supplier) => {
-    if (!window.confirm(`¿Eliminar el proveedor «${supplier.name}»?`)) return;
+  const remove = async () => {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
     try {
-      await supplierService.deleteSupplier(supplier.id);
+      await supplierService.deleteSupplier(deleteTarget.id);
+      setDeleteTarget(null);
       await load();
     } catch (err) {
-      setError(
+      toast.error(
         getApiErrorMessage(
           err,
           'No se pudo eliminar. Puedes desactivarlo si tiene compras asociadas.'
         )
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -90,17 +95,6 @@ export default function SuppliersPanel({ highlightSupplierId = null }) {
         ) : null}
       </div>
 
-      {error ? (
-        <div className="alert-error text-sm" role="alert">
-          {error}
-        </div>
-      ) : null}
-      {successMessage ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {successMessage}
-        </div>
-      ) : null}
-
       {formMode != null ? (
         <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gold">
@@ -112,7 +106,7 @@ export default function SuppliersPanel({ highlightSupplierId = null }) {
             onCancel={() => setFormMode(null)}
             onSuccess={() => {
               setFormMode(null);
-              setSuccessMessage(
+              toast.success(
                 formMode === 'create' ? 'Proveedor creado.' : 'Proveedor actualizado.'
               );
               load();
@@ -187,7 +181,7 @@ export default function SuppliersPanel({ highlightSupplierId = null }) {
                           icon={Trash2}
                           label="Eliminar proveedor"
                           variant="danger"
-                          onClick={() => remove(supplier)}
+                          onClick={() => setDeleteTarget(supplier)}
                         />
                       </div>
                     </TableCell>
@@ -198,6 +192,26 @@ export default function SuppliersPanel({ highlightSupplierId = null }) {
           </Table>
         )}
       </DataCard>
+
+      <AdminConfirmModal
+        open={Boolean(deleteTarget)}
+        variant="danger"
+        title="¿Eliminar proveedor?"
+        description={
+          deleteTarget ? (
+            <>
+              ¿Eliminar permanentemente «<strong className="text-stone-800">{deleteTarget.name}</strong>»?
+              Esta acción no se puede deshacer.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, eliminar"
+        isSubmitting={deleting}
+        onCancel={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        onConfirm={remove}
+      />
     </div>
   );
 }

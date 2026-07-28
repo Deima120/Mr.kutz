@@ -33,7 +33,8 @@ import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import StatsCard from '@/shared/components/admin/StatsCard';
-import SuccessToast from '@/shared/components/SuccessToast';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import {
   KARDEX_DEFAULT_PAGE_SIZE,
   KARDEX_PAGE_SIZE_OPTIONS,
@@ -69,29 +70,31 @@ function EmptyBlock({ children }) {
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useAppToast();
   const [dossier, setDossier] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [fatalError, setFatalError] = useState('');
   const [archiving, setArchiving] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   const [movements, setMovements] = useState([]);
   const [movementsTotal, setMovementsTotal] = useState(0);
   const [kardexPage, setKardexPage] = useState(1);
   const [kardexPageSize, setKardexPageSize] = useState(KARDEX_DEFAULT_PAGE_SIZE);
   const [kardexLoading, setKardexLoading] = useState(false);
-  const [kardexError, setKardexError] = useState('');
   const [editSupplierId, setEditSupplierId] = useState(null);
 
   const loadDossier = async () => {
     setLoading(true);
-    setError('');
+    setFatalError('');
     try {
       const data = await productService.getProductDossier(id);
       setDossier(data);
     } catch (err) {
       setDossier(null);
-      setError(getApiErrorMessage(err, 'No se pudo cargar la ficha del producto.'));
+      const message = getApiErrorMessage(err, 'No se pudo cargar la ficha del producto.');
+      setFatalError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -99,7 +102,6 @@ export default function ProductDetailPage() {
 
   const loadKardex = async (page = kardexPage, pageSize = kardexPageSize) => {
     setKardexLoading(true);
-    setKardexError('');
     try {
       const offset = kardexOffset(page, pageSize);
       const result = await productService.getProductMovements(id, { limit: pageSize, offset });
@@ -112,7 +114,7 @@ export default function ProductDetailPage() {
     } catch (err) {
       setMovements([]);
       setMovementsTotal(0);
-      setKardexError(getApiErrorMessage(err, 'No se pudo cargar el kardex.'));
+      toast.error(getApiErrorMessage(err, 'No se pudo cargar el kardex.'));
     } finally {
       setKardexLoading(false);
     }
@@ -128,22 +130,27 @@ export default function ProductDetailPage() {
     loadKardex(kardexPage, kardexPageSize);
   }, [id, kardexPage, kardexPageSize]);
 
-  const handleArchive = async () => {
+  const requestArchive = () => {
     const product = dossier?.product;
     if (!product) return;
     if ((product.quantity ?? 0) > 0) {
-      setError('No se puede archivar un producto con stock. Recibe o liquida el inventario primero.');
+      toast.error('No se puede archivar un producto con stock. Recibe o liquida el inventario primero.');
       return;
     }
-    if (!window.confirm(`¿Archivar «${product.name}»?`)) return;
+    setArchiveConfirmOpen(true);
+  };
+
+  const confirmArchive = async () => {
+    const product = dossier?.product;
+    if (!product) return;
     setArchiving(true);
-    setError('');
     try {
       await productService.updateProduct(product.id, { isActive: false });
-      setSuccessMessage('Producto archivado.');
+      toast.success('Producto archivado.');
+      setArchiveConfirmOpen(false);
       await loadDossier();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'No se pudo archivar.'));
+      toast.error(getApiErrorMessage(err, 'No se pudo archivar.'));
     } finally {
       setArchiving(false);
     }
@@ -163,13 +170,13 @@ export default function ProductDetailPage() {
     );
   }
 
-  if (error && !dossier) {
+  if (fatalError && !dossier) {
     return (
       <div className="page-shell max-w-md mx-auto py-12 text-center">
         <AdminBackNav to="/inventory" label="Inventario" />
         <div className="mt-8 rounded-2xl border border-stone-200 bg-white p-8 shadow-card">
           <Package className="w-10 h-10 text-stone-400 mx-auto mb-3" />
-          <p className="font-semibold text-stone-800 mb-2">{error}</p>
+          <p className="font-semibold text-stone-800 mb-2">{fatalError}</p>
           <Link to="/inventory" className="btn-admin text-sm inline-flex mt-2">
             Volver al inventario
           </Link>
@@ -215,7 +222,7 @@ export default function ProductDetailPage() {
               <button
                 type="button"
                 disabled={archiving || qty > 0}
-                onClick={handleArchive}
+                onClick={requestArchive}
                 className="btn-admin-outline text-sm inline-flex items-center gap-1.5 disabled:opacity-40"
                 title={qty > 0 ? 'No se puede archivar con stock' : 'Archivar producto'}
               >
@@ -226,12 +233,6 @@ export default function ProductDetailPage() {
           </div>
         }
       />
-
-      {error ? (
-        <div className="alert-error text-sm py-2" role="alert">
-          {error}
-        </div>
-      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
@@ -415,12 +416,6 @@ export default function ProductDetailPage() {
           disabled={kardexLoading}
         />
 
-        {kardexError ? (
-          <div className="alert-error text-sm py-2 mb-2" role="alert">
-            {kardexError}
-          </div>
-        ) : null}
-
         {kardexLoading && movements.length === 0 ? (
           <EmptyBlock>Cargando kardex…</EmptyBlock>
         ) : movementsTotal === 0 ? (
@@ -480,13 +475,31 @@ export default function ProductDetailPage() {
         )}
       </DataCard>
 
-      <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
+      <AdminConfirmModal
+        open={archiveConfirmOpen}
+        variant="warning"
+        title="¿Archivar producto?"
+        description={
+          product ? (
+            <>
+              «<strong className="text-stone-800">{product.name}</strong>» dejará de aparecer en compras
+              y ventas. Podrás reactivarlo más adelante.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, archivar"
+        isSubmitting={archiving}
+        onCancel={() => {
+          if (!archiving) setArchiveConfirmOpen(false);
+        }}
+        onConfirm={confirmArchive}
+      />
       <SupplierFormModal
         open={editSupplierId != null}
         supplierId={editSupplierId}
         onClose={() => setEditSupplierId(null)}
         onSaved={() => {
-          setSuccessMessage('Proveedor actualizado.');
+          toast.success('Proveedor actualizado.');
           loadDossier();
         }}
       />

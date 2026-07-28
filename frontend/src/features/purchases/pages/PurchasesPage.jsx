@@ -11,7 +11,7 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
-import SuccessToast from '@/shared/components/SuccessToast';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
 import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
@@ -42,6 +42,7 @@ const TAB_ORDERS = 'orders';
 const TAB_SUPPLIERS = 'suppliers';
 
 export default function PurchasesPage() {
+  const toast = useAppToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === TAB_SUPPLIERS ? TAB_SUPPLIERS : TAB_ORDERS;
   const highlightSupplierId = searchParams.get('supplierId');
@@ -60,8 +61,6 @@ export default function PurchasesPage() {
   const [pageSize, setPageSize] = useState(20);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [initialProductId, setInitialProductId] = useState(null);
 
@@ -109,7 +108,7 @@ export default function PurchasesPage() {
         if (!cancelled) setDetailPurchase(full);
       })
       .catch(() => {
-        if (!cancelled) setError('No se pudo abrir el detalle de la orden.');
+        if (!cancelled) toast.error('No se pudo abrir el detalle de la orden.');
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -121,7 +120,7 @@ export default function PurchasesPage() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, toast]);
 
   useEffect(() => {
     setPage(1);
@@ -129,7 +128,6 @@ export default function PurchasesPage() {
 
   const fetchPurchases = useCallback(async (targetPage = page) => {
     setLoading(true);
-    setError('');
     try {
       const params = {
         dateFrom,
@@ -149,13 +147,13 @@ export default function PurchasesPage() {
       setListTotal(listData.total ?? 0);
       setPeriodTotal(totalData || { total: 0, count: 0 });
     } catch (err) {
-      setError(err?.message || 'Error al cargar compras');
+      toast.error(err?.message || 'Error al cargar compras');
       setPurchases([]);
       setListTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, statusFilter, search, pageSize, page]);
+  }, [dateFrom, dateTo, statusFilter, search, pageSize, page, toast]);
 
   useEffect(() => {
     if (!isFormOpen && activeTab === TAB_ORDERS) fetchPurchases(page);
@@ -185,7 +183,7 @@ export default function PurchasesPage() {
   const handleFormSuccess = () => {
     setIsFormOpen(false);
     setInitialProductId(null);
-    setSuccessMessage('Orden creada. El stock no cambió.');
+    toast.success('Orden creada. El stock no cambió.');
     setPage(1);
     fetchPurchases(1);
   };
@@ -196,10 +194,10 @@ export default function PurchasesPage() {
     try {
       await purchaseService.cancelPurchase(voidTarget.id, { reason });
       setVoidTarget(null);
-      setSuccessMessage('Orden cancelada correctamente.');
+      toast.success('Orden cancelada correctamente.');
       await fetchPurchases(page);
     } catch (err) {
-      setError(err?.message || 'No se pudo anular la compra');
+      toast.error(err?.message || 'No se pudo anular la compra');
     } finally {
       setIsVoiding(false);
     }
@@ -207,13 +205,12 @@ export default function PurchasesPage() {
 
   const submitOrder = async (purchase) => {
     setActionLoadingId(purchase.id);
-    setError('');
     try {
       await purchaseService.submitPurchase(purchase.id);
-      setSuccessMessage('Orden enviada correctamente.');
+      toast.success('Orden enviada correctamente.');
       await fetchPurchases(page);
     } catch (err) {
-      setError(err?.message || 'No se pudo enviar la orden.');
+      toast.error(err?.message || 'No se pudo enviar la orden.');
     } finally {
       setActionLoadingId(null);
     }
@@ -221,11 +218,10 @@ export default function PurchasesPage() {
 
   const openReceipt = async (purchase) => {
     setActionLoadingId(purchase.id);
-    setError('');
     try {
       setReceiptTarget(await purchaseService.getPurchaseById(purchase.id));
     } catch (err) {
-      setError(err?.message || 'No se pudo cargar la orden para recibirla.');
+      toast.error(err?.message || 'No se pudo cargar la orden para recibirla.');
     } finally {
       setActionLoadingId(null);
     }
@@ -233,7 +229,7 @@ export default function PurchasesPage() {
 
   const handleReceiptSuccess = async ({ products } = {}) => {
     setReceiptTarget(null);
-    setSuccessMessage('Recepción registrada y stock actualizado.');
+    toast.success('Recepción registrada y stock actualizado.');
     setReceivedProducts(Array.isArray(products) ? products : []);
     await fetchPurchases(page);
   };
@@ -418,10 +414,6 @@ export default function PurchasesPage() {
           </AdminFilterRow>
         </div>
 
-        {error && (
-          <div className="alert-error text-sm py-2 mb-3" role="alert">{error}</div>
-        )}
-
         {loading ? (
               <div className="py-10 text-center text-stone-500">
                 <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
@@ -563,7 +555,6 @@ export default function PurchasesPage() {
         products={receivedProducts || []}
         onClose={() => setReceivedProducts(null)}
       />
-      <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>
   );
 }

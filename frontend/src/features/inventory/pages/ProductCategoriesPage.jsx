@@ -9,6 +9,8 @@ import * as categoryService from '@/features/inventory/services/productCategoryS
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import { validateCategoryForm, TEXT_CATEGORY_DESCRIPTION_MAX } from '@/shared/utils/formValidation';
 import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 
@@ -36,9 +38,9 @@ function CategoryStatusButton({ active, onClick, disabled = false }) {
 }
 
 export default function ProductCategoriesPage() {
+  const toast = useAppToast();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [createNameError, setCreateNameError] = useState('');
   const [editNameError, setEditNameError] = useState('');
@@ -47,15 +49,16 @@ export default function ProductCategoriesPage() {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [togglingId, setTogglingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    setError('');
     try {
       const data = await categoryService.getCategories({ active: 'false' });
       setRows(Array.isArray(data) ? data : data?.data ?? []);
     } catch (err) {
-      setError(err?.message || 'Error al cargar categorías');
+      toast.error(err?.message || 'Error al cargar categorías');
     } finally {
       setLoading(false);
     }
@@ -70,7 +73,6 @@ export default function ProductCategoriesPage() {
     const validation = validateCategoryForm({ name, description });
     if (!validation.valid) {
       setCreateNameError(validation.errors.name || validation.firstError);
-      setError(validation.firstError);
       return;
     }
     setCreateNameError('');
@@ -81,9 +83,10 @@ export default function ProductCategoriesPage() {
       });
       setName('');
       setDescription('');
+      toast.success('Categoría creada.');
       load();
     } catch (err) {
-      setError(err?.message || 'Error al crear categoría');
+      toast.error(err?.message || 'Error al crear categoría');
     }
   };
 
@@ -104,7 +107,6 @@ export default function ProductCategoriesPage() {
     const validation = validateCategoryForm({ name: editName, description: editDescription });
     if (!validation.valid) {
       setEditNameError(validation.errors.name || validation.firstError);
-      setError(validation.firstError);
       return;
     }
     setEditNameError('');
@@ -114,43 +116,49 @@ export default function ProductCategoriesPage() {
         description: editDescription.trim() === '' ? null : toCategoryCaps(editDescription),
       });
       cancelEdit();
+      toast.success('Categoría actualizada.');
       load();
     } catch (err) {
-      setError(err?.message || 'Error al guardar categoría');
-    }
-  };
-
-  const toggle = async (r) => {
-    setTogglingId(r.id);
-    setError('');
-    try {
-      await categoryService.updateCategory(r.id, { isActive: !isCategoryActive(r) });
-      load();
-    } catch (err) {
-      setError(err?.message || 'Error al actualizar categoría');
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
-  const remove = async (r) => {
-    const count = r.productCount ?? r.product_count ?? 0;
-    const message =
-      count > 0
-        ? `¿Eliminar categoría "${r.name}"?\n\n${count} producto(s) quedarán sin categoría.`
-        : `¿Eliminar categoría "${r.name}"?`;
-    if (!window.confirm(message)) return;
-    try {
-      await categoryService.deleteCategory(r.id);
-      if (editingId === r.id) cancelEdit();
-      load();
-    } catch (err) {
-      setError(err?.message || 'Error al eliminar categoría');
+      toast.error(err?.message || 'Error al guardar categoría');
     }
   };
 
   const isCategoryActive = (r) => (r.isActive ?? r.is_active) !== false;
   const getProductCount = (r) => r.productCount ?? r.product_count ?? 0;
+
+  const toggle = async (r) => {
+    const next = !isCategoryActive(r);
+    setTogglingId(r.id);
+    try {
+      await categoryService.updateCategory(r.id, { isActive: next });
+      toast.success(next ? 'Categoría activada.' : 'Categoría desactivada.');
+      load();
+    } catch (err) {
+      toast.error(err?.message || 'Error al actualizar categoría');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const requestRemove = (r) => {
+    setDeleteTarget(r);
+  };
+
+  const confirmRemove = async () => {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
+    try {
+      await categoryService.deleteCategory(deleteTarget.id);
+      if (editingId === deleteTarget.id) cancelEdit();
+      setDeleteTarget(null);
+      toast.success('Categoría eliminada.');
+      load();
+    } catch (err) {
+      toast.error(err?.message || 'Error al eliminar categoría');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const categoryExportRows = rows.map((r) => ({
     id: r.id,
@@ -216,8 +224,6 @@ export default function ProductCategoriesPage() {
         }
       />
 
-      {error && <div className="alert-error mb-3 text-sm py-2">{error}</div>}
-
       <div className="mb-4 rounded-xl border border-stone-200/90 bg-white px-3 py-3 shadow-sm sm:px-4">
         <p className="mb-2 text-[10px] font-semibold text-gold">Nueva categoría</p>
         <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={create} noValidate>
@@ -227,7 +233,6 @@ export default function ProductCategoriesPage() {
               onChange={(e) => {
                 setName(toCategoryCaps(e.target.value));
                 setCreateNameError('');
-                setError('');
               }}
               className={`input-premium py-2 text-sm ${createNameError ? '!border-red-400' : ''}`}
               placeholder="Nombre"
@@ -277,7 +282,6 @@ export default function ProductCategoriesPage() {
                               onChange={(e) => {
                                 setEditName(toCategoryCaps(e.target.value));
                                 setEditNameError('');
-                                setError('');
                               }}
                               className={`input-premium py-1.5 text-sm min-w-0 w-full ${editNameError ? '!border-red-400' : ''}`}
                               placeholder="Nombre"
@@ -354,7 +358,7 @@ export default function ProductCategoriesPage() {
                             icon={Trash2}
                             label="Eliminar categoría"
                             variant="danger"
-                            onClick={() => remove(r)}
+                            onClick={() => requestRemove(r)}
                           />
                         </div>
                       </TableCell>
@@ -366,6 +370,33 @@ export default function ProductCategoriesPage() {
           </Table>
         )}
       </DataCard>
+
+      <AdminConfirmModal
+        open={Boolean(deleteTarget)}
+        variant="danger"
+        title="¿Eliminar categoría?"
+        description={
+          deleteTarget ? (
+            <>
+              ¿Eliminar «<strong className="text-stone-800">{toCategoryCaps(deleteTarget.name)}</strong>»?
+              {(deleteTarget.productCount ?? deleteTarget.product_count ?? 0) > 0 ? (
+                <>
+                  {' '}
+                  {(deleteTarget.productCount ?? deleteTarget.product_count)} producto(s) quedarán sin
+                  categoría.
+                </>
+              ) : null}{' '}
+              Esta acción no se puede deshacer.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, eliminar"
+        isSubmitting={deleting}
+        onCancel={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        onConfirm={confirmRemove}
+      />
     </div>
   );
 }
