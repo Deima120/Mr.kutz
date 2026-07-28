@@ -2,7 +2,7 @@
  * Inventario: listado, edición embebida, ajustes y venta vía pagos.
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Upload } from 'lucide-react';
 import { ProductForm } from '@/features/inventory/components/ProductForm';
@@ -29,47 +29,56 @@ import {
   AdminFilterRow,
   FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
-import SuccessToast from '@/shared/components/SuccessToast';
+import { useAppToast } from '@/shared/feedback/ToastContext';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 
 export default function InventoryPage() {
-  const [successMessage, setSuccessMessage] = useState('');
+  const toast = useAppToast();
+  const onError = useCallback((message) => toast.error(message), [toast]);
+  const onSuccess = useCallback((message) => toast.success(message), [toast]);
+
   const [importOpen, setImportOpen] = useState(false);
   const [archivingId, setArchivingId] = useState(null);
+  const [archiveTarget, setArchiveTarget] = useState(null);
 
-  const list = useInventoryList();
+  const list = useInventoryList({ onError });
   const stock = useInventoryStock({
     page: list.page,
     fetchProducts: list.fetchProducts,
-    setError: list.setError,
-    onSuccessMessage: setSuccessMessage,
+    onError,
+    onSuccess,
   });
 
   const handleFormSuccess = ({ created, updated } = {}) => {
     list.setFormView(null);
-    if (created) setSuccessMessage('Producto creado correctamente.');
-    if (updated) setSuccessMessage('Producto actualizado correctamente.');
+    if (created) toast.success('Producto creado correctamente.');
+    if (updated) toast.success('Producto actualizado correctamente.');
     list.setPage(1);
     list.fetchProducts(1);
   };
 
-  const handleArchive = async (product) => {
+  const requestArchive = (product) => {
     if (!product?.id) return;
     if ((product.quantity ?? 0) > 0) {
-      list.setError('No se puede archivar un producto con stock. Recibe o liquida el inventario primero.');
+      toast.error('No se puede archivar un producto con stock. Recibe o liquida el inventario primero.');
       return;
     }
-    if (!window.confirm(`¿Archivar «${product.name}»? Dejará de aparecer en compras y ventas.`)) {
-      return;
-    }
+    setArchiveTarget(product);
+  };
+
+  const confirmArchive = async () => {
+    const product = archiveTarget;
+    if (!product?.id) return;
     setArchivingId(product.id);
-    list.setError('');
     try {
       await productService.updateProduct(product.id, { isActive: false });
-      setSuccessMessage('Producto archivado.');
+      toast.success('Producto archivado.');
+      setArchiveTarget(null);
       await list.fetchProducts(list.page, true);
     } catch (err) {
-      list.setError(getApiErrorMessage(err, 'No se pudo archivar el producto'));
+      toast.error(getApiErrorMessage(err, 'No se pudo archivar el producto'));
     } finally {
       setArchivingId(null);
     }
@@ -154,18 +163,18 @@ export default function InventoryPage() {
           </div>
 
           {(list.summary.lowStockCount ?? 0) > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <h3 className="font-medium text-amber-800 mb-2">
-                {list.summary.lowStockCount} producto(s) con stock bajo o agotado
-              </h3>
+            <AppInlineAlert
+              variant="warning"
+              title={`${list.summary.lowStockCount} producto(s) con stock bajo o agotado`}
+            >
               <button
                 type="button"
                 onClick={() => list.setShowLowStockOnly(true)}
-                className="text-sm font-semibold text-amber-800 underline underline-offset-2"
+                className="text-sm font-semibold underline underline-offset-2"
               >
                 Ver productos con stock bajo
               </button>
-            </div>
+            </AppInlineAlert>
           )}
 
           <DataCard compact>
@@ -211,12 +220,6 @@ export default function InventoryPage() {
               </AdminFilterRow>
             </div>
 
-            {list.error && (
-              <div className="alert-error text-sm py-2 mb-3" role="alert">
-                {list.error}
-              </div>
-            )}
-
             {list.loading ? (
               <div className="py-10 text-center text-stone-500">
                 <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
@@ -249,7 +252,7 @@ export default function InventoryPage() {
                 onAdjust={MANUAL_STOCK_ADJUST_ENABLED ? stock.handleOpenAdjust : undefined}
                 onSell={stock.goToSell}
                 onHistory={stock.handleOpenHistory}
-                onArchive={handleArchive}
+                onArchive={requestArchive}
                 archivingId={archivingId}
               />
             )}
@@ -291,7 +294,7 @@ export default function InventoryPage() {
           onSuccess={(data) => {
             const created = data?.created ?? 0;
             const failed = data?.failed ?? 0;
-            setSuccessMessage(
+            toast.success(
               failed > 0
                 ? `Importación: ${created} creado(s), ${failed} con error.`
                 : `${created} producto(s) importado(s).`
@@ -301,7 +304,25 @@ export default function InventoryPage() {
         />
       )}
 
-      <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
+      <AdminConfirmModal
+        open={Boolean(archiveTarget)}
+        variant="warning"
+        title="¿Archivar producto?"
+        description={
+          archiveTarget ? (
+            <>
+              «<strong className="text-stone-800">{archiveTarget.name}</strong>» dejará de aparecer en
+              compras y ventas. Podrás reactivarlo más adelante.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, archivar"
+        isSubmitting={Boolean(archivingId)}
+        onCancel={() => {
+          if (!archivingId) setArchiveTarget(null);
+        }}
+        onConfirm={confirmArchive}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { PublicFormField, FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import { getLocalDateToday } from '@/shared/utils/appointmentTime';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 
 function formatPrice(v) {
   const n = Number(v || 0);
@@ -474,12 +475,9 @@ export default function BookingPage() {
               )}
 
               {maxServicesHint && (
-                <p
-                  className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2"
-                  role="status"
-                >
+                <AppInlineAlert variant="warning" className="text-xs py-2 px-3">
                   {MAX_SERVICES_MESSAGE}
-                </p>
+                </AppInlineAlert>
               )}
             </div>
 

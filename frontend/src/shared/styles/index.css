@@ -69,6 +69,28 @@
   .alert-success {
     @apply p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm;
   }
+  /* Tokens del sistema de avisos (AppInlineAlert); alert-* se mantienen por compatibilidad. */
+  .app-alert {
+    @apply p-4 rounded-xl text-sm border;
+  }
+  .app-alert-error {
+    @apply bg-red-50 border-red-200 text-red-700;
+  }
+  .app-alert-success {
+    @apply bg-emerald-50 border-emerald-200 text-emerald-800;
+  }
+  .app-alert-warning {
+    @apply bg-amber-50 border-amber-200 text-amber-900;
+  }
+  .app-alert-info {
+    @apply bg-sky-50 border-sky-200 text-sky-900;
+  }
+  .alert-warning {
+    @apply app-alert app-alert-warning;
+  }
+  .alert-info {
+    @apply app-alert app-alert-info;
+  }
   .empty-state {
     @apply panel-card p-10 sm:p-14 text-center text-stone-500;
   }

@@ -11,7 +11,7 @@ import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
-import SuccessToast from '@/shared/components/SuccessToast';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import PaymentTypeBadge from '@/features/payments/components/PaymentTypeBadge';
 import PaymentDetailModal from '@/features/payments/components/PaymentDetailModal';
 import VoidPaymentModal from '@/features/payments/components/VoidPaymentModal';
@@ -65,6 +65,7 @@ function resolvePrefillFromSearch(search) {
 export default function PaymentsPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const toast = useAppToast();
 
   const [payments, setPayments] = useState([]);
   const [listTotal, setListTotal] = useState(0);
@@ -81,8 +82,6 @@ export default function PaymentsPage() {
   const [pageSize, setPageSize] = useState(20);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   const [formView, setFormView] = useState(() => resolveFormViewFromPath(location.pathname, location.search));
   const [paymentPrefill, setPaymentPrefill] = useState(() => resolvePrefillFromSearch(location.search));
@@ -116,7 +115,6 @@ export default function PaymentsPage() {
 
   const fetchPayments = useCallback(async (targetPage = page) => {
     setLoading(true);
-    setError('');
     try {
       const params = {
         dateFrom,
@@ -137,13 +135,13 @@ export default function PaymentsPage() {
       setListTotal(listData.total ?? 0);
       setPeriodTotal(totalData || { total: 0, count: 0 });
     } catch (err) {
-      setError(err?.message || 'Error al cargar ventas');
+      toast.error(err?.message || 'Error al cargar ventas');
       setPayments([]);
       setListTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, pageSize, page]);
+  }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, pageSize, page, toast]);
 
   useEffect(() => {
     if (!isFormOpen) fetchPayments(page);
@@ -156,7 +154,7 @@ export default function PaymentsPage() {
   const handleFormSuccess = () => {
     setFormView(null);
     setPaymentPrefill({ productId: null, appointmentId: null });
-    setSuccessMessage('Venta registrada correctamente.');
+    toast.success('Venta registrada correctamente.');
     setPage(1);
     fetchPayments(1);
   };
@@ -169,12 +167,11 @@ export default function PaymentsPage() {
   const openDetail = async (payment) => {
     setDetailPayment(payment);
     setDetailLoading(true);
-    setError('');
     try {
       const fresh = await paymentService.getPaymentById(payment.id);
       setDetailPayment(fresh || payment);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'No se pudo cargar el detalle de la venta.'));
+      toast.error(getApiErrorMessage(err, 'No se pudo cargar el detalle de la venta.'));
     } finally {
       setDetailLoading(false);
     }
@@ -191,13 +188,13 @@ export default function PaymentsPage() {
         : await paymentService.voidPayment(voidTarget.id, { voidReason });
       setVoidTarget(null);
       setVoidLine(null);
-      setSuccessMessage(isLineVoid ? 'Línea anulada correctamente.' : 'Venta anulada correctamente.');
+      toast.success(isLineVoid ? 'Línea anulada correctamente.' : 'Venta anulada correctamente.');
       if (detailPayment?.id === voidTarget.id) {
         setDetailPayment(updated);
       }
       await fetchPayments(page);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Error al anular'));
+      toast.error(getApiErrorMessage(err, 'Error al anular'));
     } finally {
       setIsVoiding(false);
     }
@@ -376,10 +373,6 @@ export default function PaymentsPage() {
           <div>{inlineForm}</div>
         ) : (
           <>
-            {error && (
-              <div className="alert-error text-sm py-2 mb-3" role="alert">{error}</div>
-            )}
-
             {loading ? (
             <div className="py-10 text-center text-stone-500">
               <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
@@ -518,7 +511,6 @@ export default function PaymentsPage() {
         onConfirm={confirmVoid}
         isSubmitting={isVoiding}
       />
-      <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
     </div>
   );
 }

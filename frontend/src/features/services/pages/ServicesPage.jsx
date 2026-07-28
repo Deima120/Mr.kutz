@@ -18,8 +18,8 @@ import {
   AdminPagination,
   FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
-import SuccessToast from '@/shared/components/SuccessToast';
-import AdminDeleteModal from '@/shared/components/admin/AdminDeleteModal';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 
 const PAGE_SIZE_OPTIONS = [6, 9, 12, 18];
 
@@ -43,6 +43,7 @@ const STATUS_FILTERS = [
 ];
 
 export default function ServicesPage() {
+  const toast = useAppToast();
   const [services, setServices] = useState([]);
   const [catalogCategories, setCatalogCategories] = useState([]);
   const [statusFilter, setStatusFilter] = useState('active');
@@ -50,8 +51,6 @@ export default function ServicesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [formView, setFormView] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -79,8 +78,8 @@ export default function ServicesPage() {
 
   const handleFormSuccess = ({ created, updated } = {}) => {
     setFormView(null);
-    if (created) setSuccessMessage('Servicio creado correctamente.');
-    if (updated) setSuccessMessage('Servicio actualizado correctamente.');
+    if (created) toast.success('Servicio creado correctamente.');
+    if (updated) toast.success('Servicio actualizado correctamente.');
     fetchServices();
     setPage(1);
   };
@@ -106,13 +105,8 @@ export default function ServicesPage() {
     />
   ) : null;
 
-  const successToast = (
-    <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage('')} />
-  );
-
   const fetchServices = async () => {
     setLoading(true);
-    setError('');
     try {
       const params =
         statusFilter === 'active'
@@ -123,7 +117,7 @@ export default function ServicesPage() {
       const data = await serviceService.getServices(params);
       setServices(Array.isArray(data) ? data : data?.services || []);
     } catch (err) {
-      setError(err?.message || 'Error al cargar servicios');
+      toast.error(err?.message || 'Error al cargar servicios');
       setServices([]);
     } finally {
       setLoading(false);
@@ -190,13 +184,12 @@ export default function ServicesPage() {
   const handleToggleActive = async (service) => {
     const next = !isServiceActive(service);
     setTogglingId(service.id);
-    setError('');
     try {
       await serviceService.updateService(service.id, { isActive: next });
-      setSuccessMessage(next ? `"${service.name}" activado.` : `"${service.name}" desactivado.`);
+      toast.success(next ? `"${service.name}" activado.` : `"${service.name}" desactivado.`);
       await fetchServices();
     } catch (err) {
-      setError(err?.message || 'Error al actualizar el estado');
+      toast.error(err?.message || 'Error al actualizar el estado');
     } finally {
       setTogglingId(null);
     }
@@ -209,14 +202,13 @@ export default function ServicesPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
-    setError('');
     try {
       await serviceService.deleteService(deleteTarget.id);
       setDeleteTarget(null);
-      setSuccessMessage(`Servicio "${deleteTarget.name}" eliminado correctamente.`);
+      toast.success(`Servicio "${deleteTarget.name}" eliminado correctamente.`);
       fetchServices();
     } catch (err) {
-      setError(err?.message || 'Error al eliminar');
+      toast.error(err?.message || 'Error al eliminar');
     } finally {
       setIsDeleting(false);
     }
@@ -277,12 +269,6 @@ export default function ServicesPage() {
       )}
 
       {inlineForm}
-
-      {!isFormOpen && error && (
-        <div className="alert-error text-sm py-2.5" role="alert">
-          {error}
-        </div>
-      )}
 
       {listToolbar}
 
@@ -371,23 +357,27 @@ export default function ServicesPage() {
         </>
       ) : null}
 
-      <AdminDeleteModal
+      <AdminConfirmModal
         open={Boolean(deleteTarget)}
+        variant="danger"
         title="¿Eliminar servicio?"
-        itemName={deleteTarget?.name}
         description={
           deleteTarget ? (
             <>
-              ¿Estás seguro de que deseas eliminar permanentemente el servicio{' '}
-              <strong className="text-stone-850 font-bold">{deleteTarget.name}</strong>? Esta acción no se puede deshacer.
+              ¿Eliminar permanentemente el servicio{' '}
+              <strong className="text-stone-800">{deleteTarget.name}</strong>? Esta acción no se puede
+              deshacer.
             </>
           ) : null
         }
-        isDeleting={isDeleting}
-        onCancel={() => setDeleteTarget(null)}
+        confirmLabel="Sí, eliminar"
+        submittingLabel="Eliminando…"
+        isSubmitting={isDeleting}
+        onCancel={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
         onConfirm={confirmDelete}
       />
-      {successToast}
     </div>
   );
 }
