@@ -33,6 +33,7 @@ import {
   DOCUMENT_TYPE_OPTIONS,
 } from '@/shared/utils/authValidation';
 import { validatePhone } from '@/shared/utils/formValidation';
+import CustomSelect from '@/shared/components/CustomSelect';
 
 const inputClass =
   'w-full px-3 py-2.5 text-sm border rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none scroll-mt-28';
@@ -378,23 +379,21 @@ export default function RegisterPage() {
                       <label htmlFor="documentType" className={labelClass}>
                         Tipo de documento <span className="text-red-600">*</span>
                       </label>
-                      <select
+                      <CustomSelect
                         id="documentType"
                         name="documentType"
                         value={formData.documentType}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        onFocus={scrollFieldIntoView}
-                        className={`${inputClass} ${inputStateClass(documentTypeValidation.valid, docTypeShow)}`}
-                        required
-                      >
-                        <option value="">Selecciona…</option>
-                        {DOCUMENT_TYPE_OPTIONS.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(id) => {
+                          setFormData((prev) => ({ ...prev, documentType: id }));
+                          setTouched((prev) => ({ ...prev, documentType: true }));
+                        }}
+                        onBlur={() => setTouched((prev) => ({ ...prev, documentType: true }))}
+                        options={DOCUMENT_TYPE_OPTIONS.map((type) => ({ id: type, label: type }))}
+                        placeholder="Selecciona…"
+                        variant="public"
+                        ariaLabel="Tipo de documento"
+                        selectClassName={inputStateClass(documentTypeValidation.valid, docTypeShow)}
+                      />
                       <FieldHint
                         valid={documentTypeValidation.valid}
                         touched={docTypeShow}

@@ -43,6 +43,7 @@ import AdminFormShell, {
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import CustomSelect from '@/shared/components/CustomSelect';
 
 function fieldTouched(touched, name, value) {
   return Boolean(touched[name] || String(value ?? '').length > 0);
@@ -350,27 +351,29 @@ export function ClientForm({
             <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
               Tipo de documento <span className="text-red-600 normal-case">*</span>
             </label>
-            <select
+            <CustomSelect
               id="documentType"
               name="documentType"
               value={formData.documentType}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(documentTypeValidation.valid, docTypeShow)}`}
-              required
-            >
-              <option value="">Selecciona…</option>
-              {DOCUMENT_TYPE_OPTIONS.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-              {isEdit &&
+              onChange={(id) => {
+                setFormData((prev) => ({ ...prev, documentType: id }));
+                setTouched((prev) => ({ ...prev, documentType: true }));
+              }}
+              onBlur={() => setTouched((prev) => ({ ...prev, documentType: true }))}
+              options={[
+                ...DOCUMENT_TYPE_OPTIONS.map((type) => ({ id: type, label: type })),
+                ...(isEdit &&
                 formData.documentType &&
-                !DOCUMENT_TYPE_OPTIONS.includes(formData.documentType) && (
-                  <option value={formData.documentType}>{formData.documentType}</option>
-                )}
-            </select>
+                !DOCUMENT_TYPE_OPTIONS.includes(formData.documentType)
+                  ? [{ id: formData.documentType, label: formData.documentType }]
+                  : []),
+              ]}
+              placeholder="Selecciona…"
+              variant="form"
+              ariaLabel="Tipo de documento"
+              ariaInvalid={docTypeShow && !documentTypeValidation.valid}
+              selectClassName={adminFieldStateClass(documentTypeValidation.valid, docTypeShow)}
+            />
             <FieldHint
               valid={documentTypeValidation.valid}
               touched={docTypeShow}

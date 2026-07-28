@@ -12,6 +12,7 @@ import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import { downloadReportExcel } from '@/shared/utils/exportExcel';
 import { downloadReportPDF } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
@@ -62,6 +63,13 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchReport = useCallback(async () => {
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setReport(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await dashboardService.getReport({ dateFrom, dateTo });

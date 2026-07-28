@@ -33,6 +33,12 @@ import {
   formatAppointmentCalendarDate,
   getLocalDateToday,
 } from '@/shared/utils/appointmentTime';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  APPOINTMENT_HORIZON_DAYS_STAFF,
+  getAppointmentDateBounds,
+  validateAppointmentDateYmd,
+} from '@/shared/utils/dateRange';
 import { getColombiaNowParts } from '@/shared/utils/colombiaTime';
 
 /** True si HH:MM ya pasó en el día de hoy (hora Colombia). */
@@ -182,6 +188,10 @@ export default function AppointmentForm({
   );
 
   const dateInputMin = useMemo(() => getLocalDateToday(), []);
+  const dateInputMax = useMemo(() => {
+    const horizon = isClient ? APPOINTMENT_HORIZON_DAYS_PUBLIC : APPOINTMENT_HORIZON_DAYS_STAFF;
+    return getAppointmentDateBounds({ horizonDays: horizon }).max;
+  }, [isClient]);
 
   const selectedClient = useMemo(() => {
     if (isClient) {
@@ -355,6 +365,7 @@ export default function AppointmentForm({
     if (name === 'appointmentDate' && value) {
       const today = getLocalDateToday();
       if (value < today) nextValue = today;
+      else if (value > dateInputMax) nextValue = dateInputMax;
     }
     setFormData((prev) => {
       const next = { ...prev, [name]: nextValue };
@@ -560,7 +571,7 @@ export default function AppointmentForm({
 
   const fieldClass = isClient ? FORM_FIELD_CLASS : ADMIN_FORM_FIELD_COMPACT;
   const labelClass = isClient ? FORM_LABEL_CLASS : ADMIN_FORM_LABEL_CLASS;
-  const selectVariant = isClient ? 'public' : 'formCompact';
+  const selectVariant = isClient ? 'public' : 'form';
 
   const clientValidation = useMemo(
     () =>
@@ -576,13 +587,19 @@ export default function AppointmentForm({
         : { valid: false, message: 'Selecciona un barbero.' },
     [formData.barberId]
   );
-  const dateValidation = useMemo(
-    () =>
-      formData.appointmentDate
-        ? { valid: true, message: '' }
-        : { valid: false, message: 'Selecciona una fecha.' },
-    [formData.appointmentDate]
-  );
+  const dateValidation = useMemo(() => {
+    if (!formData.appointmentDate) {
+      return { valid: false, message: 'Selecciona una fecha.' };
+    }
+    const horizonDays = isClient ? APPOINTMENT_HORIZON_DAYS_PUBLIC : APPOINTMENT_HORIZON_DAYS_STAFF;
+    const check = validateAppointmentDateYmd(
+      formData.appointmentDate,
+      getAppointmentDateBounds({ horizonDays })
+    );
+    return check.ok
+      ? { valid: true, message: '' }
+      : { valid: false, message: check.message };
+  }, [formData.appointmentDate, isClient]);
   const timeValidation = useMemo(
     () =>
       formData.startTime
@@ -748,6 +765,7 @@ export default function AppointmentForm({
         onChange={handleChange}
         onBlur={handleBlur}
         min={dateInputMin}
+        max={dateInputMax}
         className={`${fieldClass} ${borderFor('appointmentDate', formData.appointmentDate, dateValidation)}`}
       />
       {hintOrError('appointmentDate', formData.appointmentDate, dateValidation, 'Fecha seleccionada.')}

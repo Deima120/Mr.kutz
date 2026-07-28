@@ -12,6 +12,7 @@ import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
+import CustomSelect from '@/shared/components/CustomSelect';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import RatingStars from '@/shared/components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
@@ -112,22 +113,19 @@ function ClientAppointmentsToolbar({
           <label htmlFor="client-appointments-page-size" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
             Por página
           </label>
-          <select
+          <CustomSelect
             id="client-appointments-page-size"
             value={String(pageSize)}
             disabled={isDisabled}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-9 min-w-[4.5rem] rounded-lg border border-stone-200 bg-white px-2 text-sm font-medium text-stone-800 focus:border-gold/50 focus:ring-2 focus:ring-gold/25 outline-none disabled:opacity-50"
-          >
-            {(CLIENT_PAGE_SIZE_OPTIONS.includes(pageSize)
+            onChange={(id) => onPageSizeChange(Number(id))}
+            variant="form"
+            ariaLabel="Citas por página"
+            className="w-auto min-w-[4.5rem]"
+            options={(CLIENT_PAGE_SIZE_OPTIONS.includes(pageSize)
               ? CLIENT_PAGE_SIZE_OPTIONS
               : [...CLIENT_PAGE_SIZE_OPTIONS, pageSize].sort((a, b) => a - b)
-            ).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            ).map((n) => ({ id: String(n), label: String(n) }))}
+          />
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
           <button

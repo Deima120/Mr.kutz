@@ -1,44 +1,40 @@
 /**
- * Desplegable personalizado Mr. Kutz — portal, variantes admin/formulario/público.
+ * Desplegable personalizado Mr. Kutz — portal, variantes filter/form/public/dark.
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
+import { ADMIN_FORM_FIELD_CLASS } from '@/shared/components/admin/AdminFormShell';
 import {
-  ADMIN_FORM_FIELD_CLASS,
-  ADMIN_FORM_FIELD_COMPACT,
-} from '@/shared/components/admin/AdminFormShell';
+  getMenuPositionFromRect,
+  resolveSelectVariant,
+} from '@/shared/components/customSelectLayout';
 
 export { formSelectEvent } from '@/shared/utils/customSelectAdapters';
+export { resolveSelectVariant, getMenuPositionFromRect } from '@/shared/components/customSelectLayout';
 
 const TRIGGER_BASE =
   'flex w-full items-center justify-between gap-2 text-left transition-all duration-200';
 
 const TRIGGER_VARIANT = {
   filter: `select-premium ${TRIGGER_BASE} py-1.5 pl-2.5 pr-2 text-xs min-h-[2rem] rounded-lg font-medium`,
-  admin: `select-premium ${TRIGGER_BASE} py-2 pl-3.5 pr-3 text-sm min-h-[2.5rem]`,
-  adminCompact: `select-premium ${TRIGGER_BASE} py-1.5 pl-3 pr-2.5 text-xs min-h-[2.125rem]`,
-  dark: `select-premium-dark ${TRIGGER_BASE} py-2.5 pl-4 pr-3 text-sm min-h-[2.75rem]`,
   form: `${ADMIN_FORM_FIELD_CLASS} ${TRIGGER_BASE} py-2.5 pr-3 min-h-[2.5rem]`,
-  formCompact: `${ADMIN_FORM_FIELD_COMPACT} ${TRIGGER_BASE} pr-3 min-h-[2.25rem]`,
   public: `input-premium ${TRIGGER_BASE} py-3 pl-4 pr-3 text-sm min-h-[2.75rem]`,
+  dark: `select-premium-dark ${TRIGGER_BASE} py-2.5 pl-4 pr-3 text-sm min-h-[2.75rem]`,
 };
 
 const PANEL_VARIANT = {
   filter: 'rounded-lg border border-stone-200 bg-white shadow-[0_12px_32px_rgba(28,25,23,0.12)]',
-  admin: 'rounded-xl border border-stone-200 bg-white shadow-[0_18px_45px_rgba(28,25,23,0.14)]',
-  adminCompact: 'rounded-xl border border-stone-200 bg-white shadow-[0_14px_32px_rgba(28,25,23,0.12)]',
-  dark: 'rounded-xl border border-stone-700 bg-stone-950 shadow-[0_22px_55px_rgba(0,0,0,0.5)]',
   form: 'rounded-xl border border-stone-200 bg-white shadow-[0_18px_45px_rgba(28,25,23,0.14)]',
-  formCompact: 'rounded-xl border border-stone-200 bg-white shadow-[0_14px_32px_rgba(28,25,23,0.12)]',
   public: 'rounded-xl border border-stone-200 bg-white shadow-[0_18px_45px_rgba(28,25,23,0.14)]',
+  dark: 'rounded-xl border border-stone-700 bg-stone-950 shadow-[0_22px_55px_rgba(0,0,0,0.5)]',
 };
 
-function optionClassName(variant, isSelected, isHighlighted) {
+function optionClassName(resolvedVariant, isSelected, isHighlighted) {
   const base =
-    'flex w-full items-center justify-between gap-3 px-3.5 py-2 text-left text-sm transition-colors duration-150 rounded-lg mx-1.5';
-  const isDark = variant === 'dark';
+    'flex w-full items-start justify-between gap-3 px-3.5 py-2 text-left text-sm transition-colors duration-150 rounded-lg mx-1.5';
+  const isDark = resolvedVariant === 'dark';
 
   if (isDark) {
     if (isSelected) return `${base} bg-gold/15 text-gold font-semibold`;
@@ -53,37 +49,7 @@ function optionClassName(variant, isSelected, isHighlighted) {
 
 function getMenuPosition(triggerEl) {
   if (!triggerEl) return null;
-
-  const rect = triggerEl.getBoundingClientRect();
-  const gap = 6;
-  const maxHeight = 280;
-  const spaceBelow = window.innerHeight - rect.bottom - gap;
-  const spaceAbove = rect.top - gap;
-
-  // Preferir abrir debajo del campo; solo subir si casi no hay espacio abajo
-  const openUp = spaceBelow < 100 && spaceAbove > spaceBelow;
-  const available = openUp ? spaceAbove : Math.max(spaceBelow, 140);
-  const height = Math.min(maxHeight, available);
-
-  if (openUp) {
-    // Anclar al borde superior del trigger para que el contenido corto
-    // quede pegado al campo (no flotando al inicio de un panel alto vacío).
-    return {
-      left: rect.left,
-      width: rect.width,
-      maxHeight: height,
-      top: 'auto',
-      bottom: window.innerHeight - rect.top + gap,
-    };
-  }
-
-  return {
-    left: rect.left,
-    width: rect.width,
-    maxHeight: height,
-    top: rect.bottom + gap,
-    bottom: 'auto',
-  };
+  return getMenuPositionFromRect(triggerEl.getBoundingClientRect());
 }
 
 export default function CustomSelect({
@@ -97,7 +63,7 @@ export default function CustomSelect({
   ariaInvalid,
   ariaDescribedBy,
   disabled = false,
-  variant = 'admin',
+  variant = 'form',
   className = '',
   selectClassName = '',
   onBlur,
@@ -115,16 +81,18 @@ export default function CustomSelect({
 
   onBlurRef.current = onBlur;
 
+  const resolvedVariant = resolveSelectVariant(variant);
   const selectedIndex = options.findIndex((opt) => String(opt.id) === String(value));
   const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : null;
   const hasValue = value !== undefined && value !== null && String(value) !== '';
   const displayLabel = selectedOption?.label ?? placeholder;
+  const closedTitle = hasValue && selectedOption?.label ? String(selectedOption.label) : undefined;
 
-  const triggerClass = TRIGGER_VARIANT[variant] || TRIGGER_VARIANT.admin;
-  const panelClass = PANEL_VARIANT[variant] || PANEL_VARIANT.admin;
+  const triggerClass = TRIGGER_VARIANT[resolvedVariant] || TRIGGER_VARIANT.form;
+  const panelClass = PANEL_VARIANT[resolvedVariant] || PANEL_VARIANT.form;
   const chevronClass =
-    variant === 'dark' ? 'text-stone-400 group-hover:text-gold' : 'text-stone-500 group-hover:text-gold';
-  const chevronSizeClass = variant === 'filter' || variant === 'adminCompact' ? 'h-3.5 w-3.5' : 'h-4 w-4';
+    resolvedVariant === 'dark' ? 'text-stone-400 group-hover:text-gold' : 'text-stone-500 group-hover:text-gold';
+  const chevronSizeClass = resolvedVariant === 'filter' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   const close = useCallback((shouldBlur = true) => {
     setOpen(false);
@@ -139,7 +107,6 @@ export default function CustomSelect({
     if (el) {
       const rect = el.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      // Acercar el campo al centro si está muy abajo, para abrir el menú debajo
       if (spaceBelow < 160) {
         el.scrollIntoView({ block: 'center', behavior: 'auto' });
         requestAnimationFrame(() => setOpen(true));
@@ -278,6 +245,7 @@ export default function CustomSelect({
               options.map((opt, index) => {
                 const isSelected = String(opt.id) === String(value);
                 const isHighlighted = index === highlightIndex;
+                const label = String(opt.label ?? '');
 
                 return (
                   <li key={`${opt.id}-${index}`} role="presentation">
@@ -289,13 +257,18 @@ export default function CustomSelect({
                       role="option"
                       aria-selected={isSelected}
                       tabIndex={-1}
+                      title={label}
                       onMouseEnter={() => setHighlightIndex(index)}
                       onClick={() => selectOption(opt)}
-                      className={optionClassName(variant, isSelected, isHighlighted && !isSelected)}
+                      className={optionClassName(
+                        resolvedVariant,
+                        isSelected,
+                        isHighlighted && !isSelected
+                      )}
                     >
-                      <span className="truncate">{opt.label}</span>
+                      <span className="min-w-0 flex-1 whitespace-normal break-words">{label}</span>
                       {isSelected ? (
-                        <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.5} aria-hidden />
+                        <Check className="h-4 w-4 shrink-0 text-gold mt-0.5" strokeWidth={2.5} aria-hidden />
                       ) : (
                         <span className="h-4 w-4 shrink-0" aria-hidden />
                       )}
@@ -324,13 +297,18 @@ export default function CustomSelect({
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
           disabled={disabled}
+          title={closedTitle}
           onClick={toggleMenu}
           onKeyDown={handleTriggerKeyDown}
           className={`${triggerClass} ${selectClassName} ${
             open ? 'border-gold/50 ring-2 ring-gold/25 bg-white' : ''
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
         >
-          <span className={`truncate ${!hasValue || !selectedOption ? 'text-stone-400' : ''}`}>
+          <span
+            className={`min-w-0 flex-1 truncate ${
+              !hasValue || !selectedOption ? 'text-stone-400' : ''
+            }`}
+          >
             {displayLabel}
           </span>
           <ChevronDown

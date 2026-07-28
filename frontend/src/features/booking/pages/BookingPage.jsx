@@ -15,6 +15,10 @@ import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { PublicFormField, FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import { getLocalDateToday } from '@/shared/utils/appointmentTime';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  getAppointmentDateBounds,
+} from '@/shared/utils/dateRange';
 import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 
 function formatPrice(v) {
@@ -63,6 +67,9 @@ export default function BookingPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
   const [serviceFilter, setServiceFilter] = useState('');
+  const bookingDateBounds = getAppointmentDateBounds({
+    horizonDays: APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  });
   const [servicesOpen, setServicesOpen] = useState(false);
   const [maxServicesHint, setMaxServicesHint] = useState(false);
   const servicePickerRef = useRef(null);
@@ -230,6 +237,10 @@ export default function BookingPage() {
     if (name === 'phone') next = sanitizePhone(value);
     else if (name === 'firstName' || name === 'lastName') next = sanitizePersonName(value);
     else if (name === 'notes' && value.length > CLIENT_NOTES_MAX) return;
+    else if (name === 'appointmentDate' && value) {
+      if (value < bookingDateBounds.min) next = bookingDateBounds.min;
+      else if (value > bookingDateBounds.max) next = bookingDateBounds.max;
+    }
     setForm((prev) => ({ ...prev, [name]: next }));
     setError('');
     clearFieldError(name);
@@ -493,7 +504,8 @@ export default function BookingPage() {
                     id="appointmentDate"
                     name="appointmentDate"
                     type="date"
-                    min={getLocalDateToday()}
+                    min={bookingDateBounds.min}
+                    max={bookingDateBounds.max}
                     value={form.appointmentDate}
                     onChange={onChange}
                     className={`input-premium ${invalid ? inputInvalidClass('appointmentDate') : ''}`}

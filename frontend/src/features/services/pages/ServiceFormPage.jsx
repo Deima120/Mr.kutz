@@ -255,7 +255,7 @@ export function ServiceForm({
                 name="categoryName"
                 value={formData.categoryName}
                 onChange={formSelectEvent('categoryName', handleChange)}
-                variant="formCompact"
+                variant="form"
                 options={categorySelectOptions.map((name) => ({ id: name, label: name }))}
               />
             </div>

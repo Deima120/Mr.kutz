@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import * as dashboardService from '@/features/dashboard/services/dashboardService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import { appointmentNotesOf } from '@/shared/utils/appointmentTime';
@@ -277,6 +278,13 @@ function AdminDashboard() {
   };
 
   const fetchStats = async () => {
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setStats(null);
+      setStatsLoading(false);
+      return;
+    }
     setStatsLoading(true);
     try {
       const data = await dashboardService.getStats({ dateFrom, dateTo });
@@ -302,7 +310,7 @@ function AdminDashboard() {
       await appointmentService.updateAppointment(id, { status: 'completed' });
       navigate(`/payments/new?appointmentId=${id}`);
     } catch (err) {
-      setAppointmentsError(err?.message || 'Error al actualizar');
+      toast.error(err?.message || 'Error al actualizar');
     }
   };
 

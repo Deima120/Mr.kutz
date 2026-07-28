@@ -8,6 +8,7 @@ import { Check, ChevronDown, Plus, Search } from 'lucide-react';
 import * as productService from '@/features/inventory/services/productService';
 import ProductCreateModal from '@/features/inventory/components/ProductCreateModal';
 import { ADMIN_FORM_FIELD_COMPACT } from '@/shared/components/admin/AdminFormShell';
+import { getMenuPositionFromRect } from '@/shared/components/customSelectLayout';
 
 const SEARCH_DEBOUNCE_MS = 280;
 const SEARCH_LIMIT = 30;
@@ -19,20 +20,18 @@ function productLabel(product) {
 
 function getMenuPosition(triggerEl) {
   if (!triggerEl) return null;
-  const rect = triggerEl.getBoundingClientRect();
-  const gap = 6;
-  const maxHeight = 300;
-  const spaceBelow = window.innerHeight - rect.bottom - gap;
-  const spaceAbove = rect.top - gap;
-  const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
-  const available = openUp ? spaceAbove : spaceBelow;
-  const height = Math.max(140, Math.min(maxHeight, available));
-  return {
-    left: rect.left,
-    width: Math.max(rect.width, 260),
-    maxHeight: height,
-    top: openUp ? rect.top - gap - height : rect.bottom + gap,
-  };
+  const pos = getMenuPositionFromRect(triggerEl.getBoundingClientRect(), { maxHeight: 300 });
+  // Pickers anclan con top numérico (no bottom) por el encabezado de búsqueda.
+  if (pos.top === 'auto') {
+    const rect = triggerEl.getBoundingClientRect();
+    return {
+      left: pos.left,
+      width: pos.width,
+      maxHeight: pos.maxHeight,
+      top: rect.top - 6 - pos.maxHeight,
+    };
+  }
+  return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: pos.top };
 }
 
 /**
@@ -301,18 +300,19 @@ export default function ProductPicker({
                         tabIndex={-1}
                         onMouseEnter={() => setHighlightIndex(index)}
                         onClick={() => selectProduct(product)}
-                        className={`flex w-full items-center justify-between gap-3 mx-1.5 rounded-lg px-3.5 py-2 text-left text-sm transition-colors ${
+                        className={`flex w-full items-start justify-between gap-3 mx-1.5 rounded-lg px-3.5 py-2 text-left text-sm transition-colors ${
                           isSelected
                             ? 'bg-stone-100 text-barber-dark font-semibold ring-1 ring-gold/30'
                             : isHighlighted
                               ? 'bg-stone-50 text-stone-900'
                               : 'text-stone-700 hover:bg-stone-50'
                         }`}
+                        title={productLabel(product)}
                       >
-                        <span className="truncate min-w-0">
-                          <span className="block truncate">{product.name}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block whitespace-normal break-words">{product.name}</span>
                           {product.sku ? (
-                            <span className="block text-[11px] text-stone-500 truncate">{product.sku}</span>
+                            <span className="block text-[11px] text-stone-500 whitespace-normal break-words">{product.sku}</span>
                           ) : null}
                         </span>
                         {isSelected ? (
@@ -365,13 +365,14 @@ export default function ProductPicker({
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
           disabled={disabled}
+          title={hasValue && selectedProduct ? displayLabel : undefined}
           onClick={() => !disabled && setOpen((prev) => !prev)}
           onKeyDown={handleKeyDown}
           className={`${ADMIN_FORM_FIELD_COMPACT} flex w-full items-center justify-between gap-2 text-left pr-3 min-h-[2.25rem] ${selectClassName} ${
             open ? 'border-gold/50 ring-2 ring-gold/25 bg-white' : ''
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
         >
-          <span className={`truncate ${!hasValue || !selectedProduct ? 'text-stone-400' : ''}`}>
+          <span className={`min-w-0 flex-1 truncate ${!hasValue || !selectedProduct ? 'text-stone-400' : ''}`}>
             {displayLabel}
           </span>
           <ChevronDown

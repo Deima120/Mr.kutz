@@ -12,6 +12,7 @@ import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import { PurchaseForm } from '@/features/purchases/components/PurchaseForm';
 import PurchaseDetailModal from '@/features/purchases/components/PurchaseDetailModal';
 import VoidPurchaseModal from '@/features/purchases/components/VoidPurchaseModal';
@@ -127,6 +128,14 @@ export default function PurchasesPage() {
   }, [dateFrom, dateTo, statusFilter, search, pageSize]);
 
   const fetchPurchases = useCallback(async (targetPage = page) => {
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setPurchases([]);
+      setListTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = {

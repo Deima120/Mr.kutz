@@ -38,6 +38,12 @@ import {
   CLIENT_FIRST_NAME_MIN,
   CLIENT_LAST_NAME_MIN,
 } from '@/shared/utils/authValidation';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  APPOINTMENT_HORIZON_DAYS_STAFF,
+  getAppointmentDateBounds,
+  validateAppointmentDateYmd,
+} from '@/shared/utils/dateRange';
 
 /** Límites de texto alineados con backend. */
 export const TEXT_NAME_MAX = 150;
@@ -491,7 +497,16 @@ export function validateAppointmentForm(data, { isEdit = false, isClient = false
   }
 
   if (!data.barberId) errors.barberId = 'Selecciona un barbero.';
-  if (!data.appointmentDate) errors.appointmentDate = 'Selecciona una fecha.';
+  if (!data.appointmentDate) {
+    errors.appointmentDate = 'Selecciona una fecha.';
+  } else {
+    const horizonDays = isClient ? APPOINTMENT_HORIZON_DAYS_PUBLIC : APPOINTMENT_HORIZON_DAYS_STAFF;
+    const dateCheck = validateAppointmentDateYmd(
+      data.appointmentDate,
+      getAppointmentDateBounds({ horizonDays })
+    );
+    if (!dateCheck.ok) errors.appointmentDate = dateCheck.message;
+  }
   if (!data.startTime) errors.startTime = 'Selecciona una hora disponible.';
 
   if (!isEdit) {
@@ -544,7 +559,15 @@ export function validateBookingForm(form) {
     errors.serviceIds = 'Para agendar más servicios debes crear otra cita.';
   }
   if (!form.barberId) errors.barberId = 'Selecciona un barbero.';
-  if (!form.appointmentDate) errors.appointmentDate = 'Selecciona una fecha.';
+  if (!form.appointmentDate) {
+    errors.appointmentDate = 'Selecciona una fecha.';
+  } else {
+    const dateCheck = validateAppointmentDateYmd(
+      form.appointmentDate,
+      getAppointmentDateBounds({ horizonDays: APPOINTMENT_HORIZON_DAYS_PUBLIC })
+    );
+    if (!dateCheck.ok) errors.appointmentDate = dateCheck.message;
+  }
   if (!form.startTime) errors.startTime = 'Selecciona una hora disponible.';
 
   const firstName = validatePersonName(form.firstName, 'El nombre', {

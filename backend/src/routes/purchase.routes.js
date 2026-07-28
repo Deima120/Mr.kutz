@@ -2,6 +2,8 @@ import express from 'express';
 import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
+import { optionalDateQuery } from '../utils/validation.js';
+import { dateRangeOrderQuery } from '../utils/dateRange.js';
 import * as purchaseController from '../controllers/purchase.controller.js';
 
 const router = express.Router();
@@ -9,8 +11,9 @@ const router = express.Router();
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de compra no válido.');
 
 const listValidation = [
-  query('dateFrom').optional({ checkFalsy: true }).isISO8601().withMessage('Fecha inicial no válida.'),
-  query('dateTo').optional({ checkFalsy: true }).isISO8601().withMessage('Fecha final no válida.'),
+  optionalDateQuery('dateFrom', 'Fecha inicial'),
+  optionalDateQuery('dateTo', 'Fecha final'),
+  dateRangeOrderQuery(),
   query('status')
     .optional({ checkFalsy: true })
     .isIn(['active', 'voided', 'draft', 'ordered', 'partially_received', 'received', 'cancelled'])
@@ -21,8 +24,9 @@ const listValidation = [
 ];
 
 const totalValidation = [
-  query('dateFrom').optional({ checkFalsy: true }).isISO8601().withMessage('Fecha inicial no válida.'),
-  query('dateTo').optional({ checkFalsy: true }).isISO8601().withMessage('Fecha final no válida.'),
+  optionalDateQuery('dateFrom', 'Fecha inicial'),
+  optionalDateQuery('dateTo', 'Fecha final'),
+  dateRangeOrderQuery(),
 ];
 
 const createValidation = [

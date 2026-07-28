@@ -236,7 +236,7 @@ export function ProductForm({
             value={formData.categoryId}
             onChange={formSelectEvent('categoryId', handleChange)}
             placeholder="Sin categoría"
-            variant="formCompact"
+            variant="form"
             options={[
               { id: '', label: 'Sin categoría' },
               ...categories.map((c) => ({ id: String(c.id), label: c.name })),

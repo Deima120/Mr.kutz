@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import { formatAppointmentCalendarDate, appointmentNotesOf, getLocalDateToday, getLocalFirstDayOfPreviousMonth } from '@/shared/utils/appointmentTime';
 import { AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
@@ -19,6 +20,13 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (!user?.barberId) return;
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setAppointments([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     appointmentService
       .getAppointments({

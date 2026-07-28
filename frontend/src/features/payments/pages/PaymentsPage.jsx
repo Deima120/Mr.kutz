@@ -12,6 +12,7 @@ import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import PaymentTypeBadge from '@/features/payments/components/PaymentTypeBadge';
 import PaymentDetailModal from '@/features/payments/components/PaymentDetailModal';
 import VoidPaymentModal from '@/features/payments/components/VoidPaymentModal';
@@ -114,6 +115,14 @@ export default function PaymentsPage() {
   }, [dateFrom, dateTo, statusFilter, typeFilter, methodFilter, pageSize]);
 
   const fetchPayments = useCallback(async (targetPage = page) => {
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setPayments([]);
+      setListTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = {

@@ -12,6 +12,11 @@ import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { loginThrottle } from '../middlewares/loginThrottle.js';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  appointmentDateBody,
+  appointmentSlotDateQuery,
+} from '../utils/dateRange.js';
 import * as authController from '../controllers/auth.controller.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 
@@ -56,6 +61,7 @@ router.get(
   [
     query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
     query('date').isISO8601().withMessage('Indica una fecha válida (AAAA-MM-DD).'),
+    appointmentSlotDateQuery({ getHorizonDays: () => APPOINTMENT_HORIZON_DAYS_PUBLIC }),
   ],
   validate,
   appointmentController.getAvailableSlots,
@@ -70,7 +76,7 @@ router.post(
   [
     body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
     body('serviceId').isInt({ min: 1 }).withMessage('Indica un servicio válido.'),
-    body('appointmentDate').isISO8601().withMessage('Indica una fecha válida.'),
+    appointmentDateBody({ getHorizonDays: () => APPOINTMENT_HORIZON_DAYS_PUBLIC }),
     body('startTime')
       .trim()
       .notEmpty()

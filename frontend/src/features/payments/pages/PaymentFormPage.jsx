@@ -388,8 +388,7 @@ export function PaymentForm({
               <CustomSelect
                 value={paymentMethodId}
                 onChange={onCustomSelectValue(setPaymentMethodId)}
-                variant="formCompact"
-                selectClassName={ADMIN_FORM_FIELD_COMPACT}
+                variant="form"
                 options={methods.map((m) => ({
                   id: String(m.id),
                   label: formatPaymentMethodName(m.description || m.name),
@@ -422,8 +421,7 @@ export function PaymentForm({
                   <CustomSelect
                     value={appointmentPick}
                     onChange={onCustomSelectValue(setAppointmentPick)}
-                    variant="formCompact"
-                    selectClassName={ADMIN_FORM_FIELD_COMPACT}
+                    variant="form"
                     options={appointmentOptions.map((a) => ({
                       id: String(a.id),
                       label: appointmentLabel(a),

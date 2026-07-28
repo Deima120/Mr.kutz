@@ -14,10 +14,19 @@ import {
   optionalDateQuery,
   paginationQuery,
 } from '../utils/validation.js';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  appointmentDateBody,
+  appointmentSlotDateQuery,
+  dateRangeOrderQuery,
+  horizonDaysForRole,
+} from '../utils/dateRange.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 import * as publicBookingController from '../controllers/publicBooking.controller.js';
 
 const router = express.Router();
+
+const staffHorizon = (req) => horizonDaysForRole(req.user?.role);
 
 const createValidation = [
   body('clientId')
@@ -34,7 +43,7 @@ const createValidation = [
     .isArray({ min: 1 })
     .withMessage('Indica al menos un servicio.'),
   body('serviceIds.*').optional().isInt({ min: 1 }).withMessage('Servicio no válido.'),
-  body('appointmentDate').isDate().withMessage('Indica una fecha válida.'),
+  appointmentDateBody({ getHorizonDays: staffHorizon }),
   body('startTime')
     .trim()
     .notEmpty()
@@ -53,7 +62,7 @@ const updateValidation = [
     .isArray({ min: 1 })
     .withMessage('Indica al menos un servicio.'),
   body('serviceIds.*').optional().isInt({ min: 1 }).withMessage('Servicio no válido.'),
-  body('appointmentDate').optional({ checkFalsy: true }).isDate(),
+  appointmentDateBody({ getHorizonDays: staffHorizon, optional: true }),
   body('startTime')
     .optional({ checkFalsy: true })
     .trim()
@@ -80,6 +89,7 @@ const listValidation = [
   query('date').optional({ checkFalsy: true }).isISO8601().withMessage('Fecha no válida.'),
   optionalDateQuery('dateFrom', 'Fecha inicial'),
   optionalDateQuery('dateTo', 'Fecha final'),
+  dateRangeOrderQuery(),
   query('barberId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Barbero no válido.'),
   query('clientId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Cliente no válido.'),
   // Acepta un estado o varios separados por coma (OR), p.ej. scheduled,confirmed,in_progress
@@ -144,9 +154,7 @@ const publicBookingValidation = [
     if (one != null && one !== '') return true;
     throw new Error('Indica entre 1 y 3 servicios.');
   }),
-  body('appointmentDate')
-    .isDate()
-    .withMessage('Indica una fecha válida.'),
+  appointmentDateBody({ getHorizonDays: () => APPOINTMENT_HORIZON_DAYS_PUBLIC }),
   body('startTime')
     .trim()
     .notEmpty()
@@ -163,6 +171,7 @@ router.get(
   [
     query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
     query('date').isDate().withMessage('Indica una fecha válida.'),
+    appointmentSlotDateQuery({ getHorizonDays: () => APPOINTMENT_HORIZON_DAYS_PUBLIC }),
     query('durationMinutes').optional({ values: 'falsy' }).isInt({ min: 5, max: 480 }).withMessage('Duración no válida (mín. 5 min).'),
   ],
   validate,
@@ -192,6 +201,7 @@ router.get('/', listValidation, validate, appointmentController.getAll);
 router.get('/slots', [
   query('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   query('date').isDate().withMessage('Indica una fecha válida.'),
+  appointmentSlotDateQuery({ getHorizonDays: staffHorizon }),
   query('durationMinutes').optional({ values: 'falsy' }).isInt({ min: 5, max: 480 }).withMessage('Duración no válida (mín. 5 min).'),
 ], validate, appointmentController.getAvailableSlots);
 router.get(
