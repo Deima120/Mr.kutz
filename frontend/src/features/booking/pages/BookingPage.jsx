@@ -30,6 +30,7 @@ const SERVICE_SEARCH_CLASS =
   'bg-white border border-gold/45 focus:border-gold/60 focus:ring-2 focus:ring-gold/20 outline-none';
 
 export default function BookingPage() {
+  const { isAuthenticated } = useAuth();
   const [barbers, setBarbers] = useState([]);
   const [services, setServices] = useState([]);
   const [loadingCatalogue, setLoadingCatalogue] = useState(true);

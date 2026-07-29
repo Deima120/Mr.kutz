@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { checkEmailAvailability } from '@/features/auth/services/authService';
@@ -39,6 +39,13 @@ const inputClass =
   'w-full px-3 py-2.5 text-sm border rounded-lg text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors outline-none scroll-mt-28';
 const labelClass = 'block text-xs font-semibold text-stone-700 mb-1';
 
+const REDIRECT_WHITELIST = new Set(['/appointments/new', '/appointments', '/']);
+
+function resolvePostRegisterRedirect(raw) {
+  if (!raw || !REDIRECT_WHITELIST.has(raw)) return '/';
+  return raw;
+}
+
 function fieldTouched(touched, name, value) {
   return Boolean(touched[name] || String(value ?? '').length > 0);
 }
@@ -69,6 +76,8 @@ function PasswordChecklist({ password, touched }) {
 export default function RegisterPage() {
   const { isAuthenticated, register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const postRegisterPath = resolvePostRegisterRedirect(searchParams.get('redirect'));
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -88,8 +97,8 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) navigate(postRegisterPath, { replace: true });
+  }, [isAuthenticated, navigate, postRegisterPath]);
 
   const documentTypeValidation = useMemo(
     () => validateDocumentType(formData.documentType),
@@ -333,7 +342,7 @@ export default function RegisterPage() {
         documentNumber: formData.documentNumber.trim(),
         role: 'client',
       });
-      navigate('/', { replace: true });
+      navigate(postRegisterPath, { replace: true });
     } catch (err) {
       setError(
         err?.errors?.[0]?.message ||

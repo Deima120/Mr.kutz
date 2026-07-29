@@ -472,12 +472,31 @@ export default function AppointmentsPage() {
     }
     if (location.pathname === '/appointments/new') {
       setFormView('create');
-      navigate(`/appointments${location.search || ''}`, { replace: true });
+      const params = new URLSearchParams(location.search);
+      params.delete('status');
+      const qs = params.toString();
+      navigate(`/appointments${qs ? `?${qs}` : ''}`, { replace: true });
       return;
     }
     if (location.state?.openCreateForm) {
       setFormView('create');
       navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+    if (location.pathname !== '/appointments') return;
+
+    const statusParam = new URLSearchParams(location.search).get('status');
+    const isValidStatus = CLIENT_STATUS_FILTER_OPTIONS.some((o) => o.id === statusParam);
+    if (isValidStatus) {
+      setFilterStatus(statusParam);
+      setFormView(null);
+      setPage(1);
+      navigate('/appointments', { replace: true, state: {} });
+      return;
+    }
+    if (location.state?.view === 'list') {
+      setFormView(null);
+      navigate('/appointments', { replace: true, state: {} });
     }
   }, [location.pathname, location.search, location.state, navigate]);
 
@@ -603,7 +622,7 @@ export default function AppointmentsPage() {
         <div className="flex-1 min-h-0 overflow-y-auto bg-stone-50">
           <div className="container mx-auto max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="mb-4">
-              <AdminBackNav label="Volver" onClick={() => setFormView(null)} />
+              <AdminBackNav label="Mis citas" onClick={() => setFormView(null)} />
             </div>
             {inlineForm}
           </div>

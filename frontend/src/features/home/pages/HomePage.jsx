@@ -161,7 +161,7 @@ export default function HomePage() {
   const { businessName, address, openingHours } = useSettings();
   const isAdmin = user?.role === 'admin';
   const canManage = isAdmin || user?.role === 'barber';
-  const bookPath = getBookAppointmentPath(user);
+  const bookPath = getBookAppointmentPath(user, { commercial: true });
   const locationAddress = (address || '').trim();
   const mapLink = locationAddress
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationAddress)}`
@@ -527,7 +527,7 @@ export default function HomePage() {
           to={bookPath}
           className="inline-flex items-center gap-2 px-4 sm:px-5 py-3 rounded-full bg-gold text-barber-dark font-semibold shadow-[0_14px_32px_rgba(0,0,0,0.28)] hover:bg-gold-light transition-colors"
         >
-          Reservar ahora
+          Agenda una cita
           <span aria-hidden>→</span>
         </Link>
       </div>

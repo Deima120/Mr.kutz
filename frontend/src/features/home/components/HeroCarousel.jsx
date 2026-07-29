@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useSettings } from '@/shared/contexts/SettingsContext';
-import { getBookAppointmentPath } from '@/shared/utils/bookAppointmentPath';
 
 const HERO_SLIDES = [
   {
@@ -30,7 +29,7 @@ const HERO_SLIDES = [
 export default function HeroCarousel() {
   const { user, isAuthenticated } = useAuth();
   const { businessName } = useSettings();
-  const bookPath = getBookAppointmentPath(user);
+  const canBookInternal = isAuthenticated && (user?.role === 'admin' || user?.role === 'client');
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
@@ -88,15 +87,17 @@ export default function HeroCarousel() {
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-4 pt-2">
-              <Link to={bookPath} className="btn-primary group">
-                Agenda tu cita
-                <span className="group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
-              </Link>
-              {!isAuthenticated && (
-                <Link to="/register" className="btn-secondary border-white/40 text-white hover:bg-white/15 hover:border-white/60">
-                  Regístrate
+              {canBookInternal ? (
+                <Link to="/appointments/new" className="btn-primary group">
+                  Agenda tu cita
+                  <span className="group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
                 </Link>
-              )}
+              ) : !isAuthenticated ? (
+                <Link to="/register" className="btn-primary group">
+                  Regístrate
+                  <span className="group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>
