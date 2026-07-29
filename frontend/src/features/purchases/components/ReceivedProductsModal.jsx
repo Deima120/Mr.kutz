@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom';
 import { Package } from 'lucide-react';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
+import { formatMoney } from '@/shared/utils/money';
 
 /**
  * @param {{ productId: number, name: string, quantity: number, unitCost?: number }[]} products
@@ -33,7 +34,7 @@ export default function ReceivedProductsModal({ open, products = [], onClose }) 
                   <p className="text-sm font-semibold text-stone-900 truncate">{p.name}</p>
                   <p className="text-[11px] text-stone-500">
                     +{p.quantity} u
-                    {p.unitCost != null ? ` · $${Number(p.unitCost).toFixed(2)}` : ''}
+                    {p.unitCost != null ? ` · ${formatMoney(p.unitCost)}` : ''}
                   </p>
                 </div>
               </div>

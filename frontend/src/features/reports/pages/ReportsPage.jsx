@@ -17,6 +17,7 @@ import { downloadReportExcel } from '@/shared/utils/exportExcel';
 import { downloadReportPDF } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 function TrendBadge({ value, positiveIsGood = true }) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -43,15 +44,7 @@ function TrendBadge({ value, positiveIsGood = true }) {
 
 function formatDate(iso) {
   if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString('es-CO', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch (_) {
-    return String(iso).slice(0, 10);
-  }
+  return formatDisplayDate(iso, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function ReportsPage() {

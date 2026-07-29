@@ -182,7 +182,7 @@ model Payment {
   clientId           Int?                @map("client_id")
   amount             Decimal             @db.Decimal(10, 2)
   paymentMethodId    Int?                @map("payment_method_id")
-  reference          String?             @db.VarChar(100)
+  reference          String              @unique @db.VarChar(100)
   notes              String?
   createdBy          Int?                @map("created_by")
   createdAt          DateTime            @default(now()) @map("created_at")
@@ -409,6 +409,18 @@ model BusinessSetting {
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("business_settings")
+}
+
+/// Contadores diarios de folios internos (MKP / PO / GR). Preparado para rangos DIAN futuros.
+model DocumentSequence {
+  id        Int      @id @default(autoincrement())
+  docType   String   @map("doc_type") @db.VarChar(32)
+  periodKey String   @map("period_key") @db.VarChar(8)
+  nextValue Int      @default(1) @map("next_value")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([docType, periodKey])
+  @@map("document_sequences")
 }
 
 /// Textos curados para la landing pública; no sustituyen la valoración operativa en Appointment.

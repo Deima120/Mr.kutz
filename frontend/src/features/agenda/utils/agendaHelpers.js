@@ -1,4 +1,5 @@
 import { extractAppointmentDateYmd, getLocalDateToday } from '@/shared/utils/appointmentTime';
+import { APP_LOCALE } from '@/shared/utils/formatDisplayDate';
 import { AGENDA_STATUS_LABELS } from '@/features/agenda/utils/agendaConstants';
 
 function pad(n) {
@@ -36,11 +37,11 @@ export function shiftWeek(weekStartISO, deltaDays) {
 }
 
 export function formatWeekRangeLabel(dateFrom, dateTo) {
-  const from = new Date(`${dateFrom}T12:00:00`).toLocaleDateString('es-ES', {
+  const from = new Date(`${dateFrom}T12:00:00`).toLocaleDateString(APP_LOCALE, {
     day: 'numeric',
     month: 'short',
   });
-  const to = new Date(`${dateTo}T12:00:00`).toLocaleDateString('es-ES', {
+  const to = new Date(`${dateTo}T12:00:00`).toLocaleDateString(APP_LOCALE, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

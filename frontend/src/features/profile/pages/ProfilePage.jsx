@@ -10,13 +10,11 @@ import {
   sanitizePersonName,
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 
 function safeDate(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  return formatDisplayDate(value, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 const FIELD_CLASS =

@@ -406,7 +406,7 @@ export function validatePaymentCartForm({ paymentMethodId, reference, notes, lin
 export function validatePurchaseReceiptForm({ reference, notes, receivable = [] } = {}) {
   const errors = {};
 
-  const ref = validateRequiredField(reference, 'La referencia');
+  const ref = validateRequiredField(reference, 'La remisión del proveedor');
   if (!ref.valid) errors.reference = ref.message;
   else if (String(reference).trim().length > 80) {
     errors.reference = 'Máximo 80 caracteres.';

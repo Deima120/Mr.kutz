@@ -40,6 +40,7 @@ import {
   validateAppointmentDateYmd,
 } from '@/shared/utils/dateRange';
 import { getColombiaNowParts } from '@/shared/utils/colombiaTime';
+import { formatMoneyOrDash } from '@/shared/utils/money';
 
 /** True si HH:MM ya pasó en el día de hoy (hora Colombia). */
 function isClockTimePastToday(timeStr) {
@@ -124,12 +125,6 @@ const FORM_LABEL_CLASS =
 
 function PreviewField({ label, value, multiline = false }) {
   return <AdminFormPreviewField label={label} value={value} multiline={multiline} />;
-}
-
-function formatPrice(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
 export default function AppointmentForm({
@@ -550,7 +545,7 @@ export default function AppointmentForm({
               {selectedServices.map((s) => (
                 <li key={s.id} className="text-sm text-stone-200 flex justify-between gap-2">
                   <span className="truncate">{s.name}</span>
-                  <span className="text-gold tabular-nums shrink-0 text-sm">{formatPrice(s.price)}</span>
+                  <span className="text-gold tabular-nums shrink-0 text-sm">{formatMoneyOrDash(s.price)}</span>
                 </li>
               ))}
             </ul>
@@ -559,7 +554,7 @@ export default function AppointmentForm({
         {selectedServices.length > 0 && (
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-stone-700/80">
             <span className="text-stone-400 text-sm">{totalDuration} min</span>
-            <span className="text-gold font-semibold tabular-nums text-base">{formatPrice(totalPrice)}</span>
+            <span className="text-gold font-semibold tabular-nums text-base">{formatMoneyOrDash(totalPrice)}</span>
           </div>
         )}
         {formData.notes && (
@@ -671,7 +666,7 @@ export default function AppointmentForm({
               .filter((s) => !formData.serviceIds.includes(String(s.id)))
               .map((s) => ({
                 id: String(s.id),
-                label: `${s.name} — ${formatPrice(s.price)} (${s.duration_minutes} min)`,
+                label: `${s.name} — ${formatMoneyOrDash(s.price)} (${s.duration_minutes} min)`,
               }))}
           />
           <button
@@ -859,7 +854,7 @@ export default function AppointmentForm({
                     )}
                   </span>
                   <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
-                    {formatPrice(s.price)}
+                    {formatMoneyOrDash(s.price)}
                     <span className="block">{s.duration_minutes || s.durationMinutes} min</span>
                   </span>
                 </button>
@@ -919,7 +914,7 @@ export default function AppointmentForm({
               {selectedServices.length > 0 && (
                 <div className="text-right shrink-0 rounded-xl bg-gold/10 border border-gold/25 px-3 py-2">
                   <p className="text-[10px] text-stone-500 uppercase tracking-wider">Total estimado</p>
-                  <p className="text-base font-semibold text-gold tabular-nums">{formatPrice(totalPrice)}</p>
+                  <p className="text-base font-semibold text-gold tabular-nums">{formatMoneyOrDash(totalPrice)}</p>
                 </div>
               )}
             </div>
@@ -1016,7 +1011,7 @@ export default function AppointmentForm({
               {selectedServices.length > 0 && (
                 <div className="text-right shrink-0 rounded-xl bg-gold/10 border border-gold/25 px-3 py-2">
                   <p className="text-[10px] text-stone-500 uppercase tracking-wider">Total estimado</p>
-                  <p className="text-base font-semibold text-gold tabular-nums">{formatPrice(totalPrice)}</p>
+                  <p className="text-base font-semibold text-gold tabular-nums">{formatMoneyOrDash(totalPrice)}</p>
                   <p className="text-[10px] text-stone-500 tabular-nums">{totalDuration} min</p>
                 </div>
               )}

@@ -16,7 +16,6 @@ import {
   getApiErrorMessage,
   validateMoney,
   validatePositiveInt,
-  TEXT_REFERENCE_MAX,
 } from '@/shared/utils/formValidation';
 import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
@@ -35,15 +34,6 @@ import AdminFormShell, {
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
-
-function generatePaymentReference() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `MKP-${yyyy}${mm}${dd}-${random}`;
-}
 
 function lineKey() {
   return `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -78,7 +68,6 @@ export function PaymentForm({
 
   const [lines, setLines] = useState([]);
   const [paymentMethodId, setPaymentMethodId] = useState('');
-  const [reference, setReference] = useState(generatePaymentReference);
   const [notes, setNotes] = useState('');
 
   const [completedAppointments, setCompletedAppointments] = useState([]);
@@ -295,7 +284,6 @@ export function PaymentForm({
     e.preventDefault();
     const validation = validatePaymentCartForm({
       paymentMethodId,
-      reference,
       notes,
       lines,
     });
@@ -308,7 +296,6 @@ export function PaymentForm({
     try {
       await paymentService.createPayment({
         paymentMethodId: parseInt(paymentMethodId, 10),
-        reference: reference || undefined,
         notes: notes.trim() || undefined,
         lines: lines.map((line) => {
           if (line.type === 'service') {
@@ -355,7 +342,11 @@ export function PaymentForm({
         />
         <AdminFormPreviewField label="Líneas" value={String(lines.length)} />
         <AdminFormPreviewField label="Total" value={formatPaymentAmount(cartTotal)} />
-        <AdminFormPreviewField label="Referencia" value={reference} breakAll />
+        <AdminFormPreviewField
+          label="Folio"
+          value="Automático al guardar (MKP-YYYYMMDD-######)"
+          breakAll
+        />
       </AdminFormPreviewPanel>
     ),
   };
@@ -398,14 +389,17 @@ export function PaymentForm({
               />
             </label>
             <label className="group">
-              <span className={ADMIN_FORM_LABEL_CLASS}>Referencia</span>
+              <span className={ADMIN_FORM_LABEL_CLASS}>Folio</span>
               <input
-                value={reference}
-                onChange={(e) => setReference(e.target.value.slice(0, TEXT_REFERENCE_MAX))}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                maxLength={TEXT_REFERENCE_MAX}
-                placeholder="Nº operación, folio…"
+                value="Se asigna al guardar"
+                readOnly
+                disabled
+                className={`${ADMIN_FORM_FIELD_COMPACT} bg-stone-50 text-stone-500 cursor-default`}
+                aria-describedby="payment-folio-hint"
               />
+              <p id="payment-folio-hint" className="mt-1 text-[11px] text-stone-500">
+                Formato MKP-YYYYMMDD-###### (consecutivo del día, hora Colombia).
+              </p>
             </label>
           </div>
         </AdminFormCard>

@@ -63,7 +63,7 @@ export function extractAppointmentDateYmd(raw) {
 /** Texto legible para listados (misma fecha civil que el input type="date"). */
 export function formatAppointmentCalendarDate(
   raw,
-  locale = 'es-ES',
+  locale = 'es-CO',
   dateStyleOpts = {}
 ) {
   const ymd = extractAppointmentDateYmd(raw);

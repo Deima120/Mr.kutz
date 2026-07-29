@@ -9,6 +9,7 @@ import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import { formatAppointmentCalendarDate, appointmentNotesOf, getLocalDateToday, getLocalFirstDayOfPreviousMonth } from '@/shared/utils/appointmentTime';
 import { AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
+import { formatMoney } from '@/shared/utils/money';
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -142,7 +143,7 @@ export default function HistoryPage() {
                             <span className="text-stone-300">—</span>
                           )}
                         </td>
-                        <td className="py-3 text-right font-medium text-stone-900">${parseFloat(a.price || 0).toFixed(2)}</td>
+                        <td className="py-3 text-right font-medium text-stone-900">{formatMoney(a.price || 0)}</td>
                       </tr>
                     );
                     })}

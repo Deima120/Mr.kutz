@@ -1,18 +1,14 @@
 import { formatAppointmentClockTime } from '@/shared/utils/appointmentTime';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
-/** Monto de venta en COP colombiano: $1.000, $100.000 */
+/** Alias de dominio → helper canónico COP. */
 export function formatPaymentAmount(n) {
   return formatMoney(n);
 }
 
 export function formatPaymentDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(d);
 }
 
 export function formatPaymentDateTime(d, time) {

@@ -20,19 +20,7 @@ import {
   getAppointmentDateBounds,
 } from '@/shared/utils/dateRange';
 import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
-
-function formatPrice(v) {
-  const n = Number(v || 0);
-  try {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0,
-    }).format(n);
-  } catch (_) {
-    return `$${n}`;
-  }
-}
+import { formatMoney } from '@/shared/utils/money';
 
 const MAX_SERVICES = 3;
 const MAX_SERVICES_MESSAGE = 'Para agendar más servicios debes crear otra cita.';
@@ -424,7 +412,7 @@ export default function BookingPage() {
                                 )}
                               </span>
                               <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
-                                {formatPrice(s.price)}
+                                {formatMoney(s.price)}
                                 <span className="block">
                                   {s.duration_minutes || s.durationMinutes} min
                                 </span>
@@ -638,7 +626,7 @@ export default function BookingPage() {
                 <p className="text-stone-900 font-semibold mb-1">Resumen</p>
                 {selectedServices.length > 0 && (
                   <p>
-                    {selectedServices.map((s) => s.name).join(', ')} — {formatPrice(totalPrice)}
+                    {selectedServices.map((s) => s.name).join(', ')} — {formatMoney(totalPrice)}
                     {totalDuration > 0 ? ` · ${totalDuration} min` : ''}
                   </p>
                 )}

@@ -113,15 +113,18 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
         )}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold text-stone-600">
-            Referencia *
+            Remisión proveedor *
             <input
               value={reference}
               data-autofocus
               onChange={(event) => setReference(event.target.value)}
               maxLength={80}
               className="input-premium mt-1 py-2 text-sm"
-              placeholder="Remisión, factura o lote"
+              placeholder="Remisión, factura o lote del proveedor"
             />
+            <span className="mt-1 block text-[11px] font-normal text-stone-500">
+              El folio interno GR-YYYYMMDD-###### se asigna al guardar.
+            </span>
           </label>
           <label className="text-xs font-semibold text-stone-600">
             Notas

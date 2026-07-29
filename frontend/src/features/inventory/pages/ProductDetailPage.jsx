@@ -41,6 +41,7 @@ import {
   clampKardexPage,
   kardexOffset,
 } from '@/features/inventory/utils/kardexPagination';
+import { formatMoneyOrDash } from '@/shared/utils/money';
 
 const ORDER_STATUS = {
   draft: 'Borrador',
@@ -49,10 +50,6 @@ const ORDER_STATUS = {
   received: 'Recibida',
   cancelled: 'Cancelada',
 };
-function money(value) {
-  if (value == null || value === '' || Number.isNaN(Number(value))) return '—';
-  return `$${Number(value).toFixed(2)}`;
-}
 
 function MetaRow({ label, value }) {
   return (
@@ -243,7 +240,7 @@ export default function ProductDetailPage() {
         <StatsCard label="Stock mínimo" value={String(minStock)} />
         <StatsCard
           label="Costo promedio"
-          value={money(cost.catalogAverageCost ?? cost.averageCostFromReceipts)}
+          value={formatMoneyOrDash(cost.catalogAverageCost ?? cost.averageCostFromReceipts)}
           sublabel="Desde recepciones"
         />
         <StatsCard
@@ -269,9 +266,9 @@ export default function ProductDetailPage() {
           <MetaRow label="Costo en catálogo" value={formatProductCostPrice(product)} />
           <MetaRow
             label="Promedio de recepciones"
-            value={money(cost.averageCostFromReceipts)}
+            value={formatMoneyOrDash(cost.averageCostFromReceipts)}
           />
-          <MetaRow label="Último costo recibido" value={money(cost.lastUnitCost)} />
+          <MetaRow label="Último costo recibido" value={formatMoneyOrDash(cost.lastUnitCost)} />
           <MetaRow
             label="Última recepción"
             value={cost.lastReceivedAt ? formatMovementDate(cost.lastReceivedAt) : '—'}
@@ -309,7 +306,7 @@ export default function ProductDetailPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <p className="text-xs font-semibold text-stone-700 tabular-nums">
-                    Último costo {money(s.lastUnitCost)}
+                    Último costo {formatMoneyOrDash(s.lastUnitCost)}
                   </p>
                   <button
                     type="button"
@@ -356,7 +353,7 @@ export default function ProductDetailPage() {
                   </div>
                   <p className="mt-1 text-stone-500">
                     {o.supplierName || 'Proveedor'} · pedido {o.quantity} · recibido {o.receivedQuantity} ·{' '}
-                    {money(o.unitCost)} c/u
+                    {formatMoneyOrDash(o.unitCost)} c/u
                   </p>
                 </li>
               ))}
@@ -377,7 +374,7 @@ export default function ProductDetailPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-semibold text-stone-900">{r.receiptNumber}</p>
                     <p className="tabular-nums font-medium text-stone-700">
-                      +{r.quantity} · {money(r.unitCost)}
+                      +{r.quantity} · {formatMoneyOrDash(r.unitCost)}
                     </p>
                   </div>
                   <p className="mt-1 text-stone-500">

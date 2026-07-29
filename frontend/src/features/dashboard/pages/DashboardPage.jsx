@@ -22,6 +22,7 @@ import {
 } from '@/features/dashboard/components/AdminDashboardCharts';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -123,7 +124,12 @@ function BarberDashboard() {
           Mi día
         </h1>
         <p className="text-stone-500">
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {formatDisplayDate(new Date(), {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: undefined,
+          })}
         </p>
         <div className="mt-4">
           <Link
@@ -365,7 +371,7 @@ function AdminDashboard() {
             Hola, {user?.firstName || 'administrador'}
           </h1>
           <p className="text-stone-600 mt-1">
-            {new Date().toLocaleDateString('es-CO', {
+            {formatDisplayDate(new Date(), {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
@@ -514,7 +520,12 @@ function AdminDashboard() {
             <DashboardCard
               className="lg:col-span-4"
               title="Citas de hoy"
-              subtitle={new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+              subtitle={formatDisplayDate(new Date(), {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: undefined,
+              })}
               variant="soft"
             >
               {appointmentsLoading ? (

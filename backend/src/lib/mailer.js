@@ -10,6 +10,7 @@
 
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+import { APP_TIMEZONE, extractAppointmentDateYmd } from '../utils/colombiaTime.js';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
@@ -421,19 +422,21 @@ function buildResetContent(code, businessName) {
 }
 
 function formatAppointmentDate(appointment) {
-  const d = appointment?.appointment_date
-    ? new Date(appointment.appointment_date)
-    : null;
-  if (!d || Number.isNaN(d.getTime())) return '';
+  const ymd = extractAppointmentDateYmd(appointment?.appointment_date);
+  if (!ymd) return '';
+  // Mediodía UTC del YMD civil → formatea en Bogotá sin correr el día
+  const d = new Date(`${ymd}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return ymd;
   try {
     return d.toLocaleDateString('es-CO', {
+      timeZone: APP_TIMEZONE,
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     });
   } catch (_) {
-    return d.toISOString().slice(0, 10);
+    return ymd;
   }
 }
 

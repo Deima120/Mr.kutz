@@ -3,7 +3,6 @@
  */
 
 import prisma from '../lib/prisma.js';
-import { randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import {
   changeStockAtomic,
@@ -22,38 +21,8 @@ import {
   toMoneyDecimal,
   toPaymentLineDto,
 } from './payment.lines.helpers.js';
-
-const REFERENCE_PREFIX = 'MKP';
-
-function cleanReference(value) {
-  const trimmed = String(value || '').trim();
-  if (!trimmed) return null;
-  return trimmed.slice(0, 100).toUpperCase();
-}
-
-function buildReferenceCandidate() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const random = randomBytes(3).toString('hex').toUpperCase();
-  return `${REFERENCE_PREFIX}-${yyyy}${mm}${dd}-${random}`;
-}
-
-async function getOrCreateReference(tx, requestedReference) {
-  const provided = cleanReference(requestedReference);
-  if (provided) return provided;
-
-  for (let i = 0; i < 6; i += 1) {
-    const candidate = buildReferenceCandidate();
-    const existing = await tx.payment.findFirst({
-      where: { reference: candidate },
-      select: { id: true },
-    });
-    if (!existing) return candidate;
-  }
-  throw httpPaymentError('No se pudo generar una referencia de pago. Intenta de nuevo.', 503);
-}
+import { allocateDocumentFolio, DOC_TYPES } from '../utils/documentSequence.js';
+import { applyColombiaCreatedAtFilter } from '../utils/colombiaTime.js';
 
 const lineInclude = {
   product: { select: { name: true, sku: true } },
@@ -171,9 +140,7 @@ function buildPaymentsWhere({
   const where = {};
 
   if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
+    applyColombiaCreatedAtFilter(where, dateFrom, dateTo);
   }
 
   if (appointmentId) {
@@ -374,8 +341,7 @@ export const getAll = async ({
 
 export const getTotalByDateRange = async (dateFrom, dateTo) => {
   const where = { voidedAt: null };
-  if (dateFrom) where.createdAt = { ...where.createdAt, gte: new Date(dateFrom) };
-  if (dateTo) where.createdAt = { ...where.createdAt, lte: new Date(`${dateTo}T23:59:59.999Z`) };
+  applyColombiaCreatedAtFilter(where, dateFrom, dateTo);
 
   const result = await prisma.payment.aggregate({
     where,
@@ -526,7 +492,7 @@ export const create = async (data) => {
           clientId,
           amount: headerAmount,
           paymentMethodId,
-          reference: await getOrCreateReference(tx, data.reference),
+          reference: await allocateDocumentFolio(tx, DOC_TYPES.payment),
           notes: String(data.notes || '').trim() || null,
           createdBy: Number.isFinite(createdBy) ? createdBy : null,
         },

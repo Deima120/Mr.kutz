@@ -20,6 +20,7 @@ import {
 } from '@/shared/components/admin/AdminListControls';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { formatMoney } from '@/shared/utils/money';
 
 const PAGE_SIZE_OPTIONS = [6, 9, 12, 18];
 
@@ -332,7 +333,7 @@ export default function ServicesPage() {
                         <p className="text-stone-500 text-xs mt-1 line-clamp-2">{s.description}</p>
                       )}
                       <p className="mt-1.5 text-gold text-sm font-semibold tabular-nums">
-                        ${parseFloat(s.price).toFixed(2)} · {s.duration_minutes} min
+                        {formatMoney(s.price)} · {s.duration_minutes} min
                       </p>
                     </div>
                     <div className="inline-flex items-center gap-1.5 shrink-0">

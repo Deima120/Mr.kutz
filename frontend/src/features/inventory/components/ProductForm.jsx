@@ -25,6 +25,8 @@ import {
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
+import { formatDisplayDateTime } from '@/shared/utils/formatDisplayDate';
+import { formatMoney } from '@/shared/utils/money';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -312,7 +314,7 @@ export function ProductForm({
             </p>
             {productMeta.stockUpdatedAt && (
               <p className="text-stone-500 text-xs mt-1">
-                Última actualización: {new Date(productMeta.stockUpdatedAt).toLocaleString('es-ES')}
+                Última actualización: {formatDisplayDateTime(productMeta.stockUpdatedAt)}
               </p>
             )}
             <p className="text-stone-500 text-xs mt-2 inline-flex flex-wrap items-center gap-1">
@@ -390,16 +392,16 @@ export function ProductForm({
             <AdminFormPreviewField label="Categoría" value={categoryName} />
             <AdminFormPreviewField
               label="Precio costo"
-              value={formData.costPrice ? `$${Number(formData.costPrice).toFixed(2)}` : ''}
+              value={formData.costPrice ? formatMoney(formData.costPrice) : ''}
             />
             <AdminFormPreviewField
               label="Precio venta"
-              value={formData.retailPrice ? `$${Number(formData.retailPrice).toFixed(2)}` : ''}
+              value={formData.retailPrice ? formatMoney(formData.retailPrice) : ''}
             />
             {formData.retailPrice && formData.costPrice ? (
               <AdminFormPreviewField
                 label="Margen unitario"
-                value={`$${(Number(formData.retailPrice) - Number(formData.costPrice)).toFixed(2)}`}
+                value={formatMoney(Number(formData.retailPrice) - Number(formData.costPrice))}
               />
             ) : null}
             <AdminFormPreviewField
