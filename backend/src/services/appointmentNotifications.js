@@ -65,25 +65,46 @@ async function notifyClientAndBarber(appointment, { clientSend, barberSend, clie
   const tasks = [];
 
   if (appointment.client_email && clientSend) {
+    console.info('[appointmentNotifications] enviando cliente', {
+      label: clientLabel,
+      to: appointment.client_email,
+      appointmentId: appointment.id,
+    });
     tasks.push(
       trackMail(
         clientLabel,
         clientSend({ to: appointment.client_email, appointment, businessName })
       )
     );
+  } else if (clientSend && !appointment.client_email) {
+    console.warn('[appointmentNotifications] omitido correo cliente (sin client_email)', {
+      label: clientLabel,
+      appointmentId: appointment.id,
+    });
   }
 
   const barberEmail = await resolveBarberEmail(appointment.barber_id);
   if (barberEmail && barberSend) {
+    console.info('[appointmentNotifications] enviando barbero', {
+      label: barberLabel,
+      to: barberEmail,
+      appointmentId: appointment.id,
+    });
     tasks.push(
       trackMail(
         barberLabel,
         barberSend({ to: barberEmail, appointment, businessName })
       )
     );
+  } else if (barberSend && !barberEmail) {
+    console.warn('[appointmentNotifications] omitido correo barbero (sin email)', {
+      label: barberLabel,
+      appointmentId: appointment.id,
+      barber_id: appointment.barber_id,
+    });
   }
 
-  Promise.allSettled(tasks);
+  await Promise.allSettled(tasks);
 }
 
 /**

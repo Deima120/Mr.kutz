@@ -10,6 +10,7 @@ import {
 } from '@/shared/utils/colombiaTime';
 
 export const COMPLETION_GRACE_MINUTES = 10;
+export const CLIENT_CANCEL_LEAD_MINUTES = 30;
 
 const TERMINAL = new Set(['cancelled', 'no_show', 'completed']);
 
@@ -46,9 +47,27 @@ export function canConfirmAppointment(appointment, now = new Date()) {
   return status === 'scheduled' || status === 'confirmed';
 }
 
-export function canCancelAppointment(appointment, now = new Date()) {
+/**
+ * ¿Quedan al menos CLIENT_CANCEL_LEAD_MINUTES antes del inicio?
+ */
+export function canClientCancelByLeadTime(appointment, now = new Date()) {
+  if (!appointment) return false;
+  const startMs = buildColombiaDateTimeMs(appointment.appointment_date, appointment.start_time);
+  if (startMs == null) return false;
+  const deadlineMs = startMs - CLIENT_CANCEL_LEAD_MINUTES * 60 * 1000;
+  return getNowMs(now) < deadlineMs;
+}
+
+/**
+ * @param {object} appointment
+ * @param {Date} [now]
+ * @param {{ requireLeadTime?: boolean }} [options] — true para clientes (ventana de 30 min)
+ */
+export function canCancelAppointment(appointment, now = new Date(), options = {}) {
   const status = getEffectiveAppointmentStatus(appointment, now);
-  return status === 'scheduled' || status === 'confirmed';
+  if (status !== 'scheduled' && status !== 'confirmed') return false;
+  if (options.requireLeadTime) return canClientCancelByLeadTime(appointment, now);
+  return true;
 }
 
 export { extractAppointmentDateYmd, parseTimeParts, buildColombiaDateTimeMs, getNowMs };

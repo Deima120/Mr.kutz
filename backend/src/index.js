@@ -97,7 +97,12 @@ app.use('/api', routes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    // TEMP: fingerprint para verificar deploy del mailer (quitar tras validar)
+    mailer: { createCopy: 'agendada', cancelNotify: true },
+  });
 });
 
 // ========== 404 (después de todas las rutas) ==========

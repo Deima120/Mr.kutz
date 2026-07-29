@@ -744,7 +744,19 @@ export const update = async (id, data, existingAppointment = null) => {
   });
 
   const full = await getById(apptId);
-  const transition = statusTransitionNotification(existing.status, data.status);
+  const prev = existing.status;
+  const next = data.status;
+  const transition = statusTransitionNotification(prev, next);
+  // TEMP diagnóstico cancelación/mails — quitar tras validar en prod
+  console.info('[appointment.update.notify]', {
+    id: apptId,
+    prev,
+    next,
+    transition,
+    prevEqualsNext: prev === next,
+    client_email: full?.client_email ?? null,
+    hasCancelReason: Boolean(full?.cancel_reason),
+  });
   if (transition === 'confirmed' && full) {
     notifyAppointmentConfirmed(full);
   } else if (transition === 'cancelled' && full) {

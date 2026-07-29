@@ -537,6 +537,10 @@ export default function AppointmentsPage() {
   const openCancelModal = (id) => {
     const target = appointments.find((a) => a.id === id) || null;
     if (!target) return;
+    if (isClient && !canCancelAppointment(target, new Date(), { requireLeadTime: true })) {
+      toast.error('Solo puedes cancelar la cita hasta 30 minutos antes de la hora de inicio.');
+      return;
+    }
     setCancelTarget(target);
   };
 
@@ -689,6 +693,9 @@ export default function AppointmentsPage() {
                   const noteText = appointmentNotesOf(a);
                   const effectiveStatus = getEffectiveAppointmentStatus(a, clock);
                   const canAct = !['cancelled', 'no_show', 'completed'].includes(a.status);
+                  const statusAllowsCancel =
+                    effectiveStatus === 'scheduled' || effectiveStatus === 'confirmed';
+                  const canCancel = canCancelAppointment(a, clock, { requireLeadTime: true });
                   return (
                     <li key={a.id} className="min-w-0 animate-fade-in">
                       <article className="h-full bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:border-stone-300 transition-all duration-300 flex flex-col">
@@ -710,9 +717,18 @@ export default function AppointmentsPage() {
                           </div>
 
                           {canAct && (
-                            <div className="flex items-center justify-end gap-2 mb-2">
-                              <EditAppointmentButton onClick={() => openEditForm(a.id)} />
-                              <CancelAppointmentButton onClick={() => handleCancelClick(a.id)} />
+                            <div className="flex flex-col items-end gap-1.5 mb-2">
+                              <div className="flex items-center justify-end gap-2">
+                                <EditAppointmentButton onClick={() => openEditForm(a.id)} />
+                                {canCancel ? (
+                                  <CancelAppointmentButton onClick={() => handleCancelClick(a.id)} />
+                                ) : null}
+                              </div>
+                              {statusAllowsCancel && !canCancel ? (
+                                <p className="text-[11px] sm:text-xs text-stone-500 text-right max-w-[14rem] leading-snug">
+                                  Ya no puedes cancelar (menos de 30 min antes del inicio).
+                                </p>
+                              ) : null}
                             </div>
                           )}
 
