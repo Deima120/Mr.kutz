@@ -20,7 +20,7 @@ export default function MainLayout() {
   const profileMenuRef = useRef(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const bookPath = getBookAppointmentPath(user);
+  const bookPath = getBookAppointmentPath(user, { commercial: true });
 
   const handleLogout = () => {
     logout();
@@ -138,7 +138,11 @@ export default function MainLayout() {
                   >
                     Inicio
                   </Link>
-                  <Link to="/appointments" className="px-4 py-2 text-stone-400 hover:text-white text-sm font-medium transition-colors">
+                  <Link
+                    to="/appointments"
+                    state={{ view: 'list' }}
+                    className="px-4 py-2 text-stone-400 hover:text-white text-sm font-medium transition-colors"
+                  >
                     Mis citas
                   </Link>
                   <div className="relative ml-1" ref={profileMenuRef}>
@@ -245,7 +249,12 @@ export default function MainLayout() {
                   <Link to="/profile" onClick={closeMobile} className="px-4 py-3 text-stone-300 hover:text-white rounded-lg text-sm">
                     Mi perfil
                   </Link>
-                  <Link to="/appointments" onClick={closeMobile} className="px-4 py-3 text-stone-300 hover:text-white rounded-lg text-sm">
+                  <Link
+                    to="/appointments"
+                    state={{ view: 'list' }}
+                    onClick={closeMobile}
+                    className="px-4 py-3 text-stone-300 hover:text-white rounded-lg text-sm"
+                  >
                     Mis citas
                   </Link>
                   <button type="button" onClick={handleLogout} className="text-left px-4 py-3 text-stone-500 hover:text-white rounded-lg text-sm">

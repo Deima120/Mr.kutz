@@ -64,10 +64,10 @@ export default function ProfilePage() {
                 <Link to="/appointments/new" className="btn-dark w-full text-center">
                   Agendar cita
                 </Link>
-                <Link to="/appointments" className="btn-outline w-full text-center">
+                <Link to="/appointments" state={{ view: 'list' }} className="btn-outline w-full text-center">
                   Ver mis citas
                 </Link>
-                <Link to="/#satisfaccion" className="btn-outline w-full text-center">
+                <Link to="/appointments?status=completed" className="btn-outline w-full text-center">
                   Ver satisfacción
                 </Link>
               </div>

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import * as bookingService from '@/features/booking/services/publicBookingService';
 import { sanitizePhone, sanitizePersonName, validateBookingForm, getApiErrorMessage, CLIENT_NAME_MAX, CLIENT_NOTES_MAX, CLIENT_PHONE_MAX_DIGITS } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { PublicFormField, FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import { getLocalDateToday } from '@/shared/utils/appointmentTime';
+import { useAuth } from '@/shared/contexts/AuthContext';
 
 function formatPrice(v) {
   const n = Number(v || 0);
@@ -21,6 +22,7 @@ function formatPrice(v) {
 }
 
 export default function BookingPage() {
+  const { isAuthenticated } = useAuth();
   const [barbers, setBarbers] = useState([]);
   const [services, setServices] = useState([]);
   const [loadingCatalogue, setLoadingCatalogue] = useState(true);
@@ -153,6 +155,10 @@ export default function BookingPage() {
       setSubmitting(false);
     }
   };
+
+  if (!isAuthenticated) {
+    return <Navigate to="/register?redirect=/appointments/new" replace />;
+  }
 
   if (success) {
     return (
