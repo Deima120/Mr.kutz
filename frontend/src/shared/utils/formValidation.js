@@ -44,6 +44,7 @@ import {
   getAppointmentDateBounds,
   validateAppointmentDateYmd,
 } from '@/shared/utils/dateRange';
+import { parseMoneyInput } from '@/shared/utils/money';
 
 /** Límites de texto alineados con backend. */
 export const TEXT_NAME_MAX = 150;
@@ -101,7 +102,8 @@ export function validateMoney(value, label = 'El monto', { required = true, min 
       ? { valid: false, message: `${label} es obligatorio.` }
       : { valid: true, message: '' };
   }
-  const num = Number(raw);
+  // Acepta plano (1500) y colombiano (1.500 / 1.500,50)
+  const num = parseMoneyInput(raw);
   if (Number.isNaN(num)) {
     return { valid: false, message: `${label} debe ser un número válido.` };
   }

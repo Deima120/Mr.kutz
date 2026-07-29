@@ -9,6 +9,7 @@ import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
+import { formatMoneyInputDigits, parseMoneyInput } from '@/shared/utils/money';
 import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
 import {
   validatePaymentCartForm,
@@ -283,7 +284,7 @@ export function PaymentForm({
       type: 'manual',
       description,
       label: description,
-      unitPrice: Number(manualAmount),
+      unitPrice: parseMoneyInput(manualAmount),
       quantity: 1,
     });
     setManualDescription('');
@@ -484,12 +485,13 @@ export function PaymentForm({
                 <label>
                   <span className={ADMIN_FORM_LABEL_CLASS}>Monto</span>
                   <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={manualAmount}
-                    onChange={(e) => setManualAmount(e.target.value)}
+                    onChange={(e) => setManualAmount(formatMoneyInputDigits(e.target.value))}
                     className={ADMIN_FORM_FIELD_COMPACT}
+                    placeholder="Ej. 50.000"
                   />
                 </label>
                 <button type="button" onClick={handleAddManual} className="btn-admin-outline text-sm inline-flex items-center gap-1">

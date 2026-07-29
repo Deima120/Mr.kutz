@@ -1,6 +1,7 @@
 import { formatAppointmentClockTime } from '@/shared/utils/appointmentTime';
 import { formatMoney } from '@/shared/utils/money';
 
+/** Monto de venta en COP colombiano: $1.000, $100.000 */
 export function formatPaymentAmount(n) {
   return formatMoney(n);
 }
