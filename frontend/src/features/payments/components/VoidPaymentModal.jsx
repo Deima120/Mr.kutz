@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { formatPaymentAmount } from '@/features/payments/utils/paymentFormatters';
+import {
+  formatPaymentAmount,
+  isMixedPaymentMethods,
+} from '@/features/payments/utils/paymentFormatters';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import { VOID_REASON_FIELD_CLASS, VOID_REASON_MAX } from '@/shared/feedback/voidReasonField';
 
@@ -12,12 +15,31 @@ export default function VoidPaymentModal({
 }) {
   const [reason, setReason] = useState('');
   const isLine = Boolean(line);
+  const mixedMethods = isMixedPaymentMethods(payment);
 
   useEffect(() => {
     setReason('');
   }, [payment?.id, line?.id]);
 
   if (!payment) return null;
+
+  // Defensa: void de línea no aplica en cobro mixto (opción B).
+  if (isLine && mixedMethods) {
+    return (
+      <AdminConfirmModal
+        open
+        variant="warning"
+        size="md"
+        title="No se puede anular la línea"
+        description="Este cobro usa varios métodos de pago. Anula la venta completa para no descuadrar los métodos."
+        confirmLabel="Entendido"
+        cancelLabel="Cerrar"
+        onCancel={onClose}
+        onConfirm={onClose}
+        autoFocusConfirm
+      />
+    );
+  }
 
   const title = isLine
     ? `¿Anular línea #${line.id}?`
@@ -49,6 +71,9 @@ export default function VoidPaymentModal({
           ) : null}
           . El registro se conserva y deja de sumar en totales.
           {hasProductStock ? ' El stock del producto volverá al inventario.' : ''}
+          {!isLine && mixedMethods
+            ? ' Se anularán todas las líneas y los métodos del cobro.'
+            : ''}
         </>
       }
       confirmLabel="Sí, anular"

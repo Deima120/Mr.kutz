@@ -20,10 +20,12 @@ import {
   formatPaymentAmount,
   formatPaymentDateTime,
   formatPaymentMethodName,
+  formatPaymentMethodsSummary,
   getPaymentClientName,
   getPaymentConcept,
   getPaymentType,
   getPaymentTypeLabel,
+  isMixedPaymentMethods,
   isPaymentVoided,
 } from '@/features/payments/utils/paymentFormatters';
 import { getApiErrorMessage } from '@/shared/utils/formValidation';
@@ -217,7 +219,7 @@ export default function PaymentsPage() {
     referencia: p.reference || '',
     cliente: getPaymentClientName(p),
     concepto: getPaymentConcept(p),
-    metodo: formatPaymentMethodName(p.paymentMethodName || p.payment_method_name),
+    metodo: formatPaymentMethodsSummary(p),
     monto: p.amount,
     notas: p.notes || '',
     motivo_anulacion: p.voidReason || p.void_reason || '',
@@ -453,8 +455,17 @@ export default function PaymentsPage() {
                             <TableCell compact className="text-xs max-w-[12rem] truncate" title={getPaymentConcept(p)}>
                               {getPaymentConcept(p)}
                             </TableCell>
-                            <TableCell compact className="text-xs">
-                              {formatPaymentMethodName(p.paymentMethodName || p.payment_method_name)}
+                            <TableCell
+                              compact
+                              className="text-xs max-w-[11rem] truncate"
+                              title={formatPaymentMethodsSummary(p)}
+                            >
+                              {formatPaymentMethodsSummary(p)}
+                              {isMixedPaymentMethods(p) ? (
+                                <span className="ml-1 inline-flex rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-[9px] font-semibold text-sky-800">
+                                  Mixto
+                                </span>
+                              ) : null}
                             </TableCell>
                             <TableCell
                               compact

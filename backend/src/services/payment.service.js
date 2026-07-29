@@ -21,6 +21,18 @@ import {
   toMoneyDecimal,
   toPaymentLineDto,
 } from './payment.lines.helpers.js';
+import {
+  assertCanVoidLine,
+  buildIsCashLookup,
+  computeTenderedAndChange,
+  isMixedPaymentMethods,
+  primaryPaymentMethodId,
+  resolveMethodSplitsFromCreateBody,
+} from './payment.methodSplits.helpers.js';
+import {
+  mapAppointmentServicesFields,
+  resolveOrderedServicesForAppointment,
+} from './appointment.service.js';
 import { allocateDocumentFolio, DOC_TYPES } from '../utils/documentSequence.js';
 import { applyColombiaCreatedAtFilter } from '../utils/colombiaTime.js';
 
@@ -37,13 +49,21 @@ const lineInclude = {
   },
 };
 
+const methodSplitInclude = {
+  paymentMethod: { select: { id: true, name: true, description: true, isCash: true } },
+};
+
 const paymentDetailInclude = {
-  paymentMethod: { select: { id: true, name: true, description: true } },
+  paymentMethod: { select: { id: true, name: true, description: true, isCash: true } },
   client: { select: { id: true, firstName: true, lastName: true } },
   creator: { select: { id: true, email: true } },
   voider: { select: { id: true, email: true } },
   lines: {
     include: lineInclude,
+    orderBy: { id: 'asc' },
+  },
+  methodSplits: {
+    include: methodSplitInclude,
     orderBy: { id: 'asc' },
   },
 };
@@ -86,12 +106,40 @@ function clientNameFromPayment(p) {
   };
 }
 
+function toMethodSplitDto(split) {
+  return {
+    id: split.id,
+    paymentId: split.paymentId,
+    paymentMethodId: split.paymentMethodId,
+    amount: moneyToNumber(split.amount),
+    paymentMethodName: split.paymentMethod?.name ?? null,
+    isCash: Boolean(split.paymentMethod?.isCash),
+  };
+}
+
+function methodDisplayName(p) {
+  const splits = p.methodSplits || [];
+  if (splits.length > 1) {
+    return splits
+      .map((s) => s.paymentMethod?.name)
+      .filter(Boolean)
+      .join(' + ') || 'Mixto';
+  }
+  if (splits.length === 1) {
+    return splits[0].paymentMethod?.name || p.paymentMethod?.name;
+  }
+  return p.paymentMethod?.name;
+}
+
 export function toPaymentDto(p) {
   const lines = p.lines || [];
+  const methodSplits = p.methodSplits || [];
   const paymentType = derivePaymentType(lines);
   const names = clientNameFromPayment(p);
   const serviceLine = lines.find((l) => l.lineType === 'service');
   const productLine = lines.find((l) => l.lineType === 'product');
+  const methodName = methodDisplayName(p);
+  const mixedMethods = isMixedPaymentMethods(methodSplits);
   return {
     id: p.id,
     clientId: p.clientId ?? null,
@@ -99,20 +147,28 @@ export function toPaymentDto(p) {
     paymentMethodId: p.paymentMethodId,
     reference: p.reference,
     notes: p.notes,
+    amountTendered: p.amountTendered != null ? moneyToNumber(p.amountTendered) : null,
+    changeGiven: p.changeGiven != null ? moneyToNumber(p.changeGiven) : null,
     createdAt: p.createdAt,
     createdBy: p.createdBy ?? null,
     voidedAt: p.voidedAt,
     voidReason: p.voidReason,
     voidedBy: p.voidedBy ?? null,
-    paymentMethodName: p.paymentMethod?.name,
+    paymentMethodName: methodName,
     paymentType,
+    isMixedMethods: mixedMethods,
+    methodSplits: methodSplits.map(toMethodSplitDto),
     concept: conceptFromLines(lines),
     lines: lines.map(toPaymentLineDto),
     appointment_id: serviceLine?.appointmentId ?? null,
     product_id: productLine?.productId ?? null,
     product_quantity: productLine?.quantity ?? null,
     payment_method_id: p.paymentMethodId,
-    payment_method_name: p.paymentMethod?.name,
+    payment_method_name: methodName,
+    amount_tendered: p.amountTendered != null ? moneyToNumber(p.amountTendered) : null,
+    change_given: p.changeGiven != null ? moneyToNumber(p.changeGiven) : null,
+    is_mixed_methods: mixedMethods,
+    method_splits: methodSplits.map(toMethodSplitDto),
     created_at: p.createdAt,
     voided_at: p.voidedAt,
     void_reason: p.voidReason,
@@ -152,7 +208,8 @@ function buildPaymentsWhere({
   if (status === 'voided') where.voidedAt = { not: null };
 
   if (paymentMethodId) {
-    where.paymentMethodId = parseInt(paymentMethodId, 10);
+    const mid = parseInt(paymentMethodId, 10);
+    where.methodSplits = { some: { paymentMethodId: mid } };
   }
 
   if (type === 'service') {
@@ -230,6 +287,62 @@ async function recalculatePaymentAmount(tx, paymentId) {
   return total;
 }
 
+/**
+ * Tras void de línea con un solo método: alinea el split (y vuelto) al nuevo total.
+ */
+async function syncSingleMethodSplitToAmount(tx, paymentId, newAmount) {
+  const splits = await tx.paymentMethodSplit.findMany({
+    where: { paymentId },
+    include: { paymentMethod: { select: { id: true, isCash: true } } },
+  });
+  if (splits.length !== 1) return;
+
+  const split = splits[0];
+  const amountDec = toMoneyDecimal(newAmount);
+  await tx.paymentMethodSplit.update({
+    where: { id: split.id },
+    data: { amount: amountDec },
+  });
+
+  const payment = await tx.payment.findUnique({
+    where: { id: paymentId },
+    select: { amountTendered: true },
+  });
+  const isCashByMethodId = buildIsCashLookup([
+    { id: split.paymentMethodId, isCash: split.paymentMethod?.isCash },
+  ]);
+  const cashCents = Math.round(moneyToNumber(newAmount) * 100);
+  const hasCash = Boolean(split.paymentMethod?.isCash) && cashCents > 0;
+
+  if (!hasCash) {
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: { amountTendered: null, changeGiven: null },
+    });
+    return;
+  }
+
+  const tenderedInput =
+    payment?.amountTendered != null &&
+    Math.round(moneyToNumber(payment.amountTendered) * 100) >= cashCents
+      ? payment.amountTendered
+      : undefined;
+
+  const tendered = computeTenderedAndChange({
+    splits: [{ paymentMethodId: split.paymentMethodId, amount: moneyToNumber(newAmount) }],
+    isCashByMethodId,
+    amountTendered: tenderedInput,
+  });
+
+  await tx.payment.update({
+    where: { id: paymentId },
+    data: {
+      amountTendered: tendered.amountTendered,
+      changeGiven: tendered.changeGiven,
+    },
+  });
+}
+
 async function reverseProductLineStock(tx, line, { reason, voidedBy, paymentId }) {
   if (line.lineType !== 'product' || !line.productId) return;
 
@@ -288,7 +401,7 @@ export const getPaymentMethods = async () => {
   const methods = await prisma.paymentMethod.findMany({
     where: { isActive: true },
     orderBy: { id: 'asc' },
-    select: { id: true, name: true, description: true },
+    select: { id: true, name: true, description: true, isCash: true },
   });
   const order = ['efectivo', 'transferencia', 'tarjeta'];
   return methods.sort(
@@ -365,189 +478,222 @@ async function loadPaymentDto(client, id) {
 
 export const getById = async (id) => loadPaymentDto(prisma, id);
 
-export const create = async (data) => {
-  const paymentMethodId = data.paymentMethodId ? parseInt(data.paymentMethodId, 10) : null;
-  if (!paymentMethodId || !Number.isFinite(paymentMethodId) || paymentMethodId < 1) {
-    throw httpPaymentError('Indica un método de pago válido.');
-  }
-
+/**
+ * Crea cobro multi-línea + method splits dentro de una tx (testeable).
+ * @param {import('@prisma/client').Prisma.TransactionClient} tx
+ */
+export async function createWithTx(tx, data) {
   const lineInputs = normalizeCreateLineInputs(data);
   const createdBy = data.createdBy ? parseInt(data.createdBy, 10) : null;
 
-  try {
-    return await runSerializable(prisma, async (tx) => {
-      const paymentMethod = await tx.paymentMethod.findFirst({
-        where: { id: paymentMethodId, isActive: true },
-        select: { id: true },
+  const serviceInputs = lineInputs.filter((l) => l.type === 'service');
+  const productInputs = lineInputs.filter((l) => l.type === 'product');
+  const appointmentIds = [...new Set(serviceInputs.map((l) => l.appointmentId))];
+  const productIds = [...new Set(productInputs.map((l) => l.productId))];
+
+  const appointments = appointmentIds.length
+    ? await tx.appointment.findMany({
+        where: { id: { in: appointmentIds } },
+        include: {
+          service: { select: { id: true, name: true, price: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })
+    : [];
+  const appointmentsById = new Map(appointments.map((a) => [a.id, a]));
+
+  for (const aid of appointmentIds) {
+    if (!appointmentsById.has(aid)) {
+      throw httpPaymentError(`La cita #${aid} no existe.`, 404);
+    }
+    const appt = appointmentsById.get(aid);
+    if (appt.status !== 'completed') {
+      throw httpPaymentError(`La cita #${aid} debe estar completada para cobrarla.`);
+    }
+  }
+
+  const clientId = assertSingleClientForServiceLines(appointmentsById, serviceInputs);
+
+  if (appointmentIds.length) {
+    const already = await tx.paymentLine.findMany({
+      where: {
+        appointmentId: { in: appointmentIds },
+        voidedAt: null,
+      },
+      select: { appointmentId: true },
+    });
+    if (already.length) {
+      throw httpPaymentError('Esta cita ya tiene un cobro activo.', 409, 'APPOINTMENT_ALREADY_PAID');
+    }
+  }
+
+  const products = productIds.length
+    ? await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, name: true, sku: true, isActive: true, retailPrice: true },
+      })
+    : [];
+  const productsById = new Map(products.map((p) => [p.id, p]));
+
+  for (const pid of productIds) {
+    const product = productsById.get(pid);
+    if (!product) throw httpPaymentError(`Producto #${pid} no encontrado.`, 404);
+    if (!product.isActive) throw httpPaymentError(`No se puede vender el producto inactivo #${pid}.`);
+    if (product.retailPrice == null || moneyToNumber(product.retailPrice) <= 0) {
+      throw httpPaymentError(`El producto #${pid} no tiene precio de venta válido.`);
+    }
+  }
+
+  const resolvedLines = [];
+  for (const input of lineInputs) {
+    if (input.type === 'service') {
+      const appt = appointmentsById.get(input.appointmentId);
+      const ordered = await resolveOrderedServicesForAppointment(appt, tx);
+      const svc = mapAppointmentServicesFields(ordered, appt.service);
+      const unitPrice = toMoneyDecimal(svc.price);
+      if (moneyToNumber(unitPrice) <= 0) {
+        throw httpPaymentError(
+          `La cita #${input.appointmentId} no tiene un precio de servicio válido.`
+        );
+      }
+      resolvedLines.push({
+        lineType: 'service',
+        appointmentId: input.appointmentId,
+        productId: null,
+        quantity: 1,
+        unitPrice,
+        lineAmount: unitPrice,
+        description: String(svc.service_name || appt.service?.name || 'Servicio').slice(0, 200),
       });
-      if (!paymentMethod) {
-        throw httpPaymentError('El método de pago no existe o está inactivo.');
-      }
-
-      const serviceInputs = lineInputs.filter((l) => l.type === 'service');
-      const productInputs = lineInputs.filter((l) => l.type === 'product');
-      const appointmentIds = [...new Set(serviceInputs.map((l) => l.appointmentId))];
-      const productIds = [...new Set(productInputs.map((l) => l.productId))];
-
-      const appointments = appointmentIds.length
-        ? await tx.appointment.findMany({
-            where: { id: { in: appointmentIds } },
-            include: {
-              service: { select: { id: true, name: true, price: true } },
-              client: { select: { id: true, firstName: true, lastName: true } },
-            },
-          })
-        : [];
-      const appointmentsById = new Map(appointments.map((a) => [a.id, a]));
-
-      for (const aid of appointmentIds) {
-        if (!appointmentsById.has(aid)) {
-          throw httpPaymentError(`La cita #${aid} no existe.`, 404);
-        }
-        const appt = appointmentsById.get(aid);
-        if (appt.status !== 'completed') {
-          throw httpPaymentError(`La cita #${aid} debe estar completada para cobrarla.`);
-        }
-      }
-
-      const clientId = assertSingleClientForServiceLines(appointmentsById, serviceInputs);
-
-      if (appointmentIds.length) {
-        const already = await tx.paymentLine.findMany({
-          where: {
-            appointmentId: { in: appointmentIds },
-            voidedAt: null,
-          },
-          select: { appointmentId: true },
-        });
-        if (already.length) {
-          throw httpPaymentError('Esta cita ya tiene un cobro activo.', 409, 'APPOINTMENT_ALREADY_PAID');
-        }
-      }
-
-      const products = productIds.length
-        ? await tx.product.findMany({
-            where: { id: { in: productIds } },
-            select: { id: true, name: true, sku: true, isActive: true, retailPrice: true },
-          })
-        : [];
-      const productsById = new Map(products.map((p) => [p.id, p]));
-
-      for (const pid of productIds) {
-        const product = productsById.get(pid);
-        if (!product) throw httpPaymentError(`Producto #${pid} no encontrado.`, 404);
-        if (!product.isActive) throw httpPaymentError(`No se puede vender el producto inactivo #${pid}.`);
-        if (product.retailPrice == null || moneyToNumber(product.retailPrice) <= 0) {
-          throw httpPaymentError(`El producto #${pid} no tiene precio de venta válido.`);
-        }
-      }
-
-      const resolvedLines = lineInputs.map((input) => {
-        if (input.type === 'service') {
-          const appt = appointmentsById.get(input.appointmentId);
-          const unitPrice = toMoneyDecimal(appt.service.price);
-          return {
-            lineType: 'service',
-            appointmentId: input.appointmentId,
-            productId: null,
-            quantity: 1,
-            unitPrice,
-            lineAmount: unitPrice,
-            description: String(appt.service.name || 'Servicio').slice(0, 200),
-          };
-        }
-        if (input.type === 'product') {
-          const product = productsById.get(input.productId);
-          const unitPrice = toMoneyDecimal(product.retailPrice);
-          const lineAmount = toMoneyDecimal(moneyToNumber(unitPrice) * input.quantity);
-          return {
-            lineType: 'product',
-            appointmentId: null,
-            productId: input.productId,
-            quantity: input.quantity,
-            unitPrice,
-            lineAmount,
-            description: String(product.name || 'Producto').slice(0, 200),
-          };
-        }
-        const unitPrice = toMoneyDecimal(input.unitPrice);
-        return {
-          lineType: 'manual',
-          appointmentId: null,
-          productId: null,
-          quantity: 1,
-          unitPrice,
-          lineAmount: unitPrice,
-          description: input.description,
-        };
+      continue;
+    }
+    if (input.type === 'product') {
+      const product = productsById.get(input.productId);
+      const unitPrice = toMoneyDecimal(product.retailPrice);
+      const lineAmount = toMoneyDecimal(moneyToNumber(unitPrice) * input.quantity);
+      resolvedLines.push({
+        lineType: 'product',
+        appointmentId: null,
+        productId: input.productId,
+        quantity: input.quantity,
+        unitPrice,
+        lineAmount,
+        description: String(product.name || 'Producto').slice(0, 200),
       });
+      continue;
+    }
+    const unitPrice = toMoneyDecimal(input.unitPrice);
+    resolvedLines.push({
+      lineType: 'manual',
+      appointmentId: null,
+      productId: null,
+      quantity: 1,
+      unitPrice,
+      lineAmount: unitPrice,
+      description: input.description,
+    });
+  }
 
-      const headerAmount = toMoneyDecimal(sumActiveLineAmounts(resolvedLines));
-      if (moneyToNumber(headerAmount) <= 0) {
-        throw httpPaymentError('El total del cobro debe ser mayor a 0.');
-      }
+  const headerAmountNum = sumActiveLineAmounts(resolvedLines);
+  const headerAmount = toMoneyDecimal(headerAmountNum);
+  if (headerAmountNum <= 0) {
+    throw httpPaymentError('El total del cobro debe ser mayor a 0.');
+  }
 
-      const payment = await tx.payment.create({
+  const methodSplits = resolveMethodSplitsFromCreateBody(data, headerAmountNum);
+  const methodIds = [...new Set(methodSplits.map((s) => s.paymentMethodId))];
+  const methods = await tx.paymentMethod.findMany({
+    where: { id: { in: methodIds }, isActive: true },
+    select: { id: true, name: true, description: true, isCash: true },
+  });
+  if (methods.length !== methodIds.length) {
+    throw httpPaymentError('Uno o más métodos de pago no existen o están inactivos.');
+  }
+  const isCashByMethodId = buildIsCashLookup(methods);
+  const tendered = computeTenderedAndChange({
+    splits: methodSplits,
+    isCashByMethodId,
+    amountTendered: data.amountTendered,
+  });
+  const headerMethodId = primaryPaymentMethodId(methodSplits);
+
+  const payment = await tx.payment.create({
+    data: {
+      clientId,
+      amount: headerAmount,
+      paymentMethodId: headerMethodId,
+      reference: await allocateDocumentFolio(tx, DOC_TYPES.payment),
+      notes: String(data.notes || '').trim() || null,
+      amountTendered: tendered.amountTendered,
+      changeGiven: tendered.changeGiven,
+      createdBy: Number.isFinite(createdBy) ? createdBy : null,
+    },
+  });
+
+  for (const split of methodSplits) {
+    await tx.paymentMethodSplit.create({
+      data: {
+        paymentId: payment.id,
+        paymentMethodId: split.paymentMethodId,
+        amount: toMoneyDecimal(split.amount),
+      },
+    });
+  }
+
+  const createdLines = [];
+  for (const line of resolvedLines) {
+    try {
+      const row = await tx.paymentLine.create({
         data: {
-          clientId,
-          amount: headerAmount,
-          paymentMethodId,
-          reference: await allocateDocumentFolio(tx, DOC_TYPES.payment),
-          notes: String(data.notes || '').trim() || null,
-          createdBy: Number.isFinite(createdBy) ? createdBy : null,
+          paymentId: payment.id,
+          lineType: line.lineType,
+          appointmentId: line.appointmentId,
+          productId: line.productId,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          lineAmount: line.lineAmount,
+          description: line.description,
         },
       });
-
-      const createdLines = [];
-      for (const line of resolvedLines) {
-        try {
-          const row = await tx.paymentLine.create({
-            data: {
-              paymentId: payment.id,
-              lineType: line.lineType,
-              appointmentId: line.appointmentId,
-              productId: line.productId,
-              quantity: line.quantity,
-              unitPrice: line.unitPrice,
-              lineAmount: line.lineAmount,
-              description: line.description,
-            },
-          });
-          createdLines.push(row);
-        } catch (err) {
-          if (err?.code === 'P2002') {
-            throw httpPaymentError('Esta cita ya tiene un cobro activo.', 409, 'APPOINTMENT_ALREADY_PAID');
-          }
-          throw err;
-        }
+      createdLines.push(row);
+    } catch (err) {
+      if (err?.code === 'P2002') {
+        throw httpPaymentError('Esta cita ya tiene un cobro activo.', 409, 'APPOINTMENT_ALREADY_PAID');
       }
+      throw err;
+    }
+  }
 
-      if (productIds.length) {
-        await lockProducts(tx, productIds);
-      }
+  if (productIds.length) {
+    await lockProducts(tx, productIds);
+  }
 
-      for (let i = 0; i < createdLines.length; i += 1) {
-        const line = createdLines[i];
-        if (line.lineType !== 'product') continue;
-        await changeStockAtomic(tx, {
-          productId: line.productId,
-          quantityChange: -line.quantity,
-          movementType: 'sale',
-          sourceType: 'payment',
-          paymentId: payment.id,
-          paymentLineId: line.id,
-          notes: data.notes || `Venta línea #${line.id} (${line.quantity} uds.)`,
-          createdBy: Number.isFinite(createdBy) ? createdBy : null,
-          insufficientMessage: 'Stock insuficiente para registrar esta venta.',
-        });
-      }
-
-      const full = await tx.payment.findUnique({
-        where: { id: payment.id },
-        include: paymentDetailInclude,
-      });
-      return toPaymentDto(full);
+  for (let i = 0; i < createdLines.length; i += 1) {
+    const line = createdLines[i];
+    if (line.lineType !== 'product') continue;
+    await changeStockAtomic(tx, {
+      productId: line.productId,
+      quantityChange: -line.quantity,
+      movementType: 'sale',
+      sourceType: 'payment',
+      paymentId: payment.id,
+      paymentLineId: line.id,
+      notes: data.notes || `Venta línea #${line.id} (${line.quantity} uds.)`,
+      createdBy: Number.isFinite(createdBy) ? createdBy : null,
+      insufficientMessage: 'Stock insuficiente para registrar esta venta.',
     });
+  }
+
+  const full = await tx.payment.findUnique({
+    where: { id: payment.id },
+    include: paymentDetailInclude,
+  });
+  return toPaymentDto(full);
+}
+
+export const create = async (data) => {
+  try {
+    return await runSerializable(prisma, async (tx) => createWithTx(tx, data));
   } catch (err) {
     if (err?.code === 'P2002') {
       throw httpPaymentError('Esta cita ya tiene un cobro activo.', 409, 'APPOINTMENT_ALREADY_PAID');
@@ -602,59 +748,73 @@ export const voidPayment = async (id, { voidReason, voidedBy } = {}) => {
 
 /**
  * Anula una línea; recalcula total; si no quedan activas, anula la cabecera.
+ * Con >1 método de pago → rechazado (opción B).
  */
-export const voidPaymentLine = async (paymentId, lineId, { voidReason, voidedBy } = {}) => {
+export async function voidPaymentLineWithTx(tx, paymentId, lineId, { voidReason, voidedBy } = {}) {
   const reason = assertVoidReason(voidReason);
   const pid = parseInt(paymentId, 10);
   const lid = parseInt(lineId, 10);
   const actor = voidedBy ? parseInt(voidedBy, 10) : null;
   const now = new Date();
 
-  return runSerializable(prisma, async (tx) => {
-    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${pid} FOR UPDATE`);
-    const payment = await tx.payment.findUnique({ where: { id: pid } });
-    if (!payment) throw httpPaymentError('Pago no encontrado.', 404);
+  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${pid} FOR UPDATE`);
+  const payment = await tx.payment.findUnique({ where: { id: pid } });
+  if (!payment) throw httpPaymentError('Pago no encontrado.', 404);
 
-    const line = await tx.paymentLine.findFirst({
-      where: { id: lid, paymentId: pid },
+  const methodSplits = await tx.paymentMethodSplit.findMany({
+    where: { paymentId: pid },
+  });
+  assertCanVoidLine(methodSplits);
+
+  const line = await tx.paymentLine.findFirst({
+    where: { id: lid, paymentId: pid },
+  });
+  if (!line) throw httpPaymentError('Línea de cobro no encontrada.', 404);
+
+  if (line.voidedAt) {
+    return loadPaymentDto(tx, pid);
+  }
+
+  await voidOneLineInTx(tx, line, {
+    reason,
+    voidedBy: Number.isFinite(actor) ? actor : null,
+    paymentId: pid,
+    now,
+  });
+
+  const remaining = await tx.paymentLine.count({
+    where: { paymentId: pid, voidedAt: null },
+  });
+
+  if (remaining === 0) {
+    await tx.payment.update({
+      where: { id: pid },
+      data: {
+        amount: toMoneyDecimal(0),
+        amountTendered: null,
+        changeGiven: null,
+        voidedAt: now,
+        voidReason: reason,
+        voidedBy: Number.isFinite(actor) ? actor : null,
+      },
     });
-    if (!line) throw httpPaymentError('Línea de cobro no encontrada.', 404);
-
-    if (line.voidedAt) {
-      return loadPaymentDto(tx, pid);
-    }
-
-    await voidOneLineInTx(tx, line, {
-      reason,
-      voidedBy: Number.isFinite(actor) ? actor : null,
-      paymentId: pid,
-      now,
-    });
-
-    const remaining = await tx.paymentLine.count({
-      where: { paymentId: pid, voidedAt: null },
-    });
-
-    if (remaining === 0) {
+    await syncSingleMethodSplitToAmount(tx, pid, 0);
+  } else {
+    const newAmount = await recalculatePaymentAmount(tx, pid);
+    await syncSingleMethodSplitToAmount(tx, pid, newAmount);
+    if (payment.voidedAt) {
       await tx.payment.update({
         where: { id: pid },
-        data: {
-          amount: toMoneyDecimal(0),
-          voidedAt: now,
-          voidReason: reason,
-          voidedBy: Number.isFinite(actor) ? actor : null,
-        },
+        data: { voidedAt: null, voidReason: null, voidedBy: null },
       });
-    } else {
-      await recalculatePaymentAmount(tx, pid);
-      if (payment.voidedAt) {
-        await tx.payment.update({
-          where: { id: pid },
-          data: { voidedAt: null, voidReason: null, voidedBy: null },
-        });
-      }
     }
+  }
 
-    return loadPaymentDto(tx, pid);
-  });
+  return loadPaymentDto(tx, pid);
+}
+
+export const voidPaymentLine = async (paymentId, lineId, opts = {}) => {
+  return runSerializable(prisma, async (tx) =>
+    voidPaymentLineWithTx(tx, paymentId, lineId, opts)
+  );
 };

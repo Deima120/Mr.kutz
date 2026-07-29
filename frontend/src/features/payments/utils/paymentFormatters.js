@@ -60,6 +60,18 @@ export function getPaymentLines(payment) {
   return Array.isArray(payment?.lines) ? payment.lines : [];
 }
 
+export function getPaymentMethodSplits(payment) {
+  if (Array.isArray(payment?.methodSplits)) return payment.methodSplits;
+  if (Array.isArray(payment?.method_splits)) return payment.method_splits;
+  return [];
+}
+
+export function isMixedPaymentMethods(payment) {
+  if (payment?.isMixedMethods != null) return Boolean(payment.isMixedMethods);
+  if (payment?.is_mixed_methods != null) return Boolean(payment.is_mixed_methods);
+  return getPaymentMethodSplits(payment).length > 1;
+}
+
 export function getLineLabel(line) {
   if (!line) return '—';
   if (line.lineType === 'product' || line.type === 'product') {
@@ -88,10 +100,54 @@ const PAYMENT_METHOD_LABELS = {
   cash: 'Efectivo',
   transfer: 'Transferencia',
   card: 'Tarjeta',
+  mixto: 'Mixto',
 };
 
+function formatOneMethodLabel(method) {
+  if (!method) return '—';
+  const key = String(method).trim().toLowerCase();
+  return PAYMENT_METHOD_LABELS[key] || method;
+}
+
+/** Acepta un nombre o compuestos tipo "efectivo + tarjeta". */
 export function formatPaymentMethodName(method) {
   if (!method) return '—';
-  const key = String(method).toLowerCase();
-  return PAYMENT_METHOD_LABELS[key] || method;
+  const raw = String(method).trim();
+  if (raw.includes(' + ')) {
+    return raw
+      .split(' + ')
+      .map((part) => formatOneMethodLabel(part.trim()))
+      .join(' + ');
+  }
+  return formatOneMethodLabel(raw);
+}
+
+/** Resumen para listado/detalle: "Efectivo $20.000 · Tarjeta $25.000" o nombre simple. */
+export function formatPaymentMethodsSummary(payment) {
+  const splits = getPaymentMethodSplits(payment);
+  if (splits.length > 0) {
+    return splits
+      .map((split) => {
+        const name = formatPaymentMethodName(
+          split.paymentMethodName || split.payment_method_name || split.name
+        );
+        return `${name} ${formatPaymentAmount(split.amount)}`;
+      })
+      .join(' · ');
+  }
+  return formatPaymentMethodName(payment?.paymentMethodName || payment?.payment_method_name);
+}
+
+export function getPaymentTendered(payment) {
+  const v = payment?.amountTendered ?? payment?.amount_tendered;
+  return v != null && v !== '' ? Number(v) : null;
+}
+
+export function getPaymentChangeGiven(payment) {
+  const v = payment?.changeGiven ?? payment?.change_given;
+  return v != null && v !== '' ? Number(v) : null;
+}
+
+export function isPaymentMethodCash(method) {
+  return Boolean(method?.isCash ?? method?.is_cash);
 }

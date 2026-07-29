@@ -13,7 +13,36 @@ import * as paymentController from '../controllers/payment.controller.js';
 const router = express.Router();
 
 const createValidation = [
-  body('paymentMethodId').isInt({ min: 1 }).withMessage('Indica un método de pago válido.'),
+  body().custom((_, { req }) => {
+    const hasMethod =
+      req.body?.paymentMethodId != null && String(req.body.paymentMethodId).trim() !== '';
+    const hasSplits =
+      Array.isArray(req.body?.methodSplits) && req.body.methodSplits.length > 0;
+    if (!hasMethod && !hasSplits) {
+      throw new Error('Indica un método de pago válido.');
+    }
+    return true;
+  }),
+  body('paymentMethodId')
+    .optional({ checkFalsy: true })
+    .isInt({ min: 1 })
+    .withMessage('Indica un método de pago válido.'),
+  body('methodSplits')
+    .optional()
+    .isArray({ min: 1, max: 20 })
+    .withMessage('methodSplits debe tener entre 1 y 20 métodos.'),
+  body('methodSplits.*.paymentMethodId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Método de pago no válido en methodSplits.'),
+  body('methodSplits.*.amount')
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage('Cada método debe tener un monto mayor a 0.'),
+  body('amountTendered')
+    .optional({ checkFalsy: true })
+    .isFloat({ gt: 0 })
+    .withMessage('El monto recibido debe ser mayor a 0.'),
   body('amount').custom((value) => {
     if (value !== undefined && value !== null && value !== '') {
       throw new Error('El monto del cobro no se envía manualmente; se calcula desde las líneas.');

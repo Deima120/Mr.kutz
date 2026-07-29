@@ -209,9 +209,6 @@ function endTimeFromStartAndDuration(startTimeValue, durationMinutes) {
   };
 }
 
-/**
- * Resuelve la lista ordenada de servicios de una cita (IDs en notes, nombres legacy o serviceId).
- */
 function normalizeServiceLabel(name) {
   return String(name || '')
     .trim()
@@ -220,12 +217,17 @@ function normalizeServiceLabel(name) {
     .replace(/\p{M}/gu, '');
 }
 
-async function resolveOrderedServicesForAppointment(a) {
+/**
+ * Resuelve la lista ordenada de servicios de una cita (IDs en notes, nombres legacy o serviceId).
+ * @param {object} a appointment con notes, serviceId, service
+ * @param {{ service: { findMany: Function } }} [db] cliente Prisma o tx
+ */
+export async function resolveOrderedServicesForAppointment(a, db = prisma) {
   let ids = parseServiceIdsFromNotes(a.notes);
   if (!ids.length) {
     const names = parseServiceNamesFromNotes(a.notes);
     if (names.length > 1) {
-      const found = await prisma.service.findMany({
+      const found = await db.service.findMany({
         where: {
           OR: names.map((n) => ({
             name: { equals: n, mode: 'insensitive' },
@@ -241,14 +243,14 @@ async function resolveOrderedServicesForAppointment(a) {
   }
   if (!ids.length) return a.service ? [a.service] : [];
 
-  const records = await prisma.service.findMany({ where: { id: { in: ids } } });
+  const records = await db.service.findMany({ where: { id: { in: ids } } });
   const byId = new Map(records.map((s) => [s.id, s]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
   if (!ordered.length && a.service) return [a.service];
   return ordered;
 }
 
-function mapAppointmentServicesFields(orderedServices, fallbackService) {
+export function mapAppointmentServicesFields(orderedServices, fallbackService) {
   const list = orderedServices?.length ? orderedServices : fallbackService ? [fallbackService] : [];
   const primary = list[0] || fallbackService || null;
   return {

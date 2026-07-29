@@ -365,11 +365,91 @@ export function validatePaymentForm(data, mode, extras = {}) {
   return validationResult(errors);
 }
 
-/** Carrito de venta multi-línea. */
-export function validatePaymentCartForm({ paymentMethodId, reference, notes, lines = [] } = {}) {
+/** Carrito de venta multi-línea (+ pago mixto opcional). */
+export function validatePaymentCartForm({
+  paymentMethodId,
+  methodSplits,
+  amountTendered,
+  cartTotal,
+  methods = [],
+  reference,
+  notes,
+  lines = [],
+} = {}) {
   const errors = {};
 
-  if (!paymentMethodId) errors.paymentMethodId = 'Selecciona un método de pago.';
+  const splits = Array.isArray(methodSplits) && methodSplits.length > 0
+    ? methodSplits
+    : paymentMethodId
+      ? [{ paymentMethodId, amount: cartTotal }]
+      : [];
+
+  if (splits.length === 0) {
+    errors.methodSplits = 'Selecciona al menos un método de pago.';
+  } else {
+    const seen = new Set();
+    let splitCents = 0;
+    let cashCents = 0;
+    const methodsById = new Map((methods || []).map((m) => [String(m.id), m]));
+
+    splits.forEach((split, index) => {
+      const mid = String(split.paymentMethodId ?? '').trim();
+      if (!mid) {
+        errors[`methodSplits.${index}`] = `Método ${index + 1}: selecciona un método.`;
+        return;
+      }
+      if (seen.has(mid)) {
+        errors.methodSplits = 'No se puede repetir el mismo método de pago.';
+        return;
+      }
+      seen.add(mid);
+
+      const amount = validateMoney(split.amount, `Método ${index + 1}`, {
+        required: true,
+        min: 0.01,
+      });
+      if (!amount.valid) {
+        errors[`methodSplits.${index}`] = amount.message;
+        return;
+      }
+      const cents = Math.round(Number(parseMoneyInput(split.amount)) * 100);
+      splitCents += cents;
+      const method = methodsById.get(mid);
+      if (method && (method.isCash || method.is_cash)) {
+        cashCents += cents;
+      }
+    });
+
+    if (!errors.methodSplits && cartTotal != null && cartTotal !== '') {
+      const totalCents = Math.round(Number(cartTotal) * 100);
+      if (Number.isFinite(totalCents) && splitCents !== totalCents) {
+        errors.methodSplits =
+          'La suma de los métodos debe ser exactamente igual al total de la venta.';
+      }
+    }
+
+    const tenderedRaw = amountTendered;
+    const tenderedProvided =
+      tenderedRaw != null && String(tenderedRaw).trim() !== '';
+    if (cashCents <= 0 && tenderedProvided) {
+      errors.amountTendered = 'Recibido/vuelto solo aplica cuando hay efectivo.';
+    } else if (cashCents > 0 && tenderedProvided) {
+      const tendered = validateMoney(tenderedRaw, 'El monto recibido', {
+        required: true,
+        min: 0.01,
+      });
+      if (!tendered.valid) {
+        errors.amountTendered = tendered.message;
+      } else {
+        const tenderedCents = Math.round(Number(parseMoneyInput(tenderedRaw)) * 100);
+        if (tenderedCents < cashCents) {
+          errors.amountTendered =
+            'El monto recibido no puede ser menor que la porción en efectivo.';
+        }
+      }
+    }
+  }
+
   if (!Array.isArray(lines) || lines.length === 0) {
     errors.lines = 'Agrega al menos una línea a la venta.';
   } else {

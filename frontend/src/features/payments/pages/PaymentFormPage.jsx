@@ -10,7 +10,15 @@ import * as appointmentService from '@/features/appointments/services/appointmen
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
 import { formatMoneyInputDigits, parseMoneyInput } from '@/shared/utils/money';
-import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
+import { formatPaymentAmount, formatPaymentMethodName, isPaymentMethodCash } from '@/features/payments/utils/paymentFormatters';
+import {
+  SPLIT_SOURCE_AUTO,
+  addMethodSplitRow,
+  allocateMethodSplitAmounts,
+  methodSplitAllocationStatus,
+  removeMethodSplitRow,
+  setMethodSplitManualAmount,
+} from '@/features/payments/utils/allocateMethodSplitAmounts';
 import {
   validatePaymentCartForm,
   getApiErrorMessage,
@@ -37,6 +45,48 @@ import AdminFormShell, {
 
 function lineKey() {
   return `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function methodRowKey() {
+  return `M-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function emptyMethodRow() {
+  return {
+    key: methodRowKey(),
+    paymentMethodId: '',
+    amount: '',
+    source: SPLIT_SOURCE_AUTO,
+  };
+}
+
+function toAmountDisplay(n) {
+  if (!Number.isFinite(n)) return '';
+  const rounded = Math.round(n);
+  if (rounded === 0) return '';
+  const formatted = formatMoneyInputDigits(String(Math.abs(rounded)));
+  return rounded < 0 ? `-${formatted}` : formatted;
+}
+
+function rowsForAllocator(rows) {
+  return (rows || []).map((row) => {
+    const parsed = parseMoneyInput(row.amount);
+    return {
+      key: row.key,
+      paymentMethodId: row.paymentMethodId,
+      amount: Number.isFinite(parsed) ? parsed : 0,
+      source: row.source === 'manual' ? 'manual' : 'auto',
+    };
+  });
+}
+
+function displayRowsFromAllocated(allocated) {
+  return allocated.map((row) => ({
+    key: row.key,
+    paymentMethodId: row.paymentMethodId ?? '',
+    source: row.source,
+    amount: toAmountDisplay(row.amount),
+  }));
 }
 
 function appointmentLabel(a) {
@@ -67,7 +117,8 @@ export function PaymentForm({
   const methods = Array.isArray(methodsProp) && methodsProp.length ? methodsProp : methodsLocal;
 
   const [lines, setLines] = useState([]);
-  const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [methodRows, setMethodRows] = useState([emptyMethodRow()]);
+  const [amountTendered, setAmountTendered] = useState('');
   const [notes, setNotes] = useState('');
 
   const [completedAppointments, setCompletedAppointments] = useState([]);
@@ -117,6 +168,146 @@ export function PaymentForm({
       }, 0),
     [lines]
   );
+
+  // Recalcula autos cuando cambia el total (1 método = total; mixto = solo filas auto).
+  useEffect(() => {
+    setMethodRows((prev) => {
+      const allocated = allocateMethodSplitAmounts({
+        total: cartTotal,
+        rows: rowsForAllocator(prev),
+      });
+      const next = displayRowsFromAllocated(allocated);
+      const same =
+        prev.length === next.length &&
+        prev.every(
+          (row, i) =>
+            row.key === next[i].key &&
+            row.amount === next[i].amount &&
+            row.source === next[i].source &&
+            String(row.paymentMethodId) === String(next[i].paymentMethodId)
+        );
+      return same ? prev : next;
+    });
+  }, [cartTotal]);
+
+  const allocationStatus = useMemo(
+    () => methodSplitAllocationStatus(cartTotal, rowsForAllocator(methodRows)),
+    [cartTotal, methodRows]
+  );
+
+  const cashPortion = useMemo(() => {
+    return methodRows.reduce((sum, row) => {
+      const method = methods.find((m) => String(m.id) === String(row.paymentMethodId));
+      if (!isPaymentMethodCash(method)) return sum;
+      const amount = parseMoneyInput(row.amount);
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+  }, [methodRows, methods]);
+
+  const hasCashMethodSelected = useMemo(
+    () =>
+      methodRows.some((row) => {
+        const method = methods.find((m) => String(m.id) === String(row.paymentMethodId));
+        return isPaymentMethodCash(method);
+      }),
+    [methodRows, methods]
+  );
+
+  const tenderedNum = parseMoneyInput(amountTendered);
+  const changePreview = (() => {
+    if (!hasCashMethodSelected || !(cashPortion > 0)) return null;
+    if (!String(amountTendered).trim()) return 0;
+    if (!Number.isFinite(tenderedNum)) return null;
+    return Math.round((tenderedNum - cashPortion) * 100) / 100;
+  })();
+
+  useEffect(() => {
+    if (!hasCashMethodSelected && amountTendered) setAmountTendered('');
+  }, [hasCashMethodSelected, amountTendered]);
+
+  const methodLabelSummary = useMemo(() => {
+    const parts = methodRows
+      .map((row) => {
+        const method = methods.find((m) => String(m.id) === String(row.paymentMethodId));
+        if (!method) return null;
+        return formatPaymentMethodName(method.description || method.name);
+      })
+      .filter(Boolean);
+    if (parts.length === 0) return '—';
+    return parts.join(' + ');
+  }, [methodRows, methods]);
+
+  const addMethodRow = () => {
+    if (methodRows.length >= methods.length) return;
+    setMethodRows((prev) => {
+      const allocated = addMethodSplitRow({
+        total: cartTotal,
+        rows: rowsForAllocator(prev),
+        newRow: {
+          key: methodRowKey(),
+          paymentMethodId: '',
+          amount: 0,
+          source: SPLIT_SOURCE_AUTO,
+        },
+      });
+      // Conservar paymentMethodId de filas previas (el allocator ya los trae).
+      return displayRowsFromAllocated(allocated);
+    });
+    setError('');
+  };
+
+  const removeMethodRow = (key) => {
+    setMethodRows((prev) => {
+      if (prev.length <= 1) return prev;
+      const allocated = removeMethodSplitRow({
+        total: cartTotal,
+        rows: rowsForAllocator(prev),
+        key,
+      });
+      return displayRowsFromAllocated(allocated);
+    });
+    setError('');
+  };
+
+  const updateMethodRowMethod = (key, paymentMethodId) => {
+    setMethodRows((prev) =>
+      prev.map((row) => (row.key === key ? { ...row, paymentMethodId } : row))
+    );
+    setError('');
+  };
+
+  const updateMethodRowAmount = (key, displayValue) => {
+    const formatted = formatMoneyInputDigits(displayValue);
+    const parsed = parseMoneyInput(formatted);
+    setMethodRows((prev) => {
+      const allocated = setMethodSplitManualAmount({
+        total: cartTotal,
+        rows: rowsForAllocator(prev),
+        key,
+        amount: Number.isFinite(parsed) ? parsed : 0,
+      });
+      return allocated.map((row) => {
+        if (row.key === key) {
+          const prevRow = prev.find((p) => p.key === key);
+          return {
+            key: row.key,
+            paymentMethodId: prevRow?.paymentMethodId ?? row.paymentMethodId ?? '',
+            source: 'manual',
+            // Mantener lo que el usuario está escribiendo (no reformatear a mitad de tipeo).
+            amount: formatted,
+          };
+        }
+        const prevRow = prev.find((p) => p.key === row.key);
+        return {
+          key: row.key,
+          paymentMethodId: prevRow?.paymentMethodId ?? row.paymentMethodId ?? '',
+          source: row.source,
+          amount: toAmountDisplay(row.amount),
+        };
+      });
+    });
+    setError('');
+  };
 
   const addLine = (line) => {
     setLines((prev) => [...prev, { key: lineKey(), ...line }]);
@@ -282,8 +473,15 @@ export function PaymentForm({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const methodSplits = methodRows.map((row) => ({
+      paymentMethodId: row.paymentMethodId,
+      amount: row.amount,
+    }));
     const validation = validatePaymentCartForm({
-      paymentMethodId,
+      methodSplits,
+      amountTendered: hasCashMethodSelected ? amountTendered : undefined,
+      cartTotal,
+      methods,
       notes,
       lines,
     });
@@ -294,9 +492,12 @@ export function PaymentForm({
     setLoading(true);
     setError('');
     try {
-      await paymentService.createPayment({
-        paymentMethodId: parseInt(paymentMethodId, 10),
+      const payload = {
         notes: notes.trim() || undefined,
+        methodSplits: methodRows.map((row) => ({
+          paymentMethodId: parseInt(row.paymentMethodId, 10),
+          amount: parseMoneyInput(row.amount),
+        })),
         lines: lines.map((line) => {
           if (line.type === 'service') {
             return { type: 'service', appointmentId: Number(line.appointmentId) };
@@ -314,7 +515,11 @@ export function PaymentForm({
             description: line.description || line.label,
           };
         }),
-      });
+      };
+      if (hasCashMethodSelected && String(amountTendered).trim() !== '') {
+        payload.amountTendered = parseMoneyInput(amountTendered);
+      }
+      await paymentService.createPayment(payload);
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {
@@ -324,7 +529,19 @@ export function PaymentForm({
     }
   };
 
-  const selectedMethod = methods.find((m) => String(m.id) === String(paymentMethodId));
+  const isMixedMethodsUi = methodRows.length > 1;
+
+  const paymentStatusLabel = (() => {
+    if (!isMixedMethodsUi) return 'Cobro completo';
+    if (allocationStatus.kind === 'complete') return 'Completo';
+    if (allocationStatus.kind === 'short') {
+      return `Falta ${formatPaymentAmount(allocationStatus.remaining)}`;
+    }
+    return `Sobran ${formatPaymentAmount(allocationStatus.remaining)}`;
+  })();
+
+  const paymentStatusTone =
+    !isMixedMethodsUi || allocationStatus.kind === 'complete' ? 'ok' : 'warn';
 
   const handleCancel = () => {
     if (embedded || contained) onCancel?.();
@@ -332,21 +549,46 @@ export function PaymentForm({
   };
 
   const paymentAside = {
-    kicker: 'Vista previa',
-    title: 'Resumen de la venta',
+    kicker: 'Cobro',
+    title: 'Total a pagar',
     children: (
       <AdminFormPreviewPanel>
+        <div>
+          <p className="font-serif text-3xl sm:text-4xl font-medium text-gold tabular-nums leading-none tracking-tight">
+            {formatPaymentAmount(cartTotal)}
+          </p>
+          <p className="mt-2 text-xs text-stone-400">
+            {lines.length === 0
+              ? 'Primero arma el carrito'
+              : isMixedMethodsUi
+                ? 'Pago mixto'
+                : 'Un solo método'}
+          </p>
+        </div>
         <AdminFormPreviewField
-          label="Método"
-          value={selectedMethod ? formatPaymentMethodName(selectedMethod.description || selectedMethod.name) : '—'}
+          label="Forma de pago"
+          value={lines.length === 0 ? '—' : methodLabelSummary}
         />
-        <AdminFormPreviewField label="Líneas" value={String(lines.length)} />
-        <AdminFormPreviewField label="Total" value={formatPaymentAmount(cartTotal)} />
         <AdminFormPreviewField
-          label="Folio"
-          value="Automático al guardar (MKP-YYYYMMDD-######)"
-          breakAll
+          label="Estado"
+          value={lines.length === 0 ? '—' : paymentStatusLabel}
         />
+        {hasCashMethodSelected ? (
+          <>
+            <AdminFormPreviewField
+              label="En efectivo"
+              value={formatPaymentAmount(cashPortion)}
+            />
+            <AdminFormPreviewField
+              label="Vuelto"
+              value={
+                changePreview != null
+                  ? formatPaymentAmount(Math.max(0, changePreview))
+                  : formatPaymentAmount(0)
+              }
+            />
+          </>
+        ) : null}
       </AdminFormPreviewPanel>
     ),
   };
@@ -372,47 +614,17 @@ export function PaymentForm({
           </AppInlineAlert>
         ) : null}
 
+        {/* 1) Carrito — qué se cobra */}
         <AdminFormCard>
-          <AdminFormCardHeader title="Método y folio" />
-          <div className={ADMIN_FORM_GRID_CLASS}>
-            <label className="group">
-              <span className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</span>
-              <CustomSelect
-                value={paymentMethodId}
-                onChange={onCustomSelectValue(setPaymentMethodId)}
-                variant="form"
-                options={methods.map((m) => ({
-                  id: String(m.id),
-                  label: formatPaymentMethodName(m.description || m.name),
-                }))}
-                placeholder="Selecciona…"
-              />
-            </label>
-            <label className="group">
-              <span className={ADMIN_FORM_LABEL_CLASS}>Folio</span>
-              <input
-                value="Se asigna al guardar"
-                readOnly
-                disabled
-                className={`${ADMIN_FORM_FIELD_COMPACT} bg-stone-50 text-stone-500 cursor-default`}
-                aria-describedby="payment-folio-hint"
-              />
-              <p id="payment-folio-hint" className="mt-1 text-[11px] text-stone-500">
-                Formato MKP-YYYYMMDD-###### (consecutivo del día, hora Colombia).
-              </p>
-            </label>
-          </div>
-        </AdminFormCard>
-
-        <AdminFormCard>
-          <AdminFormCardHeader title="Líneas de la venta" />
-          <div className="space-y-4">
-            <div className="rounded-xl border border-stone-200 p-3 space-y-2">
-              <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
-                <CalendarCheck className="h-3.5 w-3.5 text-sky-700" /> Agregar servicio (cita)
-              </p>
+          <AdminFormCardHeader eyebrow="Paso 1" title="Qué se cobra" />
+          <div className="space-y-4 mt-1">
+            <div className="space-y-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
+                  <span className={ADMIN_FORM_LABEL_CLASS}>
+                    <CalendarCheck className="inline h-3 w-3 mr-1 text-sky-700" />
+                    Servicio (cita)
+                  </span>
                   <CustomSelect
                     value={appointmentPick}
                     onChange={onCustomSelectValue(setAppointmentPick)}
@@ -426,23 +638,28 @@ export function PaymentForm({
                     }
                   />
                 </div>
-                <button type="button" onClick={handleAddService} className="btn-admin-outline text-sm inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleAddService}
+                  className="btn-admin-outline text-sm inline-flex items-center gap-1 shrink-0"
+                >
                   <Plus className="h-3.5 w-3.5" /> Agregar
                 </button>
               </div>
-            </div>
 
-            <div className="rounded-xl border border-stone-200 p-3 space-y-2">
-              <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
-                <Package className="h-3.5 w-3.5 text-violet-700" /> Agregar producto
-              </p>
-              <div className="grid gap-2 sm:grid-cols-[1fr_6rem_auto] sm:items-end">
-                <ProductPicker
-                  value={productPick?.id ? String(productPick.id) : ''}
-                  onChange={(id, product) => {
-                    setProductPick(product || null);
-                  }}
-                />
+              <div className="grid gap-2 sm:grid-cols-[1fr_5.5rem_auto] sm:items-end">
+                <div className="min-w-0">
+                  <span className={ADMIN_FORM_LABEL_CLASS}>
+                    <Package className="inline h-3 w-3 mr-1 text-violet-700" />
+                    Producto
+                  </span>
+                  <ProductPicker
+                    value={productPick?.id ? String(productPick.id) : ''}
+                    onChange={(id, product) => {
+                      setProductPick(product || null);
+                    }}
+                  />
+                </div>
                 <label>
                   <span className={ADMIN_FORM_LABEL_CLASS}>Cant.</span>
                   <input
@@ -454,25 +671,27 @@ export function PaymentForm({
                     className={ADMIN_FORM_FIELD_COMPACT}
                   />
                 </label>
-                <button type="button" onClick={handleAddProduct} className="btn-admin-outline text-sm inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleAddProduct}
+                  className="btn-admin-outline text-sm inline-flex items-center gap-1"
+                >
                   <Plus className="h-3.5 w-3.5" /> Agregar
                 </button>
               </div>
-            </div>
 
-            <div className="rounded-xl border border-stone-200 p-3 space-y-2">
-              <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
-                <Wallet className="h-3.5 w-3.5 text-stone-700" /> Agregar caja (manual)
-              </p>
               <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
                 <label>
-                  <span className={ADMIN_FORM_LABEL_CLASS}>Descripción</span>
+                  <span className={ADMIN_FORM_LABEL_CLASS}>
+                    <Wallet className="inline h-3 w-3 mr-1 text-stone-600" />
+                    Caja (manual)
+                  </span>
                   <input
                     id={draftManualId}
                     value={manualDescription}
                     onChange={(e) => setManualDescription(e.target.value.slice(0, 200))}
                     className={ADMIN_FORM_FIELD_COMPACT}
-                    placeholder="Ej. producto sin catálogo, ajuste…"
+                    placeholder="Descripción…"
                     maxLength={200}
                   />
                 </label>
@@ -485,43 +704,55 @@ export function PaymentForm({
                     value={manualAmount}
                     onChange={(e) => setManualAmount(formatMoneyInputDigits(e.target.value))}
                     className={ADMIN_FORM_FIELD_COMPACT}
-                    placeholder="Ej. 50.000"
+                    placeholder="0"
                   />
                 </label>
-                <button type="button" onClick={handleAddManual} className="btn-admin-outline text-sm inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleAddManual}
+                  className="btn-admin-outline text-sm inline-flex items-center gap-1"
+                >
                   <Plus className="h-3.5 w-3.5" /> Agregar
                 </button>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="border-t border-stone-100 pt-3 space-y-2">
               {lines.length === 0 ? (
-                <p className="py-4 text-center text-sm text-stone-500">Aún no hay líneas en la venta.</p>
+                <p className="py-3 text-center text-sm text-stone-500">
+                  Aún no hay líneas en la venta.
+                </p>
               ) : (
                 lines.map((line) => (
                   <div
                     key={line.key}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-2.5"
+                    className="flex items-start justify-between gap-3 rounded-lg px-1 py-2 border-b border-stone-100 last:border-0"
                   >
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
-                        {line.type === 'service' ? 'Servicio' : line.type === 'product' ? 'Producto' : 'Caja'}
+                        {line.type === 'service'
+                          ? 'Servicio'
+                          : line.type === 'product'
+                            ? 'Producto'
+                            : 'Caja'}
                       </p>
                       <p className="text-sm font-medium text-stone-900 truncate">{line.label}</p>
-                      <p className="text-xs text-stone-500">
-                        {line.type === 'product'
-                          ? `${formatPaymentAmount(line.unitPrice)} × ${line.quantity}`
-                          : formatPaymentAmount(line.unitPrice)}
-                      </p>
+                      {line.type === 'product' ? (
+                        <p className="text-xs text-stone-500">
+                          {formatPaymentAmount(line.unitPrice)} × {line.quantity}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-sm font-semibold tabular-nums text-stone-900">
-                        {formatPaymentAmount((Number(line.unitPrice) || 0) * (Number(line.quantity) || 1))}
+                        {formatPaymentAmount(
+                          (Number(line.unitPrice) || 0) * (Number(line.quantity) || 1)
+                        )}
                       </span>
                       <button
                         type="button"
                         onClick={() => removeLine(line.key)}
-                        className="rounded-lg border border-stone-200 p-1.5 text-stone-500 hover:bg-white hover:text-rose-700"
+                        className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-50 hover:text-rose-700"
                         aria-label="Quitar línea"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -532,12 +763,187 @@ export function PaymentForm({
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-stone-100 pt-3">
-              <span className="text-sm font-semibold text-stone-600">Total de la venta</span>
-              <span className="font-serif text-xl font-medium text-gold tabular-nums">
+            <div className="flex items-end justify-between gap-3 rounded-xl bg-stone-50/90 border border-stone-100 px-4 py-3">
+              <div>
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-stone-500">
+                  Total a pagar
+                </p>
+                <p className="text-xs text-stone-500 mt-0.5">Suma de las líneas</p>
+              </div>
+              <p className="font-serif text-2xl sm:text-3xl font-medium text-gold tabular-nums leading-none">
                 {formatPaymentAmount(cartTotal)}
-              </span>
+              </p>
             </div>
+          </div>
+        </AdminFormCard>
+
+        {/* 2) Forma de pago — cómo se cobra */}
+        <AdminFormCard>
+          <AdminFormCardHeader eyebrow="Paso 2" title="Cómo se paga" />
+          <div className="space-y-3 mt-1">
+            {!isMixedMethodsUi ? (
+              <div className="space-y-3">
+                <label className="group block max-w-md">
+                  <span className={ADMIN_FORM_LABEL_CLASS}>Método de pago *</span>
+                  <CustomSelect
+                    value={methodRows[0]?.paymentMethodId || ''}
+                    onChange={onCustomSelectValue((v) =>
+                      updateMethodRowMethod(methodRows[0].key, v)
+                    )}
+                    variant="form"
+                    options={methods.map((m) => ({
+                      id: String(m.id),
+                      label: formatPaymentMethodName(m.description || m.name),
+                    }))}
+                    placeholder="Selecciona…"
+                  />
+                </label>
+                <p className="text-sm text-stone-600">
+                  Se cobra el total completo:{' '}
+                  <span className="font-semibold tabular-nums text-stone-900">
+                    {formatPaymentAmount(cartTotal)}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={addMethodRow}
+                  disabled={methods.length < 2 || cartTotal <= 0}
+                  className="text-sm font-semibold text-gold-dark hover:text-barber-dark underline-offset-2 hover:underline disabled:opacity-40 disabled:no-underline"
+                >
+                  Dividir en otro método
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div
+                  className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm tabular-nums ${
+                    paymentStatusTone === 'ok'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-100'
+                      : 'bg-amber-50 text-amber-900 border border-amber-100'
+                  }`}
+                >
+                  <span className="font-semibold">{paymentStatusLabel}</span>
+                  <span className="text-xs opacity-80">
+                    Total {formatPaymentAmount(cartTotal)}
+                  </span>
+                </div>
+
+                {methodRows.map((row, index) => {
+                  const usedElsewhere = new Set(
+                    methodRows
+                      .filter((r) => r.key !== row.key && r.paymentMethodId)
+                      .map((r) => String(r.paymentMethodId))
+                  );
+                  const options = methods
+                    .filter(
+                      (m) =>
+                        String(m.id) === String(row.paymentMethodId) ||
+                        !usedElsewhere.has(String(m.id))
+                    )
+                    .map((m) => ({
+                      id: String(m.id),
+                      label: formatPaymentMethodName(m.description || m.name),
+                    }));
+                  return (
+                    <div
+                      key={row.key}
+                      className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end"
+                    >
+                      <label className="group min-w-0">
+                        <span className={ADMIN_FORM_LABEL_CLASS}>Método {index + 1} *</span>
+                        <CustomSelect
+                          value={row.paymentMethodId}
+                          onChange={onCustomSelectValue((v) =>
+                            updateMethodRowMethod(row.key, v)
+                          )}
+                          variant="form"
+                          options={options}
+                          placeholder="Selecciona…"
+                        />
+                      </label>
+                      <label className="group">
+                        <span className={ADMIN_FORM_LABEL_CLASS}>
+                          Monto *
+                          {row.source === 'auto' ? (
+                            <span className="ml-1 font-medium normal-case tracking-normal text-stone-400">
+                              (resto)
+                            </span>
+                          ) : null}
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={row.amount}
+                          onChange={(e) => updateMethodRowAmount(row.key, e.target.value)}
+                          className={ADMIN_FORM_FIELD_COMPACT}
+                          placeholder="0"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeMethodRow(row.key)}
+                        className="rounded-lg border border-stone-200 p-2 text-stone-500 hover:bg-white hover:text-rose-700 self-end"
+                        aria-label="Quitar método"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={addMethodRow}
+                  disabled={methods.length === 0 || methodRows.length >= methods.length}
+                  className="btn-admin-outline text-sm inline-flex items-center gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Agregar otro método
+                </button>
+              </div>
+            )}
+
+            {hasCashMethodSelected ? (
+              <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
+                <p className="text-xs font-semibold text-stone-700">Efectivo recibido</p>
+                <div className={ADMIN_FORM_GRID_CLASS}>
+                  <label className="group">
+                    <span className={ADMIN_FORM_LABEL_CLASS}>Recibido</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={amountTendered}
+                      onChange={(e) => setAmountTendered(formatMoneyInputDigits(e.target.value))}
+                      className={ADMIN_FORM_FIELD_COMPACT}
+                      placeholder={toAmountDisplay(cashPortion) || '0'}
+                    />
+                    <p className="mt-1 text-[11px] text-stone-500">
+                      Asignado a efectivo: {formatPaymentAmount(cashPortion)}. Si dejas
+                      Recibido vacío, se asume pago exacto. El vuelto no cambia los otros
+                      métodos.
+                    </p>
+                  </label>
+                  <label className="group">
+                    <span className={ADMIN_FORM_LABEL_CLASS}>Vuelto</span>
+                    <input
+                      value={
+                        changePreview != null
+                          ? formatPaymentAmount(Math.max(0, changePreview))
+                          : formatPaymentAmount(0)
+                      }
+                      readOnly
+                      disabled
+                      className={`${ADMIN_FORM_FIELD_COMPACT} bg-white text-stone-800 cursor-default`}
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
+            <p className="text-[11px] text-stone-500">
+              Folio MKP se asigna automáticamente al guardar.
+            </p>
           </div>
         </AdminFormCard>
 

@@ -1,5 +1,5 @@
-/**
- * Contrato CustomSelect ↔ carrito de cobro.
+﻿/**
+ * Contrato CustomSelect ↔ carrito de cobro (métodos y citas).
  * CustomSelect llama onChange(option.id), no un evento nativo.
  */
 import assert from 'node:assert/strict';
@@ -27,7 +27,6 @@ describe('CustomSelect adapters (contrato de valor)', () => {
 
     selectOption(onMethod, { id: '2', label: 'Efectivo' });
     selectOption(onAppointment, { id: '15', label: 'Corte · Cliente' });
-
     assert.equal(paymentMethodId, '2');
     assert.equal(appointmentPick, '15');
   });
@@ -47,11 +46,14 @@ describe('CustomSelect adapters (contrato de valor)', () => {
   });
 });
 
-describe('Carrito: selección de método habilita el cobro', () => {
-  it('sin método seleccionado el payload de create no está listo', () => {
-    let paymentMethodId = '';
+describe('Carrito: methodSplits habilita el cobro', () => {
+  it('sin método el payload de create no está listo', () => {
+    const methodSplits = [{ paymentMethodId: '', amount: 25 }];
     const lines = [{ type: 'manual', unitPrice: 25, description: 'Caja' }];
-    assert.equal(Boolean(paymentMethodId) && lines.length > 0, false);
+    const ready =
+      methodSplits.every((s) => s.paymentMethodId) &&
+      lines.length > 0;
+    assert.equal(ready, false);
   });
 
   it('tras elegir método con onCustomSelectValue el payload queda listo', () => {
@@ -62,8 +64,21 @@ describe('Carrito: selección de método habilita el cobro', () => {
     selectOption(onMethod, { id: '1', label: 'Efectivo' });
 
     const lines = [{ type: 'manual', unitPrice: 25, description: 'Caja' }];
-    const canSubmit = Boolean(paymentMethodId) && lines.length > 0;
+    const methodSplits = [{ paymentMethodId, amount: 25 }];
+    const canSubmit =
+      methodSplits.every((s) => Boolean(s.paymentMethodId)) && lines.length > 0;
     assert.equal(canSubmit, true);
-    assert.equal(paymentMethodId, '1');
+    assert.equal(methodSplits[0].paymentMethodId, '1');
+  });
+
+  it('pago mixto: dos métodos con montos listos para enviar', () => {
+    const methodSplits = [
+      { paymentMethodId: '1', amount: 40 },
+      { paymentMethodId: '2', amount: 60 },
+    ];
+    const total = 100;
+    const sum = methodSplits.reduce((a, s) => a + s.amount, 0);
+    assert.equal(sum, total);
+    assert.equal(methodSplits.length > 1, true);
   });
 });

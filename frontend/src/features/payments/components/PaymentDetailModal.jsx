@@ -4,11 +4,16 @@ import {
   formatPaymentAmount,
   formatPaymentDateTime,
   formatPaymentMethodName,
+  formatPaymentMethodsSummary,
   getLineLabel,
+  getPaymentChangeGiven,
   getPaymentClientName,
   getPaymentConcept,
   getPaymentLines,
+  getPaymentMethodSplits,
+  getPaymentTendered,
   isLineVoided,
+  isMixedPaymentMethods,
   isPaymentVoided,
 } from '@/features/payments/utils/paymentFormatters';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
@@ -37,10 +42,14 @@ export default function PaymentDetailModal({
 
   const isVoided = isPaymentVoided(payment);
   const lines = getPaymentLines(payment);
-  const methodName = payment.paymentMethodName || payment.payment_method_name;
+  const methodSplits = getPaymentMethodSplits(payment);
+  const mixedMethods = isMixedPaymentMethods(payment);
+  const methodSummary = formatPaymentMethodsSummary(payment);
   const createdAt = payment.createdAt || payment.created_at;
   const voidedAt = payment.voidedAt || payment.voided_at;
   const voidReason = payment.voidReason || payment.void_reason;
+  const tendered = getPaymentTendered(payment);
+  const changeGiven = getPaymentChangeGiven(payment);
 
   return (
     <AdminModalShell
@@ -71,6 +80,11 @@ export default function PaymentDetailModal({
     >
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <PaymentTypeBadge payment={payment} />
+        {mixedMethods ? (
+          <span className="inline-flex rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800">
+            Pago mixto
+          </span>
+        ) : null}
         <span
           className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
             isVoided
@@ -87,15 +101,53 @@ export default function PaymentDetailModal({
 
       <DetailRow label="Fecha" value={formatPaymentDateTime(createdAt, payment.start_time)} />
       <DetailRow label="Referencia" value={payment.reference} mono />
-      <DetailRow label="Método" value={formatPaymentMethodName(methodName)} />
+      <DetailRow label="Método" value={methodSummary} />
       <DetailRow label="Cliente" value={getPaymentClientName(payment)} />
       <DetailRow label="Concepto" value={getPaymentConcept(payment)} />
       <DetailRow label="Notas" value={payment.notes} />
+      {tendered != null ? (
+        <DetailRow label="Recibido (efectivo)" value={formatPaymentAmount(tendered)} />
+      ) : null}
+      {changeGiven != null ? (
+        <DetailRow label="Vuelto" value={formatPaymentAmount(changeGiven)} />
+      ) : null}
       {isVoided ? (
         <>
           <DetailRow label="Anulado el" value={voidedAt ? formatPaymentDateTime(voidedAt) : '—'} />
           <DetailRow label="Motivo anulación" value={voidReason} />
         </>
+      ) : null}
+
+      {methodSplits.length > 1 ? (
+        <div className="mt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-2">
+            Métodos ({methodSplits.length})
+          </p>
+          <div className="space-y-1.5">
+            {methodSplits.map((split) => (
+              <div
+                key={split.id || `${split.paymentMethodId}-${split.amount}`}
+                className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2"
+              >
+                <span className="text-sm text-stone-800">
+                  {formatPaymentMethodName(
+                    split.paymentMethodName || split.payment_method_name
+                  )}
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-stone-900">
+                  {formatPaymentAmount(split.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {mixedMethods && !isVoided ? (
+        <p className="mt-4 text-xs text-amber-800 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          Este cobro usa varios métodos. No se puede anular una línea suelta: anula la venta
+          completa.
+        </p>
       ) : null}
 
       <div className="mt-5">
@@ -108,6 +160,7 @@ export default function PaymentDetailModal({
           <div className="space-y-2">
             {lines.map((line) => {
               const voided = isLineVoided(line);
+              const canVoidLine = !voided && !isVoided && !mixedMethods;
               return (
                 <div
                   key={line.id}
@@ -151,7 +204,7 @@ export default function PaymentDetailModal({
                     <span className={`text-sm font-semibold tabular-nums ${voided ? 'line-through text-stone-400' : 'text-stone-900'}`}>
                       {formatPaymentAmount(line.lineAmount ?? line.line_amount)}
                     </span>
-                    {!voided && !isVoided ? (
+                    {canVoidLine ? (
                       <AdminIconButton
                         icon={Ban}
                         label="Anular línea"

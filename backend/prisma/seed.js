@@ -50,20 +50,24 @@ async function main() {
   }
 
   const paymentMethods = [
-    { name: 'efectivo', description: 'Efectivo' },
-    { name: 'transferencia', description: 'Transferencia' },
-    { name: 'tarjeta', description: 'Tarjeta' },
+    { name: 'efectivo', description: 'Efectivo', isCash: true },
+    { name: 'transferencia', description: 'Transferencia', isCash: false },
+    { name: 'tarjeta', description: 'Tarjeta', isCash: false },
   ];
   for (const pm of paymentMethods) {
     await prisma.paymentMethod.upsert({
       where: { name: pm.name },
-      update: { description: pm.description, isActive: true },
+      update: { description: pm.description, isActive: true, isCash: pm.isCash },
       create: { ...pm, isActive: true },
     });
   }
   await prisma.paymentMethod.updateMany({
     where: { name: { notIn: ['efectivo', 'transferencia', 'tarjeta'] } },
-    data: { isActive: false },
+    data: { isActive: false, isCash: false },
+  });
+  await prisma.paymentMethod.updateMany({
+    where: { name: 'efectivo' },
+    data: { isCash: true },
   });
   console.log('✅ Métodos de pago creados');
 
