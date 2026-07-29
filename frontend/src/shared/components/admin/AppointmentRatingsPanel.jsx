@@ -4,6 +4,7 @@
 
 import { Star } from 'lucide-react';
 import RatingStars from './RatingStars';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 function StarRow({ label, count, max }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
@@ -23,11 +24,7 @@ function StarRow({ label, count, max }) {
 
 function formatRatedDate(d) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(d, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function RecentCommentsList({ recent, compact, commentsOnly }) {

@@ -406,6 +406,76 @@ export const getProfile = async (userId) => {
   return profile;
 };
 
+/**
+ * Actualiza el perfil del cliente autenticado (nombre, teléfono, correo).
+ * Sincroniza User.email y Client en la misma transacción.
+ */
+export const updateProfile = async (userId, data = {}) => {
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { role: true, client: true },
+  });
+
+  if (!dbUser) {
+    const err = new Error('Usuario no encontrado.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (dbUser.role?.name !== 'client' || !dbUser.client) {
+    const err = new Error('Solo los clientes pueden editar este perfil.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const firstName = String(data.firstName ?? '').trim();
+  const lastName = String(data.lastName ?? '').trim();
+  if (!firstName || !lastName) {
+    const err = new Error('Nombre y apellido son obligatorios.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const phoneRaw = data.phone != null ? String(data.phone).trim() : '';
+  const phone = phoneRaw || null;
+  const emailNorm = canonicalEmail(data.email);
+  if (!emailNorm) {
+    const err = new Error('Indica un correo electrónico válido.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (emailNorm !== canonicalEmail(dbUser.email)) {
+    const taken = await prisma.user.findFirst({
+      where: { email: emailNorm, NOT: { id: dbUser.id } },
+      select: { id: true },
+    });
+    if (taken) {
+      const err = new Error('Este correo electrónico ya está registrado.');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: dbUser.id },
+      data: { email: emailNorm },
+    });
+    await tx.client.update({
+      where: { id: dbUser.client.id },
+      data: {
+        firstName,
+        lastName,
+        phone,
+        email: emailNorm,
+      },
+    });
+  });
+
+  return getProfile(userId);
+};
+
 const generateToken = (userId) => {
   return jwt.sign(
     { userId },

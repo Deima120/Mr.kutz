@@ -3,6 +3,7 @@
  */
 
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -267,7 +268,7 @@ export function downloadReportExcel(report, { businessName = 'Mr. Kutz', dateFro
     body += buildTableBlock({
       title: 'Reseñas recientes',
       columns: [
-        { header: 'Fecha', accessor: (x) => (x.date ? new Date(x.date).toLocaleDateString('es-CO') : '—') },
+        { header: 'Fecha', accessor: (x) => (x.date ? formatDisplayDate(x.date, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—') },
         { header: 'Cliente', key: 'clientName', emphasis: true },
         { header: 'Servicio', key: 'serviceName' },
         { header: 'Barbero', key: 'barberName' },

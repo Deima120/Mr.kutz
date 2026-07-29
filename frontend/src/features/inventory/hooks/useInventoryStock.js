@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as productService from '@/features/inventory/services/productService';
 
-export function useInventoryStock({ page, fetchProducts, setError, onSuccessMessage }) {
+export function useInventoryStock({ page, fetchProducts, onError, onSuccess }) {
   const navigate = useNavigate();
 
   const [adjustModal, setAdjustModal] = useState(null);
@@ -25,7 +25,6 @@ export function useInventoryStock({ page, fetchProducts, setError, onSuccessMess
   const handleQuickStock = async (product, delta) => {
     if (delta <= 0) return;
     setQuickUpdating(product.id);
-    setError('');
     try {
       await productService.updateStock(product.id, {
         quantityChange: delta,
@@ -34,7 +33,7 @@ export function useInventoryStock({ page, fetchProducts, setError, onSuccessMess
       });
       await fetchProducts(page, true);
     } catch (err) {
-      setError(err?.message || 'Error al actualizar');
+      onError?.(err?.message || 'Error al actualizar');
       fetchProducts(page, true);
     } finally {
       setQuickUpdating(null);
@@ -50,11 +49,10 @@ export function useInventoryStock({ page, fetchProducts, setError, onSuccessMess
     if (!adjustModal) return;
     const qty = isEntrada ? Math.abs(adjustQty) : -Math.abs(adjustQty);
     if (!isEntrada && Math.abs(qty) > (adjustModal.quantity ?? 0)) {
-      setError('El stock no puede ser negativo.');
+      onError?.('El stock no puede ser negativo.');
       return;
     }
     setAdjustSaving(true);
-    setError('');
     try {
       await productService.updateStock(adjustModal.id, {
         quantityChange: qty,
@@ -64,7 +62,7 @@ export function useInventoryStock({ page, fetchProducts, setError, onSuccessMess
       setAdjustModal(null);
       fetchProducts(page);
     } catch (err) {
-      setError(err?.message || 'Error al actualizar stock');
+      onError?.(err?.message || 'Error al actualizar stock');
     } finally {
       setAdjustSaving(false);
     }
@@ -98,7 +96,7 @@ export function useInventoryStock({ page, fetchProducts, setError, onSuccessMess
     try {
       await productService.voidMovement(voidMovement.id, { voidReason });
       setVoidMovement(null);
-      onSuccessMessage?.('Ajuste anulado correctamente.');
+      onSuccess?.('Ajuste anulado correctamente.');
       await reloadMovements(historyModal.id);
       fetchProducts(page, true);
     } catch (err) {

@@ -68,6 +68,7 @@ Detalle interno de cada carpeta: `backend/docs/`, `backend/prisma/`, `backend/sr
 | Variables frontend | [`frontend/.env.example`](frontend/.env.example) |
 | Galería de cortes | [`frontend/CORTES-README.md`](frontend/CORTES-README.md) |
 | Modelos 3D (GLTF) | [`frontend/GLTF-README.md`](frontend/GLTF-README.md) |
+| Sistema de avisos (toast / confirm / banners) | [`frontend/docs/FEEDBACK.md`](frontend/docs/FEEDBACK.md) |
 
 ---
 

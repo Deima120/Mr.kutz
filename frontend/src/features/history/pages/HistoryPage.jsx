@@ -4,22 +4,31 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/shared/contexts/AuthContext';
+import { useAppToast } from '@/shared/feedback/ToastContext';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import { formatAppointmentCalendarDate, appointmentNotesOf, getLocalDateToday, getLocalFirstDayOfPreviousMonth } from '@/shared/utils/appointmentTime';
 import { AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
+import { formatMoney } from '@/shared/utils/money';
 
 export default function HistoryPage() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfPreviousMonth());
   const [dateTo, setDateTo] = useState(getLocalDateToday());
 
   useEffect(() => {
     if (!user?.barberId) return;
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setAppointments([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    setError('');
     appointmentService
       .getAppointments({
         dateFrom,
@@ -32,11 +41,11 @@ export default function HistoryPage() {
         setAppointments(data.appointments ?? []);
       })
       .catch((err) => {
-        setError(err?.message || 'Error al cargar historial');
+        toast.error(err?.message || 'Error al cargar historial');
         setAppointments([]);
       })
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo, user?.barberId]);
+  }, [dateFrom, dateTo, user?.barberId, toast]);
 
   const formatTime = (t) => {
     if (!t) return '';
@@ -92,12 +101,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-          {error}
-        </div>
-      )}
-
       <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
         <div className="p-6">
           {loading ? (
@@ -140,7 +143,7 @@ export default function HistoryPage() {
                             <span className="text-stone-300">—</span>
                           )}
                         </td>
-                        <td className="py-3 text-right font-medium text-stone-900">${parseFloat(a.price || 0).toFixed(2)}</td>
+                        <td className="py-3 text-right font-medium text-stone-900">{formatMoney(a.price || 0)}</td>
                       </tr>
                     );
                     })}

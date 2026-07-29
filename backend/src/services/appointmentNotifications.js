@@ -1,5 +1,5 @@
 /**
- * Notificaciones por correo cuando se crea una cita.
+ * Notificaciones por correo de citas.
  *
  * Diseño "fire-and-forget": nunca bloquea la respuesta HTTP.
  * Los errores solo se registran en consola para no frenar el flujo del usuario.
@@ -9,6 +9,10 @@ import prisma from '../lib/prisma.js';
 import {
   sendAppointmentConfirmation,
   sendAppointmentBarberNotice,
+  sendAppointmentConfirmedToClient,
+  sendAppointmentConfirmedToBarber,
+  sendAppointmentCancelledToClient,
+  sendAppointmentCancelledToBarber,
   sendAppointmentReviewRequest,
 } from '../lib/mailer.js';
 import * as settingsService from './settings.service.js';
@@ -45,66 +49,102 @@ async function resolveBarberEmail(barberId) {
   }
 }
 
-/**
- * Envía correos de confirmación al cliente y aviso al barbero.
- * Recibe la vista plana (snake_case) que devuelve appointment.service.getById().
- */
-export async function notifyAppointmentCreated(appointment) {
-  if (!appointment) return;
+function trackMail(label, promise) {
+  return promise
+    .then((r) => {
+      if (!r?.sent) {
+        console.warn(`[appointmentNotifications] ${label} no enviado:`, r?.reason || 'unknown');
+      }
+    })
+    .catch((err) => console.error(`[appointmentNotifications] ${label}:`, err?.message || err));
+}
 
+async function notifyClientAndBarber(appointment, { clientSend, barberSend, clientLabel, barberLabel }) {
+  if (!appointment) return;
   const businessName = await resolveBusinessName();
   const tasks = [];
 
-  if (appointment.client_email) {
+  if (appointment.client_email && clientSend) {
+    console.info('[appointmentNotifications] enviando cliente', {
+      label: clientLabel,
+      to: appointment.client_email,
+      appointmentId: appointment.id,
+    });
     tasks.push(
-      sendAppointmentConfirmation({
-        to: appointment.client_email,
-        appointment,
-        businessName,
-      })
-        .then((r) => {
-          if (!r?.sent) {
-            console.warn(
-              '[appointmentNotifications] Correo al cliente no enviado:',
-              r?.reason || 'unknown'
-            );
-          }
-        })
-        .catch((err) =>
-          console.error('[appointmentNotifications] cliente:', err?.message || err)
-        )
+      trackMail(
+        clientLabel,
+        clientSend({ to: appointment.client_email, appointment, businessName })
+      )
     );
+  } else if (clientSend && !appointment.client_email) {
+    console.warn('[appointmentNotifications] omitido correo cliente (sin client_email)', {
+      label: clientLabel,
+      appointmentId: appointment.id,
+    });
   }
 
   const barberEmail = await resolveBarberEmail(appointment.barber_id);
-  if (barberEmail) {
+  if (barberEmail && barberSend) {
+    console.info('[appointmentNotifications] enviando barbero', {
+      label: barberLabel,
+      to: barberEmail,
+      appointmentId: appointment.id,
+    });
     tasks.push(
-      sendAppointmentBarberNotice({
-        to: barberEmail,
-        appointment,
-        businessName,
-      })
-        .then((r) => {
-          if (!r?.sent) {
-            console.warn(
-              '[appointmentNotifications] Correo al barbero no enviado:',
-              r?.reason || 'unknown'
-            );
-          }
-        })
-        .catch((err) =>
-          console.error('[appointmentNotifications] barbero:', err?.message || err)
-        )
+      trackMail(
+        barberLabel,
+        barberSend({ to: barberEmail, appointment, businessName })
+      )
     );
+  } else if (barberSend && !barberEmail) {
+    console.warn('[appointmentNotifications] omitido correo barbero (sin email)', {
+      label: barberLabel,
+      appointmentId: appointment.id,
+      barber_id: appointment.barber_id,
+    });
   }
 
-  // No esperamos a que terminen; si falla, solo queda log.
-  Promise.allSettled(tasks);
+  await Promise.allSettled(tasks);
 }
 
 /**
- * Envía al cliente la invitación a dejar reseña cuando la cita pasa a completada.
- * Fire-and-forget: no bloquea la respuesta.
+ * Cita creada: aviso al cliente + barbero.
+ */
+export async function notifyAppointmentCreated(appointment) {
+  return notifyClientAndBarber(appointment, {
+    clientSend: sendAppointmentConfirmation,
+    barberSend: sendAppointmentBarberNotice,
+    clientLabel: 'Correo al cliente (agendada)',
+    barberLabel: 'Correo al barbero (nueva cita)',
+  });
+}
+
+/**
+ * Cita confirmada por el negocio.
+ */
+export async function notifyAppointmentConfirmed(appointment) {
+  return notifyClientAndBarber(appointment, {
+    clientSend: sendAppointmentConfirmedToClient,
+    barberSend: sendAppointmentConfirmedToBarber,
+    clientLabel: 'Correo al cliente (confirmada)',
+    barberLabel: 'Correo al barbero (confirmada)',
+  });
+}
+
+/**
+ * Cita cancelada (incluye cancel_reason en plantilla).
+ */
+export async function notifyAppointmentCancelled(appointment) {
+  return notifyClientAndBarber(appointment, {
+    clientSend: sendAppointmentCancelledToClient,
+    barberSend: sendAppointmentCancelledToBarber,
+    clientLabel: 'Correo al cliente (cancelada)',
+    barberLabel: 'Correo al barbero (cancelada)',
+  });
+}
+
+/**
+ * Invita al cliente a dejar reseña cuando la cita pasa a completada.
  */
 export async function notifyAppointmentCompleted(appointment) {
   if (!appointment || !appointment.client_email) return;
@@ -112,21 +152,13 @@ export async function notifyAppointmentCompleted(appointment) {
   const base = resolvePublicBaseUrl();
   const reviewUrl = base ? `${base}/appointments` : undefined;
 
-  sendAppointmentReviewRequest({
-    to: appointment.client_email,
-    appointment,
-    businessName,
-    reviewUrl,
-  })
-    .then((r) => {
-      if (!r?.sent) {
-        console.warn(
-          '[appointmentNotifications] Correo de valoración no enviado:',
-          r?.reason || 'unknown'
-        );
-      }
+  trackMail(
+    'Correo de valoración',
+    sendAppointmentReviewRequest({
+      to: appointment.client_email,
+      appointment,
+      businessName,
+      reviewUrl,
     })
-    .catch((err) =>
-      console.error('[appointmentNotifications] valoración:', err?.message || err)
-    );
+  );
 }

@@ -1,17 +1,14 @@
 import { formatAppointmentClockTime } from '@/shared/utils/appointmentTime';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
+/** Alias de dominio → helper canónico COP. */
 export function formatPaymentAmount(n) {
   return formatMoney(n);
 }
 
 export function formatPaymentDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(d);
 }
 
 export function formatPaymentDateTime(d, time) {
@@ -49,7 +46,7 @@ export function getPaymentConcept(payment) {
   if (payment?.service_name || payment?.serviceName) {
     return payment.service_name || payment.serviceName;
   }
-  return 'Cobro en caja';
+  return 'Venta en caja';
 }
 
 export function getPaymentClientName(payment) {
@@ -73,7 +70,7 @@ export function getLineLabel(line) {
   if (line.lineType === 'service' || line.type === 'service') {
     return line.serviceName || line.description || 'Servicio';
   }
-  return line.description || 'Cobro manual';
+  return line.description || 'Venta manual';
 }
 
 export function isPaymentVoided(payment) {

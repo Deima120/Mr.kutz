@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
+import { useAppToast } from '@/shared/feedback/ToastContext';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import * as dashboardService from '@/features/dashboard/services/dashboardService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import { appointmentNotesOf } from '@/shared/utils/appointmentTime';
@@ -20,6 +22,7 @@ import {
 } from '@/features/dashboard/components/AdminDashboardCharts';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -32,19 +35,17 @@ const STATUS_LABELS = {
 
 function BarberDashboard() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [ratingSummary, setRatingSummary] = useState(null);
   const [ratingLoading, setRatingLoading] = useState(true);
-  const [ratingError, setRatingError] = useState('');
   const [ratingPeriod, setRatingPeriod] = useState('30');
   const today = getLocalDateToday();
 
   const refreshAll = async () => {
     if (!user?.barberId) return;
     setLoading(true);
-    setError('');
     try {
       const data = await appointmentService.getAppointments({
         date: today,
@@ -52,7 +53,7 @@ function BarberDashboard() {
       });
       setAppointments((data.appointments ?? []).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))));
     } catch (err) {
-      setError(err?.message || 'Error al cargar citas');
+      toast.error(err?.message || 'Error al cargar citas');
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -65,7 +66,6 @@ function BarberDashboard() {
 
   const fetchRatingSummary = async () => {
     setRatingLoading(true);
-    setRatingError('');
     try {
       const params = {};
       if (ratingPeriod && ratingPeriod !== 'all') {
@@ -77,7 +77,7 @@ function BarberDashboard() {
       const data = await appointmentService.getAppointmentRatingSummary(params);
       setRatingSummary(data && typeof data === 'object' ? data : null);
     } catch (err) {
-      setRatingError(err?.message || 'Error al cargar valoraciones');
+      toast.error(err?.message || 'Error al cargar valoraciones');
       setRatingSummary(null);
     } finally {
       setRatingLoading(false);
@@ -124,7 +124,12 @@ function BarberDashboard() {
           Mi día
         </h1>
         <p className="text-stone-500">
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {formatDisplayDate(new Date(), {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: undefined,
+          })}
         </p>
         <div className="mt-4">
           <Link
@@ -136,12 +141,6 @@ function BarberDashboard() {
           </Link>
         </div>
       </div>
-
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-          {error}
-        </div>
-      )}
 
       <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-stone-100 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
@@ -165,7 +164,7 @@ function BarberDashboard() {
           <AppointmentRatingsPanel
             summary={ratingSummary}
             loading={ratingLoading}
-            error={ratingError}
+            error={null}
             compact
             recentLimit={6}
             emptyHint="Cuando los clientes valoren citas completadas, verás aquí el promedio, la distribución y los comentarios."
@@ -260,26 +259,24 @@ function BarberDashboard() {
 function AdminDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useAppToast();
 
   const [stats, setStats] = useState(null);
   const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfMonth());
   const [dateTo, setDateTo] = useState(getLocalDateToday());
   const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState('');
 
   const today = getLocalDateToday();
   const [appointments, setAppointments] = useState([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
-  const [appointmentsError, setAppointmentsError] = useState('');
 
   const refreshAppointments = async () => {
     setAppointmentsLoading(true);
-    setAppointmentsError('');
     try {
       const data = await appointmentService.getAppointments({ date: today });
       setAppointments((data.appointments ?? []).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))));
     } catch (err) {
-      setAppointmentsError(err?.message || 'Error al cargar citas');
+      toast.error(err?.message || 'Error al cargar citas');
       setAppointments([]);
     } finally {
       setAppointmentsLoading(false);
@@ -287,14 +284,20 @@ function AdminDashboard() {
   };
 
   const fetchStats = async () => {
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setStats(null);
+      setStatsLoading(false);
+      return;
+    }
     setStatsLoading(true);
-    setStatsError('');
     try {
       const data = await dashboardService.getStats({ dateFrom, dateTo });
       setStats(data);
     } catch (err) {
       setStats(null);
-      setStatsError(err?.message || 'Error al cargar estadísticas');
+      toast.error(err?.message || 'Error al cargar estadísticas');
     } finally {
       setStatsLoading(false);
     }
@@ -313,7 +316,7 @@ function AdminDashboard() {
       await appointmentService.updateAppointment(id, { status: 'completed' });
       navigate(`/payments/new?appointmentId=${id}`);
     } catch (err) {
-      setAppointmentsError(err?.message || 'Error al actualizar');
+      toast.error(err?.message || 'Error al actualizar');
     }
   };
 
@@ -368,7 +371,7 @@ function AdminDashboard() {
             Hola, {user?.firstName || 'administrador'}
           </h1>
           <p className="text-stone-600 mt-1">
-            {new Date().toLocaleDateString('es-CO', {
+            {formatDisplayDate(new Date(), {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
@@ -402,17 +405,6 @@ function AdminDashboard() {
 
       {(statsLoading || appointmentsLoading) && (
         <div className="empty-state py-16">Cargando panel…</div>
-      )}
-
-      {statsError && (
-        <div className="alert-error" role="alert">
-          {statsError}
-        </div>
-      )}
-      {appointmentsError && (
-        <div className="alert-error" role="alert">
-          {appointmentsError}
-        </div>
       )}
 
       {!statsLoading && stats && (
@@ -528,7 +520,12 @@ function AdminDashboard() {
             <DashboardCard
               className="lg:col-span-4"
               title="Citas de hoy"
-              subtitle={new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+              subtitle={formatDisplayDate(new Date(), {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: undefined,
+              })}
               variant="soft"
             >
               {appointmentsLoading ? (

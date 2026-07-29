@@ -4,15 +4,25 @@
 
 import prisma from '../lib/prisma.js';
 import { getInventoryInsights } from './product.service.js';
+import {
+  APP_TIMEZONE,
+  addDaysToYmd,
+  colombiaDayBounds,
+  colombiaRangeBounds,
+  formatInstantYmdInColombia,
+  getColombiaNowParts,
+  getColombiaTodayYmd,
+  getColombiaWeekday,
+  ymdToUtcDate,
+} from '../utils/colombiaTime.js';
 
 export const getStats = async (dateFrom, dateTo) => {
-  const from = dateFrom || new Date().toISOString().slice(0, 10);
+  const from = dateFrom || getColombiaTodayYmd();
   const to = dateTo || from;
 
-  const [fy, fm, fd] = from.split('-').map(Number);
-  const [ty, tm, td] = to.split('-').map(Number);
-  const fromDate = new Date(fy, (fm || 1) - 1, fd || 1, 0, 0, 0, 0);
-  const toDate = new Date(ty, (tm || 1) - 1, td || 1, 23, 59, 59, 999);
+  const { start: fromDate, end: toDate } = colombiaRangeBounds(from, to);
+  const apptFrom = ymdToUtcDate(from);
+  const apptTo = ymdToUtcDate(to);
 
   const [sales, appointments, servicesTop, barbersTop, inventoryInsights, clientsCount] = await Promise.all([
     prisma.payment.aggregate({
@@ -25,19 +35,19 @@ export const getStats = async (dateFrom, dateTo) => {
     }),
     prisma.appointment.groupBy({
       by: ['status'],
-      where: { appointmentDate: { gte: fromDate, lte: toDate } },
+      where: { appointmentDate: { gte: apptFrom, lte: apptTo } },
       _count: { _all: true },
     }),
     prisma.appointment.findMany({
       where: {
-        appointmentDate: { gte: fromDate, lte: toDate },
+        appointmentDate: { gte: apptFrom, lte: apptTo },
         status: 'completed',
       },
       include: { service: { select: { name: true } } },
     }),
     prisma.appointment.findMany({
       where: {
-        appointmentDate: { gte: fromDate, lte: toDate },
+        appointmentDate: { gte: apptFrom, lte: apptTo },
         status: 'completed',
       },
       include: { barber: { select: { firstName: true, lastName: true } } },
@@ -121,7 +131,7 @@ function previousRange(fromStr, toStr) {
  * Incluye resumen de valoraciones del periodo.
  */
 export const getReport = async (dateFrom, dateTo) => {
-  const from = dateFrom || new Date().toISOString().slice(0, 10);
+  const from = dateFrom || getColombiaTodayYmd();
   const to = dateTo || from;
 
   const [current, prev] = await Promise.all([
@@ -132,10 +142,7 @@ export const getReport = async (dateFrom, dateTo) => {
     })(),
   ]);
 
-  const [fy, fm, fd] = String(from).split('-').map(Number);
-  const [ty, tm, td] = String(to).split('-').map(Number);
-  const fromDate = new Date(Date.UTC(fy, (fm || 1) - 1, fd || 1, 0, 0, 0));
-  const toDateEnd = new Date(Date.UTC(ty, (tm || 1) - 1, td || 1, 23, 59, 59, 999));
+  const { start: fromDate, end: toDateEnd } = colombiaRangeBounds(from, to);
 
   const ratingsRows = await prisma.appointment.findMany({
     where: {
@@ -194,23 +201,17 @@ export const getReport = async (dateFrom, dateTo) => {
   };
 };
 
-/** Fecha local YYYY-MM-DD */
+/** @deprecated usar colombiaDayBounds / formatInstantYmdInColombia */
 function formatYMD(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return formatInstantYmdInColombia(d);
 }
 
 function ymdBounds(ymdStr) {
-  const [y, m, d] = ymdStr.split('-').map(Number);
-  return {
-    start: new Date(y, m - 1, d, 0, 0, 0, 0),
-    end: new Date(y, m - 1, d, 23, 59, 59, 999),
-  };
+  return colombiaDayBounds(ymdStr);
 }
 
 function ymdRangeBounds(fromStr, toStr) {
-  const a = ymdBounds(fromStr);
-  const b = ymdBounds(toStr);
-  return { start: a.start, end: b.end };
+  return colombiaRangeBounds(fromStr, toStr);
 }
 
 /**
@@ -222,25 +223,31 @@ export const getBarberStats = async (barberId) => {
   if (!bid || Number.isNaN(bid)) return null;
 
   const now = new Date();
-  const todayStr = formatYMD(now);
+  const todayStr = getColombiaTodayYmd(now);
+  const parts = getColombiaNowParts(now);
 
-  const calDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dow = calDay.getDay();
+  const dow = getColombiaWeekday(now);
   const offset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(calDay);
-  monday.setDate(calDay.getDate() + offset);
-  const weekStartStr = formatYMD(monday);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const weekEndStr = formatYMD(sunday);
+  const weekStartStr = addDaysToYmd(todayStr, offset);
+  const weekEndStr = addDaysToYmd(weekStartStr, 6);
 
-  const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const monthEndStr = formatYMD(lastDayMonth);
+  const monthStartStr = `${parts.year}-${String(parts.month).padStart(2, '0')}-01`;
+  const nextMonthStart =
+    parts.month === 12
+      ? `${parts.year + 1}-01-01`
+      : `${parts.year}-${String(parts.month + 1).padStart(2, '0')}-01`;
+  const monthEndStr = addDaysToYmd(nextMonthStart, -1);
 
   const { start: dayS, end: dayE } = ymdBounds(todayStr);
   const { start: weekS, end: weekE } = ymdRangeBounds(weekStartStr, weekEndStr);
   const { start: monthS, end: monthE } = ymdRangeBounds(monthStartStr, monthEndStr);
+
+  const apptDayS = ymdToUtcDate(todayStr);
+  const apptDayE = ymdToUtcDate(todayStr);
+  const apptWeekS = ymdToUtcDate(weekStartStr);
+  const apptWeekE = ymdToUtcDate(weekEndStr);
+  const apptMonthS = ymdToUtcDate(monthStartStr);
+  const apptMonthE = ymdToUtcDate(monthEndStr);
 
   const barberWhere = { barberId: bid };
 
@@ -265,22 +272,22 @@ export const getBarberStats = async (barberId) => {
     return Number(r._sum?.lineAmount ?? 0);
   };
 
-  const cutsBetween = async (start, end) =>
+  const cutsBetween = async (startAppt, endAppt) =>
     prisma.appointment.count({
       where: {
         ...barberWhere,
         status: 'completed',
-        appointmentDate: { gte: start, lte: end },
+        appointmentDate: { gte: startAppt, lte: endAppt },
       },
     });
 
-  const distinctClientsBetween = async (start, end) => {
+  const distinctClientsBetween = async (startAppt, endAppt) => {
     const rows = await prisma.appointment.groupBy({
       by: ['clientId'],
       where: {
         ...barberWhere,
         status: 'completed',
-        appointmentDate: { gte: start, lte: end },
+        appointmentDate: { gte: startAppt, lte: endAppt },
       },
     });
     return rows.length;
@@ -290,7 +297,7 @@ export const getBarberStats = async (barberId) => {
     by: ['status'],
     where: {
       ...barberWhere,
-      appointmentDate: { gte: dayS, lte: dayE },
+      appointmentDate: { gte: apptDayS, lte: apptDayE },
     },
     _count: { _all: true },
   });
@@ -307,22 +314,22 @@ export const getBarberStats = async (barberId) => {
 
   const chartDays = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    chartDays.push(formatYMD(d));
+    chartDays.push(addDaysToYmd(todayStr, -i));
   }
   const chartRangeStart = ymdBounds(chartDays[0]).start;
+  const apptChartStart = ymdToUtcDate(chartDays[0]);
 
   const [revDay, revWeek, revMonth, cutsDay, cutsWeek, cutsMonth, cliDay, cliWeek, cliMonth, payList, completedList] =
     await Promise.all([
       revenueBetween(dayS, dayE),
       revenueBetween(weekS, weekE),
       revenueBetween(monthS, monthE),
-      cutsBetween(dayS, dayE),
-      cutsBetween(weekS, weekE),
-      cutsBetween(monthS, monthE),
-      distinctClientsBetween(dayS, dayE),
-      distinctClientsBetween(weekS, weekE),
-      distinctClientsBetween(monthS, monthE),
+      cutsBetween(apptDayS, apptDayE),
+      cutsBetween(apptWeekS, apptWeekE),
+      cutsBetween(apptMonthS, apptMonthE),
+      distinctClientsBetween(apptDayS, apptDayE),
+      distinctClientsBetween(apptWeekS, apptWeekE),
+      distinctClientsBetween(apptMonthS, apptMonthE),
       prisma.paymentLine.findMany({
         where: serviceLineWhere(chartRangeStart, dayE),
         select: {
@@ -334,7 +341,7 @@ export const getBarberStats = async (barberId) => {
         where: {
           ...barberWhere,
           status: 'completed',
-          appointmentDate: { gte: chartRangeStart, lte: dayE },
+          appointmentDate: { gte: apptChartStart, lte: apptDayE },
         },
         select: { appointmentDate: true },
       }),
@@ -346,19 +353,27 @@ export const getBarberStats = async (barberId) => {
   payList.forEach((line) => {
     const createdAt = line.payment?.createdAt;
     if (!createdAt) return;
-    const k = formatYMD(new Date(createdAt));
+    const k = formatInstantYmdInColombia(createdAt);
     if (Object.prototype.hasOwnProperty.call(revMap, k)) {
       revMap[k] += Number(line.lineAmount);
     }
   });
   completedList.forEach((a) => {
-    const k = formatYMD(new Date(a.appointmentDate));
-    if (Object.prototype.hasOwnProperty.call(cutMap, k)) cutMap[k] += 1;
+    const raw = a.appointmentDate;
+    const ymd =
+      raw instanceof Date
+        ? `${raw.getUTCFullYear()}-${String(raw.getUTCMonth() + 1).padStart(2, '0')}-${String(raw.getUTCDate()).padStart(2, '0')}`
+        : String(raw || '').slice(0, 10);
+    if (Object.prototype.hasOwnProperty.call(cutMap, ymd)) cutMap[ymd] += 1;
   });
 
   const chart7d = chartDays.map((date) => ({
     date,
-    label: new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }),
+    label: new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', {
+      timeZone: APP_TIMEZONE,
+      weekday: 'short',
+      day: 'numeric',
+    }),
     revenue: Math.round(revMap[date] * 100) / 100,
     cuts: cutMap[date],
   }));

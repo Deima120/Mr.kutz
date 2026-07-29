@@ -14,6 +14,7 @@ import { validateAppointmentForm, getApiErrorMessage, CLIENT_NOTES_MAX } from '@
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -32,10 +33,71 @@ import {
   formatAppointmentCalendarDate,
   getLocalDateToday,
 } from '@/shared/utils/appointmentTime';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  APPOINTMENT_HORIZON_DAYS_STAFF,
+  getAppointmentDateBounds,
+  validateAppointmentDateYmd,
+} from '@/shared/utils/dateRange';
+import { getColombiaNowParts } from '@/shared/utils/colombiaTime';
+import { formatMoneyOrDash } from '@/shared/utils/money';
+
+/** True si HH:MM ya pasó en el día de hoy (hora Colombia). */
+function isClockTimePastToday(timeStr) {
+  const m = String(timeStr || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return false;
+  const now = getColombiaNowParts();
+  const slotMins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const nowMins = now.hour * 60 + now.minute;
+  return slotMins <= nowMins;
+}
+
+function normalizeServiceLabel(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+/**
+ * Prefill de servicios al editar: prioriza `service_ids`; si el backend viejo no los manda,
+ * intenta recuperarlos desde `service_name` ("A, B, C") contra el catálogo cargado.
+ */
+function resolveLoadedServiceIds(appointment, catalog = []) {
+  if (Array.isArray(appointment?.service_ids) && appointment.service_ids.length) {
+    return appointment.service_ids.map((id) => String(id));
+  }
+
+  const label = String(appointment?.service_name || '').trim();
+  if (label.includes(',') && catalog.length) {
+    const parts = label
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const byName = new Map(
+      catalog.map((s) => [normalizeServiceLabel(s.name), s]),
+    );
+    const matched = parts
+      .map((part) => byName.get(normalizeServiceLabel(part)))
+      .filter(Boolean);
+    if (matched.length >= 2) {
+      return matched.map((s) => String(s.id));
+    }
+  }
+
+  if (appointment?.service_id) return [String(appointment.service_id)];
+  return [];
+}
 
 const FORM_FIELD_CLASS =
   'w-full px-3.5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-[15px] text-stone-900 placeholder-stone-400 transition-all duration-200 min-h-[42px] ' +
   'bg-stone-50/90 border border-stone-200/90 focus:bg-white focus:border-gold/50 focus:ring-2 focus:ring-gold/20 outline-none';
+
+/** Máximo de servicios por cita; para más, el usuario debe crear otra cita. */
+const MAX_SERVICES_PER_APPOINTMENT = 3;
+const MAX_SERVICES_MESSAGE =
+  'Para agendar más servicios debes crear otra cita.';
 
 const FORM_FILTER_CLASS =
   'w-full pl-9 pr-3.5 py-2 rounded-xl text-sm text-stone-900 placeholder-stone-400 transition-all duration-200 min-h-[38px] ' +
@@ -63,12 +125,6 @@ const FORM_LABEL_CLASS =
 
 function PreviewField({ label, value, multiline = false }) {
   return <AdminFormPreviewField label={label} value={value} multiline={multiline} />;
-}
-
-function formatPrice(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
 export default function AppointmentForm({
@@ -109,7 +165,10 @@ export default function AppointmentForm({
   const [serviceFilter, setServiceFilter] = useState('');
 
   const selectedServices = useMemo(
-    () => services.filter((s) => formData.serviceIds.includes(String(s.id))),
+    () =>
+      formData.serviceIds
+        .map((id) => services.find((s) => String(s.id) === String(id)))
+        .filter(Boolean),
     [services, formData.serviceIds],
   );
 
@@ -123,11 +182,11 @@ export default function AppointmentForm({
     [selectedServices],
   );
 
-  const dateInputMin = useMemo(() => {
-    const today = getLocalDateToday();
-    if (!isEdit || !formData.appointmentDate) return today;
-    return formData.appointmentDate < today ? formData.appointmentDate : today;
-  }, [isEdit, formData.appointmentDate]);
+  const dateInputMin = useMemo(() => getLocalDateToday(), []);
+  const dateInputMax = useMemo(() => {
+    const horizon = isClient ? APPOINTMENT_HORIZON_DAYS_PUBLIC : APPOINTMENT_HORIZON_DAYS_STAFF;
+    return getAppointmentDateBounds({ horizonDays: horizon }).max;
+  }, [isClient]);
 
   const selectedClient = useMemo(() => {
     if (isClient) {
@@ -187,13 +246,23 @@ export default function AppointmentForm({
           setLoadError('Esta cita ya no se puede modificar.');
           return;
         }
-        const apptDate = extractAppointmentDateYmd(a.appointment_date);
+        const today = getLocalDateToday();
+        let apptDate = extractAppointmentDateYmd(a.appointment_date);
+        let startTime = formatAppointmentClockTime(a.start_time);
+        // No permitir fechas u horas ya pasadas al editar
+        if (!apptDate || apptDate < today) {
+          apptDate = today;
+          startTime = '';
+        } else if (apptDate === today && startTime && isClockTimePastToday(startTime)) {
+          startTime = '';
+        }
+        const loadedServiceIds = resolveLoadedServiceIds(a, services);
         setFormData({
           clientId: String(a.client_id ?? ''),
           barberId: String(a.barber_id ?? ''),
-          serviceIds: a.service_id ? [String(a.service_id)] : [],
+          serviceIds: loadedServiceIds,
           appointmentDate: apptDate,
-          startTime: formatAppointmentClockTime(a.start_time),
+          startTime,
           notes: a.notes ?? '',
         });
       })
@@ -206,42 +275,62 @@ export default function AppointmentForm({
     return () => {
       cancelled = true;
     };
+    // `services` se lee del render en que `dataLoaded` pasa a true (mismo batch que setServices).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- evitar resetear el form si cambia la ref del catálogo
   }, [isEdit, editId, dataLoaded]);
 
   const slotOptions = useMemo(() => {
+    const today = getLocalDateToday();
     const raw = Array.isArray(slots) ? slots : [];
-    const list = [
+    let list = [
       ...new Set(
         raw
           .map((x) => formatAppointmentClockTime(x) || String(x).trim())
           .filter(Boolean),
       ),
     ];
+    // Si la fecha es hoy, ocultar horas que ya pasaron
+    if (formData.appointmentDate === today) {
+      list = list.filter((t) => !isClockTimePastToday(t));
+    }
     const selected = formData.startTime
       ? formatAppointmentClockTime(formData.startTime) || formData.startTime.trim()
       : '';
-    if (selected && !list.includes(selected)) list.push(selected);
+    // Solo conservar la hora elegida si sigue siendo válida (no pasada)
+    if (
+      selected &&
+      !list.includes(selected) &&
+      !(formData.appointmentDate === today && isClockTimePastToday(selected))
+    ) {
+      list.push(selected);
+    }
     list.sort((x, y) => x.localeCompare(y, 'es'));
     return list;
-  }, [slots, formData.startTime]);
+  }, [slots, formData.startTime, formData.appointmentDate]);
+
+  // Si la hora seleccionada quedó en el pasado (p. ej. día de hoy), limpiarla
+  useEffect(() => {
+    const today = getLocalDateToday();
+    if (
+      formData.appointmentDate === today &&
+      formData.startTime &&
+      isClockTimePastToday(formData.startTime)
+    ) {
+      setFormData((prev) => ({ ...prev, startTime: '' }));
+    }
+  }, [formData.appointmentDate, formData.startTime, slots]);
 
   const filteredPickerServices = useMemo(() => {
     const q = serviceFilter.trim().toLowerCase();
     const list = services.filter((s) => {
-      if (!isEdit && formData.serviceIds.includes(String(s.id))) return false;
+      if (formData.serviceIds.includes(String(s.id))) return false;
       if (!q) return true;
       const name = String(s.name || '').toLowerCase();
       const category = String(s.category_name || s.categoryName || '').toLowerCase();
       return name.includes(q) || category.includes(q);
     });
-    if (isEdit && formData.serviceIds[0]) {
-      const selected = services.find((s) => String(s.id) === String(formData.serviceIds[0]));
-      if (selected && !list.some((s) => String(s.id) === String(selected.id))) {
-        return [selected, ...list];
-      }
-    }
     return list;
-  }, [services, formData.serviceIds, serviceFilter, isEdit]);
+  }, [services, formData.serviceIds, serviceFilter]);
 
   useEffect(() => {
     if (formData.barberId && formData.appointmentDate) {
@@ -266,8 +355,13 @@ export default function AppointmentForm({
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === 'notes' && value.length > CLIENT_NOTES_MAX) return;
-    const nextValue =
+    let nextValue =
       name === 'startTime' && value ? formatAppointmentClockTime(value) || value : value;
+    if (name === 'appointmentDate' && value) {
+      const today = getLocalDateToday();
+      if (value < today) nextValue = today;
+      else if (value > dateInputMax) nextValue = dateInputMax;
+    }
     setFormData((prev) => {
       const next = { ...prev, [name]: nextValue };
       if (
@@ -292,9 +386,18 @@ export default function AppointmentForm({
 
   const addService = () => {
     if (!servicePicker) return;
+    if (formData.serviceIds.length >= MAX_SERVICES_PER_APPOINTMENT) {
+      setError(MAX_SERVICES_MESSAGE);
+      markTouched('serviceIds');
+      return;
+    }
     setFormData((prev) => {
       if (prev.serviceIds.includes(servicePicker)) return prev;
-      return { ...prev, serviceIds: [...prev.serviceIds, servicePicker], startTime: isEdit ? prev.startTime : '' };
+      return {
+        ...prev,
+        serviceIds: [...prev.serviceIds, servicePicker],
+        startTime: isEdit ? prev.startTime : '',
+      };
     });
     setServicePicker('');
     setError('');
@@ -303,22 +406,38 @@ export default function AppointmentForm({
   };
 
   const addServiceById = (id) => {
+    if (formData.serviceIds.length >= MAX_SERVICES_PER_APPOINTMENT) {
+      setError(MAX_SERVICES_MESSAGE);
+      markTouched('serviceIds');
+      return;
+    }
     const sid = String(id);
     setFormData((prev) => {
       if (prev.serviceIds.includes(sid)) return prev;
-      return { ...prev, serviceIds: [...prev.serviceIds, sid], startTime: isEdit ? prev.startTime : '' };
+      return {
+        ...prev,
+        serviceIds: [...prev.serviceIds, sid],
+        startTime: isEdit ? prev.startTime : '',
+      };
     });
     setError('');
+    clearFieldError('serviceIds');
+    markTouched('serviceIds');
   };
 
   const removeService = (id) => {
     setFormData((prev) => ({
       ...prev,
       serviceIds: prev.serviceIds.filter((sid) => sid !== id),
+      // En edición, al quitar un servicio se conserva la hora; el cliente la cambia solo si quiere
       startTime: isEdit ? prev.startTime : '',
     }));
-    setError('');
+    setError((prev) => (prev === MAX_SERVICES_MESSAGE ? '' : prev));
+    clearFieldError('serviceIds');
+    markTouched('serviceIds');
   };
+
+  const atMaxServices = formData.serviceIds.length >= MAX_SERVICES_PER_APPOINTMENT;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -337,6 +456,7 @@ export default function AppointmentForm({
         let payload;
         if (isClient) {
           payload = {
+            serviceIds: formData.serviceIds.map((id) => parseInt(id, 10)),
             appointmentDate: formData.appointmentDate,
             startTime: formData.startTime || undefined,
             notes: formData.notes?.trim() ? formData.notes.trim() : undefined,
@@ -345,7 +465,7 @@ export default function AppointmentForm({
           payload = {
             clientId: parseInt(formData.clientId, 10),
             barberId: parseInt(formData.barberId, 10),
-            serviceId: parseInt(formData.serviceIds[0], 10),
+            serviceIds: formData.serviceIds.map((id) => parseInt(id, 10)),
             appointmentDate: formData.appointmentDate,
             startTime: formData.startTime || undefined,
             notes: formData.notes?.trim() ? formData.notes.trim() : undefined,
@@ -425,7 +545,7 @@ export default function AppointmentForm({
               {selectedServices.map((s) => (
                 <li key={s.id} className="text-sm text-stone-200 flex justify-between gap-2">
                   <span className="truncate">{s.name}</span>
-                  <span className="text-gold tabular-nums shrink-0 text-sm">{formatPrice(s.price)}</span>
+                  <span className="text-gold tabular-nums shrink-0 text-sm">{formatMoneyOrDash(s.price)}</span>
                 </li>
               ))}
             </ul>
@@ -434,7 +554,7 @@ export default function AppointmentForm({
         {selectedServices.length > 0 && (
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-stone-700/80">
             <span className="text-stone-400 text-sm">{totalDuration} min</span>
-            <span className="text-gold font-semibold tabular-nums text-base">{formatPrice(totalPrice)}</span>
+            <span className="text-gold font-semibold tabular-nums text-base">{formatMoneyOrDash(totalPrice)}</span>
           </div>
         )}
         {formData.notes && (
@@ -446,7 +566,7 @@ export default function AppointmentForm({
 
   const fieldClass = isClient ? FORM_FIELD_CLASS : ADMIN_FORM_FIELD_COMPACT;
   const labelClass = isClient ? FORM_LABEL_CLASS : ADMIN_FORM_LABEL_CLASS;
-  const selectVariant = isClient ? 'public' : 'formCompact';
+  const selectVariant = isClient ? 'public' : 'form';
 
   const clientValidation = useMemo(
     () =>
@@ -462,13 +582,19 @@ export default function AppointmentForm({
         : { valid: false, message: 'Selecciona un barbero.' },
     [formData.barberId]
   );
-  const dateValidation = useMemo(
-    () =>
-      formData.appointmentDate
-        ? { valid: true, message: '' }
-        : { valid: false, message: 'Selecciona una fecha.' },
-    [formData.appointmentDate]
-  );
+  const dateValidation = useMemo(() => {
+    if (!formData.appointmentDate) {
+      return { valid: false, message: 'Selecciona una fecha.' };
+    }
+    const horizonDays = isClient ? APPOINTMENT_HORIZON_DAYS_PUBLIC : APPOINTMENT_HORIZON_DAYS_STAFF;
+    const check = validateAppointmentDateYmd(
+      formData.appointmentDate,
+      getAppointmentDateBounds({ horizonDays })
+    );
+    return check.ok
+      ? { valid: true, message: '' }
+      : { valid: false, message: check.message };
+  }, [formData.appointmentDate, isClient]);
   const timeValidation = useMemo(
     () =>
       formData.startTime
@@ -525,79 +651,66 @@ export default function AppointmentForm({
   const servicesField = (
     <div className="group">
       <label className={labelClass}>Servicios *</label>
-      {!isEdit ? (
-        <>
-          <div className="flex gap-2.5">
-            <CustomSelect
-              value={servicePicker}
-              onChange={setServicePicker}
-              placeholder={
-                !dataLoaded ? 'Cargando...' : services.length === 0 ? 'Sin servicios' : 'Agregar servicio...'
-              }
-              variant={selectVariant}
-              className="flex-1 min-w-0"
-              disabled={!dataLoaded || services.length === 0}
-              options={services
-                .filter((s) => !formData.serviceIds.includes(String(s.id)))
-                .map((s) => ({
-                  id: String(s.id),
-                  label: `${s.name} — ${formatPrice(s.price)} (${s.duration_minutes} min)`,
-                }))}
-            />
-            <button
-              type="button"
-              onClick={addService}
-              disabled={!servicePicker}
-              className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-barber-dark bg-gold/90 hover:bg-gold disabled:opacity-50 shrink-0 min-h-[42px]"
-            >
-              <Plus className="w-4 h-4" aria-hidden />
-              Agregar
-            </button>
-          </div>
-          {formData.serviceIds.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {selectedServices.map((s) => (
-                <span
-                  key={s.id}
-                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800"
+      <>
+        <div className="flex gap-2.5">
+          <CustomSelect
+            value={servicePicker}
+            onChange={setServicePicker}
+            placeholder={
+              !dataLoaded ? 'Cargando...' : services.length === 0 ? 'Sin servicios' : 'Agregar servicio...'
+            }
+            variant={selectVariant}
+            className="flex-1 min-w-0"
+            disabled={!dataLoaded || services.length === 0 || atMaxServices}
+            options={services
+              .filter((s) => !formData.serviceIds.includes(String(s.id)))
+              .map((s) => ({
+                id: String(s.id),
+                label: `${s.name} — ${formatMoneyOrDash(s.price)} (${s.duration_minutes} min)`,
+              }))}
+          />
+          <button
+            type="button"
+            onClick={addService}
+            disabled={!servicePicker || atMaxServices}
+            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-barber-dark bg-gold/90 hover:bg-gold disabled:opacity-50 shrink-0 min-h-[42px]"
+          >
+            <Plus className="w-4 h-4" aria-hidden />
+            Agregar
+          </button>
+        </div>
+        {atMaxServices && (
+          <AppInlineAlert variant="warning" className="mt-2 text-xs py-2 px-3">
+            {MAX_SERVICES_MESSAGE}
+          </AppInlineAlert>
+        )}
+        {formData.serviceIds.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selectedServices.map((s) => (
+              <span
+                key={s.id}
+                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800"
+              >
+                <span className="font-medium">{s.name}</span>
+                <span className="text-stone-400 tabular-nums text-xs">{s.duration_minutes} min</span>
+                <button
+                  type="button"
+                  onClick={() => removeService(String(s.id))}
+                  className="text-stone-400 hover:text-red-600 transition-colors"
+                  aria-label={`Quitar ${s.name}`}
                 >
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-stone-400 tabular-nums text-xs">{s.duration_minutes} min</span>
-                  <button
-                    type="button"
-                    onClick={() => removeService(String(s.id))}
-                    className="text-stone-400 hover:text-red-600 transition-colors"
-                    aria-label={`Quitar ${s.name}`}
-                  >
-                    <X className="w-3.5 h-3.5" aria-hidden />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <CustomSelect
-          name="serviceIds"
-          value={formData.serviceIds[0] || ''}
-          onChange={(id) =>
-            setFormData((prev) => ({ ...prev, serviceIds: id ? [String(id)] : [] }))
-          }
-          placeholder="Seleccionar servicio..."
-          variant={selectVariant}
-          selectClassName={fieldClass}
-          disabled={isClient && isEdit}
-          options={services.map((s) => ({
-            id: String(s.id),
-            label: `${s.name} — ${formatPrice(s.price)} (${s.duration_minutes} min)`,
-          }))}
-        />
-      )}
+                  <X className="w-3.5 h-3.5" aria-hidden />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </>
       {hintOrError(
         'serviceIds',
         formData.serviceIds.length,
         servicesValidation,
-        isEdit ? 'Servicio seleccionado.' : 'Servicios agregados.'
+        isEdit ? 'Servicios de la cita.' : 'Servicios agregados.'
       )}
     </div>
   );
@@ -647,6 +760,7 @@ export default function AppointmentForm({
         onChange={handleChange}
         onBlur={handleBlur}
         min={dateInputMin}
+        max={dateInputMax}
         className={`${fieldClass} ${borderFor('appointmentDate', formData.appointmentDate, dateValidation)}`}
       />
       {hintOrError('appointmentDate', formData.appointmentDate, dateValidation, 'Fecha seleccionada.')}
@@ -699,79 +813,81 @@ export default function AppointmentForm({
       <label className={labelClass} htmlFor="client-service-filter">
         Servicios *
       </label>
-      {!isEdit ? (
-        <>
-          <FieldFilter
-            id="client-service-filter"
-            value={serviceFilter}
-            onChange={setServiceFilter}
-            placeholder="Buscar servicio por nombre o categoría…"
-          />
-          {!dataLoaded ? (
-            <p className="text-sm text-stone-500 mt-2">Cargando servicios…</p>
-          ) : (
-            <ul
-              className="mt-2 rounded-xl border border-stone-200/90 bg-white divide-y divide-stone-100 max-h-44 overflow-y-auto"
-              aria-live="polite"
-            >
-              {filteredPickerServices.length === 0 ? (
-                <li className="px-3 py-2.5 text-sm text-stone-500">
-                  {serviceFilter.trim() ? 'No hay servicios con ese nombre.' : 'Ya agregaste todos los servicios.'}
-                </li>
-              ) : (
-                filteredPickerServices.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => addServiceById(s.id)}
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 transition-colors"
-                    >
-                      <span className="min-w-0">
-                        <span className="font-medium text-stone-900 block truncate">{s.name}</span>
-                        {(s.category_name || s.categoryName) && (
-                          <span className="text-xs text-stone-400 truncate block">
-                            {s.category_name || s.categoryName}
-                          </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
-                        {formatPrice(s.price)}
-                        <span className="block">{s.duration_minutes || s.durationMinutes} min</span>
-                      </span>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
-          {formData.serviceIds.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {selectedServices.map((s) => (
-                <span
-                  key={s.id}
-                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800"
-                >
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-stone-400 tabular-nums text-xs">{s.duration_minutes} min</span>
-                  <button
-                    type="button"
-                    onClick={() => removeService(String(s.id))}
-                    className="text-stone-400 hover:text-red-600 transition-colors"
-                    aria-label={`Quitar ${s.name}`}
-                  >
-                    <X className="w-3.5 h-3.5" aria-hidden />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </>
+      <FieldFilter
+        id="client-service-filter"
+        value={serviceFilter}
+        onChange={setServiceFilter}
+        placeholder="Buscar servicio por nombre o categoría…"
+      />
+      {!dataLoaded ? (
+        <p className="text-sm text-stone-500 mt-2">Cargando servicios…</p>
       ) : (
-        <div className={`${fieldClass} text-stone-700`}>
-          {selectedServices[0]
-            ? `${selectedServices[0].name} — ${formatPrice(selectedServices[0].price)}`
-            : '—'}
+        <ul
+          className="mt-2 rounded-xl border border-stone-200/90 bg-white divide-y divide-stone-100 max-h-44 overflow-y-auto"
+          aria-live="polite"
+        >
+          {filteredPickerServices.length === 0 ? (
+            <li className="px-3 py-2.5 text-sm text-stone-500">
+              {serviceFilter.trim()
+                ? 'No hay servicios con ese nombre.'
+                : atMaxServices
+                  ? MAX_SERVICES_MESSAGE
+                  : formData.serviceIds.length > 0
+                    ? 'Ya agregaste todos los servicios disponibles.'
+                    : 'No hay servicios para agregar.'}
+            </li>
+          ) : (
+            filteredPickerServices.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => addServiceById(s.id)}
+                  disabled={atMaxServices}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <span className="min-w-0">
+                    <span className="font-medium text-stone-900 block truncate">{s.name}</span>
+                    {(s.category_name || s.categoryName) && (
+                      <span className="text-xs text-stone-400 truncate block">
+                        {s.category_name || s.categoryName}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
+                    {formatMoneyOrDash(s.price)}
+                    <span className="block">{s.duration_minutes || s.durationMinutes} min</span>
+                  </span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+      {formData.serviceIds.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selectedServices.map((s) => (
+            <span
+              key={s.id}
+              className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800"
+            >
+              <span className="font-medium">{s.name}</span>
+              <span className="text-stone-400 tabular-nums text-xs">{s.duration_minutes} min</span>
+              <button
+                type="button"
+                onClick={() => removeService(String(s.id))}
+                className="text-stone-400 hover:text-red-600 transition-colors"
+                aria-label={`Quitar ${s.name}`}
+              >
+                <X className="w-3.5 h-3.5" aria-hidden />
+              </button>
+            </span>
+          ))}
         </div>
+      )}
+      {atMaxServices && (
+        <AppInlineAlert variant="warning" className="mt-2 text-xs py-2 px-3">
+          {MAX_SERVICES_MESSAGE}
+        </AppInlineAlert>
       )}
     </div>
   );
@@ -798,7 +914,7 @@ export default function AppointmentForm({
               {selectedServices.length > 0 && (
                 <div className="text-right shrink-0 rounded-xl bg-gold/10 border border-gold/25 px-3 py-2">
                   <p className="text-[10px] text-stone-500 uppercase tracking-wider">Total estimado</p>
-                  <p className="text-base font-semibold text-gold tabular-nums">{formatPrice(totalPrice)}</p>
+                  <p className="text-base font-semibold text-gold tabular-nums">{formatMoneyOrDash(totalPrice)}</p>
                 </div>
               )}
             </div>
@@ -809,9 +925,9 @@ export default function AppointmentForm({
           )}
 
           {isEdit && loadError && !apptLoading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs p-2.5 shrink-0" role="alert">
-              <p>{loadError}</p>
-            </div>
+            <AppInlineAlert variant="error" className="text-xs py-2.5 shrink-0">
+              {loadError}
+            </AppInlineAlert>
           )}
 
           {error && <div className={ADMIN_FORM_ERROR_CLASS} role="alert">{error}</div>}
@@ -819,9 +935,9 @@ export default function AppointmentForm({
           {showFormFields && (
             <>
               {dataLoaded && barbers.length === 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs p-2.5 shrink-0" role="status">
+                <AppInlineAlert variant="warning" className="text-xs py-2.5 shrink-0">
                   No hay barberos disponibles en este momento.
-                </div>
+                </AppInlineAlert>
               )}
 
               {clientSelect}
@@ -895,7 +1011,7 @@ export default function AppointmentForm({
               {selectedServices.length > 0 && (
                 <div className="text-right shrink-0 rounded-xl bg-gold/10 border border-gold/25 px-3 py-2">
                   <p className="text-[10px] text-stone-500 uppercase tracking-wider">Total estimado</p>
-                  <p className="text-base font-semibold text-gold tabular-nums">{formatPrice(totalPrice)}</p>
+                  <p className="text-base font-semibold text-gold tabular-nums">{formatMoneyOrDash(totalPrice)}</p>
                   <p className="text-[10px] text-stone-500 tabular-nums">{totalDuration} min</p>
                 </div>
               )}
@@ -909,9 +1025,9 @@ export default function AppointmentForm({
           )}
 
           {isEdit && loadError && !apptLoading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs p-2.5" role="alert">
-              <p>{loadError}</p>
-            </div>
+            <AppInlineAlert variant="error" className="text-xs py-2.5">
+              {loadError}
+            </AppInlineAlert>
           )}
 
           {error && (
@@ -921,9 +1037,9 @@ export default function AppointmentForm({
           {showFormFields && (
             <>
               {dataLoaded && barbers.length === 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs p-2.5" role="status">
+                <AppInlineAlert variant="warning" className="text-xs py-2.5">
                   No hay barberos disponibles en este momento.
-                </div>
+                </AppInlineAlert>
               )}
 
               <div className="grid gap-4">

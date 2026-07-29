@@ -26,6 +26,7 @@ import {
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
+import CustomSelect from '@/shared/components/CustomSelect';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -241,28 +242,30 @@ export function BarberForm({
               live={buildLiveHint('documentType', formData.documentType, documentTypeValidation, 'Tipo válido.')}
             >
               {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
-                <select
+                <CustomSelect
                   id="barber-doc-type"
                   name="documentType"
                   value={formData.documentType}
-                  onChange={handleChange}
+                  onChange={(id) => {
+                    setFormData((prev) => ({ ...prev, documentType: id }));
+                    markTouched('documentType');
+                  }}
                   onBlur={() => markTouched('documentType')}
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
-                  aria-invalid={invalid || undefined}
-                  aria-describedby={errorId}
-                >
-                  <option value="">Selecciona…</option>
-                  {DOCUMENT_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                  {isEdit &&
+                  options={[
+                    ...DOCUMENT_TYPE_OPTIONS.map((type) => ({ id: type, label: type })),
+                    ...(isEdit &&
                     formData.documentType &&
-                    !DOCUMENT_TYPE_OPTIONS.includes(formData.documentType) && (
-                      <option value={formData.documentType}>{formData.documentType}</option>
-                    )}
-                </select>
+                    !DOCUMENT_TYPE_OPTIONS.includes(formData.documentType)
+                      ? [{ id: formData.documentType, label: formData.documentType }]
+                      : []),
+                  ]}
+                  placeholder="Selecciona…"
+                  variant="form"
+                  ariaLabel="Tipo de documento"
+                  ariaInvalid={invalid || undefined}
+                  ariaDescribedBy={errorId}
+                  selectClassName={submitBorderClass || liveBorderClass}
+                />
               )}
             </AdminFormField>
             <AdminFormField

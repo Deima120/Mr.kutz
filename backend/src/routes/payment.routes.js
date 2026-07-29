@@ -7,6 +7,7 @@ import { body, param, query } from 'express-validator';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { optionalDateQuery, paginationQuery } from '../utils/validation.js';
+import { dateRangeOrderQuery } from '../utils/dateRange.js';
 import * as paymentController from '../controllers/payment.controller.js';
 
 const router = express.Router();
@@ -75,6 +76,7 @@ const voidLineValidation = [
 const listValidation = [
   optionalDateQuery('dateFrom', 'Fecha inicial'),
   optionalDateQuery('dateTo', 'Fecha final'),
+  dateRangeOrderQuery(),
   query('appointmentId').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Cita no válida.'),
   query('status')
     .optional({ checkFalsy: true })
@@ -95,6 +97,7 @@ const listValidation = [
 const totalValidation = [
   optionalDateQuery('dateFrom', 'Fecha inicial'),
   optionalDateQuery('dateTo', 'Fecha final'),
+  dateRangeOrderQuery(),
 ];
 
 router.use(auth);

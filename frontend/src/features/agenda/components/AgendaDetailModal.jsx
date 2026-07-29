@@ -53,7 +53,7 @@ export default function AgendaDetailModal({ appointment, loading, onClose }) {
             <div>
               <p className="text-[11px] font-semibold text-stone-500 uppercase tracking-wide">Fecha y hora</p>
               <p className="text-stone-900 font-medium mt-0.5">
-                {formatAppointmentCalendarDate(appointment.appointment_date, 'es-ES', {
+                {formatAppointmentCalendarDate(appointment.appointment_date, 'es-CO', {
                   weekday: 'long',
                   day: 'numeric',
                   month: 'long',

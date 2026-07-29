@@ -1,3 +1,6 @@
+import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDateTime } from '@/shared/utils/formatDisplayDate';
+
 export const MOVEMENT_LABELS = {
   purchase: 'Compra',
   sale: 'Venta',
@@ -23,7 +26,7 @@ export function getProductCostPrice(product) {
 
 export function formatProductCostPrice(product) {
   const price = getProductCostPrice(product);
-  return price != null ? `$${price.toFixed(2)}` : '—';
+  return price != null ? formatMoney(price) : '—';
 }
 
 export function getProductMargin(product) {
@@ -35,13 +38,11 @@ export function getProductMargin(product) {
 
 export function formatProductMargin(product) {
   const margin = getProductMargin(product);
-  if (margin == null) return '—';
-  return `$${margin.toFixed(2)}`;
+  return margin != null ? formatMoney(margin) : '—';
 }
 
 export function formatInventoryValue(value) {
-  const n = Number(value || 0);
-  return `$${n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(value || 0);
 }
 
 export function isMovementVoided(movement) {
@@ -50,7 +51,7 @@ export function isMovementVoided(movement) {
 
 export function formatProductRetailPrice(product) {
   const price = getProductRetailPrice(product);
-  return price != null ? `$${price.toFixed(2)}` : '—';
+  return price != null ? formatMoney(price) : '—';
 }
 
 /** Etiqueta de unidad para inventario (solo por unidad). */
@@ -120,5 +121,5 @@ export function getMovementReference(movement) {
 
 export function formatMovementDate(value) {
   if (!value) return '';
-  return new Date(value).toLocaleString('es-ES');
+  return formatDisplayDateTime(value);
 }

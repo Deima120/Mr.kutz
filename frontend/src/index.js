@@ -7,6 +7,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '@/shared/contexts/AuthContext';
 import { SettingsProvider } from '@/shared/contexts/SettingsContext';
+import { ToastProvider } from '@/shared/feedback/ToastContext';
 import App from './App.js';
 import './shared/styles/index.css';
 
@@ -23,7 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(
           SettingsProvider,
           null,
-          React.createElement(App)
+          React.createElement(ToastProvider, null, React.createElement(App))
         )
       )
     )

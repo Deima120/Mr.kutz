@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import {
@@ -13,16 +12,13 @@ import {
   normalizeOrderItems,
   normalizeReceiptItems,
 } from './purchase.helpers.js';
+import { allocateDocumentFolio, DOC_TYPES } from '../utils/documentSequence.js';
+import { applyColombiaCreatedAtFilter } from '../utils/colombiaTime.js';
 
 function httpError(message, statusCode = 400) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
-}
-
-function purchaseNumber(prefix) {
-  const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
-  return `${prefix}-${date}-${randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
 function cleanText(value, maxLength) {
@@ -114,9 +110,7 @@ function toDto(p) {
 function buildWhere({ dateFrom, dateTo, status, search }) {
   const where = {};
   if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
+    applyColombiaCreatedAtFilter(where, dateFrom, dateTo);
   }
   if (status === 'active') where.status = { not: 'cancelled' };
   else if (status === 'voided') where.status = 'cancelled';
@@ -176,11 +170,7 @@ export const getAll = async ({
 
 export const getTotalByDateRange = async (dateFrom, dateTo) => {
   const where = { status: { not: 'cancelled' } };
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
-  }
+  applyColombiaCreatedAtFilter(where, dateFrom, dateTo);
   const result = await prisma.purchase.aggregate({
     where,
     _sum: { totalAmount: true },
@@ -223,7 +213,7 @@ export const create = async (data, userId) => {
       data: {
         supplierId: supplier.id,
         supplierName: supplier.name,
-        orderNumber: cleanText(data.orderNumber, 80) || purchaseNumber('PO'),
+        orderNumber: await allocateDocumentFolio(tx, DOC_TYPES.purchase_order),
         invoiceNumber: cleanText(data.invoiceNumber, 80),
         expectedAt,
         notes: cleanText(data.notes, 1000),
@@ -347,12 +337,18 @@ export const receive = async (id, data, userId) => {
       ])
     );
 
+    const supplierRemito = cleanText(data.reference ?? data.receiptNumber, 80);
+    const receiptNotesParts = [];
+    if (supplierRemito) receiptNotesParts.push(`Remisión proveedor: ${supplierRemito}`);
+    const userNotes = cleanText(data.notes, 1000);
+    if (userNotes) receiptNotesParts.push(userNotes);
+
     const receipt = await tx.goodsReceipt.create({
       data: {
         purchaseId,
-        receiptNumber: cleanText(data.receiptNumber, 80) || purchaseNumber('GR'),
+        receiptNumber: await allocateDocumentFolio(tx, DOC_TYPES.goods_receipt),
         receivedAt,
-        notes: cleanText(data.notes, 1000),
+        notes: receiptNotesParts.length ? receiptNotesParts.join('\n').slice(0, 1000) : null,
         createdBy: userId || null,
       },
     });

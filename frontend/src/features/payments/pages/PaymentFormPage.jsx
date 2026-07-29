@@ -1,5 +1,5 @@
 /**
- * Carrito de cobro: servicio + producto(s) + línea manual en un solo pago.
+ * Carrito de venta: servicio + producto(s) + línea manual en un solo registro.
  */
 
 import { useState, useEffect, useMemo, useId } from 'react';
@@ -9,17 +9,18 @@ import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
+import { formatMoneyInputDigits, parseMoneyInput } from '@/shared/utils/money';
 import { formatPaymentAmount, formatPaymentMethodName } from '@/features/payments/utils/paymentFormatters';
 import {
   validatePaymentCartForm,
   getApiErrorMessage,
   validateMoney,
   validatePositiveInt,
-  TEXT_REFERENCE_MAX,
 } from '@/shared/utils/formValidation';
 import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
 import ProductPicker from '@/features/inventory/components/ProductPicker';
+import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -28,19 +29,11 @@ import AdminFormShell, {
   ADMIN_FORM_GRID_CLASS,
   AdminFormFooterActions,
   AdminFormPrimaryButton,
+  AdminFormSecondaryButton,
   AdminFormPreviewField,
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
-
-function generatePaymentReference() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `MKP-${yyyy}${mm}${dd}-${random}`;
-}
 
 function lineKey() {
   return `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -75,7 +68,6 @@ export function PaymentForm({
 
   const [lines, setLines] = useState([]);
   const [paymentMethodId, setPaymentMethodId] = useState('');
-  const [reference, setReference] = useState(generatePaymentReference);
   const [notes, setNotes] = useState('');
 
   const [completedAppointments, setCompletedAppointments] = useState([]);
@@ -152,7 +144,7 @@ export function PaymentForm({
           return setPrefillHints((h) => [...h, 'La cita debe estar completada para cobrar.']);
         }
         if (a.has_active_payment) {
-          return setPrefillHints((h) => [...h, 'Esta cita ya tiene un cobro activo.']);
+          return setPrefillHints((h) => [...h, 'Esta cita ya tiene una venta activa.']);
         }
         setLines((prev) => {
           if (prev.some((l) => l.type === 'service' && String(l.appointmentId) === String(a.id))) {
@@ -215,7 +207,7 @@ export function PaymentForm({
   const handleAddService = () => {
     const apt = appointmentOptions.find((a) => String(a.id) === String(appointmentPick));
     if (!apt) {
-      setError('Selecciona una cita completada pendiente de cobro.');
+      setError('Selecciona una cita completada pendiente de venta.');
       return;
     }
     const price = Number(apt.price ?? apt.service_price);
@@ -251,7 +243,7 @@ export function PaymentForm({
       return;
     }
     if (lines.some((l) => l.type === 'product' && String(l.productId) === String(productPick.id))) {
-      setError('Ese producto ya está en el cobro. Quita la línea o ajusta la cantidad.');
+      setError('Ese producto ya está en la venta. Quita la línea o ajusta la cantidad.');
       return;
     }
     addLine({
@@ -281,7 +273,7 @@ export function PaymentForm({
       type: 'manual',
       description,
       label: description,
-      unitPrice: Number(manualAmount),
+      unitPrice: parseMoneyInput(manualAmount),
       quantity: 1,
     });
     setManualDescription('');
@@ -292,7 +284,6 @@ export function PaymentForm({
     e.preventDefault();
     const validation = validatePaymentCartForm({
       paymentMethodId,
-      reference,
       notes,
       lines,
     });
@@ -305,7 +296,6 @@ export function PaymentForm({
     try {
       await paymentService.createPayment({
         paymentMethodId: parseInt(paymentMethodId, 10),
-        reference: reference || undefined,
         notes: notes.trim() || undefined,
         lines: lines.map((line) => {
           if (line.type === 'service') {
@@ -328,22 +318,22 @@ export function PaymentForm({
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Error al registrar pago'));
+      setError(getApiErrorMessage(err, 'Error al registrar venta'));
     } finally {
       setLoading(false);
     }
   };
 
+  const selectedMethod = methods.find((m) => String(m.id) === String(paymentMethodId));
+
   const handleCancel = () => {
     if (embedded || contained) onCancel?.();
-    else navigate(-1);
+    else navigate('/payments', { replace: true });
   };
-
-  const selectedMethod = methods.find((m) => String(m.id) === String(paymentMethodId));
 
   const paymentAside = {
     kicker: 'Vista previa',
-    title: 'Resumen del cobro',
+    title: 'Resumen de la venta',
     children: (
       <AdminFormPreviewPanel>
         <AdminFormPreviewField
@@ -352,7 +342,11 @@ export function PaymentForm({
         />
         <AdminFormPreviewField label="Líneas" value={String(lines.length)} />
         <AdminFormPreviewField label="Total" value={formatPaymentAmount(cartTotal)} />
-        <AdminFormPreviewField label="Referencia" value={reference} breakAll />
+        <AdminFormPreviewField
+          label="Folio"
+          value="Automático al guardar (MKP-YYYYMMDD-######)"
+          breakAll
+        />
       </AdminFormPreviewPanel>
     ),
   };
@@ -361,9 +355,7 @@ export function PaymentForm({
     <AdminFormShell
       embedded={embedded}
       contained={contained}
-      title="Registrar cobro"
-      subtitle="Agrega servicio, productos o caja en un solo pago. El total se calcula solo."
-      onCancel={handleCancel}
+      showBackNav={false}
       aside={paymentAside}
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -373,11 +365,11 @@ export function PaymentForm({
           </div>
         ) : null}
         {prefillHints.length > 0 ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <AppInlineAlert variant="warning" className="text-xs py-2 px-3">
             {prefillHints.map((hint) => (
               <p key={hint}>{hint}</p>
             ))}
-          </div>
+          </AppInlineAlert>
         ) : null}
 
         <AdminFormCard>
@@ -388,8 +380,7 @@ export function PaymentForm({
               <CustomSelect
                 value={paymentMethodId}
                 onChange={onCustomSelectValue(setPaymentMethodId)}
-                variant="formCompact"
-                selectClassName={ADMIN_FORM_FIELD_COMPACT}
+                variant="form"
                 options={methods.map((m) => ({
                   id: String(m.id),
                   label: formatPaymentMethodName(m.description || m.name),
@@ -398,20 +389,23 @@ export function PaymentForm({
               />
             </label>
             <label className="group">
-              <span className={ADMIN_FORM_LABEL_CLASS}>Referencia</span>
+              <span className={ADMIN_FORM_LABEL_CLASS}>Folio</span>
               <input
-                value={reference}
-                onChange={(e) => setReference(e.target.value.slice(0, TEXT_REFERENCE_MAX))}
-                className={ADMIN_FORM_FIELD_COMPACT}
-                maxLength={TEXT_REFERENCE_MAX}
-                placeholder="Nº operación, folio…"
+                value="Se asigna al guardar"
+                readOnly
+                disabled
+                className={`${ADMIN_FORM_FIELD_COMPACT} bg-stone-50 text-stone-500 cursor-default`}
+                aria-describedby="payment-folio-hint"
               />
+              <p id="payment-folio-hint" className="mt-1 text-[11px] text-stone-500">
+                Formato MKP-YYYYMMDD-###### (consecutivo del día, hora Colombia).
+              </p>
             </label>
           </div>
         </AdminFormCard>
 
         <AdminFormCard>
-          <AdminFormCardHeader title="Líneas del cobro" />
+          <AdminFormCardHeader title="Líneas de la venta" />
           <div className="space-y-4">
             <div className="rounded-xl border border-stone-200 p-3 space-y-2">
               <p className="text-xs font-semibold text-stone-700 inline-flex items-center gap-1.5">
@@ -422,8 +416,7 @@ export function PaymentForm({
                   <CustomSelect
                     value={appointmentPick}
                     onChange={onCustomSelectValue(setAppointmentPick)}
-                    variant="formCompact"
-                    selectClassName={ADMIN_FORM_FIELD_COMPACT}
+                    variant="form"
                     options={appointmentOptions.map((a) => ({
                       id: String(a.id),
                       label: appointmentLabel(a),
@@ -486,12 +479,13 @@ export function PaymentForm({
                 <label>
                   <span className={ADMIN_FORM_LABEL_CLASS}>Monto</span>
                   <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={manualAmount}
-                    onChange={(e) => setManualAmount(e.target.value)}
+                    onChange={(e) => setManualAmount(formatMoneyInputDigits(e.target.value))}
                     className={ADMIN_FORM_FIELD_COMPACT}
+                    placeholder="Ej. 50.000"
                   />
                 </label>
                 <button type="button" onClick={handleAddManual} className="btn-admin-outline text-sm inline-flex items-center gap-1">
@@ -502,7 +496,7 @@ export function PaymentForm({
 
             <div className="space-y-2">
               {lines.length === 0 ? (
-                <p className="py-4 text-center text-sm text-stone-500">Aún no hay líneas en el cobro.</p>
+                <p className="py-4 text-center text-sm text-stone-500">Aún no hay líneas en la venta.</p>
               ) : (
                 lines.map((line) => (
                   <div
@@ -539,7 +533,7 @@ export function PaymentForm({
             </div>
 
             <div className="flex items-center justify-between border-t border-stone-100 pt-3">
-              <span className="text-sm font-semibold text-stone-600">Total del cobro</span>
+              <span className="text-sm font-semibold text-stone-600">Total de la venta</span>
               <span className="font-serif text-xl font-medium text-gold tabular-nums">
                 {formatPaymentAmount(cartTotal)}
               </span>
@@ -554,15 +548,18 @@ export function PaymentForm({
             onChange={(e) => setNotes(e.target.value.slice(0, 500))}
             rows={2}
             maxLength={500}
-            placeholder="Opcional: detalle del cobro…"
+            placeholder="Opcional: detalle de la venta…"
             className={`${ADMIN_FORM_FIELD_COMPACT} resize-none`}
           />
         </AdminFormCard>
 
         <AdminFormFooterActions>
+          <AdminFormSecondaryButton onClick={handleCancel} disabled={loading}>
+            Cancelar
+          </AdminFormSecondaryButton>
           <AdminFormPrimaryButton disabled={loading || lines.length === 0}>
             <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
-              Confirmar cobro
+              Confirmar venta
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
         </AdminFormFooterActions>

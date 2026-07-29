@@ -88,6 +88,21 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
+  const refreshUser = async () => {
+    const profile = await authService.getProfile();
+    if (profile?.id) {
+      setUser(profile);
+      localStorage.setItem(USER_KEY, JSON.stringify(profile));
+    }
+    return profile;
+  };
+
+  const applyUser = (userData) => {
+    if (!userData?.id) return;
+    setUser(userData);
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -95,6 +110,8 @@ export function AuthProvider({ children }) {
     login,
     logout,
     register,
+    refreshUser,
+    applyUser,
   };
 
   return (

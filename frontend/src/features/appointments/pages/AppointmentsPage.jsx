@@ -12,20 +12,22 @@ import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
+import CustomSelect from '@/shared/components/CustomSelect';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import RatingStars from '@/shared/components/admin/RatingStars';
 import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/components/AppointmentNoteText';
 import AppointmentForm from '@/features/appointments/components/AppointmentForm';
 import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
-import AdminModalShell from '@/shared/components/admin/AdminModalShell';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import { useAppToast } from '@/shared/feedback/ToastContext';
+import { VOID_REASON_FIELD_CLASS, VOID_REASON_MAX } from '@/shared/feedback/voidReasonField';
 import {
   getEffectiveAppointmentStatus,
   canConfirmAppointment,
   canCancelAppointment,
   isAppointmentActionsLocked,
 } from '@/features/appointments/utils/appointmentStatusAutomation';
-import SuccessToast from '@/shared/components/SuccessToast';
 import {
   formatAppointmentClockTime,
   formatAppointmentCalendarDate,
@@ -112,22 +114,19 @@ function ClientAppointmentsToolbar({
           <label htmlFor="client-appointments-page-size" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
             Por página
           </label>
-          <select
+          <CustomSelect
             id="client-appointments-page-size"
             value={String(pageSize)}
             disabled={isDisabled}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-9 min-w-[4.5rem] rounded-lg border border-stone-200 bg-white px-2 text-sm font-medium text-stone-800 focus:border-gold/50 focus:ring-2 focus:ring-gold/25 outline-none disabled:opacity-50"
-          >
-            {(CLIENT_PAGE_SIZE_OPTIONS.includes(pageSize)
+            onChange={(id) => onPageSizeChange(Number(id))}
+            variant="form"
+            ariaLabel="Citas por página"
+            className="w-auto min-w-[4.5rem]"
+            options={(CLIENT_PAGE_SIZE_OPTIONS.includes(pageSize)
               ? CLIENT_PAGE_SIZE_OPTIONS
               : [...CLIENT_PAGE_SIZE_OPTIONS, pageSize].sort((a, b) => a - b)
-            ).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            ).map((n) => ({ id: String(n), label: String(n) }))}
+          />
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2" role="navigation" aria-label="Cambiar página">
           <button
@@ -186,6 +185,12 @@ function CancelAppointmentButton({ onClick, className = '', disabled = false }) 
 }
 
 function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirming }) {
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (open) setReason('');
+  }, [open, appointment?.id]);
+
   if (!appointment) return null;
 
   const serviceName = appointment.service_name || 'Servicio';
@@ -193,39 +198,24 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
   const timeLabel = formatAppointmentClockTime(appointment.start_time);
 
   return (
-    <AdminModalShell
+    <AdminConfirmModal
       open={open}
-      onClose={onClose}
-      title="¿Deseas cancelar esta cita?"
+      variant="danger"
       size="sm"
-      preventClose={confirming}
-      panelClassName="animate-fade-in-up"
-      footer={
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 w-full">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={confirming}
-            className="btn-outline w-full sm:w-auto"
-          >
-            Volver
-          </button>
-          <button
-            type="button"
-            data-autofocus
-            onClick={onConfirm}
-            disabled={confirming}
-            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-60"
-          >
-            {confirming ? 'Cancelando…' : 'Sí, cancelar cita'}
-          </button>
-        </div>
-      }
+      title="¿Deseas cancelar esta cita?"
+      confirmLabel="Sí, cancelar cita"
+      cancelLabel="Volver"
+      submittingLabel="Cancelando…"
+      isSubmitting={confirming}
+      confirmDisabled={!reason.trim()}
+      autoFocusConfirm={false}
+      onCancel={onClose}
+      onConfirm={() => onConfirm(reason.trim())}
     >
-      <div className="space-y-4">
+      <div className="space-y-4 -mt-1">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1">Servicio</p>
-          <p className="font-serif text-lg sm:text-xl font-semibold text-stone-900 leading-snug">
+          <p className="font-serif text-lg sm:text-xl font-semibold text-stone-900 leading-snug text-center sm:text-left">
             {serviceName}
           </p>
         </div>
@@ -251,11 +241,24 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
           </div>
         </div>
 
-        <p className="text-sm text-stone-600 leading-relaxed">
+        <div>
+          <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
+          <textarea
+            value={reason}
+            data-autofocus
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            maxLength={VOID_REASON_MAX}
+            placeholder="Ej. no puedo asistir, cambio de planes…"
+            className={VOID_REASON_FIELD_CLASS}
+          />
+        </div>
+
+        <p className="text-sm text-stone-600 leading-relaxed text-center">
           Esta acción marcará la cita como cancelada. Podrás agendar una nueva cuando quieras.
         </p>
       </div>
-    </AdminModalShell>
+    </AdminConfirmModal>
   );
 }
 
@@ -375,6 +378,7 @@ function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const toast = useAppToast();
   const location = useLocation();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
@@ -385,8 +389,6 @@ export default function AppointmentsPage() {
   );
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [filterStatus, setFilterStatus] = useState('scheduled');
@@ -401,7 +403,6 @@ export default function AppointmentsPage() {
 
   const fetchAppointments = async (targetPage = page) => {
     setLoading(true);
-    setError('');
     // Evita mostrar tarjetas del filtro anterior mientras llega la nueva página
     if (isClient) setAppointments([]);
     try {
@@ -426,7 +427,7 @@ export default function AppointmentsPage() {
       setAppointments(data.appointments ?? []);
       setTotal(data.total ?? 0);
     } catch (err) {
-      setError(err?.message || 'Error al cargar citas');
+      toast.error(err?.message || 'Error al cargar citas');
       setAppointments([]);
       setTotal(0);
     } finally {
@@ -501,8 +502,8 @@ export default function AppointmentsPage() {
 
   const handleFormSuccess = ({ created, updated } = {}) => {
     setFormView(null);
-    if (created) setSuccessMessage('Cita agendada correctamente.');
-    if (updated) setSuccessMessage('Cita actualizada correctamente.');
+    if (created) toast.success('Cita agendada correctamente.');
+    if (updated) toast.success('Cita actualizada correctamente.');
     fetchAppointments(1);
     setPage(1);
   };
@@ -511,22 +512,22 @@ export default function AppointmentsPage() {
   useEffect(() => {
     const st = location.state;
     if (st?.appointmentCreated) {
-      setSuccessMessage('Cita agendada correctamente.');
+      toast.success('Cita agendada correctamente.');
       navigate(location.pathname, { replace: true, state: {} });
     } else if (st?.appointmentUpdated) {
-      setSuccessMessage('Cita actualizada correctamente.');
+      toast.success('Cita actualizada correctamente.');
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, location.pathname, navigate]);
+  }, [location.state, location.pathname, navigate, toast]);
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus, extra = {}) => {
     try {
-      await appointmentService.updateAppointment(id, { status: newStatus });
+      await appointmentService.updateAppointment(id, { status: newStatus, ...extra });
       setCancelTarget(null);
       setCancelling(false);
 
       if (isClient && newStatus === 'cancelled') {
-        setSuccessMessage('Cita cancelada correctamente.');
+        toast.success('Cita cancelada correctamente.');
         // Refetch para sacar la cita del filtro Agendada y actualizar totales/paginación
         await fetchAppointments(page);
         return;
@@ -534,17 +535,17 @@ export default function AppointmentsPage() {
 
       fetchAppointments();
       if (isAdmin && newStatus === 'confirmed') {
-        setSuccessMessage('Cita confirmada.');
+        toast.success('Cita confirmada.');
       }
       if (isAdmin && newStatus === 'scheduled') {
-        setSuccessMessage('Confirmación retirada; cita agendada.');
+        toast.success('Confirmación retirada; cita agendada.');
       }
       if (isAdmin && newStatus === 'cancelled') {
-        setSuccessMessage('Cita cancelada.');
+        toast.success('Cita cancelada.');
       }
     } catch (err) {
       setCancelling(false);
-      setError(err?.message || 'Error al actualizar');
+      toast.error(err?.message || 'Error al actualizar');
     }
   };
 
@@ -552,25 +553,30 @@ export default function AppointmentsPage() {
     handleStatusChange(id, confirmed ? 'confirmed' : 'scheduled');
   };
 
-  const handleCancelRequest = (id) => {
-    if (window.confirm('¿Cancelar esta cita?')) {
-      handleStatusChange(id, 'cancelled');
+  const openCancelModal = (id) => {
+    const target = appointments.find((a) => a.id === id) || null;
+    if (!target) return;
+    if (isClient && !canCancelAppointment(target, new Date(), { requireLeadTime: true })) {
+      toast.error('Solo puedes cancelar la cita hasta 30 minutos antes de la hora de inicio.');
+      return;
     }
+    setCancelTarget(target);
+  };
+
+  const handleCancelRequest = (id) => {
+    openCancelModal(id);
   };
 
   const handleCancelClick = (id) => {
-    if (isClient) {
-      const target = appointments.find((a) => a.id === id) || null;
-      setCancelTarget(target);
-    } else {
-      handleStatusChange(id, 'cancelled');
-    }
+    openCancelModal(id);
   };
 
-  const handleClientCancelConfirm = async () => {
+  const handleCancelConfirm = async (reason) => {
     if (!cancelTarget?.id) return;
+    const cancelReason = String(reason || '').trim();
+    if (!cancelReason) return;
     setCancelling(true);
-    await handleStatusChange(cancelTarget.id, 'cancelled');
+    await handleStatusChange(cancelTarget.id, 'cancelled', { cancelReason });
   };
 
   const formatTime = formatAppointmentClockTime;
@@ -609,11 +615,6 @@ export default function AppointmentsPage() {
 
   const openEditForm = (id) => setFormView(id);
 
-  const dismissSuccessMessage = () => setSuccessMessage(null);
-  const successToast = (
-    <SuccessToast message={successMessage} onDismiss={dismissSuccessMessage} />
-  );
-
   // ——— Vista cliente: pantalla completa, sin scroll de página ———
   if (isClient) {
     if (isFormOpen) {
@@ -625,7 +626,6 @@ export default function AppointmentsPage() {
             </div>
             {inlineForm}
           </div>
-          {successToast}
         </div>
       );
     }
@@ -652,12 +652,6 @@ export default function AppointmentsPage() {
               Agendar nueva cita
             </button>
           </header>
-
-          {error && (
-            <div className="shrink-0 mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-              {error}
-            </div>
-          )}
 
           <div className="shrink-0 mb-3">
             <ClientAppointmentsToolbar
@@ -718,6 +712,9 @@ export default function AppointmentsPage() {
                   const noteText = appointmentNotesOf(a);
                   const effectiveStatus = getEffectiveAppointmentStatus(a, clock);
                   const canAct = !['cancelled', 'no_show', 'completed'].includes(a.status);
+                  const statusAllowsCancel =
+                    effectiveStatus === 'scheduled' || effectiveStatus === 'confirmed';
+                  const canCancel = canCancelAppointment(a, clock, { requireLeadTime: true });
                   return (
                     <li key={a.id} className="min-w-0 animate-fade-in">
                       <article className="h-full bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:border-stone-300 transition-all duration-300 flex flex-col">
@@ -739,9 +736,18 @@ export default function AppointmentsPage() {
                           </div>
 
                           {canAct && (
-                            <div className="flex items-center justify-end gap-2 mb-2">
-                              <EditAppointmentButton onClick={() => openEditForm(a.id)} />
-                              <CancelAppointmentButton onClick={() => handleCancelClick(a.id)} />
+                            <div className="flex flex-col items-end gap-1.5 mb-2">
+                              <div className="flex items-center justify-end gap-2">
+                                <EditAppointmentButton onClick={() => openEditForm(a.id)} />
+                                {canCancel ? (
+                                  <CancelAppointmentButton onClick={() => handleCancelClick(a.id)} />
+                                ) : null}
+                              </div>
+                              {statusAllowsCancel && !canCancel ? (
+                                <p className="text-[11px] sm:text-xs text-stone-500 text-right max-w-[14rem] leading-snug">
+                                  Ya no puedes cancelar (menos de 30 min antes del inicio).
+                                </p>
+                              ) : null}
                             </div>
                           )}
 
@@ -810,10 +816,9 @@ export default function AppointmentsPage() {
             if (cancelling) return;
             setCancelTarget(null);
           }}
-          onConfirm={handleClientCancelConfirm}
+          onConfirm={handleCancelConfirm}
           confirming={cancelling}
         />
-        {successToast}
       </div>
     );
   }
@@ -840,12 +845,6 @@ export default function AppointmentsPage() {
             />
           </div>
         </div>
-
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-            {error}
-          </div>
-        )}
 
         <AppointmentsPagination
           total={total}
@@ -905,7 +904,6 @@ export default function AppointmentsPage() {
             })}
           </ul>
         )}
-        {successToast}
       </div>
     );
   }
@@ -949,10 +947,6 @@ export default function AppointmentsPage() {
             </button>
           }
         />
-      )}
-
-      {error && !isFormOpen && (
-        <div className="alert-error" role="alert">{error}</div>
       )}
 
       {inlineForm}
@@ -1029,10 +1023,10 @@ export default function AppointmentsPage() {
                           to={`/payments/new?appointmentId=${a.id}`}
                           className="inline-flex items-center rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold-dark hover:bg-gold/20 transition-colors"
                         >
-                          Registrar pago
+                          Registrar venta
                         </Link>
                       ) : (
-                        <span className="text-xs text-stone-400">Pagada</span>
+                        <span className="text-xs text-stone-400">Con venta</span>
                       )
                     ) : ['cancelled', 'no_show'].includes(effectiveStatus) ? null : (
                       <AppointmentActionToggles
@@ -1054,7 +1048,16 @@ export default function AppointmentsPage() {
           </Table>
         </DataCard>
       ) : null}
-      {successToast}
+      <CancelAppointmentModal
+        appointment={cancelTarget}
+        open={Boolean(cancelTarget)}
+        onClose={() => {
+          if (cancelling) return;
+          setCancelTarget(null);
+        }}
+        onConfirm={handleCancelConfirm}
+        confirming={cancelling}
+      />
     </div>
   );
 }

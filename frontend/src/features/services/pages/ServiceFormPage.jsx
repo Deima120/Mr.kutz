@@ -23,6 +23,7 @@ import AdminFormShell, {
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
+import { formatMoney } from '@/shared/utils/money';
 
 export function ServiceForm({
   embedded = false,
@@ -187,7 +188,7 @@ export function ServiceForm({
             />
             <AdminFormPreviewField
               label="Precio"
-              value={formData.price ? `$${parseFloat(formData.price).toFixed(2)}` : ''}
+              value={formData.price ? formatMoney(formData.price) : ''}
             />
             <AdminFormPreviewField
               label="Duración"
@@ -255,7 +256,7 @@ export function ServiceForm({
                 name="categoryName"
                 value={formData.categoryName}
                 onChange={formSelectEvent('categoryName', handleChange)}
-                variant="formCompact"
+                variant="form"
                 options={categorySelectOptions.map((name) => ({ id: name, label: name }))}
               />
             </div>

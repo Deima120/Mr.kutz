@@ -38,6 +38,13 @@ import {
   CLIENT_FIRST_NAME_MIN,
   CLIENT_LAST_NAME_MIN,
 } from '@/shared/utils/authValidation';
+import {
+  APPOINTMENT_HORIZON_DAYS_PUBLIC,
+  APPOINTMENT_HORIZON_DAYS_STAFF,
+  getAppointmentDateBounds,
+  validateAppointmentDateYmd,
+} from '@/shared/utils/dateRange';
+import { parseMoneyInput } from '@/shared/utils/money';
 
 /** Límites de texto alineados con backend. */
 export const TEXT_NAME_MAX = 150;
@@ -80,10 +87,11 @@ export function mapApiErrors(apiErrors) {
 }
 
 export function getApiErrorMessage(err, fallback = 'Algo salió mal.') {
-  const fieldErrors = mapApiErrors(err?.errors);
+  const apiErrors = err?.errors || err?.data?.errors;
+  const fieldErrors = mapApiErrors(apiErrors);
   const firstField = Object.values(fieldErrors)[0];
   if (firstField) return firstField;
-  if (Array.isArray(err?.errors) && err.errors[0]?.message) return err.errors[0].message;
+  if (Array.isArray(apiErrors) && apiErrors[0]?.message) return apiErrors[0].message;
   return err?.message || fallback;
 }
 
@@ -94,7 +102,8 @@ export function validateMoney(value, label = 'El monto', { required = true, min 
       ? { valid: false, message: `${label} es obligatorio.` }
       : { valid: true, message: '' };
   }
-  const num = Number(raw);
+  // Acepta plano (1500) y colombiano (1.500 / 1.500,50)
+  const num = parseMoneyInput(raw);
   if (Number.isNaN(num)) {
     return { valid: false, message: `${label} debe ser un número válido.` };
   }
@@ -333,7 +342,7 @@ export function validatePaymentForm(data, mode, extras = {}) {
     if (!data.appointmentId) {
       errors.appointmentId =
         appointmentSelectRows.length === 0
-          ? 'No hay citas completadas pendientes de cobro.'
+          ? 'No hay citas completadas pendientes de venta.'
           : 'Selecciona la cita a cobrar.';
     }
   } else if (mode === 'cash') {
@@ -356,13 +365,13 @@ export function validatePaymentForm(data, mode, extras = {}) {
   return validationResult(errors);
 }
 
-/** Carrito de cobro multi-línea. */
+/** Carrito de venta multi-línea. */
 export function validatePaymentCartForm({ paymentMethodId, reference, notes, lines = [] } = {}) {
   const errors = {};
 
   if (!paymentMethodId) errors.paymentMethodId = 'Selecciona un método de pago.';
   if (!Array.isArray(lines) || lines.length === 0) {
-    errors.lines = 'Agrega al menos una línea al cobro.';
+    errors.lines = 'Agrega al menos una línea a la venta.';
   } else {
     lines.forEach((line, index) => {
       if (line.type === 'service' && !line.appointmentId) {
@@ -397,7 +406,7 @@ export function validatePaymentCartForm({ paymentMethodId, reference, notes, lin
 export function validatePurchaseReceiptForm({ reference, notes, receivable = [] } = {}) {
   const errors = {};
 
-  const ref = validateRequiredField(reference, 'La referencia');
+  const ref = validateRequiredField(reference, 'La remisión del proveedor');
   if (!ref.valid) errors.reference = ref.message;
   else if (String(reference).trim().length > 80) {
     errors.reference = 'Máximo 80 caracteres.';
@@ -490,13 +499,25 @@ export function validateAppointmentForm(data, { isEdit = false, isClient = false
   }
 
   if (!data.barberId) errors.barberId = 'Selecciona un barbero.';
-  if (!data.appointmentDate) errors.appointmentDate = 'Selecciona una fecha.';
+  if (!data.appointmentDate) {
+    errors.appointmentDate = 'Selecciona una fecha.';
+  } else {
+    const horizonDays = isClient ? APPOINTMENT_HORIZON_DAYS_PUBLIC : APPOINTMENT_HORIZON_DAYS_STAFF;
+    const dateCheck = validateAppointmentDateYmd(
+      data.appointmentDate,
+      getAppointmentDateBounds({ horizonDays })
+    );
+    if (!dateCheck.ok) errors.appointmentDate = dateCheck.message;
+  }
   if (!data.startTime) errors.startTime = 'Selecciona una hora disponible.';
 
   if (!isEdit) {
     if (!data.serviceIds?.length) errors.serviceIds = 'Agrega al menos un servicio.';
   } else if (!data.serviceIds?.length) {
     errors.serviceIds = 'Selecciona un servicio.';
+  }
+  if (data.serviceIds?.length > 3) {
+    errors.serviceIds = 'Para agendar más servicios debes crear otra cita.';
   }
 
   const notes = validateNotes(data.notes);
@@ -506,12 +527,49 @@ export function validateAppointmentForm(data, { isEdit = false, isClient = false
 }
 
 /** @returns {ValidationResult} */
+export function validateClientProfileForm(form) {
+  const errors = {};
+
+  const firstName = validatePersonName(form.firstName, 'El nombre', {
+    minLength: CLIENT_FIRST_NAME_MIN,
+  });
+  if (!firstName.valid) errors.firstName = fieldMessage(firstName, 'Revisa el nombre.');
+
+  const lastName = validatePersonName(form.lastName, 'El apellido', {
+    minLength: CLIENT_LAST_NAME_MIN,
+  });
+  if (!lastName.valid) errors.lastName = fieldMessage(lastName, 'Revisa el apellido.');
+
+  const email = validateEmail(form.email);
+  if (!email.valid) errors.email = email.message;
+
+  if (form.phone?.trim()) {
+    const phone = validatePhone(form.phone, { required: false });
+    if (!phone.valid) errors.phone = phone.message;
+  }
+
+  return validationResult(errors);
+}
+
+/** @returns {ValidationResult} */
 export function validateBookingForm(form) {
   const errors = {};
 
-  if (!form.serviceId) errors.serviceId = 'Selecciona un servicio.';
+  if (!form.serviceIds?.length) {
+    errors.serviceIds = 'Agrega al menos un servicio.';
+  } else if (form.serviceIds.length > 3) {
+    errors.serviceIds = 'Para agendar más servicios debes crear otra cita.';
+  }
   if (!form.barberId) errors.barberId = 'Selecciona un barbero.';
-  if (!form.appointmentDate) errors.appointmentDate = 'Selecciona una fecha.';
+  if (!form.appointmentDate) {
+    errors.appointmentDate = 'Selecciona una fecha.';
+  } else {
+    const dateCheck = validateAppointmentDateYmd(
+      form.appointmentDate,
+      getAppointmentDateBounds({ horizonDays: APPOINTMENT_HORIZON_DAYS_PUBLIC })
+    );
+    if (!dateCheck.ok) errors.appointmentDate = dateCheck.message;
+  }
   if (!form.startTime) errors.startTime = 'Selecciona una hora disponible.';
 
   const firstName = validatePersonName(form.firstName, 'El nombre', {

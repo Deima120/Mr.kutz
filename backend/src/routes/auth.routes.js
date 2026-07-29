@@ -4,6 +4,7 @@
  * POST /api/auth/check-email
  * POST /api/auth/login
  * GET  /api/auth/me (protegida)
+ * PUT  /api/auth/me (protegida, cliente)
  */
 
 import express from 'express';
@@ -88,10 +89,21 @@ const checkEmailValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
 ];
 
+const updateProfileValidation = [
+  personNameField('firstName', 'El nombre'),
+  personNameField('lastName', 'El apellido'),
+  body('email')
+    .isEmail()
+    .withMessage('Indica un correo electrónico válido.')
+    .normalizeEmail(),
+  optionalPhoneField('phone'),
+];
+
 router.post('/check-email', checkEmailThrottle, checkEmailValidation, validate, authController.checkEmail);
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);
+router.put('/me', auth, updateProfileValidation, validate, authController.updateProfile);
 router.post('/forgot-password', forgotPasswordThrottle, forgotPasswordValidation, validate, authController.forgotPassword);
 router.post('/verify-code', resetVerifyThrottle, verifyCodeValidation, validate, authController.verifyResetCode);
 router.post('/reset-password', resetVerifyThrottle, resetPasswordValidation, validate, authController.resetPassword);

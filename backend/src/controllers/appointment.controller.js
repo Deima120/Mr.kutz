@@ -4,6 +4,7 @@
 
 import prisma from '../lib/prisma.js';
 import * as appointmentService from '../services/appointment.service.js';
+import { assertClientCanCancelByLeadTime } from '../services/appointmentCancelRules.js';
 
 export const getAll = async (req, res, next) => {
   try {
@@ -166,6 +167,8 @@ export const update = async (req, res, next) => {
         clientId: true,
         barberId: true,
         status: true,
+        appointmentDate: true,
+        startTime: true,
       },
     });
     if (!existing) {
@@ -186,12 +189,15 @@ export const update = async (req, res, next) => {
       if (body.status && !['cancelled'].includes(body.status)) {
         return res.status(403).json({
           success: false,
-          message: 'Como cliente solo puedes cancelar la cita o usar «Editar» para cambiar fecha y hora.',
+          message: 'Como cliente solo puedes cancelar la cita o usar «Editar» para cambiar fecha, hora y servicios.',
         });
+      }
+      if (body.status === 'cancelled') {
+        assertClientCanCancelByLeadTime(existing);
       }
       delete body.clientId;
       delete body.barberId;
-      delete body.serviceId;
+      delete body.serviceId; // el cliente actualiza servicios con serviceIds
     }
 
     const appointment = await appointmentService.update(req.params.id, body);

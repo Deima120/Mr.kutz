@@ -1,14 +1,11 @@
+import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDateTime } from '@/shared/utils/formatDisplayDate';
+
+/** @deprecated Preferir formatMoney — se mantiene como alias de dominio. */
 export function formatPurchaseAmount(n) {
-  return `$${parseFloat(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return formatMoney(n);
 }
 
 export function formatPurchaseDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDisplayDateTime(d);
 }

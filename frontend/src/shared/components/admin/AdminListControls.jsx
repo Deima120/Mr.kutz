@@ -17,9 +17,9 @@ export const CHIP_SIZES = {
 export const ADMIN_FILTER_GRID_CLASS =
   'flex flex-wrap items-end gap-x-2.5 gap-y-3 sm:gap-x-3 w-full';
 
-/** Ancho estándar de un control de filtro (no estira a todo el ancho). */
+/** Ancho estándar de un control de filtro (legible; el panel del select puede ser más ancho). */
 export const ADMIN_FILTER_FIELD_CLASS =
-  'flex flex-col gap-0.5 min-w-0 w-[calc(50%-0.3125rem)] sm:w-auto sm:min-w-[7.5rem] sm:max-w-[11.5rem] shrink-0';
+  'flex flex-col gap-0.5 min-w-0 w-full sm:w-auto sm:min-w-[9rem] sm:max-w-[18rem] shrink-0';
 
 export const ADMIN_FILTER_DATE_CLASS =
   'select-premium w-full py-1.5 pl-2.5 pr-2 text-xs min-h-[2rem] text-stone-900 rounded-lg';
@@ -164,7 +164,7 @@ export function AdminPagination({
           options={pageSizeOptions.map((n) => ({ id: String(n), label: String(n) }))}
           ariaLabel="Registros por página"
           disabled={isDisabled}
-          variant="adminCompact"
+          variant="form"
           className="w-auto min-w-[4.5rem]"
         />
       </div>

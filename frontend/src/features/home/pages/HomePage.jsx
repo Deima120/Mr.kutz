@@ -10,10 +10,11 @@ import { getBookAppointmentPath } from '@/shared/utils/bookAppointmentPath';
 import HeroCarousel from '@/features/home/components/HeroCarousel';
 import CustomSelect from '@/shared/components/CustomSelect';
 import MobileAppFloating from '@/features/home/components/MobileAppFloating';
+import LandingSatisfactionSection from '@/features/home/components/LandingSatisfactionSection';
 import * as serviceService from '@/features/services/services/serviceService';
+import { formatMoneyOrDash } from '@/shared/utils/money';
 
 const GalleryCarousel3D = lazy(() => import('@/features/home/components/GalleryCarousel3D'));
-const LandingSatisfactionSection = lazy(() => import('@/features/home/components/LandingSatisfactionSection'));
 const CortesGallery = lazy(() => import('@/features/home/components/CortesGallery'));
 
 const SERVICES_FALLBACK = [
@@ -137,14 +138,6 @@ function inferServiceCategory(service = {}) {
   if (/\+/.test(service?.name || '') || /combo/i.test(service?.name || '')) return 'combos';
   if (/(barba|contorno|marcacion)/.test(text) && !/corte/.test(text)) return 'barba';
   return 'cortes';
-}
-
-function formatPrice(value) {
-  if (value == null || value === '') return '—';
-  const n = Number(value);
-  if (Number.isNaN(n)) return '—';
-  if (n >= 1000) return `$${Math.round(n).toLocaleString('es-CO')}`;
-  return `$${Math.round(n)}`;
 }
 
 function formatDuration(min) {
@@ -374,7 +367,7 @@ export default function HomePage() {
                   <p className="text-stone-500 text-sm leading-snug mb-4 line-clamp-2">{s.description}</p>
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-gold font-semibold tabular-nums">{formatPrice(s.price)}</span>
+                  <span className="text-gold font-semibold tabular-nums">{formatMoneyOrDash(s.price)}</span>
                   {s.durationMinutes > 0 && (
                     <span className="text-stone-500 text-xs uppercase tracking-wider">
                       {formatDuration(s.durationMinutes)}
@@ -413,9 +406,7 @@ export default function HomePage() {
       <Suspense fallback={<LandingBlockFallback text="Cargando sección de ambiente..." />}>
         <GalleryCarousel3D />
       </Suspense>
-      <Suspense fallback={<LandingBlockFallback text="Cargando satisfacción..." />}>
-        <LandingSatisfactionSection />
-      </Suspense>
+      <LandingSatisfactionSection />
 
       {/* ——— UBICACIÓN Y HORARIO ——— */}
       <section id="ubicacion" className="landing-section bg-stone-100 text-stone-900 relative overflow-hidden scroll-mt-20">

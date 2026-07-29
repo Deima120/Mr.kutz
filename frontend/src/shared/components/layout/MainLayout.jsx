@@ -67,20 +67,41 @@ export default function MainLayout() {
 
     if (!location.hash) return;
     const targetId = decodeURIComponent(location.hash.slice(1));
-    const el = document.getElementById(targetId);
-    if (!el) return;
+    let cancelled = false;
+    const timers = [];
 
-    // Espera al render final tras cambio de ruta antes de hacer scroll.
-    requestAnimationFrame(() => {
+    const getHeaderOffset = () => {
       const defaultOffset = window.innerWidth < 768 ? 76 : 92;
       const offsetBySection = {
-        // Ajuste fino para que "Ubicación" muestre encabezado y mapa al llegar.
         ubicacion: window.innerWidth < 768 ? 118 : 156,
+        satisfaccion: window.innerWidth < 768 ? 80 : 96,
       };
-      const headerOffset = offsetBySection[targetId] ?? defaultOffset;
-      const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
+      return offsetBySection[targetId] ?? defaultOffset;
+    };
+
+    const scrollToTarget = (behavior = 'smooth') => {
+      if (cancelled) return false;
+      const el = document.getElementById(targetId);
+      if (!el) return false;
+      const y = el.getBoundingClientRect().top + window.scrollY - getHeaderOffset();
+      window.scrollTo({ top: Math.max(0, y), behavior });
+      return true;
+    };
+
+    // Reintentos: el layout cambia cuando cargan secciones lazy (p. ej. galería)
+    // y pueden empujar el ancla hacia abajo después del primer scroll.
+    const attemptDelays = [0, 80, 200, 400, 700, 1100, 1600, 2200];
+    attemptDelays.forEach((delay, index) => {
+      const id = window.setTimeout(() => {
+        scrollToTarget(index === 0 ? 'auto' : 'smooth');
+      }, delay);
+      timers.push(id);
     });
+
+    return () => {
+      cancelled = true;
+      timers.forEach((id) => window.clearTimeout(id));
+    };
   }, [location.pathname, location.hash, navigate]);
 
   useEffect(() => {

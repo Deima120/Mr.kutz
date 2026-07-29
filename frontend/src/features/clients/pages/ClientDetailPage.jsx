@@ -24,6 +24,7 @@ import {
   formatAppointmentClockTime,
   appointmentNotesOf,
 } from '@/shared/utils/appointmentTime';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 const STATUS_LABELS = {
   scheduled: 'Agendada',
@@ -89,14 +90,13 @@ export default function ClientDetailPage() {
     );
   }
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('es-ES', {
+  const formatDate = (dateStr) =>
+    formatDisplayDate(dateStr, {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
-  };
 
   // Extraer iniciales para el avatar
   const getInitials = () => {
@@ -339,7 +339,7 @@ export default function ClientDetailPage() {
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-stone-500 text-xs font-medium">
                                 <span className="flex items-center gap-1">
                                   <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                                  {formatAppointmentCalendarDate(item.appointment_date, 'es-ES', {
+                                  {formatAppointmentCalendarDate(item.appointment_date, 'es-CO', {
                                     year: 'numeric',
                                   })}
                                 </span>

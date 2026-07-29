@@ -72,6 +72,29 @@ export function getColombiaTodayYmd(date = new Date()) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** Instantánea de la hora actual en Colombia. */
+export function getColombiaNowParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
+  return {
+    year: parseInt(parts.year, 10),
+    month: parseInt(parts.month, 10),
+    day: parseInt(parts.day, 10),
+    hour: parseInt(parts.hour, 10),
+    minute: parseInt(parts.minute, 10),
+    second: parseInt(parts.second, 10),
+  };
+}
+
 /** Suma días a YYYY-MM-DD (calendario UTC, suficiente para ventanas de citas). */
 export function addDaysToYmd(ymd, deltaDays) {
   const [y, m, d] = String(ymd).split('-').map(Number);
@@ -83,4 +106,51 @@ export function addDaysToYmd(ymd, deltaDays) {
 export function ymdToUtcDate(ymd) {
   const [y, m, d] = String(ymd).split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));
+}
+
+/**
+ * Inicio/fin del día civil Colombia como instantes UTC (para createdAt, etc.).
+ * @param {string} ymd YYYY-MM-DD
+ * @returns {{ start: Date, end: Date }}
+ */
+export function colombiaDayBounds(ymd) {
+  const key = extractAppointmentDateYmd(ymd) || String(ymd || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+    throw new Error(`Fecha YMD no válida: ${ymd}`);
+  }
+  return {
+    start: new Date(`${key}T00:00:00${COLOMBIA_UTC_OFFSET}`),
+    end: new Date(`${key}T23:59:59.999${COLOMBIA_UTC_OFFSET}`),
+  };
+}
+
+/** Rango inclusivo de días civiles Colombia. */
+export function colombiaRangeBounds(fromYmd, toYmd) {
+  const a = colombiaDayBounds(fromYmd);
+  const b = colombiaDayBounds(toYmd || fromYmd);
+  return { start: a.start, end: b.end };
+}
+
+/** YYYY-MM-DD del instante en zona Colombia (para timestamps createdAt). */
+export function formatInstantYmdInColombia(date = new Date()) {
+  return getColombiaTodayYmd(date instanceof Date ? date : new Date(date));
+}
+
+/**
+ * Aplica filtros createdAt por dateFrom/dateTo (días Colombia).
+ * Mutates/returns where fragment for Prisma.
+ */
+export function applyColombiaCreatedAtFilter(where, dateFrom, dateTo) {
+  if (!dateFrom && !dateTo) return where;
+  const createdAt = { ...(where.createdAt || {}) };
+  if (dateFrom) createdAt.gte = colombiaDayBounds(dateFrom).start;
+  if (dateTo) createdAt.lte = colombiaDayBounds(dateTo).end;
+  where.createdAt = createdAt;
+  return where;
+}
+
+/** Día de la semana en Colombia: 0=domingo … 6=sábado. */
+export function getColombiaWeekday(date = new Date()) {
+  const ymd = getColombiaTodayYmd(date);
+  return new Date(`${ymd}T12:00:00${COLOMBIA_UTC_OFFSET}`).getUTCDay();
 }

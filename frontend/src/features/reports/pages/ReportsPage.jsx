@@ -5,16 +5,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '@/shared/contexts/SettingsContext';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import * as dashboardService from '@/features/dashboard/services/dashboardService';
 import { formatInventoryValue } from '@/features/inventory/utils/productFormatters';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import StatsCard from '@/shared/components/admin/StatsCard';
 import DataCard from '@/shared/components/admin/DataCard';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+import { validateQueryDateOrder } from '@/shared/utils/dateRange';
 import { downloadReportExcel } from '@/shared/utils/exportExcel';
 import { downloadReportPDF } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 function TrendBadge({ value, positiveIsGood = true }) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -41,38 +44,36 @@ function TrendBadge({ value, positiveIsGood = true }) {
 
 function formatDate(iso) {
   if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString('es-CO', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch (_) {
-    return String(iso).slice(0, 10);
-  }
+  return formatDisplayDate(iso, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function ReportsPage() {
   const { businessName } = useSettings();
+  const toast = useAppToast();
   const [report, setReport] = useState(null);
   const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfMonth());
   const [dateTo, setDateTo] = useState(getLocalDateToday());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   const fetchReport = useCallback(async () => {
+    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
+    if (!rangeCheck.ok) {
+      toast.error(rangeCheck.message);
+      setReport(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    setError('');
     try {
       const data = await dashboardService.getReport({ dateFrom, dateTo });
       setReport(Array.isArray(data) ? null : data);
     } catch (err) {
-      setError(err?.message || 'No se pudo cargar el reporte');
+      toast.error(err?.message || 'No se pudo cargar el reporte');
       setReport(null);
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, toast]);
 
   useEffect(() => {
     fetchReport();
@@ -92,7 +93,7 @@ export default function ReportsPage() {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
         <div className="text-stone-500">
-          {loading ? 'Cargando reportes...' : error || 'Error al cargar datos'}
+          {loading ? 'Cargando reportes...' : 'No hay datos para este periodo.'}
         </div>
       </div>
     );
@@ -134,12 +135,6 @@ export default function ReportsPage() {
           </div>
         }
       />
-
-      {error && (
-        <div className="alert-error" role="alert">
-          {error}
-        </div>
-      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard

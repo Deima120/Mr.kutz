@@ -5,6 +5,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatMoney } from '@/shared/utils/money';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 
 const BRAND = {
   gold: [201, 169, 98],
@@ -302,7 +303,7 @@ export function downloadReportPDF(report, { businessName = 'Mr. Kutz', dateFrom,
         startY: y,
         head: [['Fecha', 'Cliente', 'Servicio', 'Barbero', '★', 'Comentario']],
         body: recent.map((x) => [
-          x.date ? new Date(x.date).toLocaleDateString('es-CO') : '—',
+          x.date ? formatDisplayDate(x.date, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—',
           x.clientName || '—',
           x.serviceName || '—',
           x.barberName || '—',

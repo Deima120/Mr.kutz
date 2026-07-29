@@ -16,7 +16,11 @@ export const auth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, message: 'Acceso denegado. No se envió un token.' });
+      return res.status(401).json({
+        success: false,
+        message: 'Se requiere autenticación para acceder a este recurso.',
+        status: 401,
+      });
     }
 
     const token = authHeader.split(' ')[1];

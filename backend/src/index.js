@@ -11,6 +11,7 @@ import prisma from './lib/prisma.js';
 
 import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { notFound } from './middlewares/notFound.js';
 import { getMailConfigDiagnostics } from './lib/mailer.js';
 import routes from './routes/index.js';
 import {
@@ -96,8 +97,16 @@ app.use('/api', routes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    // TEMP: fingerprint para verificar deploy del mailer (quitar tras validar)
+    mailer: { createCopy: 'agendada', cancelNotify: true },
+  });
 });
+
+// ========== 404 (después de todas las rutas) ==========
+app.use(notFound);
 
 // ========== MANEJO DE ERRORES ==========
 app.use(errorHandler);
