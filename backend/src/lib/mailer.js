@@ -449,13 +449,16 @@ function formatHHMM(value) {
   return String(value);
 }
 
-function appointmentDetailsHtml(appointment) {
+function appointmentDetailsHtml(appointment, { includeCancelReason = false } = {}) {
   const rows = [
     ['Servicio', appointment.service_name],
     ['Barbero', `${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim()],
     ['Fecha', formatAppointmentDate(appointment)],
     ['Hora', formatHHMM(appointment.start_time)],
     appointment.notes ? ['Notas', appointment.notes] : null,
+    includeCancelReason && (appointment.cancel_reason || appointment.cancelReason)
+      ? ['Motivo', appointment.cancel_reason || appointment.cancelReason]
+      : null,
   ].filter(Boolean);
 
   const items = rows
@@ -481,11 +484,11 @@ function buildAppointmentClientContent(appointment, businessName) {
   const date = formatAppointmentDate(appointment);
   const hour = formatHHMM(appointment.start_time);
   return {
-    subject: `${businessName} — Cita confirmada para el ${date}`,
+    subject: `${businessName} — Cita agendada para el ${date}`,
     text: [
       `Hola ${clientName},`,
       '',
-      `Tu cita quedó confirmada.`,
+      `Tu cita quedó registrada.`,
       `• Servicio: ${appointment.service_name}`,
       `• Barbero: ${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim(),
       `• Fecha: ${date}`,
@@ -497,11 +500,143 @@ function buildAppointmentClientContent(appointment, businessName) {
     ].join('\n'),
     html: shell({
       businessName,
-      title: 'Cita confirmada',
-      intro: `Hola <strong>${escapeHtml(clientName)}</strong>, tu cita quedó confirmada.`,
+      title: 'Cita agendada',
+      intro: `Hola <strong>${escapeHtml(clientName)}</strong>, tu cita quedó registrada.`,
       highlightHtml: appointmentDetailsHtml(appointment),
       closing:
         'Si necesitas cambiar o cancelar, contáctanos con antelación. ¡Te esperamos!',
+    }),
+  };
+}
+
+function buildAppointmentConfirmedClientContent(appointment, businessName) {
+  const clientName =
+    `${appointment.client_first_name || ''} ${appointment.client_last_name || ''}`.trim() ||
+    'cliente';
+  const date = formatAppointmentDate(appointment);
+  const hour = formatHHMM(appointment.start_time);
+  return {
+    subject: `${businessName} — Cita confirmada para el ${date}`,
+    text: [
+      `Hola ${clientName},`,
+      '',
+      `Tu cita quedó confirmada.`,
+      `• Servicio: ${appointment.service_name}`,
+      `• Barbero: ${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim(),
+      `• Fecha: ${date}`,
+      `• Hora: ${hour}`,
+      '',
+      '¡Te esperamos!',
+      '',
+      `— ${businessName}`,
+    ].join('\n'),
+    html: shell({
+      businessName,
+      title: 'Cita confirmada',
+      intro: `Hola <strong>${escapeHtml(clientName)}</strong>, tu cita quedó <strong>confirmada</strong>.`,
+      highlightHtml: appointmentDetailsHtml(appointment),
+      closing: 'Si necesitas cambiar o cancelar, contáctanos con antelación. ¡Te esperamos!',
+    }),
+  };
+}
+
+function buildAppointmentConfirmedBarberContent(appointment, businessName) {
+  const barberName =
+    `${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim() ||
+    'barbero';
+  const clientName =
+    `${appointment.client_first_name || ''} ${appointment.client_last_name || ''}`.trim() ||
+    'Cliente';
+  const date = formatAppointmentDate(appointment);
+  const hour = formatHHMM(appointment.start_time);
+  return {
+    subject: `${businessName} — Cita confirmada (${date} ${hour})`,
+    text: [
+      `Hola ${barberName},`,
+      '',
+      `La cita de ${clientName} quedó confirmada.`,
+      `• Servicio: ${appointment.service_name}`,
+      `• Fecha: ${date}`,
+      `• Hora: ${hour}`,
+      '',
+      `— ${businessName}`,
+    ].join('\n'),
+    html: shell({
+      businessName,
+      title: 'Cita confirmada',
+      intro: `Hola <strong>${escapeHtml(barberName)}</strong>, la cita de <strong>${escapeHtml(clientName)}</strong> quedó confirmada:`,
+      highlightHtml: appointmentDetailsHtml(appointment),
+      closing: 'Revisa tu agenda para más detalles.',
+    }),
+  };
+}
+
+function buildAppointmentCancelledClientContent(appointment, businessName) {
+  const clientName =
+    `${appointment.client_first_name || ''} ${appointment.client_last_name || ''}`.trim() ||
+    'cliente';
+  const date = formatAppointmentDate(appointment);
+  const hour = formatHHMM(appointment.start_time);
+  const reason = appointment.cancel_reason || appointment.cancelReason || '';
+  return {
+    subject: `${businessName} — Cita cancelada (${date})`,
+    text: [
+      `Hola ${clientName},`,
+      '',
+      `Tu cita fue cancelada.`,
+      `• Servicio: ${appointment.service_name}`,
+      `• Barbero: ${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim(),
+      `• Fecha: ${date}`,
+      `• Hora: ${hour}`,
+      reason ? `• Motivo: ${reason}` : null,
+      '',
+      'Puedes agendar una nueva cita cuando quieras.',
+      '',
+      `— ${businessName}`,
+    ]
+      .filter((line) => line != null)
+      .join('\n'),
+    html: shell({
+      businessName,
+      title: 'Cita cancelada',
+      intro: `Hola <strong>${escapeHtml(clientName)}</strong>, tu cita fue <strong>cancelada</strong>.`,
+      highlightHtml: appointmentDetailsHtml(appointment, { includeCancelReason: true }),
+      closing: 'Puedes agendar una nueva cita cuando quieras.',
+    }),
+  };
+}
+
+function buildAppointmentCancelledBarberContent(appointment, businessName) {
+  const barberName =
+    `${appointment.barber_first_name || ''} ${appointment.barber_last_name || ''}`.trim() ||
+    'barbero';
+  const clientName =
+    `${appointment.client_first_name || ''} ${appointment.client_last_name || ''}`.trim() ||
+    'Cliente';
+  const date = formatAppointmentDate(appointment);
+  const hour = formatHHMM(appointment.start_time);
+  const reason = appointment.cancel_reason || appointment.cancelReason || '';
+  return {
+    subject: `${businessName} — Cita cancelada (${date} ${hour})`,
+    text: [
+      `Hola ${barberName},`,
+      '',
+      `La cita de ${clientName} fue cancelada.`,
+      `• Servicio: ${appointment.service_name}`,
+      `• Fecha: ${date}`,
+      `• Hora: ${hour}`,
+      reason ? `• Motivo: ${reason}` : null,
+      '',
+      `— ${businessName}`,
+    ]
+      .filter((line) => line != null)
+      .join('\n'),
+    html: shell({
+      businessName,
+      title: 'Cita cancelada',
+      intro: `Hola <strong>${escapeHtml(barberName)}</strong>, la cita de <strong>${escapeHtml(clientName)}</strong> fue cancelada:`,
+      highlightHtml: appointmentDetailsHtml(appointment, { includeCancelReason: true }),
+      closing: 'Tu agenda se actualizó en consecuencia.',
     }),
   };
 }
@@ -588,7 +723,7 @@ export async function sendPasswordResetCode({ to, code, businessName = 'Mr. Kutz
 }
 
 /**
- * Envía al cliente confirmación de cita creada.
+ * Envía al cliente aviso de cita agendada (creación).
  * @param {{ to: string, appointment: object, businessName?: string }} params
  */
 export async function sendAppointmentConfirmation({
@@ -615,6 +750,50 @@ export async function sendAppointmentBarberNotice({
   return sendMail({ to, subject, text, html, businessName });
 }
 
+/** Cliente: cita confirmada por el negocio. */
+export async function sendAppointmentConfirmedToClient({
+  to,
+  appointment,
+  businessName = 'Mr. Kutz',
+}) {
+  if (!to) return { sent: false, reason: 'no_recipient' };
+  const { subject, text, html } = buildAppointmentConfirmedClientContent(appointment, businessName);
+  return sendMail({ to, subject, text, html, businessName });
+}
+
+/** Barbero: cita confirmada. */
+export async function sendAppointmentConfirmedToBarber({
+  to,
+  appointment,
+  businessName = 'Mr. Kutz',
+}) {
+  if (!to) return { sent: false, reason: 'no_recipient' };
+  const { subject, text, html } = buildAppointmentConfirmedBarberContent(appointment, businessName);
+  return sendMail({ to, subject, text, html, businessName });
+}
+
+/** Cliente: cita cancelada (incluye motivo). */
+export async function sendAppointmentCancelledToClient({
+  to,
+  appointment,
+  businessName = 'Mr. Kutz',
+}) {
+  if (!to) return { sent: false, reason: 'no_recipient' };
+  const { subject, text, html } = buildAppointmentCancelledClientContent(appointment, businessName);
+  return sendMail({ to, subject, text, html, businessName });
+}
+
+/** Barbero: cita cancelada (incluye motivo). */
+export async function sendAppointmentCancelledToBarber({
+  to,
+  appointment,
+  businessName = 'Mr. Kutz',
+}) {
+  if (!to) return { sent: false, reason: 'no_recipient' };
+  const { subject, text, html } = buildAppointmentCancelledBarberContent(appointment, businessName);
+  return sendMail({ to, subject, text, html, businessName });
+}
+
 /**
  * Invita al cliente a dejar una reseña después de que la cita se marque como completada.
  * @param {{ to: string, appointment: object, businessName?: string, reviewUrl?: string }} params
@@ -633,3 +812,11 @@ export async function sendAppointmentReviewRequest({
   );
   return sendMail({ to, subject, text, html, businessName });
 }
+
+/** Builders exportados para tests de copy (sin enviar correo). */
+export const __mailContentForTests = {
+  buildAppointmentClientContent,
+  buildAppointmentConfirmedClientContent,
+  buildAppointmentCancelledClientContent,
+  buildAppointmentCancelledBarberContent,
+};

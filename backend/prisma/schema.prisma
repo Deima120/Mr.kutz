@@ -153,6 +153,8 @@ model Appointment {
   endTime             DateTime  @map("end_time") @db.Time(6)
   status              String    @default("scheduled") @db.VarChar(20)
   notes               String?
+  /// Motivo obligatorio al cancelar (cliente o admin)
+  cancelReason        String?   @map("cancel_reason") @db.VarChar(500)
   /// Valoración del cliente tras cita completada (1–5); una vez por cita
   clientRating        Int?      @map("client_rating")
   clientRatingComment String?   @map("client_rating_comment") @db.VarChar(2000)

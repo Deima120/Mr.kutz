@@ -21,6 +21,7 @@ import AppointmentActionToggles from '@/features/appointments/components/Appoint
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { VOID_REASON_FIELD_CLASS, VOID_REASON_MAX } from '@/shared/feedback/voidReasonField';
 import {
   getEffectiveAppointmentStatus,
   canConfirmAppointment,
@@ -184,6 +185,12 @@ function CancelAppointmentButton({ onClick, className = '', disabled = false }) 
 }
 
 function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirming }) {
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (open) setReason('');
+  }, [open, appointment?.id]);
+
   if (!appointment) return null;
 
   const serviceName = appointment.service_name || 'Servicio';
@@ -200,8 +207,10 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
       cancelLabel="Volver"
       submittingLabel="Cancelando…"
       isSubmitting={confirming}
+      confirmDisabled={!reason.trim()}
+      autoFocusConfirm={false}
       onCancel={onClose}
-      onConfirm={onConfirm}
+      onConfirm={() => onConfirm(reason.trim())}
     >
       <div className="space-y-4 -mt-1">
         <div>
@@ -230,6 +239,19 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
               {timeLabel}
             </p>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
+          <textarea
+            value={reason}
+            data-autofocus
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            maxLength={VOID_REASON_MAX}
+            placeholder="Ej. no puedo asistir, cambio de planes…"
+            className={VOID_REASON_FIELD_CLASS}
+          />
         </div>
 
         <p className="text-sm text-stone-600 leading-relaxed text-center">
@@ -479,9 +501,9 @@ export default function AppointmentsPage() {
     }
   }, [location.state, location.pathname, navigate, toast]);
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus, extra = {}) => {
     try {
-      await appointmentService.updateAppointment(id, { status: newStatus });
+      await appointmentService.updateAppointment(id, { status: newStatus, ...extra });
       setCancelTarget(null);
       setCancelling(false);
 
@@ -526,10 +548,12 @@ export default function AppointmentsPage() {
     openCancelModal(id);
   };
 
-  const handleCancelConfirm = async () => {
+  const handleCancelConfirm = async (reason) => {
     if (!cancelTarget?.id) return;
+    const cancelReason = String(reason || '').trim();
+    if (!cancelReason) return;
     setCancelling(true);
-    await handleStatusChange(cancelTarget.id, 'cancelled');
+    await handleStatusChange(cancelTarget.id, 'cancelled', { cancelReason });
   };
 
   const formatTime = formatAppointmentClockTime;

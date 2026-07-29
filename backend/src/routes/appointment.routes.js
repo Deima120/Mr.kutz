@@ -71,6 +71,19 @@ const updateValidation = [
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora debe tener formato HH:MM.'),
   body('status').optional({ checkFalsy: true }).isIn(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']),
+  body('cancelReason')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('El motivo de cancelación no puede superar 500 caracteres.'),
+  body().custom((_, { req }) => {
+    if (req.body?.status !== 'cancelled') return true;
+    const reason = String(req.body?.cancelReason ?? '').trim();
+    if (!reason) {
+      throw new Error('El motivo de cancelación es obligatorio.');
+    }
+    return true;
+  }),
   optionalNotesField('notes', 500),
 ];
 

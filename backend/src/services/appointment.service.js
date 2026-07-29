@@ -6,7 +6,13 @@ import prisma from '../lib/prisma.js';
 import {
   notifyAppointmentCreated,
   notifyAppointmentCompleted,
+  notifyAppointmentConfirmed,
+  notifyAppointmentCancelled,
 } from './appointmentNotifications.js';
+import {
+  statusTransitionNotification,
+  validateCancelReason,
+} from './appointmentNotificationRules.js';
 import {
   addDaysToYmd,
   getColombiaTodayYmd,
@@ -312,6 +318,7 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
         end_time: toTimeStr(a.endTime),
         status: a.status,
         notes: userNotesOnly(a.notes),
+        cancel_reason: a.cancelReason ?? null,
         created_at: a.createdAt,
         client_first_name: a.client.firstName,
         client_last_name: a.client.lastName,
@@ -365,6 +372,7 @@ export const getById = async (id) => {
     end_time: toTimeStr(a.endTime),
     status: a.status,
     notes: userNotesOnly(a.notes),
+    cancel_reason: a.cancelReason ?? null,
     created_at: a.createdAt,
     updated_at: a.updatedAt,
     client_first_name: a.client.firstName,
@@ -675,6 +683,16 @@ export const update = async (id, data, existingAppointment = null) => {
   if (timingChanged) updateData.endTime = nextEndTime;
   if (data.status) updateData.status = data.status;
 
+  if (data.status === 'cancelled') {
+    const reasonCheck = validateCancelReason(data.cancelReason);
+    if (!reasonCheck.ok) {
+      const err = new Error(reasonCheck.message);
+      err.statusCode = 400;
+      throw err;
+    }
+    updateData.cancelReason = reasonCheck.reason;
+  }
+
   // Preservar prefijos multi-servicio al guardar notas del usuario
   if (data.notes !== undefined || servicesChanged) {
     const userPart =
@@ -726,11 +744,12 @@ export const update = async (id, data, existingAppointment = null) => {
   });
 
   const full = await getById(apptId);
-  if (
-    data.status === 'completed' &&
-    existing.status !== 'completed' &&
-    full
-  ) {
+  const transition = statusTransitionNotification(existing.status, data.status);
+  if (transition === 'confirmed' && full) {
+    notifyAppointmentConfirmed(full);
+  } else if (transition === 'cancelled' && full) {
+    notifyAppointmentCancelled(full);
+  } else if (transition === 'completed' && full) {
     notifyAppointmentCompleted(full);
   }
   return full;
