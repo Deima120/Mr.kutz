@@ -29,6 +29,7 @@ import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
 import ProductPicker from '@/features/inventory/components/ProductPicker';
 import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
+import { useCashRegisterOptional } from '@/features/cash-registers/CashRegisterContext';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -109,6 +110,9 @@ export function PaymentForm({
 }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const cashRegister = useCashRegisterOptional();
+  const canCharge = cashRegister ? Boolean(cashRegister.canCharge) : true;
+  const cashLoading = Boolean(cashRegister?.loading);
   const prefillProductId = prefillProductIdProp ?? searchParams.get('productId');
   const prefillAppointmentId = prefillAppointmentIdProp ?? searchParams.get('appointmentId');
   const draftManualId = useId();
@@ -473,6 +477,10 @@ export function PaymentForm({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (cashRegister && !canCharge) {
+      setError('No hay caja abierta. Abre la caja antes de registrar cobros.');
+      return;
+    }
     const methodSplits = methodRows.map((row) => ({
       paymentMethodId: row.paymentMethodId,
       amount: row.amount,
@@ -523,7 +531,12 @@ export function PaymentForm({
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Error al registrar venta'));
+      if (err?.reason === 'NO_OPEN_CASH_REGISTER') {
+        setError(err.message || 'No hay caja abierta. Abre la caja antes de registrar cobros.');
+        cashRegister?.refresh?.();
+      } else {
+        setError(getApiErrorMessage(err, 'Error al registrar venta'));
+      }
     } finally {
       setLoading(false);
     }
@@ -605,6 +618,20 @@ export function PaymentForm({
           <div className="alert-error text-sm" role="alert">
             {error}
           </div>
+        ) : null}
+        {cashRegister && !cashLoading && !canCharge ? (
+          <AppInlineAlert variant="warning" title="Caja cerrada" className="text-xs py-2 px-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>Abre la caja del día para poder confirmar ventas.</p>
+              <button
+                type="button"
+                onClick={() => cashRegister.requestOpen?.()}
+                className="shrink-0 rounded-xl border border-amber-300/80 bg-white px-3 py-1.5 text-xs font-semibold text-amber-950 shadow-sm hover:bg-amber-50"
+              >
+                Abrir caja
+              </button>
+            </div>
+          </AppInlineAlert>
         ) : null}
         {prefillHints.length > 0 ? (
           <AppInlineAlert variant="warning" className="text-xs py-2 px-3">
@@ -963,7 +990,7 @@ export function PaymentForm({
           <AdminFormSecondaryButton onClick={handleCancel} disabled={loading}>
             Cancelar
           </AdminFormSecondaryButton>
-          <AdminFormPrimaryButton disabled={loading || lines.length === 0}>
+          <AdminFormPrimaryButton disabled={loading || lines.length === 0 || !canCharge || cashLoading}>
             <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
               Confirmar venta
             </AdminFormLoadingButton>

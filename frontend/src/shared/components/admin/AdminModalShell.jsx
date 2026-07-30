@@ -1,5 +1,6 @@
 /**
  * Modal admin compartido: portal, Escape, bloqueo de fondo y foco inicial.
+ * El autofocus solo corre al abrir (`open` → true), no en cada re-render del padre.
  */
 
 import { useEffect, useId, useRef } from 'react';
@@ -11,6 +12,7 @@ const SIZE_CLASS = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-2xl',
+  '2xl': 'max-w-4xl',
 };
 
 function getFocusable(root) {
@@ -41,6 +43,15 @@ export default function AdminModalShell({
   const titleId = useId();
   const panelRef = useRef(null);
   const previouslyFocused = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const preventCloseRef = useRef(preventClose);
+  const closeOnBackdropRef = useRef(closeOnBackdrop);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    preventCloseRef.current = preventClose;
+    closeOnBackdropRef.current = closeOnBackdrop;
+  });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -60,9 +71,9 @@ export default function AdminModalShell({
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
-        if (!preventClose) {
+        if (!preventCloseRef.current) {
           event.preventDefault();
-          onClose?.();
+          onCloseRef.current?.();
         }
         return;
       }
@@ -88,7 +99,7 @@ export default function AdminModalShell({
       document.body.style.overflow = prevOverflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose, preventClose]);
+  }, [open]);
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -99,8 +110,8 @@ export default function AdminModalShell({
       className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm`}
       role="presentation"
       onMouseDown={(event) => {
-        if (!closeOnBackdrop || preventClose) return;
-        if (event.target === event.currentTarget) onClose?.();
+        if (!closeOnBackdropRef.current || preventCloseRef.current) return;
+        if (event.target === event.currentTarget) onCloseRef.current?.();
       }}
     >
       <div
@@ -124,7 +135,7 @@ export default function AdminModalShell({
             {showClose ? (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => onCloseRef.current?.()}
                 disabled={preventClose}
                 className="rounded-lg border border-stone-200 p-1.5 text-stone-600 hover:bg-stone-100 disabled:opacity-40 shrink-0"
                 aria-label="Cerrar"

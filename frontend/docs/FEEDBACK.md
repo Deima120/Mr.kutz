@@ -8,7 +8,7 @@ Módulo: `frontend/src/shared/feedback/`. Sin librerías externas de toast/modal
 |------|-----|
 | Feedback breve tras acción (guardar, borrar, error de listado) | `useAppToast()` → `toast.success` / `error` / `warning` / `info` |
 | Confirmación destructiva o irreversible | `AdminConfirmModal` (`danger` / `warning` / `neutral`) |
-| Aviso persistente de contexto (stock bajo, hint de formulario) | `AppInlineAlert` |
+| Aviso persistente de contexto (stock bajo, hint de formulario, **estado de caja**) | `AppInlineAlert` |
 | Error de validación en un campo o formulario | Inline en el form (`ADMIN_FORM_ERROR_CLASS`, `FieldErrorMessage`, etc.) |
 
 ## Reglas
@@ -20,6 +20,7 @@ Módulo: `frontend/src/shared/feedback/`. Sin librerías externas de toast/modal
 5. Cancelar cita (admin) → siempre `AdminConfirmModal` `danger`.
 6. Archivar producto / anular (void) → `warning`.
 7. Delete de entidad → `danger` vía `AdminConfirmModal`.
+8. **Caja diaria (admin):** banner en `AdminLayout` vía `CashRegisterProvider` (`AppInlineAlert`). Abrir = `AdminModalShell`; cerrar = `AdminConfirmModal` `warning`. Si `isStaleOpen`, el banner usa variante `error` (caja de día anterior). Sin caja OPEN, `PaymentForm` bloquea el cobro y ofrece CTA “Abrir caja”.
 
 ## Ejemplo rápido
 

@@ -85,6 +85,17 @@ describe('allocateDocumentFolio', () => {
     assert.equal(b, 'MKP-20260728-000002');
     assert.equal(c, 'PO-20260728-000001');
     assert.equal(DOC_PREFIX[DOC_TYPES.goods_receipt], 'GR');
+    assert.equal(DOC_PREFIX[DOC_TYPES.expense], 'EXP');
+    assert.equal(DOC_PREFIX[DOC_TYPES.other_income], 'OI');
+  });
+
+  it('emite EXP y OI con contadores independientes', async () => {
+    const tx = createSequenceTxHarness();
+    const fixed = new Date('2026-07-28T15:00:00-05:00');
+    const exp = await allocateDocumentFolio(tx, DOC_TYPES.expense, fixed);
+    const oi = await allocateDocumentFolio(tx, DOC_TYPES.other_income, fixed);
+    assert.equal(exp, 'EXP-20260728-000001');
+    assert.equal(oi, 'OI-20260728-000001');
   });
 
   it('bajo concurrencia no repite folios', async () => {

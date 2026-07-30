@@ -1,7 +1,7 @@
 /**
  * Folios internos secuenciales por día (America/Bogota).
  * Formato: {PREFIX}-{YYYYMMDD}-{######}
- * Prefijos: MKP (pagos), PO (órdenes), GR (recepciones).
+ * Prefijos: MKP (pagos), PO (órdenes), GR (recepciones), EXP (gastos), OI (otros ingresos).
  */
 
 import { Prisma } from '@prisma/client';
@@ -11,12 +11,16 @@ export const DOC_TYPES = Object.freeze({
   payment: 'payment',
   purchase_order: 'purchase_order',
   goods_receipt: 'goods_receipt',
+  expense: 'expense',
+  other_income: 'other_income',
 });
 
 export const DOC_PREFIX = Object.freeze({
   [DOC_TYPES.payment]: 'MKP',
   [DOC_TYPES.purchase_order]: 'PO',
   [DOC_TYPES.goods_receipt]: 'GR',
+  [DOC_TYPES.expense]: 'EXP',
+  [DOC_TYPES.other_income]: 'OI',
 });
 
 export function periodKeyFromYmd(ymd) {

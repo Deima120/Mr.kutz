@@ -35,6 +35,12 @@ import {
 } from './appointment.service.js';
 import { allocateDocumentFolio, DOC_TYPES } from '../utils/documentSequence.js';
 import { applyColombiaCreatedAtFilter } from '../utils/colombiaTime.js';
+import { requireOpenCashRegister } from './cashRegister.service.js';
+import {
+  computeCommissionAmount,
+  DEFAULT_COMMISSION_PERCENT,
+  resolveCommissionPercent,
+} from './commission.helpers.js';
 
 const lineInclude = {
   product: { select: { name: true, sku: true } },
@@ -143,6 +149,7 @@ export function toPaymentDto(p) {
   return {
     id: p.id,
     clientId: p.clientId ?? null,
+    cashRegisterId: p.cashRegisterId ?? null,
     amount: moneyToNumber(p.amount),
     paymentMethodId: p.paymentMethodId,
     reference: p.reference,
@@ -165,6 +172,7 @@ export function toPaymentDto(p) {
     product_quantity: productLine?.quantity ?? null,
     payment_method_id: p.paymentMethodId,
     payment_method_name: methodName,
+    cash_register_id: p.cashRegisterId ?? null,
     amount_tendered: p.amountTendered != null ? moneyToNumber(p.amountTendered) : null,
     change_given: p.changeGiven != null ? moneyToNumber(p.changeGiven) : null,
     is_mixed_methods: mixedMethods,
@@ -394,6 +402,12 @@ async function voidOneLineInTx(tx, line, { reason, voidedBy, paymentId, now }) {
   if (claimed.count !== 1) {
     throw httpPaymentError('La línea fue anulada por otra operación.', 409);
   }
+
+  await tx.commissionEntry.updateMany({
+    where: { paymentLineId: line.id, voidedAt: null },
+    data: { voidedAt: now },
+  });
+
   return tx.paymentLine.findUnique({ where: { id: line.id }, include: lineInclude });
 }
 
@@ -485,6 +499,7 @@ export const getById = async (id) => loadPaymentDto(prisma, id);
 export async function createWithTx(tx, data) {
   const lineInputs = normalizeCreateLineInputs(data);
   const createdBy = data.createdBy ? parseInt(data.createdBy, 10) : null;
+  const openRegister = await requireOpenCashRegister(tx);
 
   const serviceInputs = lineInputs.filter((l) => l.type === 'service');
   const productInputs = lineInputs.filter((l) => l.type === 'product');
@@ -497,6 +512,7 @@ export async function createWithTx(tx, data) {
         include: {
           service: { select: { id: true, name: true, price: true } },
           client: { select: { id: true, firstName: true, lastName: true } },
+          barber: { select: { id: true, commissionPercent: true } },
         },
       })
     : [];
@@ -622,6 +638,7 @@ export async function createWithTx(tx, data) {
       clientId,
       amount: headerAmount,
       paymentMethodId: headerMethodId,
+      cashRegisterId: openRegister.id,
       reference: await allocateDocumentFolio(tx, DOC_TYPES.payment),
       notes: String(data.notes || '').trim() || null,
       amountTendered: tendered.amountTendered,
@@ -682,6 +699,44 @@ export async function createWithTx(tx, data) {
       createdBy: Number.isFinite(createdBy) ? createdBy : null,
       insufficientMessage: 'Stock insuficiente para registrar esta venta.',
     });
+  }
+
+  const serviceCreated = createdLines.filter(
+    (line) => line.lineType === 'service' && line.appointmentId
+  );
+  if (serviceCreated.length) {
+    const setting = await tx.businessSetting.findFirst({
+      orderBy: { id: 'asc' },
+      select: { defaultCommissionPercent: true },
+    });
+    const defaultPercent =
+      setting?.defaultCommissionPercent ?? DEFAULT_COMMISSION_PERCENT;
+
+    for (const line of serviceCreated) {
+      const appt = appointmentsById.get(line.appointmentId);
+      if (!appt?.barberId) {
+        throw httpPaymentError(
+          `La cita #${line.appointmentId} no tiene barbero asignado para comisión.`
+        );
+      }
+      const percent = resolveCommissionPercent(
+        appt.barber?.commissionPercent,
+        defaultPercent
+      );
+      const serviceAmount = moneyToNumber(line.lineAmount);
+      const commissionAmount = computeCommissionAmount(serviceAmount, percent);
+      await tx.commissionEntry.create({
+        data: {
+          paymentId: payment.id,
+          paymentLineId: line.id,
+          appointmentId: line.appointmentId,
+          barberId: appt.barberId,
+          serviceAmount: toMoneyDecimal(serviceAmount),
+          commissionPercent: toMoneyDecimal(percent),
+          commissionAmount: toMoneyDecimal(commissionAmount),
+        },
+      });
+    }
   }
 
   const full = await tx.payment.findUnique({

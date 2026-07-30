@@ -17,7 +17,20 @@ const CATALOG = {
   3: { id: 3, name: 'transferencia', description: 'Transferencia', isCash: false, isActive: true },
 };
 
-function createMixedPaymentHarness({ appointmentId = 1, productId = 5, stock = 10 } = {}) {
+function createMixedPaymentHarness({
+  appointmentId = 1,
+  productId = 5,
+  stock = 10,
+  /** null = simula sin caja abierta */
+  openRegister = {
+    id: 42,
+    status: 'OPEN',
+    businessDate: new Date(Date.UTC(2026, 6, 29)),
+    openingAmount: money(100000),
+    openedById: 1,
+    openedAt: new Date(),
+  },
+} = {}) {
   let paymentSeq = 1;
   let lineSeq = 1;
   let splitSeq = 1;
@@ -76,6 +89,12 @@ function createMixedPaymentHarness({ appointmentId = 1, productId = 5, stock = 1
   }
 
   const tx = {
+    cashRegister: {
+      findFirst: async ({ where }) => {
+        if (where?.status === 'OPEN') return openRegister;
+        return null;
+      },
+    },
     paymentMethod: {
       findMany: async ({ where }) => {
         const ids = where?.id?.in || [];
@@ -96,12 +115,21 @@ function createMixedPaymentHarness({ appointmentId = 1, productId = 5, stock = 1
         (where.id.in || []).map((id) => ({
           id,
           clientId: 100,
+          barberId: 7,
           status: 'completed',
           notes: null,
           serviceId: 1,
           service: { id: 1, name: 'Corte', price: money(25) },
           client: { id: 100, firstName: 'Ana', lastName: 'López' },
+          barber: { id: 7, commissionPercent: money(40) },
         })),
+    },
+    businessSetting: {
+      findFirst: async () => ({ defaultCommissionPercent: money(40) }),
+    },
+    commissionEntry: {
+      create: async ({ data }) => ({ id: 1, voidedAt: null, ...data }),
+      updateMany: async () => ({ count: 1 }),
     },
     service: {
       findMany: async ({ where }) => {
@@ -336,8 +364,8 @@ function createMixedPaymentHarness({ appointmentId = 1, productId = 5, stock = 1
 }
 
 describe('flujo pago mixto (create/void API)', () => {
-  it('create mixto OK: 2 splits + vuelto solo sobre efectivo', async () => {
-    const { tx, splits } = createMixedPaymentHarness();
+  it('create mixto OK: 2 splits + vuelto solo sobre efectivo + cashRegisterId', async () => {
+    const { tx, splits, payments } = createMixedPaymentHarness();
 
     // Líneas: servicio 25 + producto 2×10 = 45
     const dto = await createWithTx(tx, {
@@ -359,9 +387,29 @@ describe('flujo pago mixto (create/void API)', () => {
     assert.equal(dto.amountTendered, 30);
     assert.equal(dto.changeGiven, 10); // 30 − 20 (cash), no 30 − 45
     assert.equal(dto.paymentMethodId, 1);
+    assert.equal(dto.cashRegisterId, 42);
+    assert.equal(payments.get(dto.id).cashRegisterId, 42);
     assert.equal(splits.size, 2);
     assert.match(String(dto.paymentMethodName), /efectivo/);
     assert.match(String(dto.paymentMethodName), /tarjeta/);
+  });
+
+  it('create bloqueado sin caja abierta (NO_OPEN_CASH_REGISTER)', async () => {
+    const { tx } = createMixedPaymentHarness({ openRegister: null });
+
+    await assert.rejects(
+      () =>
+        createWithTx(tx, {
+          paymentMethodId: 1,
+          lines: [{ type: 'manual', unitPrice: 10, description: 'Sin caja' }],
+        }),
+      (err) => {
+        assert.equal(err.reason, 'NO_OPEN_CASH_REGISTER');
+        assert.equal(err.statusCode, 409);
+        assert.match(err.message, /caja abierta/i);
+        return true;
+      }
+    );
   });
 
   it('create descuadrado: Σ splits ≠ amount → rechazado', async () => {

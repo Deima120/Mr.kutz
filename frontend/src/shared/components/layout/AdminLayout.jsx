@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import { CashRegisterProvider } from '@/features/cash-registers/CashRegisterContext';
 
 import {
   LayoutDashboard,
@@ -339,7 +340,7 @@ export default function AdminLayout({ children }) {
         </header>
 
         <main className="admin-content-scroll flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-5">
-          {children}
+          {isAdmin ? <CashRegisterProvider>{children}</CashRegisterProvider> : children}
         </main>
       </div>
     </div>

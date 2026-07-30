@@ -40,6 +40,16 @@ const updateValidation = [
   body('specialties').optional({ checkFalsy: true }).isArray(),
   body('specialties.*').optional().trim().isLength({ max: 80 }),
   body('isActive').optional({ checkFalsy: true }).isBoolean(),
+  body('commissionPercent')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value === null || value === '') return true;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        throw new Error('El porcentaje de comisión debe estar entre 0 y 100.');
+      }
+      return true;
+    }),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de barbero no válido.');

@@ -41,27 +41,10 @@ export const getAll = async ({ activeFilter = 'active', document } = {}) => {
     include: { user: { select: { email: true } } },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
-  return barbers.map((b) => ({
-    id: b.id,
-    user_id: b.userId,
-    first_name: b.firstName,
-    last_name: b.lastName,
-    phone: b.phone,
-    document_type: b.documentType,
-    document_number: b.documentNumber,
-    specialties: b.specialties,
-    is_active: b.isActive,
-    created_at: b.createdAt,
-    email: b.user.email,
-  }));
+  return barbers.map((b) => toBarberDto(b));
 };
 
-export const getById = async (id) => {
-  const barber = await prisma.barber.findUnique({
-    where: { id: parseInt(id, 10) },
-    include: { user: { select: { email: true } } },
-  });
-  if (!barber) return null;
+function toBarberDto(barber) {
   return {
     id: barber.id,
     user_id: barber.userId,
@@ -72,10 +55,21 @@ export const getById = async (id) => {
     document_number: barber.documentNumber,
     specialties: barber.specialties,
     is_active: barber.isActive,
+    commission_percent:
+      barber.commissionPercent != null ? Number(barber.commissionPercent) : null,
     created_at: barber.createdAt,
     updated_at: barber.updatedAt,
-    email: barber.user.email,
+    email: barber.user?.email,
   };
+}
+
+export const getById = async (id) => {
+  const barber = await prisma.barber.findUnique({
+    where: { id: parseInt(id, 10) },
+    include: { user: { select: { email: true } } },
+  });
+  if (!barber) return null;
+  return toBarberDto(barber);
 };
 
 export const getSchedules = async (barberId) => {
@@ -146,19 +140,7 @@ export const create = async (data) => {
     return { barber, user };
   });
 
-  return {
-    id: result.barber.id,
-    user_id: result.barber.userId,
-    first_name: result.barber.firstName,
-    last_name: result.barber.lastName,
-    phone: result.barber.phone,
-    document_type: result.barber.documentType,
-    document_number: result.barber.documentNumber,
-    specialties: result.barber.specialties,
-    is_active: result.barber.isActive,
-    created_at: result.barber.createdAt,
-    email: result.user.email,
-  };
+  return toBarberDto({ ...result.barber, user: result.user });
 };
 
 export const update = async (id, data) => {
@@ -186,26 +168,26 @@ export const update = async (id, data) => {
     }
     patch.documentNumber = v;
   }
+  if (data.commissionPercent !== undefined) {
+    if (data.commissionPercent === null || data.commissionPercent === '') {
+      patch.commissionPercent = null;
+    } else {
+      const n = Number(data.commissionPercent);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        const err = new Error('El porcentaje de comisión debe estar entre 0 y 100.');
+        err.statusCode = 400;
+        throw err;
+      }
+      patch.commissionPercent = n;
+    }
+  }
 
   const barber = await prisma.barber.update({
     where: { id: parseInt(id, 10) },
     data: patch,
     include: { user: { select: { email: true } } },
   });
-  return {
-    id: barber.id,
-    user_id: barber.userId,
-    first_name: barber.firstName,
-    last_name: barber.lastName,
-    phone: barber.phone,
-    document_type: barber.documentType,
-    document_number: barber.documentNumber,
-    specialties: barber.specialties,
-    is_active: barber.isActive,
-    created_at: barber.createdAt,
-    updated_at: barber.updatedAt,
-    email: barber.user.email,
-  };
+  return toBarberDto(barber);
 };
 
 const toTimeDate = (s) => {

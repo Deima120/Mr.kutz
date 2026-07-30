@@ -70,6 +70,7 @@ export const errorHandler = (err, req, res, next) => {
       success: false,
       message: message,
       ...(err.reason && typeof err.reason === 'string' ? { reason: err.reason } : {}),
+      ...(err.details != null && typeof err.details === 'object' ? { details: err.details } : {}),
     });
   }
 

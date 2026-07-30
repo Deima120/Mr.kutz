@@ -29,10 +29,53 @@
 |--------|-------------|
 | **Landing** | Hero 3D, servicios, galería, testimonios y ubicación |
 | **Reservas** | Agendamiento público (`/reservar`) y panel de citas |
-| **Panel admin** | Clientes, barberos, servicios, pagos, inventario, compras |
-| **Dashboard** | Métricas y reportes exportables (Excel / PDF) |
+| **Panel admin** | Clientes, barberos, servicios, pagos, **caja diaria**, inventario, compras |
+| **Caja diaria** | Apertura / cierre por día Colombia; cobros y otros ingresos ligados a caja OPEN; banner + bloqueo de cobro sin caja |
+| **Pagos** | Cobro de citas/productos, **pago mixto** (`PaymentMethodSplit`), vuelto en efectivo |
+| **Dashboard / Reportes** | Resumen KPI + 7 historiales (ventas, caja, inventario, gastos, otros ingresos, comisiones, cartera) |
+| **Gastos** | Gastos operativos manuales con categorías editables (adjunto de comprobante pendiente) |
+| **Otros ingresos** | Ingresos fuera de ventas (p. ej. alquiler de silla); exigen caja OPEN; efectivo suma a `expectedCash` |
+| **Comisiones** | % por barbero (+ default en settings); snapshot al cobrar líneas de servicio |
+| **Cartera** | Citas `completed` sin cobro vigente (sin crédito/fiado) |
 | **Auth** | JWT, registro, recuperación de contraseña, roles |
 | **API móvil** | Endpoints documentados para app Flutter |
+
+---
+
+## Caja diaria y Reportes (detalle)
+
+### Caja (`CashRegister`)
+
+- Una sesión por `businessDate` (día civil Colombia); estados `OPEN` / `CLOSED`.
+- **Cobrar** y **registrar otro ingreso** requieren caja OPEN; si es de un día anterior → aviso `STALE`.
+- Efectivo esperado = base de apertura + splits en efectivo de cobros + otros ingresos en efectivo.
+- Al cerrar: efectivo contado opcional, diferencia vs esperado; no cierra si hay citas completed sin cobro.
+- Admin UI: banner en layout, modales abrir/cerrar, bloqueo en formulario de cobro.
+- Historial de caja: listado + **Ver detalle** (desglose ventas, ingresos, gastos del día, comisiones, cartera).
+
+### Reportes (admin `/reports?section=…`)
+
+| Sección | `section=` | Fuente |
+|---------|------------|--------|
+| Resumen | _(default)_ | `/dashboard` |
+| Historial de Ventas | `sales` | `/payments` |
+| Historial de Caja | `cash` | `/cash-registers/history` (+ summary por id) |
+| Inventario | `inventory` | `/products` |
+| Gastos | `expenses` | `/expenses` |
+| Otros ingresos | `other-incomes` | `/other-incomes` |
+| Comisiones | `commissions` | `/commissions` |
+| Cartera | `portfolio` | `/portfolio` |
+
+Frontend: `frontend/src/features/reports/` (nav + paneles) · caja: `frontend/src/features/cash-registers/` · APIs de apoyo: `expenses/`, `other-incomes/`, `commissions/`, `portfolio/`.
+
+### Migraciones relacionadas
+
+| Migración | Contenido |
+|-----------|-----------|
+| `20260729180000_cash_registers` | Tabla `cash_registers`, `payments.cash_register_id` |
+| `20260729210000_reports_expenses_incomes_commissions` | Gastos, otros ingresos, comisiones, `%` barbero / default settings |
+
+> **Convención del proyecto:** antes de cada commit, actualizar este README (tabla de módulos, API y comandos) con lo que se agregó o cambió en backend/frontend.
 
 ---
 
@@ -117,7 +160,7 @@ Abre [http://localhost:5173](http://localhost:5173). En desarrollo, Vite hace pr
 
 | Rol | Panel | Notas |
 |-----|-------|-------|
-| **admin** | Completo | Clientes, servicios, barberos, pagos, inventario, reportes |
+| **admin** | Completo | Clientes, servicios, barberos, pagos, **caja**, inventario, **reportes** (7 secciones), gastos / otros ingresos / comisiones / cartera |
 | **barber** | Dashboard, citas, agenda, historial | API de pagos disponible; UI de pagos solo admin |
 | **client** | Citas propias, perfil, valoraciones | Registro en `/register` |
 
@@ -127,19 +170,24 @@ Reserva sin cuenta: [`/reservar`](https://mrkutz.vercel.app/reservar).
 
 ## API REST (resumen)
 
-| Módulo | Prefijo | Auth |
-|--------|---------|------|
+| Módulo | Prefijo | Auth / notas |
+|--------|---------|--------------|
 | Auth | `/api/auth` | Login, registro, perfil, reset contraseña |
 | Citas | `/api/appointments` | Público + auth (CRUD, slots, ratings) |
 | Clientes | `/api/clients` | Solo **admin** |
-| Servicios / Barberos | `/api/services`, `/api/barbers` | GET público o por rol |
-| Pagos | `/api/payments` | Admin y barber |
+| Servicios / Barberos | `/api/services`, `/api/barbers` | GET público o por rol; barbero admite `commissionPercent` |
+| Pagos | `/api/payments` | Solo **admin** — cobro exige caja OPEN; splits mixtos |
+| Caja | `/api/cash-registers` | Solo **admin** — `current`, `open`, `close`, `history`, `/:id/summary` |
+| Gastos | `/api/expenses` | Solo **admin** — CRUD + categorías (`/expenses/categories`) |
+| Otros ingresos | `/api/other-incomes` | Solo **admin** — exige caja OPEN |
+| Comisiones | `/api/commissions` | Solo **admin** — listado / totales (snapshots al cobrar) |
+| Cartera | `/api/portfolio` | Solo **admin** — citas completed sin cobro |
 | Productos / Compras | `/api/products`, `/api/purchases` | Admin (inventario) |
 | Dashboard | `/api/dashboard` | Admin y barber |
-| Settings | `/api/settings` | Lectura pública (`GET /public`) |
+| Settings | `/api/settings` | Lectura pública (`GET /public`); default de comisión |
 | Mobile | `/api/mobile` | App cliente — ver [`API_MOBILE.md`](backend/docs/API_MOBILE.md) |
 
-Producción: `https://mrkutz-backend.onrender.com/api` · Formato: `{ success, data }` o `{ success, message }`.
+Producción: `https://mrkutz-backend.onrender.com/api` · Formato: `{ success, data }` o `{ success, message }` (errores pueden incluir `reason` / `details`).
 
 ---
 
@@ -154,6 +202,10 @@ Producción: `https://mrkutz-backend.onrender.com/api` · Formato: `{ success, d
 | `npm run db:seed` | Roles, métodos de pago, servicios, settings |
 | `npm run db:migrate` | `prisma migrate deploy` |
 | `npm run create-admin` | Crear/actualizar administrador |
+| `npm run cash:verify-schema` | Verifica tablas/columnas de caja |
+| `npm run cash:smoke` | Smoke caja (abrir → cobrar → resumen → cerrar) |
+| `npm run payments:smoke-splits` | Smoke pago mixto (abre/reabre caja si hace falta) |
+| `npm test` | Suite unitaria (helpers caja, gastos, ingresos, comisiones, pagos, etc.) |
 | `npm run cron:appointment-status` | Sincronizar estados de citas (cron) |
 | `npm run db:studio` | Prisma Studio |
 

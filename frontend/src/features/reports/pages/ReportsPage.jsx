@@ -1,315 +1,55 @@
 /**
- * Reportes para admin — Resumen, comparativa con periodo anterior y reseñas.
+ * Módulo Reportes — shell con 7 secciones + resumen.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useSettings } from '@/shared/contexts/SettingsContext';
-import { useAppToast } from '@/shared/feedback/ToastContext';
-import * as dashboardService from '@/features/dashboard/services/dashboardService';
-import { formatInventoryValue } from '@/features/inventory/utils/productFormatters';
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PageHeader from '@/shared/components/admin/PageHeader';
-import StatsCard from '@/shared/components/admin/StatsCard';
-import DataCard from '@/shared/components/admin/DataCard';
-import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
-import { validateQueryDateOrder } from '@/shared/utils/dateRange';
-import { downloadReportExcel } from '@/shared/utils/exportExcel';
-import { downloadReportPDF } from '@/shared/utils/exportPdf';
-import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
-import { formatMoney } from '@/shared/utils/money';
-import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
-
-function TrendBadge({ value, positiveIsGood = true }) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return <span className="text-xs text-stone-400">sin dato previo</span>;
-  }
-  const n = Number(value);
-  const neutral = n === 0;
-  const good = (n > 0 && positiveIsGood) || (n < 0 && !positiveIsGood);
-  const arrow = n > 0 ? '▲' : n < 0 ? '▼' : '•';
-  const tone = neutral
-    ? 'bg-stone-100 text-stone-600'
-    : good
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-      : 'bg-red-50 text-red-700 border-red-100';
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${tone}`}
-    >
-      <span aria-hidden>{arrow}</span>
-      {Math.abs(n).toFixed(1).replace('.0', '')}%
-    </span>
-  );
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  return formatDisplayDate(iso, { day: 'numeric', month: 'short', year: 'numeric' });
-}
+import ReportsSectionNav from '@/features/reports/components/ReportsSectionNav';
+import ReportsPendingPanel from '@/features/reports/components/ReportsPendingPanel';
+import ReportsSummaryPanel from '@/features/reports/panels/ReportsSummaryPanel';
+import SalesHistoryReport from '@/features/reports/panels/SalesHistoryReport';
+import CashHistoryReport from '@/features/reports/panels/CashHistoryReport';
+import InventoryReport from '@/features/reports/panels/InventoryReport';
+import ExpensesReport from '@/features/reports/panels/ExpensesReport';
+import OtherIncomesReport from '@/features/reports/panels/OtherIncomesReport';
+import CommissionsReport from '@/features/reports/panels/CommissionsReport';
+import PortfolioReport from '@/features/reports/panels/PortfolioReport';
+import { REPORT_SECTIONS, resolveReportSectionId } from '@/features/reports/reportsNav';
 
 export default function ReportsPage() {
-  const { businessName } = useSettings();
-  const toast = useAppToast();
-  const [report, setReport] = useState(null);
-  const [dateFrom, setDateFrom] = useState(getLocalFirstDayOfMonth());
-  const [dateTo, setDateTo] = useState(getLocalDateToday());
-  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionId = resolveReportSectionId(searchParams.get('section'));
 
-  const fetchReport = useCallback(async () => {
-    const rangeCheck = validateQueryDateOrder(dateFrom, dateTo);
-    if (!rangeCheck.ok) {
-      toast.error(rangeCheck.message);
-      setReport(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await dashboardService.getReport({ dateFrom, dateTo });
-      setReport(Array.isArray(data) ? null : data);
-    } catch (err) {
-      toast.error(err?.message || 'No se pudo cargar el reporte');
-      setReport(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [dateFrom, dateTo, toast]);
+  const section = useMemo(
+    () => REPORT_SECTIONS.find((s) => s.id === sectionId) || REPORT_SECTIONS[0],
+    [sectionId]
+  );
 
-  useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
-
-  const handleExportExcel = () => {
-    if (!report) return;
-    downloadReportExcel(report, { businessName, dateFrom, dateTo });
+  const setSection = (id) => {
+    const next = new URLSearchParams(searchParams);
+    if (id === 'summary') next.delete('section');
+    else next.set('section', id);
+    setSearchParams(next, { replace: true });
   };
 
-  const handleExportPDF = () => {
-    if (!report) return;
-    downloadReportPDF(report, { businessName, dateFrom, dateTo });
-  };
-
-  if (loading || !report) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-stone-500">
-          {loading ? 'Cargando reportes...' : 'No hay datos para este periodo.'}
-        </div>
-      </div>
-    );
-  }
-
-  const c = report.current || {};
-  const cmp = report.comparison || {};
-  const r = report.ratings || {};
-  const dist = r.distribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  const maxBar = Math.max(1, dist[1], dist[2], dist[3], dist[4], dist[5]);
+  let body = null;
+  if (section.status === 'pending') {
+    body = <ReportsPendingPanel title={section.label} reason={section.pendingReason} />;
+  } else if (section.id === 'summary') body = <ReportsSummaryPanel />;
+  else if (section.id === 'sales') body = <SalesHistoryReport />;
+  else if (section.id === 'cash') body = <CashHistoryReport />;
+  else if (section.id === 'inventory') body = <InventoryReport />;
+  else if (section.id === 'expenses') body = <ExpensesReport />;
+  else if (section.id === 'other-incomes') body = <OtherIncomesReport />;
+  else if (section.id === 'commissions') body = <CommissionsReport />;
+  else if (section.id === 'portfolio') body = <PortfolioReport />;
 
   return (
-    <div className="page-shell">
-      <PageHeader
-        filters={
-          <div className="flex flex-wrap items-end gap-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="input-premium py-1.5 text-sm"
-            />
-            <span className="hidden pb-2 text-stone-400 sm:inline">—</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="input-premium py-1.5 text-sm"
-            />
-          </div>
-        }
-        actions={
-          <div className="flex flex-wrap gap-2 items-center">
-            <AdminExportButtons
-              onExcel={handleExportExcel}
-              onPdf={handleExportPDF}
-              className="flex-1 sm:flex-none"
-            />
-          </div>
-        }
-      />
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          label="Ventas totales"
-          value={formatMoney(c.sales?.total)}
-          sublabel={
-            <span className="inline-flex items-center gap-2">
-              {`${c.sales?.count || 0} transacciones`}
-              <TrendBadge value={cmp.salesTotal} />
-            </span>
-          }
-          variant="primary"
-        />
-        <StatsCard
-          label="Citas completadas"
-          value={c.appointments?.completed ?? 0}
-          sublabel={
-            <span className="inline-flex items-center gap-2">
-              {`${c.appointments?.pending ?? 0} pendientes`}
-              <TrendBadge value={cmp.appointmentsCompleted} />
-            </span>
-          }
-        />
-        <StatsCard
-          label="Citas totales"
-          value={c.appointments?.total ?? 0}
-          sublabel={<TrendBadge value={cmp.appointmentsTotal} />}
-        />
-        <StatsCard label="Stock bajo" value={c.lowStockCount ?? 0} positiveIsGood={false} />
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <DataCard title="Valorización de inventario">
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-stone-600">Valor total a costo</span>
-              <span className="font-semibold text-gold text-base">
-                {formatInventoryValue(c.inventoryValue ?? 0)}
-              </span>
-            </div>
-            <p className="text-xs text-stone-500">
-              Suma de (cantidad × precio de costo) en productos activos con costo registrado.
-            </p>
-            <Link to="/inventory" className="inline-block text-gold text-xs font-semibold hover:underline">
-              Ir a inventario →
-            </Link>
-          </div>
-        </DataCard>
-        <DataCard title="Alertas de stock bajo">
-          {(c.lowStockAlerts?.length ?? 0) > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {c.lowStockAlerts.map((p) => (
-                <li key={p.id} className="flex justify-between items-center gap-2">
-                  <span className="text-stone-700 truncate">{p.name}</span>
-                  <span className="text-amber-700 font-semibold shrink-0">
-                    {p.quantity ?? 0} / mín. {p.min_stock ?? p.minStock ?? 0}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-stone-500 text-sm">Sin productos con stock bajo en este momento.</p>
-          )}
-          {(c.lowStockCount ?? 0) > 0 && (
-            <Link
-              to="/inventory?lowStock=true"
-              className="inline-block mt-3 text-gold text-xs font-semibold hover:underline"
-            >
-              Filtrar stock bajo →
-            </Link>
-          )}
-        </DataCard>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <DataCard title="Servicios más solicitados">
-          {c.topServices?.length > 0 ? (
-            <ul className="space-y-3">
-              {c.topServices.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex justify-between items-center text-sm"
-                >
-                  <span className="text-stone-700">{s.name}</span>
-                  <span className="font-semibold text-gold">{s.count} citas</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-stone-500 text-sm">Sin datos en el periodo</p>
-          )}
-        </DataCard>
-        <DataCard title="Barberos más activos">
-          {c.topBarbers?.length > 0 ? (
-            <ul className="space-y-3">
-              {c.topBarbers.map((b, i) => (
-                <li
-                  key={i}
-                  className="flex justify-between items-center text-sm"
-                >
-                  <span className="text-stone-700">
-                    {b.first_name} {b.last_name}
-                  </span>
-                  <span className="font-semibold text-gold">{b.count} citas</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-stone-500 text-sm">Sin datos en el periodo</p>
-          )}
-        </DataCard>
-      </div>
-
-      <DataCard
-        title="Valoraciones del periodo"
-        subtitle={
-          r.count > 0
-            ? `${r.count} reseña${r.count === 1 ? '' : 's'} · promedio ${r.average?.toFixed(2) ?? '—'}/5`
-            : 'Aún no hay valoraciones recibidas'
-        }
-      >
-        {r.count > 0 ? (
-          <div className="grid gap-6 md:grid-cols-[240px_1fr]">
-            <div className="space-y-1.5">
-              {[5, 4, 3, 2, 1].map((stars) => {
-                const n = dist[stars] || 0;
-                const w = Math.round((n / maxBar) * 100);
-                return (
-                  <div key={stars} className="flex items-center gap-2 text-xs">
-                    <span className="w-12 text-stone-500">{stars} ★</span>
-                    <div className="flex-1 bg-stone-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-full bg-gold"
-                        style={{ width: `${w}%` }}
-                        aria-hidden
-                      />
-                    </div>
-                    <span className="w-6 text-right text-stone-600">{n}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <ul className="space-y-3">
-              {(r.recent || []).slice(0, 6).map((x) => (
-                <li
-                  key={x.appointmentId}
-                  className="border border-stone-200 rounded-xl p-3 text-sm"
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-stone-700 font-semibold">
-                      {x.clientName}
-                      <span className="text-stone-400 font-normal">
-                        {x.serviceName ? ` · ${x.serviceName}` : ''}
-                        {x.barberName ? ` · con ${x.barberName}` : ''}
-                      </span>
-                    </span>
-                    <span className="text-gold font-semibold">
-                      {'★'.repeat(x.rating)}{'☆'.repeat(5 - x.rating)}
-                    </span>
-                  </div>
-                  {x.comment && (
-                    <p className="text-stone-600">"{x.comment}"</p>
-                  )}
-                  <p className="text-xs text-stone-400 mt-1">{formatDate(x.date)}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="text-stone-500 text-sm">
-            Cuando marques citas como completadas, el cliente recibirá un correo
-            para dejar su reseña y aparecerá aquí.
-          </p>
-        )}
-      </DataCard>
+    <div className="page-shell space-y-4">
+      <PageHeader title="Reportes" subtitle={section.description} />
+      <ReportsSectionNav activeId={section.id} onChange={setSection} />
+      {body}
     </div>
   );
 }
