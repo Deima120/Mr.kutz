@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
+import CashMethodBreakdownList from '@/features/cash-registers/components/CashMethodBreakdownList';
+import { resolveCashCloseDifference } from '@/features/cash-registers/utils/cashCloseDifference';
 import { formatMoney, formatMoneyInputDigits, parseMoneyInput } from '@/shared/utils/money';
 import { getApiErrorMessage } from '@/shared/utils/formValidation';
 import * as cashRegisterService from '@/features/cash-registers/services/cashRegisterService';
@@ -12,6 +14,7 @@ export default function CloseCashRegisterModal({ open, register, onClose, onClos
   const [error, setError] = useState('');
   const [unpaid, setUnpaid] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !register?.id) return undefined;
@@ -21,6 +24,7 @@ export default function CloseCashRegisterModal({ open, register, onClose, onClos
     setUnpaid([]);
     setSubmitting(false);
     setPreview(null);
+    setPreviewLoading(true);
     let cancelled = false;
     cashRegisterService
       .getSummary(register.id)
@@ -29,6 +33,9 @@ export default function CloseCashRegisterModal({ open, register, onClose, onClos
       })
       .catch(() => {
         if (!cancelled) setPreview(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
       });
     return () => {
       cancelled = true;
@@ -66,6 +73,11 @@ export default function CloseCashRegisterModal({ open, register, onClose, onClos
   };
 
   const expectedCash = preview?.expectedCash;
+  const totalAmount = preview?.totalAmount;
+  const paymentCount = preview?.paymentCount ?? 0;
+  const byMethod = preview?.byMethod ?? preview?.sections?.sales?.byMethod ?? [];
+  const diff = resolveCashCloseDifference(expectedCash, countedCash);
+
   const staleNote = register.isStaleOpen
     ? register.staleWarning || `Caja del ${register.businessDate} aún abierta.`
     : null;
@@ -74,20 +86,12 @@ export default function CloseCashRegisterModal({ open, register, onClose, onClos
     <AdminConfirmModal
       open={open}
       variant="warning"
-      size="md"
+      size="lg"
       title="¿Cerrar caja?"
       description={
         <>
-          Día <strong className="text-stone-800">{register.businessDate}</strong>
-          {Number.isFinite(expectedCash) ? (
-            <>
-              . Efectivo esperado:{' '}
-              <strong className="text-stone-800">{formatMoney(expectedCash)}</strong>
-            </>
-          ) : (
-            '.'
-          )}{' '}
-          Tras el cierre no se podrán registrar cobros hasta abrir una nueva.
+          Día <strong className="text-stone-800">{register.businessDate}</strong>. Tras el cierre no se
+          podrán registrar cobros hasta abrir una nueva.
         </>
       }
       confirmLabel="Cerrar caja"
@@ -122,24 +126,105 @@ export default function CloseCashRegisterModal({ open, register, onClose, onClos
             <p className="mt-1.5 opacity-90">Cobra o resuelve esas citas antes de cerrar.</p>
           </div>
         ) : null}
+
+        {previewLoading ? (
+          <p className="text-sm text-stone-500">Cargando resumen…</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                  Cobrado
+                </p>
+                <p className="font-serif text-lg font-medium text-stone-900 tabular-nums mt-0.5">
+                  {Number.isFinite(totalAmount) ? formatMoney(totalAmount) : '—'}
+                </p>
+                <p className="text-[11px] text-stone-500">
+                  {paymentCount} cobro{paymentCount === 1 ? '' : 's'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-white px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                  Esperado
+                </p>
+                <p className="font-serif text-lg font-medium text-gold tabular-nums mt-0.5">
+                  {Number.isFinite(expectedCash) ? formatMoney(expectedCash) : '—'}
+                </p>
+                <p className="text-[11px] text-stone-500">Efectivo en caja</p>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-white px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                  Base
+                </p>
+                <p className="font-serif text-lg font-medium text-stone-900 tabular-nums mt-0.5">
+                  {formatMoney(register.openingAmount)}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold text-stone-600 mb-1.5">Por método de pago</p>
+              <CashMethodBreakdownList
+                byMethod={byMethod}
+                emptyText="Sin cobros en esta caja."
+              />
+            </div>
+          </>
+        )}
+
         <div>
-          <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+          <label
+            htmlFor="close-cash-counted"
+            className="block text-[11px] font-semibold text-stone-600 mb-1"
+          >
             Efectivo contado (opcional)
           </label>
           <input
+            id="close-cash-counted"
             type="text"
             inputMode="numeric"
+            autoComplete="off"
             data-autofocus
             value={countedCash}
             onChange={(e) => setCountedCash(formatMoneyInputDigits(e.target.value))}
-            placeholder={Number.isFinite(expectedCash) ? formatMoney(expectedCash).replace(/^\$/, '') : '0'}
+            placeholder={
+              Number.isFinite(expectedCash) ? formatMoney(expectedCash).replace(/^\$/, '') : '0'
+            }
             className="input-premium"
             disabled={submitting}
           />
+          {diff.kind !== 'empty' ? (
+            <div
+              className={`mt-2 rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 ${diff.toneClass}`}
+              role="status"
+            >
+              <span>
+                {diff.label}
+                {diff.kind !== 'match' && Number.isFinite(diff.difference)
+                  ? `: ${formatMoney(Math.abs(diff.difference))}`
+                  : ''}
+              </span>
+              <span className="tabular-nums opacity-90">
+                Contado {formatMoney(diff.counted)} · Esperado{' '}
+                {Number.isFinite(expectedCash) ? formatMoney(expectedCash) : '—'}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-[11px] text-stone-500">
+              Si ingresas el contado, verás al instante si cuadra, sobra o falta.
+            </p>
+          )}
         </div>
+
         <div>
-          <label className="block text-[11px] font-semibold text-stone-600 mb-1">Notas</label>
+          <label
+            htmlFor="close-cash-notes"
+            className="block text-[11px] font-semibold text-stone-600 mb-1"
+          >
+            Notas
+          </label>
           <textarea
+            id="close-cash-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value.slice(0, 500))}
             rows={2}

@@ -11,10 +11,16 @@ const extract = (r) => {
   return res?.data ?? res;
 };
 
-/** @returns {Promise<{ register: object|null, canCharge: boolean, todayYmd: string }>} */
+/** @returns {Promise<{ register: object|null, canCharge: boolean, todayYmd: string, summary: object|null }>} */
 export const getCurrent = async () => {
   const response = await api.get(`${BASE}/current`);
-  return extract(response);
+  const data = extract(response);
+  return {
+    register: data?.register ?? null,
+    canCharge: Boolean(data?.canCharge),
+    todayYmd: data?.todayYmd || '',
+    summary: data?.summary ?? null,
+  };
 };
 
 /** @returns {Promise<object>} */

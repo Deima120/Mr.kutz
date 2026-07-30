@@ -528,6 +528,7 @@ export function PaymentForm({
         payload.amountTendered = parseMoneyInput(amountTendered);
       }
       await paymentService.createPayment(payload);
+      await cashRegister?.refresh?.({ silent: true });
       if (embedded) onSuccess?.({ created: true });
       else navigate('/payments', { replace: true });
     } catch (err) {

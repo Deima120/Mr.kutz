@@ -33,6 +33,7 @@ import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
+import { useCashRegisterOptional } from '@/features/cash-registers/CashRegisterContext';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 const STATUS_OPTIONS = [
@@ -69,6 +70,7 @@ export default function PaymentsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useAppToast();
+  const cashRegister = useCashRegisterOptional();
 
   const [payments, setPayments] = useState([]);
   const [listTotal, setListTotal] = useState(0);
@@ -203,6 +205,7 @@ export default function PaymentsPage() {
       if (detailPayment?.id === voidTarget.id) {
         setDetailPayment(updated);
       }
+      await cashRegister?.refresh?.({ silent: true });
       await fetchPayments(page);
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Error al anular'));

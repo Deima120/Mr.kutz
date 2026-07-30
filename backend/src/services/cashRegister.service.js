@@ -19,6 +19,7 @@ import {
   httpCashError,
   mapUnpaidCompletedAppointments,
   toCashRegisterDto,
+  toLiveSummaryDto,
 } from './cashRegister.helpers.js';
 import { toExpenseDto } from './expense.helpers.js';
 import { toOtherIncomeDto } from './otherIncome.helpers.js';
@@ -26,6 +27,16 @@ import { toOtherIncomeDto } from './otherIncome.helpers.js';
 const registerInclude = {
   openedBy: { select: { id: true, email: true } },
   closedBy: { select: { id: true, email: true } },
+};
+
+const paymentSplitsInclude = {
+  methodSplits: {
+    include: {
+      paymentMethod: {
+        select: { id: true, name: true, description: true, isCash: true },
+      },
+    },
+  },
 };
 
 function toCommissionSummaryDto(entry) {
@@ -100,38 +111,36 @@ async function loadUnpaidCompletedForBusinessDate(tx, businessDate) {
   return mapUnpaidCompletedAppointments(appointments);
 }
 
+async function loadPaymentsAndOtherIncomes(tx, registerId) {
+  return Promise.all([
+    tx.payment.findMany({
+      where: {
+        cashRegisterId: registerId,
+        voidedAt: null,
+      },
+      include: paymentSplitsInclude,
+      orderBy: { id: 'asc' },
+    }),
+    tx.otherIncome.findMany({
+      where: {
+        cashRegisterId: registerId,
+        voidedAt: null,
+      },
+      include: {
+        paymentMethod: {
+          select: { id: true, name: true, isCash: true },
+        },
+        createdBy: { select: { id: true, email: true } },
+      },
+      orderBy: { id: 'asc' },
+    }),
+  ]);
+}
+
 async function buildSummaryForRegister(tx, register) {
-  const [payments, otherIncomes, expenses, commissionRows, unpaidAppointments] =
+  const [[payments, otherIncomes], expenses, commissionRows, unpaidAppointments] =
     await Promise.all([
-      tx.payment.findMany({
-        where: {
-          cashRegisterId: register.id,
-          voidedAt: null,
-        },
-        include: {
-          methodSplits: {
-            include: {
-              paymentMethod: {
-                select: { id: true, name: true, description: true, isCash: true },
-              },
-            },
-          },
-        },
-        orderBy: { id: 'asc' },
-      }),
-      tx.otherIncome.findMany({
-        where: {
-          cashRegisterId: register.id,
-          voidedAt: null,
-        },
-        include: {
-          paymentMethod: {
-            select: { id: true, name: true, isCash: true },
-          },
-          createdBy: { select: { id: true, email: true } },
-        },
-        orderBy: { id: 'asc' },
-      }),
+      loadPaymentsAndOtherIncomes(tx, register.id),
       tx.expense.findMany({
         where: {
           expenseDate: register.businessDate,
@@ -310,16 +319,24 @@ export async function openCashRegister({ openingAmount, notes, openedById } = {}
 }
 
 /**
- * Caja OPEN actual (o null). Incluye aviso si es de un día anterior.
+ * Caja OPEN actual (o null). Incluye summary ligero para banner / polling.
  */
 export async function getCurrentCashRegister() {
   const todayYmd = getColombiaTodayYmd();
   const open = await findOpenRegister(prisma);
   const register = toCashRegisterDto(open, { todayYmd });
+  let summary = null;
+  if (open) {
+    const [payments, otherIncomes] = await loadPaymentsAndOtherIncomes(prisma, open.id);
+    summary = toLiveSummaryDto(
+      aggregateCashRegisterSummary(payments, open.openingAmount, otherIncomes)
+    );
+  }
   return {
     register,
     canCharge: Boolean(register),
     todayYmd,
+    summary,
   };
 }
 

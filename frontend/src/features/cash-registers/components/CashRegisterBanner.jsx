@@ -1,45 +1,94 @@
+import { Link } from 'react-router-dom';
 import { Wallet } from 'lucide-react';
-import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import { formatPaymentAmount } from '@/features/payments/utils/paymentFormatters';
-import { resolveCashRegisterBannerState } from '@/features/cash-registers/utils/cashRegisterBannerState';
+import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
+import {
+  resolveCashRegisterBannerDotClass,
+  resolveCashRegisterBannerShellClass,
+  resolveCashRegisterBannerState,
+} from '@/features/cash-registers/utils/cashRegisterBannerState';
+
+function formatYmd(ymd) {
+  if (!ymd) return '—';
+  return formatDisplayDate(`${ymd}T12:00:00`, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function Metric({ label, value, emphasize = false }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">{label}</p>
+      <p
+        className={`tabular-nums leading-tight ${
+          emphasize ? 'text-sm sm:text-base font-bold' : 'text-sm font-semibold'
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export default function CashRegisterBanner({
   register,
+  summary,
   canCharge,
   loading,
   onOpenClick,
   onCloseClick,
 }) {
   const state = resolveCashRegisterBannerState({ register, canCharge, loading });
+  const shell = resolveCashRegisterBannerShellClass(state.kind);
+  const dot = resolveCashRegisterBannerDotClass(state.kind);
+
+  const hasMetrics = Boolean(register && !loading);
+  const expected =
+    summary && Number.isFinite(summary.expectedCash)
+      ? formatPaymentAmount(summary.expectedCash)
+      : null;
+  const collected =
+    summary && Number.isFinite(summary.totalAmount)
+      ? formatPaymentAmount(summary.totalAmount)
+      : null;
 
   return (
-    <AppInlineAlert
-      variant={state.variant}
+    <div
       role={state.kind === 'stale' ? 'alert' : 'status'}
-      className={`mb-3 shrink-0 py-2.5 px-3 ${
-        state.kind === 'stale' ? 'ring-1 ring-red-300/80 shadow-sm' : ''
-      }`}
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          <Wallet className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
-          {state.title}
-        </span>
-      }
+      className={`mb-3 shrink-0 rounded-2xl border px-3 py-2.5 sm:px-4 shadow-sm ${shell}`}
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm min-w-0">
-          <p className={state.kind === 'stale' ? 'font-medium' : undefined}>{state.message}</p>
-          {register && !loading ? (
-            <p className="mt-0.5 text-xs opacity-90">
-              Base {formatPaymentAmount(register.openingAmount)}
-              {register.openedByEmail ? ` · ${register.openedByEmail}` : ''}
-              {state.kind === 'stale' && state.daysOpen > 0
-                ? ` · ${state.daysOpen} día${state.daysOpen === 1 ? '' : 's'} abierta`
-                : ''}
-            </p>
-          ) : null}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} aria-hidden />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <Wallet className="h-3.5 w-3.5 opacity-80 shrink-0" aria-hidden />
+              <p className="text-sm font-semibold tracking-tight">{state.title}</p>
+              {register?.businessDate && state.kind !== 'closed' ? (
+                <span className="text-[11px] font-medium opacity-80">
+                  {formatYmd(register.businessDate)}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-xs mt-0.5 opacity-90">{state.message}</p>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+
+        {hasMetrics ? (
+          <div className="grid grid-cols-3 gap-3 sm:gap-5 lg:min-w-[18rem]">
+            <Metric label="Base" value={formatPaymentAmount(register.openingAmount)} />
+            <Metric label="Esperado" value={expected || '—'} emphasize />
+            <Metric label="Cobrado" value={collected || '—'} emphasize />
+          </div>
+        ) : null}
+
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {state.showLiveLink ? (
+            <Link
+              to="/reports?section=cash#cash-live"
+              className="rounded-xl border border-current/20 bg-white/80 px-3 py-1.5 text-xs font-semibold shadow-sm transition hover:bg-white"
+            >
+              Ver caja
+            </Link>
+          ) : null}
           {state.showOpen ? (
             <button
               type="button"
@@ -64,6 +113,6 @@ export default function CashRegisterBanner({
           ) : null}
         </div>
       </div>
-    </AppInlineAlert>
+    </div>
   );
 }

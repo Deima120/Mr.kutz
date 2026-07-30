@@ -8,6 +8,7 @@ import {
   isStaleOpenRegister,
   mapUnpaidCompletedAppointments,
   toCashRegisterDto,
+  toLiveSummaryDto,
 } from './cashRegister.helpers.js';
 
 describe('cashRegister.helpers — fecha y caja vieja', () => {
@@ -160,6 +161,33 @@ describe('aggregateCashRegisterSummary — por PaymentMethodSplit', () => {
     assert.equal(summary.byMethod.length, 1);
     assert.equal(summary.byMethod[0].paymentMethodId, 2);
     assert.equal(summary.expectedCash, 0);
+  });
+
+  it('toLiveSummaryDto proyecta campos del banner / polling', () => {
+    const aggregated = aggregateCashRegisterSummary(
+      [
+        {
+          id: 1,
+          methodSplits: [
+            {
+              paymentMethodId: 1,
+              amount: 40000,
+              paymentMethod: { id: 1, name: 'efectivo', isCash: true },
+            },
+          ],
+        },
+      ],
+      10000,
+      [{ amount: 5000, paymentMethod: { isCash: true } }]
+    );
+    const live = toLiveSummaryDto(aggregated);
+    assert.equal(live.paymentCount, 1);
+    assert.equal(live.totalAmount, 40000);
+    assert.equal(live.cashCollected, 40000);
+    assert.equal(live.cashOtherIncomes, 5000);
+    assert.equal(live.expectedCash, 55000);
+    assert.equal(live.byMethod.length, 1);
+    assert.equal(toLiveSummaryDto(null), null);
   });
 });
 

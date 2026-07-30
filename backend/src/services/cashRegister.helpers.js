@@ -109,6 +109,24 @@ export function aggregateCashRegisterSummary(payments = [], openingAmount = 0, o
 }
 
 /**
+ * Resumen ligero para GET /current (banner / polling).
+ * Misma agregación que el cierre; sin sections de reportes.
+ *
+ * @param {ReturnType<typeof aggregateCashRegisterSummary>|null|undefined} aggregated
+ */
+export function toLiveSummaryDto(aggregated) {
+  if (!aggregated) return null;
+  return {
+    paymentCount: aggregated.paymentCount,
+    totalAmount: aggregated.totalAmount,
+    cashCollected: aggregated.cashCollected,
+    cashOtherIncomes: aggregated.cashOtherIncomes,
+    expectedCash: aggregated.expectedCash,
+    byMethod: Array.isArray(aggregated.byMethod) ? aggregated.byMethod : [],
+  };
+}
+
+/**
  * Mapear citas completed sin cobro activo a DTO de pendiente.
  */
 export function mapUnpaidCompletedAppointments(appointments = []) {

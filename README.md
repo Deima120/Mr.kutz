@@ -49,9 +49,12 @@
 - Una sesión por `businessDate` (día civil Colombia); estados `OPEN` / `CLOSED`.
 - **Cobrar** y **registrar otro ingreso** requieren caja OPEN; si es de un día anterior → aviso `STALE`.
 - Efectivo esperado = base de apertura + splits en efectivo de cobros + otros ingresos en efectivo.
-- Al cerrar: efectivo contado opcional, diferencia vs esperado; no cierra si hay citas completed sin cobro.
-- Admin UI: banner en layout, modales abrir/cerrar, bloqueo en formulario de cobro.
-- Historial de caja: listado + **Ver detalle** (desglose ventas, ingresos, gastos del día, comisiones, cartera).
+- Al cerrar: efectivo contado opcional, diferencia vs esperado (UI: cuadra / sobra / falta); no cierra si hay citas completed sin cobro.
+- Admin UI: banner POS en layout (base / esperado / cobrado + Ver caja), modales abrir/cerrar, bloqueo en formulario de cobro.
+- Estado en vivo: `GET /current` incluye `summary`; el contexto admin hace **polling cada 30 s** (pausa si la pestaña está oculta) y **refresh inmediato** tras cobro o anulación.
+- Reportes → Caja: panel **Caja en vivo** (métricas + desglose por método) encima del historial; historial con badges Abierta / Cerrada / Sin cerrar + **Ver detalle**.
+
+Archivos clave FE: `frontend/src/features/cash-registers/` · paneles: `frontend/src/features/reports/panels/CashHistoryReport.jsx`, `components/CashLivePanel.jsx`.
 
 ### Reportes (admin `/reports?section=…`)
 
@@ -177,7 +180,7 @@ Reserva sin cuenta: [`/reservar`](https://mrkutz.vercel.app/reservar).
 | Clientes | `/api/clients` | Solo **admin** |
 | Servicios / Barberos | `/api/services`, `/api/barbers` | GET público o por rol; barbero admite `commissionPercent` |
 | Pagos | `/api/payments` | Solo **admin** — cobro exige caja OPEN; splits mixtos |
-| Caja | `/api/cash-registers` | Solo **admin** — `current`, `open`, `close`, `history`, `/:id/summary` |
+| Caja | `/api/cash-registers` | Solo **admin** — `current` (incluye `summary` en vivo), `open`, `close`, `history`, `/:id/summary` |
 | Gastos | `/api/expenses` | Solo **admin** — CRUD + categorías (`/expenses/categories`) |
 | Otros ingresos | `/api/other-incomes` | Solo **admin** — exige caja OPEN |
 | Comisiones | `/api/commissions` | Solo **admin** — listado / totales (snapshots al cobrar) |

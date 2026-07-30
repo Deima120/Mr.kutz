@@ -23,3 +23,16 @@ describe('cashRegister.controller', () => {
     assert.match(source, /listCashRegisterHistory/);
   });
 });
+
+describe('cashRegister.service — current con summary', () => {
+  it('getCurrentCashRegister agrega summary vía toLiveSummaryDto', () => {
+    const source = readFileSync(
+      join(__dirname, '../services/cashRegister.service.js'),
+      'utf8'
+    );
+    assert.match(source, /toLiveSummaryDto/);
+    assert.match(source, /loadPaymentsAndOtherIncomes/);
+    assert.match(source, /summary,\s*\n\s*\}/);
+    assert.match(source, /summary\s*=\s*toLiveSummaryDto/);
+  });
+});

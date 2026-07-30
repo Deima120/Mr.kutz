@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Eye } from 'lucide-react';
 import * as cashRegisterService from '@/features/cash-registers/services/cashRegisterService';
 import CashRegisterDetailModal from '@/features/reports/components/CashRegisterDetailModal';
+import CashLivePanel from '@/features/reports/components/CashLivePanel';
+import CashRegisterStatusBadge from '@/features/cash-registers/components/CashRegisterStatusBadge';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
@@ -106,6 +108,8 @@ export default function CashHistoryReport() {
 
   return (
     <div className="space-y-4">
+      <CashLivePanel />
+
       <AdminFilterRow>
         <AdminFilterDate
           id="cash-from"
@@ -184,11 +188,10 @@ export default function CashHistoryReport() {
                   <TableRow key={r.id}>
                     <TableCell className="text-sm whitespace-nowrap">
                       {formatYmd(r.businessDate)}
-                      {r.isStaleOpen ? (
-                        <span className="ml-1 text-[10px] font-semibold text-red-700">STALE</span>
-                      ) : null}
                     </TableCell>
-                    <TableCell className="text-xs font-semibold">{r.status}</TableCell>
+                    <TableCell>
+                      <CashRegisterStatusBadge register={r} />
+                    </TableCell>
                     <TableCell align="right">{formatMoney(r.openingAmount)}</TableCell>
                     <TableCell align="right">
                       {r.countedCash != null ? formatMoney(r.countedCash) : '—'}
