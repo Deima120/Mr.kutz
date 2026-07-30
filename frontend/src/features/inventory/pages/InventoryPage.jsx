@@ -148,17 +148,19 @@ export default function InventoryPage() {
       {!list.isFormOpen && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatsCard label="Total productos" value={list.listTotal} />
+            <StatsCard label="Total productos" value={list.listTotal} emphasizeValue />
             <StatsCard
               label="Stock bajo"
               value={list.summary.lowStockCount ?? 0}
               sublabel={(list.summary.lowStockCount ?? 0) > 0 ? 'Revisar alertas' : undefined}
+              emphasizeValue
             />
-            <StatsCard label="Unidades en stock" value={list.summary.totalUnits ?? 0} />
+            <StatsCard label="Unidades en stock" value={list.summary.totalUnits ?? 0} emphasizeValue />
             <StatsCard
               label="Valor inventario"
               value={formatInventoryValue(list.summary.inventoryValue ?? 0)}
               sublabel="Costo × cantidad"
+              emphasizeValue
             />
           </div>
 

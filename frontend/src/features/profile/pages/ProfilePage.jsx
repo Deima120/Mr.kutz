@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as authService from '@/features/auth/services/authService';
@@ -24,7 +24,6 @@ const FIELD_CLASS =
 
 export default function ProfilePage() {
   const { user, applyUser } = useAuth();
-  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -301,13 +300,9 @@ export default function ProfilePage() {
                 <Link to="/appointments" state={{ view: 'list' }} className="btn-outline w-full text-center">
                   Ver mis citas
                 </Link>
-                <button
-                  type="button"
-                  className="btn-outline w-full text-center"
-                  onClick={() => navigate({ pathname: '/', hash: 'satisfaccion' })}
-                >
+                <Link to="/appointments?status=completed" className="btn-outline w-full text-center">
                   Ver satisfacción
-                </button>
+                </Link>
               </div>
               <p className="text-xs text-stone-500 mt-5">
                 Para cambiar la contraseña usa «¿Olvidaste tu contraseña?» en el inicio de sesión.

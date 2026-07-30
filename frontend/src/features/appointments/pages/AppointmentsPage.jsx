@@ -35,6 +35,7 @@ import {
   appointmentNotesOf,
   getLocalDateToday,
 } from '@/shared/utils/appointmentTime';
+import { formatMoney } from '@/shared/utils/money';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const CLIENT_PAGE_SIZE_OPTIONS = [3, 6, 9, 12];
@@ -754,6 +755,11 @@ export default function AppointmentsPage() {
                           <p className="font-semibold text-stone-900 text-sm sm:text-base leading-snug line-clamp-2">
                             {a.service_name}
                           </p>
+                          {(a.total_price != null || a.price != null) && (
+                            <p className="mt-0.5 text-sm sm:text-base font-bold text-black tabular-nums">
+                              {formatMoney(a.total_price ?? a.price)}
+                            </p>
+                          )}
                           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-stone-600 text-xs sm:text-sm">
                             <span className="inline-flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" strokeWidth={2} aria-hidden />

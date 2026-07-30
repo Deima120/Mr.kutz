@@ -146,6 +146,7 @@ export async function syncAutomaticAppointmentStatuses() {
 /** Prefijos en notes para citas multi-servicio (sin tabla de unión). */
 const SERVICES_IDS_PREFIX_RE = /\[ServiciosIds:\s*([^\]]+)\]\s*/i;
 const SERVICES_NAMES_PREFIX_RE = /\[Servicios:\s*([^\]]+)\]\s*/i;
+const TOTAL_PRICE_PREFIX_RE = /\[Total:\s*([^\]]+)\]\s*/i;
 
 function parseServiceIdsFromNotes(notes) {
   const match = String(notes || '').match(SERVICES_IDS_PREFIX_RE);
@@ -181,7 +182,16 @@ function userNotesOnly(notes) {
   return String(notes || '')
     .replace(SERVICES_IDS_PREFIX_RE, '')
     .replace(SERVICES_NAMES_PREFIX_RE, '')
+    .replace(TOTAL_PRICE_PREFIX_RE, '')
     .trim() || null;
+}
+
+/** Total explícito en notas `[Total:50000]` si existe. */
+function parseTotalPriceFromNotes(notes) {
+  const match = String(notes || '').match(TOTAL_PRICE_PREFIX_RE);
+  if (!match) return null;
+  const n = Number(String(match[1]).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
 }
 
 function buildMultiServiceNotes(orderedServices, userNotes) {
@@ -250,14 +260,22 @@ export async function resolveOrderedServicesForAppointment(a, db = prisma) {
   return ordered;
 }
 
-export function mapAppointmentServicesFields(orderedServices, fallbackService) {
+export function mapAppointmentServicesFields(orderedServices, fallbackService, notes) {
   const list = orderedServices?.length ? orderedServices : fallbackService ? [fallbackService] : [];
   const primary = list[0] || fallbackService || null;
+  const servicesSum = list.reduce((sum, s) => sum + Number(s.price || 0), 0);
+  const notesTotal = parseTotalPriceFromNotes(notes);
+  const totalPrice = notesTotal != null ? notesTotal : servicesSum;
   return {
     service_id: primary?.id ?? null,
     service_ids: list.map((s) => s.id),
     service_name: list.map((s) => s.name).filter(Boolean).join(', ') || primary?.name || null,
-    price: list.reduce((sum, s) => sum + Number(s.price || 0), 0),
+    /**
+     * Prioriza main/pagos: `price` permanece como total cobrable (payment.service usa svc.price).
+     * `total_price` expone la misma suma para UI. No se redujo `price` al principal para no romper cobros.
+     */
+    price: totalPrice,
+    total_price: totalPrice,
     duration_minutes: list.reduce((sum, s) => sum + Number(s.durationMinutes || 0), 0),
   };
 }
@@ -308,7 +326,7 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
   const enriched = await Promise.all(
     appointments.map(async (a) => {
       const ordered = await resolveOrderedServicesForAppointment(a);
-      const svc = mapAppointmentServicesFields(ordered, a.service);
+      const svc = mapAppointmentServicesFields(ordered, a.service, a.notes);
       return {
         id: a.id,
         client_id: a.clientId,
@@ -328,6 +346,7 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
         barber_last_name: a.barber.lastName,
         service_name: svc.service_name || displayServiceName(a.notes, a.service.name),
         price: svc.price,
+        total_price: svc.total_price,
         duration_minutes: svc.duration_minutes,
         has_active_payment: (a.paymentLines?.length || 0) > 0,
         clientRating: a.clientRating,
@@ -362,7 +381,7 @@ export const getById = async (id) => {
   if (!a) return null;
   await applyAutomaticStatusUpdates([a]);
   const ordered = await resolveOrderedServicesForAppointment(a);
-  const svc = mapAppointmentServicesFields(ordered, a.service);
+  const svc = mapAppointmentServicesFields(ordered, a.service, a.notes);
   return {
     id: a.id,
     client_id: a.clientId,
@@ -385,6 +404,7 @@ export const getById = async (id) => {
     barber_last_name: a.barber.lastName,
     service_name: svc.service_name || displayServiceName(a.notes, a.service.name),
     price: svc.price,
+    total_price: svc.total_price,
     duration_minutes: svc.duration_minutes,
     has_active_payment: (a.paymentLines?.length || 0) > 0,
     clientRating: a.clientRating,

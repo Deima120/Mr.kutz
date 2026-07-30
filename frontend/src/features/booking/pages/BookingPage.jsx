@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import * as bookingService from '@/features/booking/services/publicBookingService';
 import {
@@ -21,6 +21,7 @@ import {
 } from '@/shared/utils/dateRange';
 import AppInlineAlert from '@/shared/feedback/AppInlineAlert';
 import { formatMoney } from '@/shared/utils/money';
+import { useAuth } from '@/shared/contexts/AuthContext';
 
 const MAX_SERVICES = 3;
 const MAX_SERVICES_MESSAGE = 'Para agendar más servicios debes crear otra cita.';
@@ -275,6 +276,10 @@ export default function BookingPage() {
           : slots.length === 0
             ? 'Sin horarios'
             : 'Seleccionar...';
+
+  if (!isAuthenticated) {
+    return <Navigate to="/register?redirect=/appointments/new" replace />;
+  }
 
   if (success) {
     return (
