@@ -50,7 +50,7 @@
 - **Cobrar** y **registrar otro ingreso** requieren caja OPEN; si es de un día anterior → aviso `STALE`.
 - Efectivo esperado = base de apertura + splits en efectivo de cobros + otros ingresos en efectivo.
 - Al cerrar: efectivo contado opcional, diferencia vs esperado (UI: cuadra / sobra / falta); no cierra si hay citas completed sin cobro.
-- Admin UI: banner POS en layout (base / esperado / cobrado + Ver caja), modales abrir/cerrar, bloqueo en formulario de cobro.
+- Admin UI: **banner POS** en Ventas, Reportes→Caja y Otros ingresos; **FAB** flotante en el resto (punto de estado + click abre/cierra). Modales abrir/cerrar; bloqueo de cobro sin caja.
 - Estado en vivo: `GET /current` incluye `summary`; el contexto admin hace **polling cada 30 s** (pausa si la pestaña está oculta) y **refresh inmediato** tras cobro o anulación.
 - Reportes → Caja: panel **Caja en vivo** (métricas + desglose por método) encima del historial; historial con badges Abierta / Cerrada / Sin cerrar + **Ver detalle**.
 

@@ -13,6 +13,7 @@ describe('resolveCashRegisterBannerState', () => {
     assert.equal(s.variant, 'warning');
     assert.equal(s.showOpen, true);
     assert.equal(s.showLiveLink, false);
+    assert.equal(s.fabLabel, 'Caja cerrada');
   });
 
   it('caja stale → error reforzado con daysOpen y Ver caja', () => {
@@ -32,6 +33,7 @@ describe('resolveCashRegisterBannerState', () => {
     assert.equal(s.showClose, true);
     assert.equal(s.showOpen, false);
     assert.equal(s.showLiveLink, true);
+    assert.equal(s.fabLabel, 'Día anterior sin cerrar');
   });
 
   it('caja del día → success + Ver caja', () => {
@@ -48,6 +50,7 @@ describe('resolveCashRegisterBannerState', () => {
     assert.equal(s.variant, 'success');
     assert.equal(s.showClose, true);
     assert.equal(s.showLiveLink, true);
+    assert.equal(s.fabLabel, 'Caja abierta');
   });
 });
 

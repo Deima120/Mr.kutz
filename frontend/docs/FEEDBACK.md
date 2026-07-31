@@ -9,7 +9,7 @@ Módulo: `frontend/src/shared/feedback/`. Sin librerías externas de toast/modal
 | Feedback breve tras acción (guardar, borrar, error de listado) | `useAppToast()` → `toast.success` / `error` / `warning` / `info` |
 | Confirmación destructiva o irreversible | `AdminConfirmModal` (`danger` / `warning` / `neutral`) |
 | Aviso persistente de contexto (stock bajo, hint de formulario) | `AppInlineAlert` |
-| Estado de **caja diaria** (admin) | Banner POS en `CashRegisterProvider` (no `AppInlineAlert`); abrir = `AdminModalShell`; cerrar = `AdminConfirmModal` `warning` |
+| Estado de **caja diaria** (admin) | Banner POS en Pagos / Reportes→Caja / Otros ingresos; FAB flotante en el resto (`CashRegisterProvider`) |
 | Error de validación en un campo o formulario | Inline en el form (`ADMIN_FORM_ERROR_CLASS`, `FieldErrorMessage`, etc.) |
 
 ## Reglas
@@ -21,7 +21,7 @@ Módulo: `frontend/src/shared/feedback/`. Sin librerías externas de toast/modal
 5. Cancelar cita (admin) → siempre `AdminConfirmModal` `danger`.
 6. Archivar producto / anular (void) → `warning`.
 7. Delete de entidad → `danger` vía `AdminConfirmModal`.
-8. **Caja diaria (admin):** banner POS en `AdminLayout` vía `CashRegisterProvider` (base / esperado / cobrado; polling 30 s + refresh tras cobro/anulación). Abrir = `AdminModalShell`; cerrar = `AdminConfirmModal` `warning` con desglose por método y diferencia coloreada. Si `isStaleOpen`, franja roja. Sin caja OPEN, `PaymentForm` bloquea el cobro y ofrece CTA “Abrir caja”. Vista en vivo: Reportes → Caja (`#cash-live`).
+8. **Caja diaria (admin):** `CashRegisterProvider` con polling 30 s. **Banner completo** en `/payments*`, Reportes → Caja y Otros ingresos. **FAB** (`bottom-20 right-5`, bajo toasts) en el resto de módulos; click abre/cierra modal. STALE: punto rojo + ring, sin banner forzado. Abrir = `AdminModalShell`; cerrar = `AdminConfirmModal` `warning`. Sin caja OPEN, `PaymentForm` bloquea cobro. Vista en vivo: Reportes → Caja (`#cash-live`).
 
 ## Ejemplo rápido
 
