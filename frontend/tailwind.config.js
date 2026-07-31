@@ -7,8 +7,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ['Cormorant Garamond', 'Playfair Display', 'Georgia', 'serif'],
-        sans: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
+        // Títulos / montos destacados — Opción B (coherente con Georgia en correos)
+        serif: ['"Libre Baskerville"', 'Georgia', 'Times New Roman', 'serif'],
+        // Párrafos / UI (tablas, formularios, body)
+        sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {

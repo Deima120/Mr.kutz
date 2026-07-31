@@ -22,7 +22,7 @@ export default function PageHeader({
               <p className={`section-label text-gold ${compact ? 'mb-0.5' : 'mb-1'}`}>{label}</p>
             )}
             <h1
-              className={`font-serif text-stone-900 font-medium tracking-tight mb-1 ${
+              className={`font-serif text-stone-900 font-medium tracking-tight mb-1 break-words ${
                 compact ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'
               }`}
             >

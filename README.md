@@ -87,10 +87,14 @@ Frontend: `frontend/src/features/reports/` (nav + paneles) · caja: `frontend/sr
 | Capa | Tecnología |
 |------|------------|
 | **Frontend** | React 18, Vite 8, React Router 6, Axios, Tailwind CSS, Three.js |
+| **Tipografía web** | Google Fonts: **Libre Baskerville** (`font-serif`, títulos/montos) + **Source Sans 3** (`font-sans`, UI/body). Carga en `frontend/index.html` (`preconnect` + `display=swap`). |
+| **Tipografía correos** | Georgia / Times New Roman en `backend/src/lib/mailer.js` (serif de sistema; sin web fonts en email) |
 | **Backend** | Node.js 18+, Express 4, ES modules |
 | **Base de datos** | PostgreSQL + Prisma 5 |
 | **Auth** | JWT, bcryptjs |
 | **Deploy** | Vercel (web) · Render (API + cron) · Neon (PostgreSQL) |
+
+Tokens Tailwind: `font-serif` / `font-sans` en `frontend/tailwind.config.js`. Libre Baskerville en Google Fonts solo expone pesos 400/700; el CSS mapea `font-medium`→400 y `font-semibold`/`bold`→700 sobre `.font-serif` (`frontend/src/shared/styles/index.css`).
 
 ---
 

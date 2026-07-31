@@ -278,7 +278,7 @@ export default function HomePage() {
         <div className="container mx-auto px-6 sm:px-8 relative z-10 opacity-0 animate-fade-in-up [animation-fill-mode:forwards] [animation-delay:120ms]">
           <div className="max-w-4xl mx-auto">
             <p className="section-label text-gold text-center">Sobre nosotros</p>
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-stone-900 font-medium tracking-tight leading-[1.1] text-center mb-6">
+            <h2 className="font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl text-stone-900 font-medium tracking-tight leading-[1.15] text-center mb-6">
               Nuestros barberos
             </h2>
             <div className="gold-line mx-auto mb-10" />
@@ -310,7 +310,7 @@ export default function HomePage() {
         <div className="container mx-auto px-6 sm:px-8 relative z-10 opacity-0 animate-fade-in-up [animation-fill-mode:forwards] [animation-delay:140ms]">
           <div className="text-center mb-14 md:mb-16">
             <p className="section-label text-gold">Servicios</p>
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">
+            <h2 className="font-serif text-2xl sm:text-4xl md:text-5xl font-medium text-white tracking-tight leading-[1.15] mb-4">
               Cortes, barba y más
             </h2>
             <div className="gold-line mx-auto mb-6" />
@@ -415,7 +415,7 @@ export default function HomePage() {
         <div className="container mx-auto px-6 sm:px-8 relative z-10 opacity-0 animate-fade-in-up [animation-fill-mode:forwards] [animation-delay:160ms]">
           <div className="text-center mb-12">
             <p className="section-label text-gold">Visítanos</p>
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-stone-900 font-medium tracking-tight mb-4">
+            <h2 className="font-serif text-2xl sm:text-4xl md:text-5xl text-stone-900 font-medium tracking-tight leading-[1.15] mb-4">
               Ubicación y horario
             </h2>
             <div className="gold-line mx-auto mb-6" />
@@ -460,7 +460,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-section-pattern opacity-30" />
         <div className="absolute inset-0 bg-gradient-radial-gold opacity-40" />
         <div className="container mx-auto px-6 sm:px-8 text-center relative z-10 opacity-0 animate-fade-in-up [animation-fill-mode:forwards] [animation-delay:180ms]">
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium mb-6 tracking-tight">
+          <h2 className="font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-medium mb-6 tracking-tight leading-[1.15]">
             ¿Listo para tu próximo corte?
           </h2>
           <div className="gold-line mx-auto mb-8" />
