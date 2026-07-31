@@ -332,7 +332,7 @@ export default function ServicesPage() {
                       {s.description && (
                         <p className="text-stone-500 text-xs mt-1 line-clamp-2">{s.description}</p>
                       )}
-                      <p className="mt-1.5 text-gold text-sm font-semibold tabular-nums">
+                      <p className="mt-1.5 text-black text-sm font-bold tabular-nums">
                         {formatMoney(s.price)} · {s.duration_minutes} min
                       </p>
                     </div>
