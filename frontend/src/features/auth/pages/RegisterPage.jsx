@@ -6,12 +6,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
-import { checkEmailAvailability } from '@/features/auth/services/authService';
+import { checkEmailAvailability, checkDocumentAvailability } from '@/features/auth/services/authService';
 import {
   FieldHint,
   EmailAvailabilityHint,
+  DocumentAvailabilityHint,
   inputStateClass,
   emailBorderClass,
+  documentBorderClass,
 } from '@/shared/components/FormValidationFields';
 import {
   getPasswordChecks,
@@ -90,6 +92,7 @@ export default function RegisterPage() {
   });
   const [touched, setTouched] = useState({});
   const [emailAvailability, setEmailAvailability] = useState('idle');
+  const [documentAvailability, setDocumentAvailability] = useState('idle');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -135,8 +138,12 @@ export default function RegisterPage() {
 
   const emailShow = fieldTouched(touched, 'email', formData.email);
   const emailReady = emailValidation.valid && emailAvailability === 'available';
+  const documentFormatReady =
+    documentTypeValidation.valid && documentValidation.valid;
+  const documentReady = documentFormatReady && documentAvailability === 'available';
   const docTypeShow = fieldTouched(touched, 'documentType', formData.documentType);
   const docShow = fieldTouched(touched, 'documentNumber', formData.documentNumber);
+  const documentAvailabilityShow = docTypeShow || docShow;
   const firstNameShow = fieldTouched(touched, 'firstName', formData.firstName);
   const lastNameShow = fieldTouched(touched, 'lastName', formData.lastName);
   const phoneShow = fieldTouched(touched, 'phone', formData.phone);
@@ -144,21 +151,19 @@ export default function RegisterPage() {
   const confirmShow = fieldTouched(touched, 'confirmPassword', formData.confirmPassword);
 
   const formValid = useMemo(
-    () => isRegisterFormValid(formData) && emailReady,
-    [formData, emailReady]
+    () => isRegisterFormValid(formData) && emailReady && documentReady,
+    [formData, emailReady, documentReady]
   );
 
   const stepOneValid = useMemo(
     () =>
-      documentTypeValidation.valid &&
-      documentValidation.valid &&
+      documentReady &&
       firstNameValidation.valid &&
       lastNameValidation.valid &&
       phoneValidation.valid &&
       emailReady,
     [
-      documentTypeValidation.valid,
-      documentValidation.valid,
+      documentReady,
       firstNameValidation.valid,
       lastNameValidation.valid,
       phoneValidation.valid,
@@ -197,6 +202,38 @@ export default function RegisterPage() {
       controller.abort();
     };
   }, [formData.email, emailValidation.valid]);
+
+  useEffect(() => {
+    if (!documentFormatReady) {
+      setDocumentAvailability('idle');
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setDocumentAvailability('checking');
+      try {
+        const result = await checkDocumentAvailability(
+          formData.documentType.trim(),
+          formData.documentNumber.trim(),
+          { signal: controller.signal }
+        );
+        setDocumentAvailability(result?.available ? 'available' : 'taken');
+      } catch (err) {
+        if (controller.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setDocumentAvailability('error');
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    formData.documentType,
+    formData.documentNumber,
+    documentFormatReady,
+  ]);
 
   const markTouched = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -237,6 +274,14 @@ export default function RegisterPage() {
       }
       if (!documentValidation.valid) {
         setError(documentValidation.message || 'Revisa el número de documento.');
+        return;
+      }
+      if (documentAvailability === 'taken') {
+        setError('Este número de documento ya está registrado.');
+        return;
+      }
+      if (documentAvailability !== 'available') {
+        setError('Espera a que se compruebe la disponibilidad del documento.');
         return;
       }
       if (!firstNameValidation.valid) {
@@ -312,6 +357,14 @@ export default function RegisterPage() {
       }
       if (!documentValidation.valid) {
         setError(documentValidation.message || 'Revisa el número de documento.');
+        return;
+      }
+      if (documentAvailability === 'taken') {
+        setError('Este número de documento ya está registrado.');
+        return;
+      }
+      if (documentAvailability !== 'available') {
+        setError('Espera a que se compruebe la disponibilidad del documento.');
         return;
       }
       if (!firstNameValidation.valid) {
@@ -423,15 +476,34 @@ export default function RegisterPage() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         onFocus={scrollFieldIntoView}
-                        className={`${inputClass} ${inputStateClass(documentValidation.valid, docShow)}`}
+                        className={`${inputClass} ${documentBorderClass(
+                          documentFormatReady,
+                          documentAvailability,
+                          documentAvailabilityShow
+                        )}`}
                         maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
                         required
                         autoComplete="off"
+                        aria-describedby="documentNumber-hint"
                       />
-                      <FieldHint
-                        valid={documentValidation.valid}
-                        touched={docShow}
-                        message={documentValidation.message}
+                      {!documentValidation.valid && docShow && (
+                        <FieldHint
+                          valid={false}
+                          touched
+                          message={documentValidation.message}
+                        />
+                      )}
+                      {!documentTypeValidation.valid && documentAvailabilityShow && documentValidation.valid && (
+                        <FieldHint
+                          valid={false}
+                          touched
+                          message="Selecciona el tipo de documento para comprobar disponibilidad."
+                        />
+                      )}
+                      <DocumentAvailabilityHint
+                        formatValid={documentFormatReady}
+                        availability={documentAvailability}
+                        show={documentAvailabilityShow}
                       />
                     </div>
                   </div>
@@ -542,7 +614,11 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={handleContinue}
-                    disabled={!stepOneValid || emailAvailability === 'checking'}
+                    disabled={
+                      !stepOneValid ||
+                      emailAvailability === 'checking' ||
+                      documentAvailability === 'checking'
+                    }
                     className="w-full py-3 px-4 bg-barber-dark text-white text-sm font-semibold rounded-lg hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Continuar
@@ -638,7 +714,12 @@ export default function RegisterPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || !formValid || emailAvailability === 'checking'}
+                      disabled={
+                        loading ||
+                        !formValid ||
+                        emailAvailability === 'checking' ||
+                        documentAvailability === 'checking'
+                      }
                       className="w-full py-3 px-4 bg-barber-dark text-white text-sm font-semibold rounded-lg hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? 'Creando cuenta...' : 'Registrarme'}

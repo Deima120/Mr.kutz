@@ -71,6 +71,29 @@ export const checkEmailAvailability = async (email) => {
   return { available: !existingUser };
 };
 
+/**
+ * Comprueba si un documento (tipo + número) ya está registrado como cliente.
+ */
+export const checkDocumentAvailability = async (documentType, documentNumber) => {
+  const docType = documentType != null ? String(documentType).trim().slice(0, 40) : '';
+  const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 80) : '';
+  if (!docType || !docNum) {
+    const error = new Error('El tipo y número de documento son obligatorios.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingDocument = await prisma.client.findFirst({
+    where: {
+      documentNumber: docNum,
+      documentType: docType,
+    },
+    select: { id: true },
+  });
+
+  return { available: !existingDocument };
+};
+
 export const register = async (userData) => {
   const {
     email,
@@ -106,6 +129,19 @@ export const register = async (userData) => {
 
   if (existingUser) {
     const error = new Error('Este correo electrónico ya está registrado.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const existingDocument = await prisma.client.findFirst({
+    where: {
+      documentNumber: docNum,
+      documentType: docType,
+    },
+    select: { id: true },
+  });
+  if (existingDocument) {
+    const error = new Error('Este número de documento ya está registrado.');
     error.statusCode = 409;
     throw error;
   }
@@ -159,6 +195,8 @@ export const register = async (userData) => {
   };
 };
 
+const GENERIC_LOGIN_MESSAGE = 'Correo o contraseña incorrectos.';
+
 export const login = async (email, password) => {
   const emailNorm = canonicalEmail(email);
   const dbUser = await prisma.user.findUnique({
@@ -166,12 +204,11 @@ export const login = async (email, password) => {
     include: { role: true },
   });
 
-  if (!dbUser) {
-    const error = new Error(
-      'No existe una cuenta con este correo electrónico. Verifica que esté bien escrito o regístrate si aún no tienes cuenta.'
-    );
+  // Mensaje genérico para no revelar si el correo existe (anti-enumeración).
+  if (!dbUser || !dbUser.passwordHash) {
+    const error = new Error(GENERIC_LOGIN_MESSAGE);
     error.statusCode = 401;
-    error.reason = 'USER_NOT_FOUND';
+    error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 
@@ -182,32 +219,21 @@ export const login = async (email, password) => {
     throw error;
   }
 
-  if (!dbUser.passwordHash) {
-    const error = new Error(
-      'Esta cuenta no puede iniciar sesión de forma habitual. Contacta al administrador.'
-    );
-    error.statusCode = 401;
-    error.reason = 'NO_PASSWORD';
-    throw error;
-  }
-
   let isValidPassword = false;
   try {
     isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
   } catch (bcryptError) {
     console.error('Login bcrypt error:', bcryptError?.message || bcryptError);
-    const error = new Error('No pudimos verificar la contraseña. Intenta de nuevo.');
+    const error = new Error(GENERIC_LOGIN_MESSAGE);
     error.statusCode = 401;
     error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 
   if (!isValidPassword) {
-    const error = new Error(
-      'La contraseña no es correcta. Comprueba mayúsculas y números, o usa «¿Olvidaste tu contraseña?» si la olvidaste.'
-    );
+    const error = new Error(GENERIC_LOGIN_MESSAGE);
     error.statusCode = 401;
-    error.reason = 'INVALID_PASSWORD';
+    error.reason = 'INVALID_CREDENTIALS';
     throw error;
   }
 

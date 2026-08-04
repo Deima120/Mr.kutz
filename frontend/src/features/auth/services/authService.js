@@ -32,6 +32,22 @@ export const checkEmailAvailability = async (email, options = {}) => {
 };
 
 /**
+ * Comprueba si un documento está disponible para registro
+ * @param {string} documentType
+ * @param {string} documentNumber
+ * @param {{ signal?: AbortSignal }} [options]
+ */
+export const checkDocumentAvailability = async (documentType, documentNumber, options = {}) => {
+  const response = await api.post(
+    `${AUTH_BASE}/check-document`,
+    { documentType, documentNumber },
+    { signal: options.signal, timeout: 10_000 }
+  );
+  const res = response?.data ?? response;
+  return res?.data ?? res;
+};
+
+/**
  * Inicia sesión
  * @param {string} email
  * @param {string} password

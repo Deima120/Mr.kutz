@@ -19,7 +19,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [errorReason, setErrorReason] = useState(null);
   const [loading, setLoading] = useState(false);
   const { fieldError, inputInvalidClass, applyValidation, clearFieldError } = useFormValidation();
 
@@ -32,11 +31,9 @@ export default function LoginPage() {
     const validation = validateLoginForm(email, password);
     if (!applyValidation(validation)) {
       setError('');
-      setErrorReason(null);
       return;
     }
     setError('');
-    setErrorReason(null);
     setLoading(true);
     try {
       await login(email, password);
@@ -51,7 +48,6 @@ export default function LoginPage() {
           err?.message ||
           (typeof err === 'string' ? err : 'Error al iniciar sesión')
       );
-      setErrorReason(err?.reason || null);
     } finally {
       setLoading(false);
     }
@@ -78,23 +74,8 @@ export default function LoginPage() {
                 </div>
               )}
               {error && (
-                <div className="alert-error space-y-2" role="alert">
+                <div className="alert-error" role="alert">
                   <p>{error}</p>
-                  {errorReason === 'USER_NOT_FOUND' && (
-                    <p className="text-sm font-normal opacity-95 border-t border-red-200/60 pt-2 mt-2">
-                      ¿Primera vez aquí?{' '}
-                      <Link to="/register" className="font-semibold underline underline-offset-2 hover:no-underline">
-                        Crear cuenta
-                      </Link>
-                    </p>
-                  )}
-                  {errorReason === 'INVALID_PASSWORD' && (
-                    <p className="text-sm font-normal opacity-95 border-t border-red-200/60 pt-2 mt-2">
-                      <Link to="/forgot-password" className="font-semibold underline underline-offset-2 hover:no-underline">
-                        Recuperar contraseña
-                      </Link>
-                    </p>
-                  )}
                 </div>
               )}
 
