@@ -124,6 +124,13 @@ export function emailBorderClass(formatValid, availability, show) {
   return 'border-stone-300';
 }
 
+export function documentBorderClass(formatValid, availability, show) {
+  if (!show) return 'border-stone-300';
+  if (!formatValid || availability === 'taken') return 'border-red-400';
+  if (availability === 'available') return 'border-emerald-500';
+  return 'border-stone-300';
+}
+
 export function adminEmailBorderClass(formatValid, availability, show) {
   if (!show) return '';
   if (!formatValid || availability === 'taken') return '!border-red-400';
@@ -179,6 +186,38 @@ export function EmailAvailabilityHint({ formatValid, availability, show }) {
         valid={false}
         touched
         message="No se pudo comprobar el correo. Intenta de nuevo."
+      />
+    );
+  }
+
+  return null;
+}
+
+export function DocumentAvailabilityHint({ formatValid, availability, show }) {
+  if (!show || !formatValid) return null;
+
+  if (availability === 'checking') {
+    return (
+      <p className="mt-1 text-[11px] text-stone-500" role="status" aria-live="polite">
+        Comprobando disponibilidad del documento…
+      </p>
+    );
+  }
+
+  if (availability === 'taken') {
+    return <FieldHint valid={false} touched message="Este número de documento ya está registrado." />;
+  }
+
+  if (availability === 'available') {
+    return <FieldHint valid touched message="" successMessage="Documento disponible." />;
+  }
+
+  if (availability === 'error') {
+    return (
+      <FieldHint
+        valid={false}
+        touched
+        message="No se pudo comprobar el documento. Intenta de nuevo."
       />
     );
   }

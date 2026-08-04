@@ -31,9 +31,11 @@ export default function MainLayout() {
 
   const isAdminOrBarber = isAuthenticated && (user?.role === 'admin' || user?.role === 'barber');
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+  /** Formularios públicos transaccionales: mismo pie mínimo que auth (no footer de landing). */
+  const isPublicFormPage = isAuthPage || location.pathname === '/reservar';
   const isClientAppointments =
     isAuthenticated && user?.role === 'client' && location.pathname.startsWith('/appointments');
-  const fillMainViewport = isAuthPage || isClientAppointments;
+  const fillMainViewport = isPublicFormPage || isClientAppointments;
 
   const closeMobile = () => setMobileMenuOpen(false);
   const profileInitial = (user?.firstName || user?.email || 'U').trim().charAt(0).toUpperCase();
@@ -320,7 +322,7 @@ export default function MainLayout() {
         <Outlet />
       </main>
 
-      {isClientAppointments ? null : isAuthPage ? (
+      {isClientAppointments ? null : isPublicFormPage ? (
         <footer className="shrink-0 border-t border-stone-200 bg-stone-50 py-3 text-center text-xs text-stone-500">
           © {new Date().getFullYear()} {businessName}
         </footer>

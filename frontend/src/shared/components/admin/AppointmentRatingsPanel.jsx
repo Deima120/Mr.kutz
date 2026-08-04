@@ -71,85 +71,98 @@ export default function AppointmentRatingsPanel({
   /** Solo lista de estrellas + comentarios (sin promedio, totales ni distribución) — p. ej. landing pública */
   commentsOnly = false,
 }) {
-  if (loading) {
-    return (
-      <div className="py-10 text-center text-stone-500 text-sm">
-        Cargando valoraciones…
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
-        {error}
-      </div>
-    );
-  }
-  if (!summary || summary.count === 0) {
-    return (
-      <div className="py-10 px-4 text-center rounded-2xl border border-dashed border-stone-200 bg-stone-50/80">
-        <p className="text-stone-600 text-sm">
-          {emptyHint || 'Aún no hay valoraciones de citas en este periodo.'}
-        </p>
-      </div>
-    );
-  }
+  const body = (() => {
+    if (loading) {
+      return (
+        <div className="py-10 text-center text-stone-500 text-sm">
+          Cargando valoraciones…
+        </div>
+      );
+    }
+    if (error) {
+      return (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm" role="alert">
+          {error}
+        </div>
+      );
+    }
+    if (!summary || summary.count === 0) {
+      return (
+        <div className="py-10 px-4 text-center rounded-2xl border border-dashed border-stone-200 bg-stone-50/80">
+          <p className="text-stone-600 text-sm">
+            {emptyHint || 'Aún no hay valoraciones de citas en este periodo.'}
+          </p>
+        </div>
+      );
+    }
 
-  const dist = summary.distribution || {};
-  const maxBar = Math.max(1, ...[1, 2, 3, 4, 5].map((k) => dist[k] || 0));
-  const recent =
-    summary.recent && recentLimit != null && recentLimit > 0
-      ? summary.recent.slice(0, recentLimit)
-      : summary.recent;
+    const dist = summary.distribution || {};
+    const maxBar = Math.max(1, ...[1, 2, 3, 4, 5].map((k) => dist[k] || 0));
+    const recent =
+      summary.recent && recentLimit != null && recentLimit > 0
+        ? summary.recent.slice(0, recentLimit)
+        : summary.recent;
 
-  if (commentsOnly) {
+    if (commentsOnly) {
+      return (
+        <div className="space-y-4">
+          {recent?.length > 0 ? (
+            <RecentCommentsList recent={recent} compact={compact} commentsOnly />
+          ) : (
+            <div className="py-6 text-center text-stone-500 text-sm">
+              {emptyHint || 'Aún no hay comentarios para mostrar.'}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className="space-y-4">
-        {recent?.length > 0 ? (
-          <RecentCommentsList recent={recent} compact={compact} commentsOnly />
-        ) : (
-          <div className="py-6 text-center text-stone-500 text-sm">
-            {emptyHint || 'Aún no hay comentarios para mostrar.'}
+      <div className="space-y-6">
+        <div className={`flex flex-wrap items-end gap-6 ${compact ? '' : 'sm:gap-10'}`}>
+          <div>
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Promedio</p>
+            <p className={`font-serif text-stone-900 font-medium ${compact ? 'text-2xl' : 'text-3xl'}`}>
+              {summary.average != null ? summary.average.toFixed(1) : '—'}
+              <Star
+                className="inline-block w-5 h-5 ml-1 align-[-0.15em] fill-gold text-gold"
+                strokeWidth={1.5}
+                aria-hidden
+              />
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Valoraciones</p>
+            <p className="text-2xl font-semibold text-stone-800 tabular-nums">{summary.count}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Distribución</p>
+          {[5, 4, 3, 2, 1].map((n) => (
+            <StarRow key={n} label={`${n} estrellas`} count={dist[n] || 0} max={maxBar} />
+          ))}
+        </div>
+
+        {recent?.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Últimos comentarios</p>
+            <RecentCommentsList recent={recent} compact={compact} commentsOnly={false} />
           </div>
         )}
       </div>
     );
+  })();
+
+  // Los filtros deben permanecer visibles aunque no haya valoraciones (cambio de barbero/periodo).
+  if (commentsOnly || !filtersSlot) {
+    return body;
   }
 
   return (
     <div className="space-y-6">
       {filtersSlot}
-      <div className={`flex flex-wrap items-end gap-6 ${compact ? '' : 'sm:gap-10'}`}>
-        <div>
-          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Promedio</p>
-          <p className={`font-serif text-stone-900 font-medium ${compact ? 'text-2xl' : 'text-3xl'}`}>
-            {summary.average != null ? summary.average.toFixed(1) : '—'}
-            <Star
-              className="inline-block w-5 h-5 ml-1 align-[-0.15em] fill-gold text-gold"
-              strokeWidth={1.5}
-              aria-hidden
-            />
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Valoraciones</p>
-          <p className="text-2xl font-semibold text-stone-800 tabular-nums">{summary.count}</p>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Distribución</p>
-        {[5, 4, 3, 2, 1].map((n) => (
-          <StarRow key={n} label={`${n} estrellas`} count={dist[n] || 0} max={maxBar} />
-        ))}
-      </div>
-
-      {recent?.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Últimos comentarios</p>
-          <RecentCommentsList recent={recent} compact={compact} commentsOnly={false} />
-        </div>
-      )}
+      {body}
     </div>
   );
 }

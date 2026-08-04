@@ -186,8 +186,31 @@ export const update = async (id, data) => {
 };
 
 export const remove = async (id) => {
-  const deleted = await prisma.service.delete({
-    where: { id: parseInt(id, 10) },
+  const serviceId = parseInt(id, 10);
+  const relatedAppointments = await prisma.appointment.count({
+    where: { serviceId },
   });
-  return !!deleted;
+  if (relatedAppointments > 0) {
+    const err = new Error(
+      'No se puede eliminar el servicio porque tiene citas asociadas. Desactívalo si ya no debe mostrarse al agendar.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  try {
+    const deleted = await prisma.service.delete({
+      where: { id: serviceId },
+    });
+    return !!deleted;
+  } catch (error) {
+    if (error?.code === 'P2003') {
+      const err = new Error(
+        'No se puede eliminar el servicio porque está relacionado con otros registros del sistema.'
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+    throw error;
+  }
 };

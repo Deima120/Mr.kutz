@@ -2,6 +2,7 @@
  * Rutas de autenticación
  * POST /api/auth/register
  * POST /api/auth/check-email
+ * POST /api/auth/check-document
  * POST /api/auth/login
  * GET  /api/auth/me (protegida)
  * PUT  /api/auth/me (protegida, cliente)
@@ -85,8 +86,19 @@ const checkEmailThrottle = publicThrottle({
   windowMs: 15 * 60 * 1000,
 });
 
+const checkDocumentThrottle = publicThrottle({
+  scope: 'check-document',
+  max: 30,
+  windowMs: 15 * 60 * 1000,
+});
+
 const checkEmailValidation = [
   body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
+];
+
+const checkDocumentValidation = [
+  documentTypeField('documentType'),
+  documentNumberField('documentNumber'),
 ];
 
 const updateProfileValidation = [
@@ -100,6 +112,13 @@ const updateProfileValidation = [
 ];
 
 router.post('/check-email', checkEmailThrottle, checkEmailValidation, validate, authController.checkEmail);
+router.post(
+  '/check-document',
+  checkDocumentThrottle,
+  checkDocumentValidation,
+  validate,
+  authController.checkDocument
+);
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginThrottle, loginValidation, validate, authController.login);
 router.get('/me', auth, authController.getProfile);
