@@ -124,6 +124,14 @@ export function emailBorderClass(formatValid, availability, show) {
   return 'border-stone-300';
 }
 
+/** Borde del documento: solo rojo si el formato falla o ya está registrado. */
+export function documentBorderClass(formatValid, availability, show) {
+  if (!show) return 'border-stone-300';
+  if (!formatValid || availability === 'taken') return 'border-red-400';
+  if (availability === 'available') return 'border-emerald-500';
+  return 'border-stone-300';
+}
+
 export function adminEmailBorderClass(formatValid, availability, show) {
   if (!show) return '';
   if (!formatValid || availability === 'taken') return '!border-red-400';
@@ -181,6 +189,38 @@ export function EmailAvailabilityHint({ formatValid, availability, show }) {
         message="No se pudo comprobar el correo. Intenta de nuevo."
       />
     );
+  }
+
+  return null;
+}
+
+/**
+ * Disponibilidad de documento: solo bloquea visualmente si ya existe (taken).
+ * En error de red no marca como inválido (fail-open); el registro puede continuar.
+ */
+export function DocumentAvailabilityHint({ formatValid, availability, show }) {
+  if (!show || !formatValid) return null;
+
+  if (availability === 'checking') {
+    return (
+      <p className="mt-1 text-[11px] text-stone-500" role="status" aria-live="polite">
+        Comprobando documento…
+      </p>
+    );
+  }
+
+  if (availability === 'taken') {
+    return (
+      <FieldHint
+        valid={false}
+        touched
+        message="Ya existe un cliente con este documento."
+      />
+    );
+  }
+
+  if (availability === 'available') {
+    return <FieldHint valid touched message="" successMessage="Documento disponible." />;
   }
 
   return null;

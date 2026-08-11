@@ -26,6 +26,26 @@ export const checkEmail = async (req, res, next) => {
 };
 
 /**
+ * POST /api/auth/check-document
+ * Comprueba si tipo+número de documento ya están registrados (solo bloquea si existen)
+ */
+export const checkDocument = async (req, res, next) => {
+  try {
+    const { documentType, documentNumber } = req.body;
+    const result = await authService.checkDocumentAvailability(
+      documentType,
+      documentNumber
+    );
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/auth/register
  * Registra nuevo usuario (client por defecto)
  */
