@@ -568,7 +568,7 @@ export function PaymentForm({
     children: (
       <AdminFormPreviewPanel>
         <div>
-          <p className="font-serif text-3xl sm:text-4xl font-medium text-gold tabular-nums leading-none tracking-tight">
+          <p className="font-serif text-2xl sm:text-4xl font-medium text-gold tabular-nums leading-none tracking-tight break-all">
             {formatPaymentAmount(cartTotal)}
           </p>
           <p className="mt-2 text-xs text-stone-400">
@@ -798,7 +798,7 @@ export function PaymentForm({
                 </p>
                 <p className="text-xs text-stone-500 mt-0.5">Suma de las líneas</p>
               </div>
-              <p className="font-serif text-2xl sm:text-3xl font-medium text-gold tabular-nums leading-none">
+              <p className="font-serif text-2xl sm:text-3xl font-medium text-gold tabular-nums leading-none tracking-tight break-all">
                 {formatPaymentAmount(cartTotal)}
               </p>
             </div>

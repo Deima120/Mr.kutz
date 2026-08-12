@@ -146,6 +146,7 @@ export default function RegisterPage() {
     documentAvailability !== 'checking';
   const docTypeShow = fieldTouched(touched, 'documentType', formData.documentType);
   const docShow = fieldTouched(touched, 'documentNumber', formData.documentNumber);
+  const documentAvailabilityShow = docTypeShow || docShow;
   const firstNameShow = fieldTouched(touched, 'firstName', formData.firstName);
   const lastNameShow = fieldTouched(touched, 'lastName', formData.lastName);
   const phoneShow = fieldTouched(touched, 'phone', formData.phone);
@@ -490,6 +491,7 @@ export default function RegisterPage() {
                         maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
                         required
                         autoComplete="off"
+                        aria-describedby="documentNumber-hint"
                       />
                       {!documentValidation.valid && docShow && (
                         <FieldHint

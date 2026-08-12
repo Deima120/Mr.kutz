@@ -8,6 +8,7 @@ export function resolveCashRegisterBannerState({ register, canCharge, loading } 
       kind: 'loading',
       variant: 'info',
       title: 'Caja',
+      fabLabel: 'Caja…',
       message: 'Consultando estado de caja…',
       showOpen: false,
       showClose: false,
@@ -20,6 +21,7 @@ export function resolveCashRegisterBannerState({ register, canCharge, loading } 
       kind: 'closed',
       variant: 'warning',
       title: 'Sin caja abierta',
+      fabLabel: 'Caja cerrada',
       message: 'Abre la caja del día para registrar cobros.',
       showOpen: true,
       showClose: false,
@@ -33,6 +35,7 @@ export function resolveCashRegisterBannerState({ register, canCharge, loading } 
       kind: 'stale',
       variant: 'error',
       title: 'Caja de un día anterior sin cerrar',
+      fabLabel: 'Día anterior sin cerrar',
       message:
         register.staleWarning ||
         `Tienes una caja abierta del ${register.businessDate}, sin cerrar (${days} día${days === 1 ? '' : 's'}).`,
@@ -48,6 +51,7 @@ export function resolveCashRegisterBannerState({ register, canCharge, loading } 
     kind: 'open',
     variant: 'success',
     title: 'Caja abierta',
+    fabLabel: 'Caja abierta',
     message: `Día ${register.businessDate}. Puedes registrar cobros.`,
     showOpen: false,
     showClose: true,

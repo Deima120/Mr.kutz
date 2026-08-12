@@ -79,7 +79,7 @@ export default function HeroCarousel() {
           {/* Base oscura detrás del texto para que no se pierda con la imagen */}
           <div className="relative rounded-2xl bg-barber-dark/90 backdrop-blur-sm px-8 sm:px-12 py-10 sm:py-14 border border-white/10 shadow-2xl min-h-[360px] sm:min-h-[400px] md:min-h-[440px] lg:min-h-[480px] flex flex-col items-center justify-center">
             <div className="w-full" key={current}>
-              <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.08] tracking-tight mb-6 text-white">
+              <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.12] tracking-tight mb-6 text-white break-words text-balance px-1">
                 {HERO_SLIDES[current].title}
               </h1>
               <p className="text-stone-200 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed mb-8">

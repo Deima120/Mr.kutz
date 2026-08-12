@@ -16,6 +16,36 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-gold;
   }
+  /*
+   * Libre Baskerville (Google Fonts) solo expone 400 y 700.
+   * Evita faux-bold en font-medium/semibold aplicados junto a font-serif.
+   */
+  .font-serif {
+    font-synthesis: weight style;
+  }
+  .font-serif.font-thin,
+  .font-serif.font-extralight,
+  .font-serif.font-light,
+  .font-serif.font-normal,
+  .font-serif.font-medium {
+    font-weight: 400;
+  }
+  .font-serif.font-semibold,
+  .font-serif.font-bold,
+  .font-serif.font-extrabold,
+  .font-serif.font-black {
+    font-weight: 700;
+  }
+  /*
+   * Baskerville es más ancha que Cormorant: títulos envuelven mejor en mobile
+   * sin desbordar contenedores estrechos (sidebar, cards, hero).
+   */
+  h1.font-serif,
+  h2.font-serif,
+  h3.font-serif {
+    @apply break-words;
+    text-wrap: balance;
+  }
 }
 
 @layer components {
@@ -110,7 +140,9 @@
     @apply inline-flex items-center justify-center gap-2 px-7 py-4 border-2 border-white/50 text-white font-medium text-sm tracking-wide transition-all duration-300 hover:border-gold hover:bg-white/5 hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold no-underline;
   }
   .section-heading {
-    @apply font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-stone-900 font-medium tracking-tight leading-[1.1];
+    /* Baskerville: un escalón menos en mobile + leading holgado */
+    @apply font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl text-stone-900 font-medium tracking-tight leading-[1.15] break-words;
+    text-wrap: balance;
   }
   .section-label {
     @apply font-sans text-gold tracking-wide text-xs font-semibold mb-4;

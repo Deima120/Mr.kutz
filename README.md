@@ -50,7 +50,7 @@
 - **Cobrar** y **registrar otro ingreso** requieren caja OPEN; si es de un día anterior → aviso `STALE`.
 - Efectivo esperado = base de apertura + splits en efectivo de cobros + otros ingresos en efectivo.
 - Al cerrar: efectivo contado opcional, diferencia vs esperado (UI: cuadra / sobra / falta); no cierra si hay citas completed sin cobro.
-- Admin UI: banner POS en layout (base / esperado / cobrado + Ver caja), modales abrir/cerrar, bloqueo en formulario de cobro.
+- Admin UI: **banner POS** en Ventas, Reportes→Caja y Otros ingresos; **FAB** flotante en el resto (punto de estado + click abre/cierra). Modales abrir/cerrar; bloqueo de cobro sin caja.
 - Estado en vivo: `GET /current` incluye `summary`; el contexto admin hace **polling cada 30 s** (pausa si la pestaña está oculta) y **refresh inmediato** tras cobro o anulación.
 - Reportes → Caja: panel **Caja en vivo** (métricas + desglose por método) encima del historial; historial con badges Abierta / Cerrada / Sin cerrar + **Ver detalle**.
 
@@ -87,10 +87,14 @@ Frontend: `frontend/src/features/reports/` (nav + paneles) · caja: `frontend/sr
 | Capa | Tecnología |
 |------|------------|
 | **Frontend** | React 18, Vite 8, React Router 6, Axios, Tailwind CSS, Three.js |
+| **Tipografía web** | Google Fonts: **Libre Baskerville** (`font-serif`, títulos/montos) + **Source Sans 3** (`font-sans`, UI/body). Carga en `frontend/index.html` (`preconnect` + `display=swap`). |
+| **Tipografía correos** | Georgia / Times New Roman en `backend/src/lib/mailer.js` (serif de sistema; sin web fonts en email) |
 | **Backend** | Node.js 18+, Express 4, ES modules |
 | **Base de datos** | PostgreSQL + Prisma 5 |
 | **Auth** | JWT, bcryptjs |
 | **Deploy** | Vercel (web) · Render (API + cron) · Neon (PostgreSQL) |
+
+Tokens Tailwind: `font-serif` / `font-sans` en `frontend/tailwind.config.js`. Libre Baskerville en Google Fonts solo expone pesos 400/700; el CSS mapea `font-medium`→400 y `font-semibold`/`bold`→700 sobre `.font-serif` (`frontend/src/shared/styles/index.css`).
 
 ---
 
