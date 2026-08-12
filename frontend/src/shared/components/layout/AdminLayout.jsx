@@ -7,7 +7,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { CashRegisterProvider } from '@/features/cash-registers/CashRegisterContext';
+// [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Reportes/Caja oculto de la vista del usuario.
+// Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
+// import { CashRegisterProvider } from '@/features/cash-registers/CashRegisterContext';
 
 import {
   LayoutDashboard,
@@ -27,7 +29,9 @@ import {
   CreditCard,
   ShoppingCart,
   Package,
-  FileBarChart,
+  // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Icono usado solo por el item de Reportes.
+  // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
+  // FileBarChart,
 } from 'lucide-react';
 
 const adminDashboardItem = {
@@ -58,13 +62,17 @@ const adminNavSections = [
       { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
     ],
   },
-  {
-    id: 'system',
-    label: 'Sistema',
-    items: [
-      { path: '/reports', label: 'Reportes', description: 'Estadisticas', Icon: FileBarChart },
-    ],
-  },
+  // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Reportes/Caja oculto de la vista del usuario.
+  // Se comenta la sección "Sistema" completa (no solo el item) porque Reportes era su única
+  // entrada y dejarla vacía renderizaría un encabezado huérfano.
+  // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
+  // {
+  //   id: 'system',
+  //   label: 'Sistema',
+  //   items: [
+  //     { path: '/reports', label: 'Reportes', description: 'Estadisticas', Icon: FileBarChart },
+  //   ],
+  // },
 ];
 
 const barberDashboardItem = {
@@ -340,7 +348,14 @@ export default function AdminLayout({ children }) {
         </header>
 
         <main className="admin-content-scroll flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-5">
-          {isAdmin ? <CashRegisterProvider>{children}</CashRegisterProvider> : children}
+          {/* [DESACTIVADO-REPORTES-CAJA 2026-08-12] Al no montar CashRegisterProvider desaparecen
+              el banner de caja, el FAB, los modales de abrir/cerrar y el polling cada 30s a
+              GET /cash-registers/current. Los consumidores usan useCashRegisterOptional(), que
+              devuelve null, por lo que nada revienta en runtime.
+              Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — para reactivar, restaurar
+              la línea comentada y borrar la de abajo.
+              {isAdmin ? <CashRegisterProvider>{children}</CashRegisterProvider> : children} */}
+          {children}
         </main>
       </div>
     </div>
