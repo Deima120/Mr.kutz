@@ -138,9 +138,12 @@ export default function RegisterPage() {
 
   const emailShow = fieldTouched(touched, 'email', formData.email);
   const emailReady = emailValidation.valid && emailAvailability === 'available';
-  const documentFormatReady =
-    documentTypeValidation.valid && documentValidation.valid;
-  const documentReady = documentFormatReady && documentAvailability === 'available';
+  /** Solo bloquea si el documento ya existe; en error de red permite continuar (fail-open). */
+  const documentReady =
+    documentTypeValidation.valid &&
+    documentValidation.valid &&
+    documentAvailability !== 'taken' &&
+    documentAvailability !== 'checking';
   const docTypeShow = fieldTouched(touched, 'documentType', formData.documentType);
   const docShow = fieldTouched(touched, 'documentNumber', formData.documentNumber);
   const documentAvailabilityShow = docTypeShow || docShow;
@@ -204,7 +207,7 @@ export default function RegisterPage() {
   }, [formData.email, emailValidation.valid]);
 
   useEffect(() => {
-    if (!documentFormatReady) {
+    if (!documentTypeValidation.valid || !documentValidation.valid) {
       setDocumentAvailability('idle');
       return undefined;
     }
@@ -214,13 +217,16 @@ export default function RegisterPage() {
       setDocumentAvailability('checking');
       try {
         const result = await checkDocumentAvailability(
-          formData.documentType.trim(),
-          formData.documentNumber.trim(),
+          {
+            documentType: formData.documentType.trim(),
+            documentNumber: formData.documentNumber.trim(),
+          },
           { signal: controller.signal }
         );
         setDocumentAvailability(result?.available ? 'available' : 'taken');
       } catch (err) {
         if (controller.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        // Fail-open: no bloquear el registro por un fallo temporal de red/API.
         setDocumentAvailability('error');
       }
     }, 500);
@@ -232,7 +238,8 @@ export default function RegisterPage() {
   }, [
     formData.documentType,
     formData.documentNumber,
-    documentFormatReady,
+    documentTypeValidation.valid,
+    documentValidation.valid,
   ]);
 
   const markTouched = (field) => {
@@ -277,11 +284,11 @@ export default function RegisterPage() {
         return;
       }
       if (documentAvailability === 'taken') {
-        setError('Este número de documento ya está registrado.');
+        setError('Ya existe un cliente con este documento.');
         return;
       }
-      if (documentAvailability !== 'available') {
-        setError('Espera a que se compruebe la disponibilidad del documento.');
+      if (documentAvailability === 'checking') {
+        setError('Espera a que se compruebe el documento.');
         return;
       }
       if (!firstNameValidation.valid) {
@@ -360,11 +367,11 @@ export default function RegisterPage() {
         return;
       }
       if (documentAvailability === 'taken') {
-        setError('Este número de documento ya está registrado.');
+        setError('Ya existe un cliente con este documento.');
         return;
       }
-      if (documentAvailability !== 'available') {
-        setError('Espera a que se compruebe la disponibilidad del documento.');
+      if (documentAvailability === 'checking') {
+        setError('Espera a que se compruebe el documento.');
         return;
       }
       if (!firstNameValidation.valid) {
@@ -477,9 +484,9 @@ export default function RegisterPage() {
                         onBlur={handleBlur}
                         onFocus={scrollFieldIntoView}
                         className={`${inputClass} ${documentBorderClass(
-                          documentFormatReady,
+                          documentValidation.valid,
                           documentAvailability,
-                          documentAvailabilityShow
+                          docShow
                         )}`}
                         maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
                         required
@@ -493,17 +500,10 @@ export default function RegisterPage() {
                           message={documentValidation.message}
                         />
                       )}
-                      {!documentTypeValidation.valid && documentAvailabilityShow && documentValidation.valid && (
-                        <FieldHint
-                          valid={false}
-                          touched
-                          message="Selecciona el tipo de documento para comprobar disponibilidad."
-                        />
-                      )}
                       <DocumentAvailabilityHint
-                        formatValid={documentFormatReady}
+                        formatValid={documentValidation.valid && documentTypeValidation.valid}
                         availability={documentAvailability}
-                        show={documentAvailabilityShow}
+                        show={docShow}
                       />
                     </div>
                   </div>

@@ -72,26 +72,28 @@ export const checkEmailAvailability = async (email) => {
 };
 
 /**
- * Comprueba si un documento (tipo + número) ya está registrado como cliente.
+ * Comprueba si tipo+número de documento ya están registrados en un cliente.
+ * available: true → se puede usar en registro; false → ya existe.
  */
 export const checkDocumentAvailability = async (documentType, documentNumber) => {
   const docType = documentType != null ? String(documentType).trim().slice(0, 40) : '';
   const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 80) : '';
+
   if (!docType || !docNum) {
     const error = new Error('El tipo y número de documento son obligatorios.');
     error.statusCode = 400;
     throw error;
   }
 
-  const existingDocument = await prisma.client.findFirst({
+  const existing = await prisma.client.findFirst({
     where: {
-      documentNumber: docNum,
       documentType: docType,
+      documentNumber: docNum,
     },
     select: { id: true },
   });
 
-  return { available: !existingDocument };
+  return { available: !existing };
 };
 
 export const register = async (userData) => {
@@ -133,15 +135,9 @@ export const register = async (userData) => {
     throw error;
   }
 
-  const existingDocument = await prisma.client.findFirst({
-    where: {
-      documentNumber: docNum,
-      documentType: docType,
-    },
-    select: { id: true },
-  });
-  if (existingDocument) {
-    const error = new Error('Este número de documento ya está registrado.');
+  const docAvailability = await checkDocumentAvailability(docType, docNum);
+  if (!docAvailability.available) {
+    const error = new Error('Ya existe un cliente con este documento.');
     error.statusCode = 409;
     throw error;
   }
