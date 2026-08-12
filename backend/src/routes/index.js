@@ -12,7 +12,9 @@ import barberRoutes from './barber.routes.js';
 import appointmentRoutes from './appointment.routes.js';
 import testimonialRoutes from './testimonial.routes.js';
 import paymentRoutes from './payment.routes.js';
-import cashRegisterRoutes from './cashRegister.routes.js';
+// [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Caja oculto de la vista del usuario.
+// Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
+// import cashRegisterRoutes from './cashRegister.routes.js';
 import expenseRoutes from './expense.routes.js';
 import otherIncomeRoutes from './otherIncome.routes.js';
 import commissionRoutes from './commission.routes.js';
@@ -45,7 +47,10 @@ router.use('/barbers', barberRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/testimonials', testimonialRoutes);
 router.use('/payments', paymentRoutes);
-router.use('/cash-registers', cashRegisterRoutes);
+// [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Caja oculto de la vista del usuario.
+// Los endpoints /api/cash-registers/* pasan a responder 404 vía el middleware notFound.
+// Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
+// router.use('/cash-registers', cashRegisterRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/other-incomes', otherIncomeRoutes);
 router.use('/commissions', commissionRoutes);
