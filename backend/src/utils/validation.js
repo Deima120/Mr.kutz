@@ -1,4 +1,8 @@
 import { body, query } from 'express-validator';
+import {
+  isAllowedEmailDomain,
+  ALLOWED_EMAIL_DOMAINS_MESSAGE,
+} from './allowedEmailDomains.js';
 
 export const DOCUMENT_TYPES = ['CC', 'CE', 'TI', 'Pasaporte', 'NIT'];
 
@@ -16,6 +20,24 @@ export const strongPassword = (field = 'password') => [
     .matches(/\d/)
     .withMessage('La contraseña debe incluir al menos un número.'),
 ];
+
+/**
+ * Correo del registro público: además de ser válido, su dominio debe estar en
+ * la lista de proveedores permitidos (ver allowedEmailDomains.js).
+ *
+ * `.custom()` va ANTES de `.normalizeEmail()` a propósito: normalizeEmail
+ * reescribe el valor (Gmail sin puntos, subdirecciones) y aquí solo interesa
+ * el dominio, que la propia función ya pasa a minúsculas.
+ */
+export const allowedProviderEmailField = (field = 'email') =>
+  body(field)
+    .trim()
+    .isEmail()
+    .withMessage('Indica un correo electrónico válido.')
+    .bail()
+    .custom((value) => isAllowedEmailDomain(value))
+    .withMessage(ALLOWED_EMAIL_DOMAINS_MESSAGE)
+    .normalizeEmail();
 
 /** Nombre o apellido de persona (letras, 2–100). */
 export const personNameField = (field, label) =>

@@ -20,16 +20,15 @@ import {
   optionalPhoneField,
   documentTypeField,
   documentNumberField,
+  allowedProviderEmailField,
 } from '../utils/validation.js';
 import * as authController from '../controllers/auth.controller.js';
 
 const router = express.Router();
 
 const registerValidation = [
-  body('email')
-    .isEmail()
-    .withMessage('Indica un correo electrónico válido.')
-    .normalizeEmail(),
+  // Registro público: restringido a proveedores de correo permitidos.
+  allowedProviderEmailField('email'),
   ...strongPassword('password'),
   personNameField('firstName', 'El nombre'),
   personNameField('lastName', 'El apellido'),
