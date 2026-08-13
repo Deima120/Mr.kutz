@@ -6,6 +6,7 @@
 
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
+import { getJwtSecret, JWT_ALGORITHM } from '../config/jwtSecret.js';
 
 /**
  * Verifica que el token JWT sea válido
@@ -24,8 +25,8 @@ export const auth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production';
-    const decoded = jwt.verify(token, secret);
+    // algorithms explícito: defensa en profundidad contra confusión de algoritmos.
+    const decoded = jwt.verify(token, getJwtSecret(), { algorithms: [JWT_ALGORITHM] });
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
