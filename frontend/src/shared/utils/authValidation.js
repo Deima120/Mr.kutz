@@ -47,6 +47,54 @@ export function validateEmail(value) {
   return { valid: true, message: 'Correo válido.' };
 }
 
+/**
+ * Proveedores de correo permitidos en el registro público.
+ * Debe coincidir con `backend/src/utils/allowedEmailDomains.js`, que es la
+ * validación definitiva; esta copia solo da retroalimentación inmediata.
+ */
+export const ALLOWED_EMAIL_DOMAINS = Object.freeze([
+  'gmail.com',
+  'hotmail.com',
+  'outlook.com',
+  'yahoo.com',
+  'icloud.com',
+  'live.com',
+  'msn.com',
+  'proton.me',
+  'protonmail.com',
+]);
+
+export const ALLOWED_EMAIL_DOMAINS_MESSAGE =
+  'Solo se permiten correos de Gmail, Hotmail, Outlook, Yahoo, iCloud, Live, MSN o Proton.';
+
+/**
+ * Correo del REGISTRO: válido y de un proveedor permitido.
+ *
+ * Se apoya en validateEmail para el formato y solo añade la restricción de
+ * dominio. Es una función aparte a propósito: validateEmail la comparten login,
+ * recuperación de contraseña, proveedores, barberos y clientes, donde cualquier
+ * dominio válido debe seguir aceptándose.
+ *
+ * El dominio se compara EXACTO contra la lista, así que quedan fuera los
+ * subdominios y sufijos parecidos (`gmail.fake.com`, `gmail.com.fake`).
+ */
+export function validateRegistrationEmail(value) {
+  const base = validateEmail(value);
+  if (!base.valid) return base;
+
+  const normalized = String(value ?? '').trim().toLowerCase();
+  const parts = normalized.split('@');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return { valid: false, message: 'Indica un correo electrónico válido.' };
+  }
+
+  if (!ALLOWED_EMAIL_DOMAINS.includes(parts[1])) {
+    return { valid: false, message: ALLOWED_EMAIL_DOMAINS_MESSAGE };
+  }
+
+  return { valid: true, message: 'Correo válido.' };
+}
+
 export function getPasswordChecks(password) {
   const pwd = String(password ?? '');
   return [
@@ -153,7 +201,7 @@ export function getDocumentNumberHint(value, options) {
 }
 
 export function isRegisterFormValid(formData) {
-  const emailOk = validateEmail(formData.email).valid;
+  const emailOk = validateRegistrationEmail(formData.email).valid;
   const passwordOk = isPasswordStrong(formData.password);
   const confirmOk = validateConfirmPassword(formData.password, formData.confirmPassword).valid;
   const docTypeOk = validateDocumentType(formData.documentType).valid;
