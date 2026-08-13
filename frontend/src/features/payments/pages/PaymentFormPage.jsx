@@ -21,10 +21,12 @@ import {
 } from '@/features/payments/utils/allocateMethodSplitAmounts';
 import {
   validatePaymentCartForm,
+  validateAmountTendered,
   getApiErrorMessage,
   validateMoney,
   validatePositiveInt,
 } from '@/shared/utils/formValidation';
+import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
 import ProductPicker from '@/features/inventory/components/ProductPicker';
@@ -116,6 +118,7 @@ export function PaymentForm({
   const prefillProductId = prefillProductIdProp ?? searchParams.get('productId');
   const prefillAppointmentId = prefillAppointmentIdProp ?? searchParams.get('appointmentId');
   const draftManualId = useId();
+  const tenderedErrorId = useId();
 
   const [methodsLocal, setMethodsLocal] = useState([]);
   const methods = Array.isArray(methodsProp) && methodsProp.length ? methodsProp : methodsLocal;
@@ -228,6 +231,22 @@ export function PaymentForm({
   useEffect(() => {
     if (!hasCashMethodSelected && amountTendered) setAmountTendered('');
   }, [hasCashMethodSelected, amountTendered]);
+
+  /**
+   * Validación en vivo del efectivo recibido: misma regla que aplica el envío
+   * (validatePaymentCartForm reutiliza esta función), pero evaluada mientras se
+   * teclea para no obligar al cajero a pulsar «Registrar pago» para enterarse.
+   */
+  const tenderedValidation = useMemo(
+    () => validateAmountTendered({ amountTendered, cashAmount: cashPortion }),
+    [amountTendered, cashPortion]
+  );
+
+  /** Solo se avisa si ya escribió algo: en blanco significa pago exacto. */
+  const showTenderedError =
+    hasCashMethodSelected &&
+    String(amountTendered).trim() !== '' &&
+    !tenderedValidation.valid;
 
   const methodLabelSummary = useMemo(() => {
     const parts = methodRows
@@ -943,14 +962,25 @@ export function PaymentForm({
                       autoComplete="off"
                       value={amountTendered}
                       onChange={(e) => setAmountTendered(formatMoneyInputDigits(e.target.value))}
-                      className={ADMIN_FORM_FIELD_COMPACT}
+                      className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                        showTenderedError ? '!border-red-400' : ''
+                      }`}
                       placeholder={toAmountDisplay(cashPortion) || '0'}
+                      aria-invalid={showTenderedError || undefined}
+                      aria-describedby={showTenderedError ? tenderedErrorId : undefined}
                     />
-                    <p className="mt-1 text-[11px] text-stone-500">
-                      Asignado a efectivo: {formatPaymentAmount(cashPortion)}. Si dejas
-                      Recibido vacío, se asume pago exacto. El vuelto no cambia los otros
-                      métodos.
-                    </p>
+                    {showTenderedError ? (
+                      <FieldErrorMessage
+                        message={tenderedValidation.message}
+                        id={tenderedErrorId}
+                      />
+                    ) : (
+                      <p className="mt-1 text-[11px] text-stone-500">
+                        Asignado a efectivo: {formatPaymentAmount(cashPortion)}. Si dejas
+                        Recibido vacío, se asume pago exacto. El vuelto no cambia los otros
+                        métodos.
+                      </p>
+                    )}
                   </label>
                   <label className="group">
                     <span className={ADMIN_FORM_LABEL_CLASS}>Vuelto</span>

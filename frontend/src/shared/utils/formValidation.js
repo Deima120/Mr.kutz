@@ -45,6 +45,7 @@ import {
   validateAppointmentDateYmd,
 } from '@/shared/utils/dateRange';
 import { parseMoneyInput } from '@/shared/utils/money';
+import { checkAmountTendered } from '@/features/payments/utils/amountTenderedRule';
 
 /** Límites de texto alineados con backend. */
 export const TEXT_NAME_MAX = 150;
@@ -366,6 +367,19 @@ export function validatePaymentForm(data, mode, extras = {}) {
 }
 
 /** Carrito de venta multi-línea (+ pago mixto opcional). */
+/**
+ * Regla del efectivo recibido, aislada para poder usarla también en vivo mientras
+ * el cajero teclea (antes solo corría al enviar, dentro de validatePaymentCartForm).
+ *
+ * @param {object} params
+ * @param {string|number} params.amountTendered lo que entrega el cliente
+ * @param {number} params.cashAmount porción de la venta asignada a efectivo
+ * @returns {{ valid: boolean, message: string }}
+ */
+export function validateAmountTendered(params) {
+  return checkAmountTendered(params);
+}
+
 export function validatePaymentCartForm({
   paymentMethodId,
   methodSplits,
@@ -428,25 +442,13 @@ export function validatePaymentCartForm({
       }
     }
 
-    const tenderedRaw = amountTendered;
-    const tenderedProvided =
-      tenderedRaw != null && String(tenderedRaw).trim() !== '';
-    if (cashCents <= 0 && tenderedProvided) {
-      errors.amountTendered = 'Recibido/vuelto solo aplica cuando hay efectivo.';
-    } else if (cashCents > 0 && tenderedProvided) {
-      const tendered = validateMoney(tenderedRaw, 'El monto recibido', {
-        required: true,
-        min: 0.01,
-      });
-      if (!tendered.valid) {
-        errors.amountTendered = tendered.message;
-      } else {
-        const tenderedCents = Math.round(Number(parseMoneyInput(tenderedRaw)) * 100);
-        if (tenderedCents < cashCents) {
-          errors.amountTendered =
-            'El monto recibido no puede ser menor que la porción en efectivo.';
-        }
-      }
+    // Misma regla que se evalúa en vivo en el formulario: una sola fuente.
+    const tenderedCheck = validateAmountTendered({
+      amountTendered,
+      cashAmount: cashCents / 100,
+    });
+    if (!tenderedCheck.valid) {
+      errors.amountTendered = tenderedCheck.message;
     }
   }
 
