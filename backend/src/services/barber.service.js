@@ -18,14 +18,16 @@ function normDocNumber(v) {
   return String(v).trim().slice(0, 80);
 }
 
-export const getAll = async ({ activeFilter = 'active', document } = {}) => {
+export const getAll = async ({ activeFilter = 'active', document, includePrivate = false } = {}) => {
   const parts = [];
   if (activeFilter === 'active') {
     parts.push({ isActive: true });
   } else if (activeFilter === 'inactive') {
     parts.push({ isActive: false });
   }
-  if (document?.trim()) {
+  // La búsqueda por documento solo tiene sentido para admin; abierta a todos permitía
+  // enumerar cédulas del personal probando prefijos (`contains`).
+  if (includePrivate && document?.trim()) {
     const d = document.trim();
     parts.push({
       OR: [
@@ -41,20 +43,37 @@ export const getAll = async ({ activeFilter = 'active', document } = {}) => {
     include: { user: { select: { email: true } } },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
-  return barbers.map((b) => toBarberDto(b));
+  return barbers.map((b) => toBarberDto(b, { includePrivate }));
 };
 
-function toBarberDto(barber) {
-  return {
+/**
+ * DTO de barbero.
+ *
+ * `GET /api/barbers` lo consumen también barberos y clientes (lo necesitan para
+ * agendar), así que por defecto devuelve solo lo público. Los datos personales
+ * —cédula, teléfono, correo— y el porcentaje de comisión solo salen con
+ * `includePrivate`, que el controller activa únicamente para admin.
+ *
+ * @param {object} barber registro Prisma
+ * @param {{ includePrivate?: boolean }} [options]
+ */
+export function toBarberDto(barber, { includePrivate = false } = {}) {
+  const publicFields = {
     id: barber.id,
-    user_id: barber.userId,
     first_name: barber.firstName,
     last_name: barber.lastName,
+    specialties: barber.specialties,
+    is_active: barber.isActive,
+  };
+
+  if (!includePrivate) return publicFields;
+
+  return {
+    ...publicFields,
+    user_id: barber.userId,
     phone: barber.phone,
     document_type: barber.documentType,
     document_number: barber.documentNumber,
-    specialties: barber.specialties,
-    is_active: barber.isActive,
     commission_percent:
       barber.commissionPercent != null ? Number(barber.commissionPercent) : null,
     created_at: barber.createdAt,
@@ -63,13 +82,13 @@ function toBarberDto(barber) {
   };
 }
 
-export const getById = async (id) => {
+export const getById = async (id, { includePrivate = false } = {}) => {
   const barber = await prisma.barber.findUnique({
     where: { id: parseInt(id, 10) },
     include: { user: { select: { email: true } } },
   });
   if (!barber) return null;
-  return toBarberDto(barber);
+  return toBarberDto(barber, { includePrivate });
 };
 
 export const getSchedules = async (barberId) => {
@@ -140,7 +159,8 @@ export const create = async (data) => {
     return { barber, user };
   });
 
-  return toBarberDto({ ...result.barber, user: result.user });
+  // create/update son rutas solo-admin: devuelven la ficha completa.
+  return toBarberDto({ ...result.barber, user: result.user }, { includePrivate: true });
 };
 
 export const update = async (id, data) => {
@@ -187,7 +207,7 @@ export const update = async (id, data) => {
     data: patch,
     include: { user: { select: { email: true } } },
   });
-  return toBarberDto(barber);
+  return toBarberDto(barber, { includePrivate: true });
 };
 
 const toTimeDate = (s) => {

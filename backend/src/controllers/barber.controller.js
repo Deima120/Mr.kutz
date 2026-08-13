@@ -11,11 +11,24 @@ function parseActiveFilter(queryActive) {
   return 'active';
 }
 
+/**
+ * Solo admin ve datos personales del personal (cédula, teléfono, correo) y su
+ * porcentaje de comisión. Barberos y clientes consumen estos endpoints para
+ * agendar, y les basta con los campos públicos.
+ */
+function canSeePrivateBarberData(req) {
+  return req.user?.role_name === 'admin';
+}
+
 export const getAll = async (req, res, next) => {
   try {
     const activeFilter = parseActiveFilter(req.query.active);
-    const document = req.query.document;
-    const barbers = await barberService.getAll({ activeFilter, document });
+    const includePrivate = canSeePrivateBarberData(req);
+    const barbers = await barberService.getAll({
+      activeFilter,
+      document: req.query.document,
+      includePrivate,
+    });
     res.json({ success: true, data: barbers });
   } catch (error) {
     next(error);
@@ -24,7 +37,9 @@ export const getAll = async (req, res, next) => {
 
 export const getById = async (req, res, next) => {
   try {
-    const barber = await barberService.getById(req.params.id);
+    const barber = await barberService.getById(req.params.id, {
+      includePrivate: canSeePrivateBarberData(req),
+    });
     if (!barber) {
       return res.status(404).json({ success: false, message: 'Barbero no encontrado.' });
     }

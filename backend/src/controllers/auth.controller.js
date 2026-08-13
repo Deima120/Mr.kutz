@@ -128,13 +128,9 @@ export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     const result = await authService.forgotPassword(email);
-    res.json({
-      success: true,
-      message: result.message,
-      emailSent: result.emailSent ?? null,
-      cooldown: result.cooldown ?? false,
-      ...(result.resetCode ? { resetCode: result.resetCode } : {}),
-    });
+    // Solo `message` (genérico y constante). No se exponen `emailSent`, `cooldown`
+    // ni `resetCode`: delataban si el correo estaba registrado, o el propio código.
+    res.json({ success: true, message: result.message });
   } catch (error) {
     next(error);
   }
