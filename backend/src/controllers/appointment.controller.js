@@ -5,6 +5,10 @@
 import prisma from '../lib/prisma.js';
 import * as appointmentService from '../services/appointment.service.js';
 import { assertClientCanCancelByLeadTime } from '../services/appointmentCancelRules.js';
+import {
+  canBarberUpdate,
+  stripBarberForbiddenFields,
+} from '../services/appointmentBarberRules.js';
 
 export const getAll = async (req, res, next) => {
   try {
@@ -155,9 +159,6 @@ export const submitClientRating = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
-    if (req.user.role_name === 'barber') {
-      return res.status(403).json({ success: false, message: 'Los barberos no pueden modificar citas.' });
-    }
     let body = { ...req.body };
     const apptId = parseInt(req.params.id, 10);
     const existing = await prisma.appointment.findUnique({
@@ -198,6 +199,20 @@ export const update = async (req, res, next) => {
       delete body.clientId;
       delete body.barberId;
       delete body.serviceId; // el cliente actualiza servicios con serviceIds
+    }
+
+    if (req.user.role_name === 'barber') {
+      // El barbero solo confirma o cancela citas suyas. Confirmar es lo que
+      // habilita la promoción automática a in_progress/completed: sin ese paso
+      // la cita se queda en `scheduled` para siempre.
+      const verdict = canBarberUpdate(existing, req.user.barber_id, body);
+      if (!verdict.ok) {
+        return res.status(verdict.statusCode).json({
+          success: false,
+          message: verdict.message,
+        });
+      }
+      body = stripBarberForbiddenFields(body);
     }
 
     const appointment = await appointmentService.update(req.params.id, body);
