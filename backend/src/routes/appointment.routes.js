@@ -244,6 +244,8 @@ router.post(
 );
 router.get('/:id', idParam, validate, appointmentController.getById);
 router.post('/', authorize('admin', 'client'), createValidation, validate, appointmentController.create);
-router.put('/:id', authorize('admin', 'client'), [idParam, ...updateValidation], validate, appointmentController.update);
+// El barbero entra aquí para confirmar o cancelar SUS citas; el alcance real lo
+// impone `canBarberUpdate` en el controlador (propiedad de la cita y estados).
+router.put('/:id', authorize('admin', 'client', 'barber'), [idParam, ...updateValidation], validate, appointmentController.update);
 
 export default router;
