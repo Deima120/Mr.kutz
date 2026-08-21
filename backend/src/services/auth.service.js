@@ -429,13 +429,20 @@ export const getProfile = async (userId) => {
 };
 
 /**
- * Actualiza el perfil del cliente autenticado (nombre, teléfono, correo).
- * Sincroniza User.email y Client en la misma transacción.
+ * Actualiza el perfil del usuario autenticado (nombre, apellido, teléfono, correo).
+ *
+ * Sirve para los roles `client` y `barber`; el correo siempre vive en `User`,
+ * mientras que nombre, apellido y teléfono viven en la tabla del perfil
+ * correspondiente (`Client` o `Barber`). Todo se escribe en una transacción para
+ * que no queden desincronizados.
+ *
+ * No se admite editar aquí datos que son competencia del administrador
+ * (documento, especialidades, comisión).
  */
 export const updateProfile = async (userId, data = {}) => {
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    include: { role: true, client: true },
+    include: { role: true, client: true, barber: true },
   });
 
   if (!dbUser) {
@@ -444,8 +451,12 @@ export const updateProfile = async (userId, data = {}) => {
     throw err;
   }
 
-  if (dbUser.role?.name !== 'client' || !dbUser.client) {
-    const err = new Error('Solo los clientes pueden editar este perfil.');
+  const roleName = dbUser.role?.name;
+  const profile =
+    roleName === 'client' ? dbUser.client : roleName === 'barber' ? dbUser.barber : null;
+
+  if (!profile) {
+    const err = new Error('Tu rol no permite editar el perfil desde aquí.');
     err.statusCode = 403;
     throw err;
   }
@@ -484,15 +495,20 @@ export const updateProfile = async (userId, data = {}) => {
       where: { id: dbUser.id },
       data: { email: emailNorm },
     });
-    await tx.client.update({
-      where: { id: dbUser.client.id },
-      data: {
-        firstName,
-        lastName,
-        phone,
-        email: emailNorm,
-      },
-    });
+
+    if (roleName === 'client') {
+      // `Client` guarda una copia denormalizada del correo; hay que mantenerla al día.
+      await tx.client.update({
+        where: { id: profile.id },
+        data: { firstName, lastName, phone, email: emailNorm },
+      });
+    } else {
+      // `Barber` no tiene columna de correo: el suyo vive solo en `User`.
+      await tx.barber.update({
+        where: { id: profile.id },
+        data: { firstName, lastName, phone },
+      });
+    }
   });
 
   return getProfile(userId);
