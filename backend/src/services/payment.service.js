@@ -34,8 +34,11 @@ import {
   resolveOrderedServicesForAppointment,
 } from './appointment.service.js';
 import { allocateDocumentFolio, DOC_TYPES } from '../utils/documentSequence.js';
+import { isActiveAppointmentCollision, isFolioCollision } from './payment.errors.js';
 import { applyColombiaCreatedAtFilter } from '../utils/colombiaTime.js';
-import { requireOpenCashRegister } from './cashRegister.service.js';
+// [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Caja oculto de la vista del usuario.
+// Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
+// import { requireOpenCashRegister } from './cashRegister.service.js';
 import {
   computeCommissionAmount,
   DEFAULT_COMMISSION_PERCENT,
@@ -499,7 +502,11 @@ export const getById = async (id) => loadPaymentDto(prisma, id);
 export async function createWithTx(tx, data) {
   const lineInputs = normalizeCreateLineInputs(data);
   const createdBy = data.createdBy ? parseInt(data.createdBy, 10) : null;
-  const openRegister = await requireOpenCashRegister(tx);
+  // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Sin UI de Caja el usuario no puede abrirla, así que
+  // exigir caja abierta dejaría los cobros bloqueados sin salida. Se levanta el requisito.
+  // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — al reimplementar Caja hay que
+  // restaurar esta línea Y volver a asociar el pago a openRegister.id más abajo.
+  // const openRegister = await requireOpenCashRegister(tx);
 
   const serviceInputs = lineInputs.filter((l) => l.type === 'service');
   const productInputs = lineInputs.filter((l) => l.type === 'product');
@@ -638,7 +645,10 @@ export async function createWithTx(tx, data) {
       clientId,
       amount: headerAmount,
       paymentMethodId: headerMethodId,
-      cashRegisterId: openRegister.id,
+      // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Payment.cashRegisterId es Int? (nullable), así que
+      // no hace falta migración. Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md
+      // cashRegisterId: openRegister.id,
+      cashRegisterId: null,
       reference: await allocateDocumentFolio(tx, DOC_TYPES.payment),
       notes: String(data.notes || '').trim() || null,
       amountTendered: tendered.amountTendered,
@@ -747,13 +757,40 @@ export async function createWithTx(tx, data) {
 }
 
 export const create = async (data) => {
-  try {
-    return await runSerializable(prisma, async (tx) => createWithTx(tx, data));
-  } catch (err) {
-    if (err?.code === 'P2002') {
-      throw httpPaymentError('Esta cita ya tiene un cobro activo.', 409, 'APPOINTMENT_ALREADY_PAID');
+  // Un reintento para la carrera de folio: en el primer cobro del día dos cajas
+  // simultáneas colisionan en document_sequences. Antes ese P2002 se traducía a
+  // "esta cita ya tiene un cobro activo", el operador no reintentaba y se perdía la venta.
+  const MAX_FOLIO_RETRIES = 3;
+
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await runSerializable(prisma, async (tx) => createWithTx(tx, data));
+    } catch (err) {
+      if (err?.code !== 'P2002') throw err;
+
+      if (isActiveAppointmentCollision(err)) {
+        throw httpPaymentError(
+          'Esta cita ya tiene un cobro activo.',
+          409,
+          'APPOINTMENT_ALREADY_PAID'
+        );
+      }
+
+      if (isFolioCollision(err) && attempt < MAX_FOLIO_RETRIES) {
+        continue;
+      }
+
+      if (isFolioCollision(err)) {
+        throw httpPaymentError(
+          'No se pudo asignar el número de comprobante por concurrencia. Intenta cobrar de nuevo.',
+          409,
+          'FOLIO_COLLISION'
+        );
+      }
+
+      // P2002 desconocido: no inventar un motivo, propagarlo tal cual.
+      throw err;
     }
-    throw err;
   }
 };
 

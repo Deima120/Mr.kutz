@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import morgan from 'morgan';
 import prisma from './lib/prisma.js';
 
@@ -13,33 +14,46 @@ import { connectDatabase } from './config/database.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { notFound } from './middlewares/notFound.js';
 import { getMailConfigDiagnostics } from './lib/mailer.js';
+import { resolveJwtSecret } from './config/jwtSecret.js';
+import { createOriginChecker } from './config/corsOrigin.js';
 import routes from './routes/index.js';
 import {
   startAppointmentStatusCron,
   stopAppointmentStatusCron,
 } from './jobs/appointmentStatusJob.js';
 
-if (process.env.NODE_ENV === 'production') {
-  const secret = String(process.env.JWT_SECRET || '').trim();
-  if (secret.length < 32) {
-    console.error(
-      'En producción define JWT_SECRET en el entorno (cadena aleatoria de al menos 32 caracteres).'
-    );
-    process.exit(1);
-  }
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// El secreto se valida SIEMPRE, no solo en producción: antes esta comprobación
+// dependía de NODE_ENV y los puntos de uso caían a un fallback conocido si faltaba.
+try {
+  resolveJwtSecret();
+} catch (error) {
+  console.error(`❌ ${error.message}`);
+  process.exit(1);
 }
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Render (y cualquier PaaS) sirve detrás de un proxy. Sin esto req.ip es la IP del
+// balanceador y TODOS los usuarios comparten la misma cubeta de rate limiting.
+// Se usa el número 1 (un salto de confianza), nunca `true`, que aceptaría cualquier
+// X-Forwarded-For falsificado por el cliente.
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
 // ========== MIDDLEWARES GLOBALES ==========
-// Orígenes permitidos (frontend web + app Flutter)
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-];
+// Orígenes de desarrollo. En producción la lista queda VACÍA: si no, estos puertos
+// se colarían por la comparación exacta, saltándose el guard de entorno.
+const allowedOrigins = IS_PRODUCTION
+  ? []
+  : [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000',
+    ];
 
 /**
  * Producción: FRONTEND_URL (y opcionalmente PUBLIC_FRONTEND_URL) pueden listar
@@ -57,29 +71,16 @@ const envOrigins = [
 const allowPreviews =
   String(process.env.CORS_ALLOW_PREVIEWS || '').toLowerCase() === 'true';
 
+const isOriginAllowed = createOriginChecker({
+  allowedOrigins,
+  envOrigins,
+  allowPreviews,
+  isProduction: IS_PRODUCTION,
+});
+
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin) || envOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    if (allowPreviews) {
-      try {
-        const host = new URL(origin).hostname;
-        if (/\.vercel\.app$|\.netlify\.app$/i.test(host)) {
-          return callback(null, true);
-        }
-      } catch (_) {
-        // ignore URL parse errors
-      }
-    }
-
+    if (isOriginAllowed(origin)) return callback(null, true);
     console.warn('[cors] origen rechazado:', origin);
     callback(new Error('No permitido por CORS.'));
   },
@@ -87,22 +88,31 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+app.use(helmet());
 app.use(morgan('dev'));
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Límite explícito para no depender del default de body-parser.
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // ========== RUTAS API ==========
 app.use('/api', routes);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    // TEMP: fingerprint para verificar deploy del mailer (quitar tras validar)
-    mailer: { createCopy: 'agendada', cancelNotify: true },
-  });
+// Health check — Render lo usa (healthCheckPath) para decidir si un deploy está sano.
+// Debe tocar la base: si solo respondiera 200 estático, promovería deploys con la BD
+// caída o con el esquema desincronizado.
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', database: 'up', timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('[health] base de datos inaccesible:', error?.message || error);
+    res.status(503).json({
+      status: 'error',
+      database: 'down',
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // ========== 404 (después de todas las rutas) ==========
@@ -112,14 +122,58 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ========== GRACEFUL SHUTDOWN ==========
+/** Referencia al servidor HTTP, necesaria para dejar terminar lo que está en vuelo. */
+let httpServer = null;
+let shuttingDown = false;
+
+/** Margen para que terminen las peticiones en curso antes de forzar la salida. */
+const SHUTDOWN_TIMEOUT_MS = 15000;
+
 const gracefulShutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log(`\n${signal} recibida. Cerrando servidor...`);
-  stopAppointmentStatusCron();
-  await prisma.$disconnect();
-  process.exit(0);
+
+  // Red de seguridad: si algo se queda colgado, salir igualmente.
+  const forceExit = setTimeout(() => {
+    console.error('Cierre forzado: se agotó el tiempo de espera.');
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExit.unref();
+
+  try {
+    stopAppointmentStatusCron();
+
+    // Dejar de aceptar conexiones nuevas y esperar a las abiertas. Sin esto,
+    // el SIGTERM de cada deploy de Render cortaba cobros a mitad de transacción.
+    if (httpServer) {
+      await new Promise((resolve) => httpServer.close(resolve));
+    }
+
+    await prisma.$disconnect();
+    clearTimeout(forceExit);
+    process.exit(0);
+  } catch (error) {
+    console.error('Error durante el cierre:', error?.message || error);
+    process.exit(1);
+  }
 };
+
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// En Node ≥15 una promesa rechazada sin capturar TUMBA el proceso. Hay envíos de
+// correo fire-and-forget (appointment.service.js), así que un fallo del proveedor
+// bastaba para tirar la API. Se registra y se sigue.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason instanceof Error ? reason.stack : reason);
+});
+
+// Una excepción no capturada sí deja el proceso en estado dudoso: cerrar ordenado.
+process.on('uncaughtException', (error) => {
+  console.error('[uncaughtException]', error?.stack || error);
+  gracefulShutdown('uncaughtException');
+});
 
 // ========== INICIAR SERVIDOR ==========
 const startServer = async () => {
@@ -136,7 +190,7 @@ const startServer = async () => {
       }
     }
 
-    app.listen(PORT, () => {
+    httpServer = app.listen(PORT, () => {
       console.log(`🚀 Servidor en http://localhost:${PORT}`);
       console.log(`📋 API: http://localhost:${PORT}/api`);
       startAppointmentStatusCron();

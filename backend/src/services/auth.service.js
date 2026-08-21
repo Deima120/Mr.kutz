@@ -9,6 +9,7 @@ import prisma from '../lib/prisma.js';
 import { sendPasswordResetCode, isMailDeliveryConfigured } from '../lib/mailer.js';
 import { canonicalEmail } from '../utils/emailCanonical.js';
 import { hashResetCode, verifyResetCodeHash } from '../utils/resetCodeHash.js';
+import { getJwtSecret, JWT_ALGORITHM } from '../config/jwtSecret.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -308,12 +309,22 @@ export const forgotPassword = async (email) => {
     }
   }
 
-  return {
-    message: GENERIC_RESET_MESSAGE,
-    emailSent: !!delivery?.sent,
-    ...(process.env.NODE_ENV !== 'production' && delivery?.sent && { resetCode }),
-  };
+  // Respuesta deliberadamente OPACA e idéntica exista o no la cuenta.
+  // Antes se devolvía `resetCode` cuando NODE_ENV !== 'production' (cualquiera podía
+  // tomar una cuenta con dos POST si esa variable faltaba) y `emailSent`, que solo era
+  // true si el usuario existía y estaba activo, delatando qué correos están registrados.
+  return { message: GENERIC_RESET_MESSAGE };
 };
+
+/**
+ * Mensaje único para TODO fallo de verificación (correo inexistente, código errado,
+ * caducado o intentos agotados). Antes cada caso decía algo distinto — en particular
+ * "Te quedan N intento(s)" solo aparecía si la cuenta existía, así que bastaba pedir
+ * un código y probar uno falso para saber si un correo estaba registrado.
+ * El conteo de intentos se sigue aplicando por dentro; simplemente no se revela.
+ */
+const GENERIC_INVALID_CODE_MESSAGE =
+  'El código no es válido o ha caducado. Solicita uno nuevo si es necesario.';
 
 // Verificar código de recuperación
 export const verifyResetCode = async (email, code) => {
@@ -323,7 +334,7 @@ export const verifyResetCode = async (email, code) => {
   });
 
   if (!canRequestPasswordReset(dbUser) || !dbUser.resetCode || !dbUser.resetCodeExpires) {
-    const error = new Error('El código no es válido o ha caducado.');
+    const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
     error.statusCode = 400;
     throw error;
   }
@@ -333,7 +344,7 @@ export const verifyResetCode = async (email, code) => {
       where: { id: dbUser.id },
       data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
     });
-    const error = new Error('El código ha caducado. Solicita uno nuevo.');
+    const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
     error.statusCode = 400;
     throw error;
   }
@@ -343,9 +354,7 @@ export const verifyResetCode = async (email, code) => {
       where: { id: dbUser.id },
       data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
     });
-    const error = new Error(
-      'Demasiados intentos fallidos. Solicita un nuevo código de verificación.'
-    );
+    const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
     error.statusCode = 400;
     throw error;
   }
@@ -365,11 +374,7 @@ export const verifyResetCode = async (email, code) => {
           : {}),
       },
     });
-    const error = new Error(
-      remaining > 0
-        ? `El código no es correcto. Te quedan ${remaining} intento(s).`
-        : 'Demasiados intentos fallidos. Solicita un nuevo código de verificación.'
-    );
+    const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
     error.statusCode = 400;
     throw error;
   }
@@ -515,11 +520,10 @@ export const updateProfile = async (userId, data = {}) => {
 };
 
 const generateToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || 'dev-secret-change-in-production',
-    { expiresIn: TOKEN_EXPIRES }
-  );
+  return jwt.sign({ userId }, getJwtSecret(), {
+    expiresIn: TOKEN_EXPIRES,
+    algorithm: JWT_ALGORITHM,
+  });
 };
 
 const formatUserResponse = (dbUser, extra = {}) => {

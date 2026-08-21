@@ -387,30 +387,38 @@ describe('flujo pago mixto (create/void API)', () => {
     assert.equal(dto.amountTendered, 30);
     assert.equal(dto.changeGiven, 10); // 30 − 20 (cash), no 30 − 45
     assert.equal(dto.paymentMethodId, 1);
-    assert.equal(dto.cashRegisterId, 42);
-    assert.equal(payments.get(dto.id).cashRegisterId, 42);
+    // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Sin requisito de caja, el pago se crea con
+    // cashRegisterId = null. Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md
+    // assert.equal(dto.cashRegisterId, 42);
+    // assert.equal(payments.get(dto.id).cashRegisterId, 42);
+    assert.equal(dto.cashRegisterId, null);
+    assert.equal(payments.get(dto.id).cashRegisterId, null);
     assert.equal(splits.size, 2);
     assert.match(String(dto.paymentMethodName), /efectivo/);
     assert.match(String(dto.paymentMethodName), /tarjeta/);
   });
 
-  it('create bloqueado sin caja abierta (NO_OPEN_CASH_REGISTER)', async () => {
-    const { tx } = createMixedPaymentHarness({ openRegister: null });
-
-    await assert.rejects(
-      () =>
-        createWithTx(tx, {
-          paymentMethodId: 1,
-          lines: [{ type: 'manual', unitPrice: 10, description: 'Sin caja' }],
-        }),
-      (err) => {
-        assert.equal(err.reason, 'NO_OPEN_CASH_REGISTER');
-        assert.equal(err.statusCode, 409);
-        assert.match(err.message, /caja abierta/i);
-        return true;
-      }
-    );
-  });
+  // [DESACTIVADO-REPORTES-CAJA 2026-08-12] El requisito de caja abierta se levantó al ocultar el
+  // módulo de Caja, por lo que este caso ya no aplica: crear un cobro sin caja ahora es válido.
+  // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — al reimplementar Caja hay que
+  // reactivar este test junto con requireOpenCashRegister en payment.service.js.
+  // it('create bloqueado sin caja abierta (NO_OPEN_CASH_REGISTER)', async () => {
+  //   const { tx } = createMixedPaymentHarness({ openRegister: null });
+  //
+  //   await assert.rejects(
+  //     () =>
+  //       createWithTx(tx, {
+  //         paymentMethodId: 1,
+  //         lines: [{ type: 'manual', unitPrice: 10, description: 'Sin caja' }],
+  //       }),
+  //     (err) => {
+  //       assert.equal(err.reason, 'NO_OPEN_CASH_REGISTER');
+  //       assert.equal(err.statusCode, 409);
+  //       assert.match(err.message, /caja abierta/i);
+  //       return true;
+  //     }
+  //   );
+  // });
 
   it('create descuadrado: Σ splits ≠ amount → rechazado', async () => {
     const { tx } = createMixedPaymentHarness();

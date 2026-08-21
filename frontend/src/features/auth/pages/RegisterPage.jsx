@@ -25,7 +25,7 @@ import {
   validateConfirmPassword,
   validateDocumentNumber,
   validateDocumentType,
-  validateEmail,
+  validateRegistrationEmail,
   validatePersonName,
   CLIENT_DOCUMENT_MAX_DIGITS,
   CLIENT_FIRST_NAME_MIN,
@@ -125,7 +125,10 @@ export default function RegisterPage() {
       }),
     [formData.lastName]
   );
-  const emailValidation = useMemo(() => validateEmail(formData.email), [formData.email]);
+  const emailValidation = useMemo(
+    () => validateRegistrationEmail(formData.email),
+    [formData.email]
+  );
   const phoneValidation = useMemo(
     () => validatePhone(formData.phone, { required: false }),
     [formData.phone]

@@ -18,20 +18,16 @@ const inputClass = 'input-premium';
 const labelClass = 'label-premium';
 const RESEND_COOLDOWN_SEC = 120;
 
+/**
+ * El backend responde siempre lo mismo exista o no la cuenta (anti-enumeración):
+ * solo `message`. Antes devolvía `emailSent`/`cooldown`, que delataban si el correo
+ * estaba registrado, así que aquí ya no hay nada que ramificar.
+ */
 function buildInfoMessage(res) {
   const base =
     res?.message ||
     'Si el correo está registrado en Mr. Kutz, recibirás un código de verificación en breve.';
-  if (res?.cooldown) {
-    return 'Ya enviamos un código hace poco a este correo. Revisa bandeja de entrada y spam (también Promociones). Si no lo ves, espera 2 minutos y usa «Reenviar código».';
-  }
-  if (res?.emailSent === true) {
-    return `${base} Revisa tu bandeja de entrada y la carpeta de spam.`;
-  }
-  if (res?.emailSent === false) {
-    return `${base} No pudimos confirmar el envío; si no lo recibes en unos minutos, vuelve a intentarlo.`;
-  }
-  return base;
+  return `${base} Revisa tu bandeja de entrada y la carpeta de spam (también Promociones). Si no lo ves, espera 2 minutos y usa «Reenviar código».`;
 }
 
 export default function ForgotPasswordPage() {
