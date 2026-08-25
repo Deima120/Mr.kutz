@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Pencil, CalendarDays, Power, Trash2 } from 'lucide-react';
+import { Plus, Pencil, CalendarDays, Trash2 } from 'lucide-react';
 import * as barberService from '@/features/barbers/services/barberService';
 import { BarberForm } from '@/features/barbers/pages/BarberFormPage';
 import { useAuth } from '@/shared/contexts/AuthContext';
@@ -19,6 +19,7 @@ import {
 } from '@/shared/components/admin/AdminListControls';
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import AdminStatusToggle from '@/shared/components/admin/AdminStatusToggle';
 
 const BARBER_STATUS_FILTERS = [
   { id: 'active', label: 'Activos' },
@@ -245,6 +246,25 @@ export default function BarbersPage() {
                 <AdminEntityCard key={b.id} inactive={!b.is_active}>
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">
+                      {/* Solo admin puede cambiar el estado; el resto ve la etiqueta sin accion,
+                          coherente con como esta gateada el resto de la tarjeta. */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        {isAdmin ? (
+                          <AdminStatusToggle
+                            active={Boolean(b.is_active)}
+                            disabled={togglingId === b.id}
+                            onClick={() => handleToggleActive(b)}
+                            activeTitle="Clic para desactivar (no visible al agendar)"
+                            inactiveTitle="Clic para activar"
+                          />
+                        ) : (
+                          !b.is_active && (
+                            <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-100 px-2.5 py-0.5 text-[11px] font-semibold text-stone-600">
+                              Inactivo
+                            </span>
+                          )
+                        )}
+                      </div>
                       <h3 className="font-serif font-medium text-stone-900">
                         {b.first_name} {b.last_name}
                       </h3>
@@ -267,11 +287,6 @@ export default function BarbersPage() {
                           ))}
                         </div>
                       )}
-                      {!b.is_active && (
-                        <span className="inline-block mt-2 px-2.5 py-0.5 bg-stone-200 text-stone-600 text-xs rounded-lg font-medium">
-                          Inactivo
-                        </span>
-                      )}
                     </div>
                     {isAdmin && (
                       <div className="inline-flex items-center gap-1.5 shrink-0">
@@ -284,13 +299,6 @@ export default function BarbersPage() {
                           icon={Pencil}
                           label="Editar barbero"
                           onClick={() => openEditForm(b.id)}
-                        />
-                        <AdminIconButton
-                          icon={Power}
-                          label={b.is_active ? 'Desactivar barbero' : 'Activar barbero'}
-                          variant={b.is_active ? 'default' : 'primary'}
-                          disabled={togglingId === b.id}
-                          onClick={() => handleToggleActive(b)}
                         />
                         <AdminIconButton
                           icon={Trash2}
