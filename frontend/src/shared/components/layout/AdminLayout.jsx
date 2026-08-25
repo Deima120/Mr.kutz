@@ -181,8 +181,22 @@ export default function AdminLayout({ children }) {
 
   const userInitial = (user?.firstName || user?.email || 'U').trim().charAt(0).toUpperCase();
 
+  /**
+   * Con el menú móvil abierto se bloquea el scroll del documento: el sidebar es
+   * `fixed` y sin este bloqueo el contenido de detrás sigue desplazándose bajo
+   * el overlay, que es justo el "scroll donde no debería" en pantallas chicas.
+   */
+  useEffect(() => {
+    if (!mobileSidebarOpen) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileSidebarOpen]);
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-stone-100">
+    <div className="min-h-[100dvh] overflow-x-hidden bg-stone-100">
       {mobileSidebarOpen && (
         <button
           type="button"
@@ -321,12 +335,20 @@ export default function AdminLayout({ children }) {
         </div>
       </aside>
 
+      {/*
+        Hasta `lg` el panel usa el scroll natural del documento: en móvil/tablet la
+        combinación `h-screen` + `overflow-hidden` + `<main>` con scroll propio creaba
+        un contenedor de scroll anidado que la barra de direcciones del navegador
+        recortaba (100vh > alto visible), dejando el pie del contenido inalcanzable.
+        Desde `lg`, donde el sidebar es fijo y no hay chrome variable, se recupera la
+        columna de alto completo con scroll interno.
+      */}
       <div
-        className={`flex h-screen min-h-0 min-w-0 flex-col overflow-hidden transition-[margin] duration-500 ${
+        className={`flex min-h-[100dvh] min-w-0 flex-col transition-[margin] duration-500 lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden ${
           sidebarCollapsed ? 'lg:ml-[5.75rem]' : 'lg:ml-72'
         }`}
       >
-        <header className="shrink-0 border-b border-stone-200 bg-white/90 px-3 py-2 shadow-card backdrop-blur sm:px-5">
+        <header className="sticky top-0 z-20 shrink-0 border-b border-stone-200 bg-white/90 px-3 py-2 shadow-card backdrop-blur sm:px-5 lg:static">
           <div className="flex min-w-0 items-center gap-2.5">
             <button
               type="button"
@@ -347,7 +369,7 @@ export default function AdminLayout({ children }) {
           </div>
         </header>
 
-        <main className="admin-content-scroll flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-5">
+        <main className="admin-content-scroll flex w-full min-w-0 flex-1 flex-col overflow-x-hidden p-3 sm:p-4 md:p-5 lg:overflow-y-auto">
           {/* [DESACTIVADO-REPORTES-CAJA 2026-08-12] Al no montar CashRegisterProvider desaparecen
               el banner de caja, el FAB, los modales de abrir/cerrar y el polling cada 30s a
               GET /cash-registers/current. Los consumidores usan useCashRegisterOptional(), que

@@ -73,3 +73,24 @@ export function formatMoneyInputDigits(raw) {
     maximumFractionDigits: 0,
   });
 }
+
+/** Teclas de un solo carácter que no son dígito (símbolos: - + . , $ e…). */
+const MONEY_KEY_ALLOWED = /^[0-9]$/;
+
+/**
+ * Impide teclear símbolos en campos de dinero/cantidad: el campo solo admite
+ * enteros positivos, así que se descarta la pulsación antes de que llegue al
+ * input en vez de mostrar un aviso después.
+ *
+ * Deja pasar teclas de control/navegación (Backspace, Tab, flechas…) y los
+ * atajos con Ctrl/Cmd (copiar, pegar, deshacer); el pegado se sanea igual con
+ * `formatMoneyInputDigits` en el `onChange`.
+ *
+ * @param {KeyboardEvent} event
+ */
+export function blockNonDigitKeys(event) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key.length !== 1) return;
+  if (MONEY_KEY_ALLOWED.test(event.key)) return;
+  event.preventDefault();
+}

@@ -3,8 +3,9 @@
  * bleed horizontal, atmósfera, rejilla formulario + panel editorial.
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ChevronUp } from 'lucide-react';
 
 /** Clase para inputs/selects/textarea en formularios admin (profundidad sutil). */
 export const ADMIN_FORM_FIELD_CLASS =
@@ -172,6 +173,100 @@ export function AdminBackNav({ to, label = 'Volver', onClick, className = '' }) 
   );
 }
 
+/** Tarjeta oscura de resumen (aside). Se reutiliza en la columna sticky y en la hoja móvil. */
+function AdminFormAsideCard({ aside, compact, contained }) {
+  return (
+    <div
+      className={`rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${
+        contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'
+      } shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}
+    >
+      <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
+      <div className="relative flex flex-col">
+        <p className="tracking-[0.35em] text-gold/90 font-semibold text-[10px]">
+          {aside.kicker ?? 'Experiencia'}
+        </p>
+        <h2
+          className={`font-serif text-white font-medium leading-snug ${
+            compact ? 'text-lg sm:text-xl mt-2 mb-4' : 'text-xl sm:text-2xl mt-3 mb-5'
+          }`}
+        >
+          {aside.title}
+        </h2>
+        {aside.subtitle ? (
+          <p className={`text-stone-500 -mt-2 mb-4 ${compact ? 'text-xs' : 'text-sm'}`}>{aside.subtitle}</p>
+        ) : null}
+        {aside.children ? (
+          <div>{aside.children}</div>
+        ) : (
+          <ul className={`text-sm text-stone-400 flex-1 ${compact ? 'space-y-2' : 'space-y-4'}`}>
+            {aside.bullets && aside.bullets.map((line, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="text-gold mt-0.5">●</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(aside.statusLabel || aside.statusValue) && (
+          <div className={`border-t border-stone-700/80 ${compact ? 'mt-4 pt-4' : 'mt-6 pt-5'}`}>
+            {aside.statusLabel && (
+              <p className="text-[10px] tracking-widest text-stone-500 mb-1">{aside.statusLabel}</p>
+            )}
+            {aside.statusValue && <p className="font-medium text-white text-sm sm:text-[15px]">{aside.statusValue}</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Barra flotante inferior con el resumen, solo por debajo de `lg`.
+ * En móvil la columna del aside cae al final del documento y deja de ser útil
+ * mientras se llena el formulario; aquí el total queda siempre a la vista y el
+ * detalle completo se despliega al tocar la barra.
+ */
+function AdminFormAsideFloatingBar({ aside }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    // z-20: por debajo del overlay del menú móvil (z-30) y de los modales (z-50).
+    <div className="fixed inset-x-0 bottom-0 z-20 lg:hidden">
+      {expanded ? (
+        <div className="max-h-[55dvh] overflow-y-auto border-t border-stone-800 bg-barber-dark px-4 pb-3 pt-4 text-stone-300">
+          {aside.children ?? null}
+        </div>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-3 border-t border-stone-800 bg-barber-dark px-4 py-2.5 text-left shadow-[0_-18px_40px_rgba(0,0,0,0.35)]"
+      >
+        <span className="min-w-0">
+          <span className="block text-[9px] font-semibold tracking-[0.3em] text-gold/90">
+            {aside.kicker ?? 'Resumen'}
+          </span>
+          <span className="block truncate text-xs text-stone-400">
+            {aside.barHint ?? aside.title}
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="font-serif text-lg font-medium tabular-nums text-gold">
+            {aside.barValue ?? ''}
+          </span>
+          <ChevronUp
+            className={`h-4 w-4 text-stone-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            aria-hidden
+          />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 /**
  * @param {object} props
  * @param {string} props.backTo
@@ -180,6 +275,9 @@ export function AdminBackNav({ to, label = 'Volver', onClick, className = '' }) 
  * @param {boolean} [props.showAside=true]
  * @param {{ title: string, subtitle: string, bullets: string[], statusLabel?: string, statusValue?: string }} [props.aside]
  * @param {boolean} [props.fullBleed=true] — Si es false (p. ej. vista cliente), sin márgenes negativos; el contenedor padre aporta el ancho.
+ * @param {boolean} [props.asideFloating=false] — El panel de resumen acompaña al scroll:
+ *   sticky en la columna derecha desde `lg`, y barra flotante inferior desplegable por debajo.
+ *   Requiere que ningún ancestro recorte con `overflow` (ver `DataCard overflowVisible`).
  */
 export default function AdminFormShell({
   backTo,
@@ -194,6 +292,7 @@ export default function AdminFormShell({
   contained = false,
   fillHeight = false,
   showBackNav = true,
+  asideFloating = false,
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
 
@@ -207,11 +306,19 @@ export default function AdminFormShell({
       ? 'px-0 pt-0 pb-3'
       : 'px-0 pt-0 pb-4';
 
+  /** Con barra flotante hay que dejar hueco: si no, tapa los botones del pie en móvil. */
+  const floatingBarSpace = asideFloating ? 'pb-24 lg:pb-0' : '';
+
   const backNavOffset = showBackNav ? (compact ? 'pt-11' : 'pt-12') : '';
 
   return (
+    /*
+     * Sin `overflow-*` en la raíz: `overflow-x: hidden` computa `overflow-y: auto`,
+     * lo que convierte a este contenedor en el scrollport más cercano y desactiva
+     * el `sticky` del aside. El recorte horizontal ya lo aporta `AdminLayout main`.
+     */
     <div
-      className={`relative w-full min-w-0 flex flex-col overflow-x-hidden overflow-y-visible ${contained ? '' : 'animate-fade-in-up'}`}
+      className={`relative w-full min-w-0 flex flex-col ${contained ? '' : 'animate-fade-in-up'}`}
     >
       {showBackNav && (
         <div className={`absolute top-0 left-0 z-20 ${compact ? '' : 'md:left-1'}`}>
@@ -223,7 +330,7 @@ export default function AdminFormShell({
         </div>
       )}
 
-      <div className={`relative z-[1] flex flex-col ${contentPad} ${backNavOffset}`}>
+      <div className={`relative z-[1] flex flex-col ${contentPad} ${backNavOffset} ${floatingBarSpace}`}>
         <div
           className={`grid items-start max-w-[88rem] mx-auto w-full ${
             compact ? 'gap-4 lg:gap-5' : 'gap-5 lg:gap-6 xl:gap-8'
@@ -238,46 +345,18 @@ export default function AdminFormShell({
           </div>
 
           {asideVisible && (
-            <aside className={`flex flex-col ${compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'}`}>
-              <div className={`rounded-2xl bg-gradient-to-b from-barber-dark via-barber-charcoal to-barber-dark text-stone-300 ${contained ? 'p-4 sm:p-5' : compact ? 'p-5 sm:p-6' : 'p-6 sm:p-7'} shadow-[0_28px_60px_rgba(0,0,0,0.28)] border border-stone-800 relative overflow-hidden flex flex-col`}>
-                <div className="absolute top-[-20%] right-[-10%] w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
-                <div className="relative flex flex-col">
-                  <p className={`tracking-[0.35em] text-gold/90 font-semibold ${compact ? 'text-[10px]' : 'text-[10px]'}`}>
-                    {aside.kicker ?? 'Experiencia'}
-                  </p>
-                  <h2 className={`font-serif text-white font-medium leading-snug ${compact ? 'text-lg sm:text-xl mt-2 mb-4' : 'text-xl sm:text-2xl mt-3 mb-5'}`}>
-                    {aside.title}
-                  </h2>
-                  {aside.subtitle ? (
-                    <p className={`text-stone-500 -mt-2 mb-4 ${compact ? 'text-xs' : 'text-sm'}`}>{aside.subtitle}</p>
-                  ) : null}
-                  {aside.children ? (
-                    <div>{aside.children}</div>
-                  ) : (
-                    <ul className={`text-sm text-stone-400 flex-1 ${compact ? 'space-y-2' : 'space-y-4'}`}>
-                      {aside.bullets && aside.bullets.map((line, i) => (
-                        <li key={i} className="flex gap-3">
-                          <span className="text-gold mt-0.5">●</span>
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {(aside.statusLabel || aside.statusValue) && (
-                    <div className={`border-t border-stone-700/80 ${compact ? 'mt-4 pt-4' : 'mt-6 pt-5'}`}>
-                      {aside.statusLabel && (
-                        <p className="text-[10px] tracking-widest text-stone-500 mb-1">{aside.statusLabel}</p>
-                      )}
-                      {aside.statusValue && <p className="font-medium text-white text-sm sm:text-[15px]">{aside.statusValue}</p>}
-                    </div>
-                  )}
-                </div>
-              </div>
+            <aside
+              className={`flex-col self-start ${asideFloating ? 'hidden lg:flex lg:sticky lg:top-2' : 'flex'} ${
+                compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'
+              }`}
+            >
+              <AdminFormAsideCard aside={aside} compact={compact} contained={contained} />
             </aside>
           )}
         </div>
       </div>
+
+      {asideVisible && asideFloating ? <AdminFormAsideFloatingBar aside={aside} /> : null}
     </div>
   );
 }

@@ -107,19 +107,21 @@ export default function AdminModalShell({
 
   return createPortal(
     <div
-      className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm`}
+      className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-sm`}
       role="presentation"
       onMouseDown={(event) => {
         if (!closeOnBackdropRef.current || preventCloseRef.current) return;
         if (event.target === event.currentTarget) onCloseRef.current?.();
       }}
     >
+      {/* dvh (no vh): con la barra del navegador visible en móvil, 90vh supera el alto
+          real y el pie del modal queda fuera de pantalla sin forma de alcanzarlo. */}
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? headingId : undefined}
-        className={`bg-white rounded-2xl border border-stone-200 shadow-2xl w-full ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(90vh,720px)] overflow-hidden flex flex-col ${panelClassName}`}
+        className={`bg-white rounded-2xl border border-stone-200 shadow-2xl w-full min-w-0 ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(90dvh,720px)] overflow-hidden flex flex-col ${panelClassName}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {(title || showClose) && (
