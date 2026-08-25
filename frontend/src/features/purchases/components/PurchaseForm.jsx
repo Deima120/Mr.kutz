@@ -31,6 +31,11 @@ const emptyItem = () => ({ productId: '', quantity: '1', unitCost: '' });
 
 const ITEM_FIELD_FEEDBACK_CLASS = 'min-h-[1.125rem] mt-1 text-[11px] leading-tight';
 
+/** Primer aviso con algo que decir, para no reservar tres renglones por fila. */
+function pickLive(...lives) {
+  return lives.find((live) => live?.show) ?? null;
+}
+
 function ItemFieldFeedback({ error, live }) {
   if (error) {
     return (
@@ -312,6 +317,16 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
             <FieldErrorMessage message={fieldError('items')} />
           </div>
 
+          {/* Cabecera de columnas: evita repetir tres etiquetas en cada fila, que era
+              lo que disparaba el alto de la lista al agregar varios productos. */}
+          <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-2.5 pb-1">
+            <span className={`sm:col-span-5 ${ADMIN_FORM_LABEL_CLASS} mb-0`}>Producto</span>
+            <span className={`sm:col-span-2 ${ADMIN_FORM_LABEL_CLASS} mb-0`}>Cantidad</span>
+            <span className={`sm:col-span-2 ${ADMIN_FORM_LABEL_CLASS} mb-0`}>Costo unit.</span>
+            <span className={`sm:col-span-2 ${ADMIN_FORM_LABEL_CLASS} mb-0 text-right`}>Subtotal</span>
+            <span className="sm:col-span-1" />
+          </div>
+
           {form.items.map((item, idx) => {
             const productKey = `items.${idx}.productId`;
             const qtyKey = `items.${idx}.quantity`;
@@ -331,60 +346,78 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
             const qtyLive = buildLiveHint(qtyKey, item.quantity, qtyValidation, 'Cantidad válida.');
             const costLive = buildLiveHint(costKey, item.unitCost, costValidation, 'Costo válido.');
 
+            const lineSubtotal =
+              (Number(item.quantity) || 0) * (Number(item.unitCost) || 0);
+
             return (
-            <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start rounded-lg border border-stone-200/80 bg-stone-50/60 p-2.5">
-              <div className="sm:col-span-5">
-                <label className={ADMIN_FORM_LABEL_CLASS}>Producto</label>
-                <ProductPicker
-                  value={item.productId}
-                  onChange={(nextId, product) => selectProductForItem(idx, nextId, product)}
-                  onBlur={() => markTouched(productKey)}
-                  placeholder="Buscar o crear…"
-                  selectClassName={
-                    fieldError(productKey)
-                      ? fieldBorderClass(productKey, false, item.productId)
-                      : fieldBorderClass(productKey, productValidation.valid, item.productId)
-                  }
-                  ariaInvalid={Boolean(fieldError(productKey)) || undefined}
-                />
-                <ItemFieldFeedback error={fieldError(productKey)} live={productLive} />
+            <div key={idx} className="rounded-lg border border-stone-200/80 bg-stone-50/60 px-2.5 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <div className="sm:col-span-5">
+                  <label className={`${ADMIN_FORM_LABEL_CLASS} sm:hidden`}>Producto</label>
+                  <ProductPicker
+                    value={item.productId}
+                    onChange={(nextId, product) => selectProductForItem(idx, nextId, product)}
+                    onBlur={() => markTouched(productKey)}
+                    placeholder="Buscar o crear…"
+                    selectClassName={
+                      fieldError(productKey)
+                        ? fieldBorderClass(productKey, false, item.productId)
+                        : fieldBorderClass(productKey, productValidation.valid, item.productId)
+                    }
+                    ariaInvalid={Boolean(fieldError(productKey)) || undefined}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={`${ADMIN_FORM_LABEL_CLASS} sm:hidden`}>Cantidad</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.quantity}
+                    onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
+                    onBlur={() => markTouched(qtyKey)}
+                    aria-label={`Cantidad del artículo ${idx + 1}`}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(qtyKey, qtyValidation.valid, item.quantity)}`}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={`${ADMIN_FORM_LABEL_CLASS} sm:hidden`}>Costo unit. ($)</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={item.unitCost}
+                    onChange={(e) => updateItem(idx, 'unitCost', e.target.value)}
+                    onBlur={() => markTouched(costKey)}
+                    aria-label={`Costo unitario del artículo ${idx + 1}`}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(costKey, costValidation.valid, item.unitCost)}`}
+                  />
+                </div>
+                {/* Subtotal por línea: antes solo existía el total de la orden, así que
+                    con varios artículos no había forma de cuadrar uno a uno. */}
+                <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-2">
+                  <span className={`${ADMIN_FORM_LABEL_CLASS} mb-0 sm:hidden`}>Subtotal</span>
+                  <span className="text-sm font-semibold tabular-nums text-stone-800">
+                    {formatPurchaseAmount(lineSubtotal)}
+                  </span>
+                </div>
+                <div className="sm:col-span-1 flex sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeItem(idx)}
+                    disabled={form.items.length === 1}
+                    className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-lg border border-stone-200 text-stone-500 hover:text-red-600 hover:border-red-200 disabled:opacity-40"
+                    aria-label={`Quitar artículo ${idx + 1}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="sm:col-span-2">
-                <label className={ADMIN_FORM_LABEL_CLASS}>Cantidad</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                  onBlur={() => markTouched(qtyKey)}
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(qtyKey, qtyValidation.valid, item.quantity)}`}
-                />
-                <ItemFieldFeedback error={fieldError(qtyKey)} live={qtyLive} />
-              </div>
-              <div className="sm:col-span-3">
-                <label className={ADMIN_FORM_LABEL_CLASS}>Costo unit. ($)</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={item.unitCost}
-                  onChange={(e) => updateItem(idx, 'unitCost', e.target.value)}
-                  onBlur={() => markTouched(costKey)}
-                  className={`${ADMIN_FORM_FIELD_COMPACT} ${fieldBorderClass(costKey, costValidation.valid, item.unitCost)}`}
-                />
-                <ItemFieldFeedback error={fieldError(costKey)} live={costLive} />
-              </div>
-              <div className="sm:col-span-2 flex sm:justify-end sm:pt-[1.375rem]">
-                <button
-                  type="button"
-                  onClick={() => removeItem(idx)}
-                  disabled={form.items.length === 1}
-                  className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-lg border border-stone-200 text-stone-500 hover:text-red-600 hover:border-red-200 disabled:opacity-40"
-                  aria-label="Quitar artículo"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              {/* Un solo renglón de aviso por fila en vez de tres reservados: el borde
+                  rojo de cada campo sigue indicando cuál falla. */}
+              <ItemFieldFeedback
+                error={fieldError(productKey) || fieldError(qtyKey) || fieldError(costKey)}
+                live={pickLive(productLive, qtyLive, costLive)}
+              />
             </div>
             );
           })}

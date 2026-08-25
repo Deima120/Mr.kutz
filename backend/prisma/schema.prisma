@@ -491,6 +491,9 @@ model Purchase {
   items         PurchaseItem[]
   receipts      GoodsReceipt[]
 
+  // Una misma factura no puede repetirse con el mismo proveedor. Postgres trata los
+  // NULL como distintos, asi que varias ordenes sin factura siguen siendo validas.
+  @@unique([supplierId, invoiceNumber])
   @@index([supplierId, status])
   @@index([status, createdAt])
   @@map("purchases")

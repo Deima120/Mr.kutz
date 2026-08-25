@@ -280,7 +280,13 @@ export default function ProductPicker({
                 />
               </div>
             </div>
-            <ul className="overflow-y-auto py-1.5 flex-1 min-h-0" role="presentation">
+            {/* custom-select-panel: scrollbar fina dorada, la misma que CustomSelect.
+                overflow-x-hidden es necesario porque overflow-y:auto convierte el eje X
+                en auto y cualquier desborde saca una barra horizontal. */}
+            <ul
+              className="custom-select-panel overflow-y-auto overflow-x-hidden px-1.5 py-1.5 flex-1 min-h-0"
+              role="presentation"
+            >
               {loading ? (
                 <li className="px-3.5 py-2 text-sm text-stone-500">Buscando…</li>
               ) : results.length === 0 ? (
@@ -300,7 +306,7 @@ export default function ProductPicker({
                         tabIndex={-1}
                         onMouseEnter={() => setHighlightIndex(index)}
                         onClick={() => selectProduct(product)}
-                        className={`flex w-full items-start justify-between gap-3 mx-1.5 rounded-lg px-3.5 py-2 text-left text-sm transition-colors ${
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                           isSelected
                             ? 'bg-stone-100 text-barber-dark font-semibold ring-1 ring-gold/30'
                             : isHighlighted
@@ -309,15 +315,33 @@ export default function ProductPicker({
                         }`}
                         title={productLabel(product)}
                       >
+                        {/* Truncado en vez de envolver: dos lineas por producto hacian que
+                            cupieran muy pocos. El title del boton da el texto completo. */}
                         <span className="min-w-0 flex-1">
-                          <span className="block whitespace-normal break-words">{product.name}</span>
+                          <span className="block truncate leading-tight">{product.name}</span>
                           {product.sku ? (
-                            <span className="block text-[11px] text-stone-500 whitespace-normal break-words">{product.sku}</span>
+                            <span className="block truncate text-[11px] leading-tight text-stone-500">
+                              {product.sku}
+                            </span>
                           ) : null}
                         </span>
-                        {isSelected ? (
-                          <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.5} aria-hidden />
-                        ) : null}
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {/* Stock a la vista: al armar una orden es justo el dato que se
+                              necesita para decidir cuanto pedir. */}
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                              Number(product.quantity) > 0
+                                ? 'bg-stone-100 text-stone-600'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                            title="Stock actual"
+                          >
+                            {Number(product.quantity) || 0}
+                          </span>
+                          {isSelected ? (
+                            <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.5} aria-hidden />
+                          ) : null}
+                        </span>
                       </button>
                     </li>
                   );

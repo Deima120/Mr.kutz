@@ -64,11 +64,10 @@ export function normalizeReceiptItems(items) {
     }
     seenPurchaseItems.add(purchaseItemId);
     const quantity = requiredPositiveInteger(item.quantity, `items[${index}].quantity`);
-    const unitCost = requiredPositiveAmount(
-      item.unitCost,
-      `items[${index}].unitCost`
-    );
-    return { purchaseItemId, quantity, unitCost };
+    // El costo NO se toma del cliente: se lee del PurchaseItem ya guardado en la
+    // orden. Aceptarlo aqui permitia que una recepcion enviara cualquier importe y
+    // distorsionara el costo promedio del producto (y con el, margenes y reportes).
+    return { purchaseItemId, quantity };
   });
 }
 
