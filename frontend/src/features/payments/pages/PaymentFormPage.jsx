@@ -9,7 +9,7 @@ import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
 import { formatAppointmentClockTime, extractAppointmentDateYmd } from '@/shared/utils/appointmentTime';
-import { formatMoneyInputDigits, parseMoneyInput } from '@/shared/utils/money';
+import { blockNonDigitKeys, formatMoneyInputDigits, parseMoneyInput } from '@/shared/utils/money';
 import { formatPaymentAmount, formatPaymentMethodName, isPaymentMethodCash } from '@/features/payments/utils/paymentFormatters';
 import {
   SPLIT_SOURCE_AUTO,
@@ -23,7 +23,6 @@ import {
   validatePaymentCartForm,
   validateAmountTendered,
   getApiErrorMessage,
-  validateMoney,
   validatePositiveInt,
 } from '@/shared/utils/formValidation';
 import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
@@ -472,17 +471,21 @@ export function PaymentForm({
     setProductQty('1');
   };
 
+  /**
+   * La línea de caja se valida en vivo y el botón «Agregar» queda deshabilitado
+   * hasta que sea válida. El campo Monto solo admite dígitos (ver
+   * `blockNonDigitKeys` + `formatMoneyInputDigits`), así que no hay avisos de
+   * "símbolo no permitido" ni de monto inválido: simplemente no se puede escribir.
+   */
+  const manualAmountNum = parseMoneyInput(manualAmount);
+  const canAddManual =
+    String(manualDescription).trim() !== '' &&
+    Number.isFinite(manualAmountNum) &&
+    manualAmountNum > 0;
+
   const handleAddManual = () => {
-    const amountCheck = validateMoney(manualAmount, 'El monto', { required: true, min: 0.01 });
-    if (!amountCheck.valid) {
-      setError(amountCheck.message);
-      return;
-    }
-    const description = String(manualDescription || '').trim();
-    if (!description) {
-      setError('Indica una descripción para la línea de caja.');
-      return;
-    }
+    if (!canAddManual) return;
+    const description = String(manualDescription).trim();
     addLine({
       type: 'manual',
       description,
@@ -584,6 +587,12 @@ export function PaymentForm({
   const paymentAside = {
     kicker: 'Cobro',
     title: 'Total a pagar',
+    // Resumen colapsado de la barra flotante en móvil.
+    barValue: formatPaymentAmount(cartTotal),
+    barHint:
+      lines.length === 0
+        ? 'Primero arma el carrito'
+        : `${lines.length} línea${lines.length === 1 ? '' : 's'} · ${paymentStatusLabel}`,
     children: (
       <AdminFormPreviewPanel>
         <div>
@@ -632,6 +641,7 @@ export function PaymentForm({
       contained={contained}
       showBackNav={false}
       aside={paymentAside}
+      asideFloating
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {error ? (
@@ -709,13 +719,16 @@ export function PaymentForm({
                 </div>
                 <label>
                   <span className={ADMIN_FORM_LABEL_CLASS}>Cant.</span>
+                  {/* type=text + solo dígitos: type=number deja teclear «-», «+» y «e». */}
                   <input
-                    type="number"
-                    min="1"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={productQty}
-                    onChange={(e) => setProductQty(e.target.value)}
+                    onKeyDown={blockNonDigitKeys}
+                    onChange={(e) => setProductQty(e.target.value.replace(/\D/g, ''))}
                     className={ADMIN_FORM_FIELD_COMPACT}
+                    placeholder="1"
                   />
                 </label>
                 <button
@@ -727,6 +740,11 @@ export function PaymentForm({
                 </button>
               </div>
 
+              {/*
+                Línea de caja (manual): cobro libre que no viene de una cita ni de un
+                producto del inventario. Ver private/frontend/CLAUDE.md §«Línea de caja
+                (manual)» para el detalle del flujo y sus límites.
+              */}
               <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
                 <label>
                   <span className={ADMIN_FORM_LABEL_CLASS}>
@@ -749,6 +767,7 @@ export function PaymentForm({
                     inputMode="numeric"
                     autoComplete="off"
                     value={manualAmount}
+                    onKeyDown={blockNonDigitKeys}
                     onChange={(e) => setManualAmount(formatMoneyInputDigits(e.target.value))}
                     className={ADMIN_FORM_FIELD_COMPACT}
                     placeholder="0"
@@ -757,10 +776,15 @@ export function PaymentForm({
                 <button
                   type="button"
                   onClick={handleAddManual}
-                  className="btn-admin-outline text-sm inline-flex items-center gap-1"
+                  disabled={!canAddManual}
+                  className="btn-admin-outline text-sm inline-flex items-center gap-1 disabled:opacity-40"
                 >
                   <Plus className="h-3.5 w-3.5" /> Agregar
                 </button>
+                <p className="text-[11px] text-stone-500 sm:col-span-3">
+                  Cobro suelto que no viene de una cita ni del inventario (recargo, propina,
+                  servicio no catalogado). Requiere descripción y un monto mayor que cero.
+                </p>
               </div>
             </div>
 
@@ -922,6 +946,7 @@ export function PaymentForm({
                           inputMode="numeric"
                           autoComplete="off"
                           value={row.amount}
+                          onKeyDown={blockNonDigitKeys}
                           onChange={(e) => updateMethodRowAmount(row.key, e.target.value)}
                           className={ADMIN_FORM_FIELD_COMPACT}
                           placeholder="0"
@@ -961,6 +986,7 @@ export function PaymentForm({
                       inputMode="numeric"
                       autoComplete="off"
                       value={amountTendered}
+                      onKeyDown={blockNonDigitKeys}
                       onChange={(e) => setAmountTendered(formatMoneyInputDigits(e.target.value))}
                       className={`${ADMIN_FORM_FIELD_COMPACT} ${
                         showTenderedError ? '!border-red-400' : ''

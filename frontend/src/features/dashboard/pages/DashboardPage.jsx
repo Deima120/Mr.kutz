@@ -386,19 +386,21 @@ function AdminDashboard() {
           )}
         </div>
 
-        <div className="flex flex-nowrap gap-2 items-center overflow-x-auto">
+        {/* Envuelve en vez de desplazarse: dos inputs de 160px no caben en un móvil
+            estrecho y el overflow-x-auto anterior generaba scroll horizontal. */}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="input-premium py-2.5 text-sm min-w-[160px]"
+            className="input-premium py-2.5 text-sm w-full min-w-0 sm:w-auto sm:min-w-[160px]"
           />
           <span className="text-stone-400 hidden sm:inline">—</span>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="input-premium py-2.5 text-sm min-w-[160px]"
+            className="input-premium py-2.5 text-sm w-full min-w-0 sm:w-auto sm:min-w-[160px]"
           />
         </div>
       </div>

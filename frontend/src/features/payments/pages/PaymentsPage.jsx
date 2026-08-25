@@ -325,7 +325,9 @@ export default function PaymentsPage() {
 
   return (
     <div className="page-shell">
-      <DataCard compact>
+      {/* overflowVisible con el formulario abierto: el panel de resumen es sticky y
+          el recorte de la tarjeta lo dejaría anclado sin efecto. */}
+      <DataCard compact overflowVisible={isFormOpen}>
         {!isFormOpen && (
         <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
