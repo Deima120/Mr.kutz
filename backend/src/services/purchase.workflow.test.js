@@ -17,22 +17,27 @@ describe('flujo orden → recepción → inventario', () => {
     assert.equal(stockBefore, 4, 'crear la orden no modifica el stock');
     assert.equal(derivePurchaseStatus([{ quantity: 6, receivedQuantity: 0 }]), 'ordered');
 
+    // La recepcion manda 22 a proposito: se ignora y vale el costo pactado en la
+    // orden (20). Antes el cliente podia mover el costo promedio a su antojo.
     const firstReceipt = normalizeReceiptItems([
       { purchaseItemId: 1, quantity: 2, unitCost: 22 },
     ]);
     const stockAfterPartial = stockBefore + firstReceipt[0].quantity;
-    const costAfterPartial = weightedAverageCost(stockBefore, 18, 2, 22);
+    const costAfterPartial = weightedAverageCost(
+      stockBefore,
+      18,
+      2,
+      orderItems[0].unitCost
+    );
 
     assert.equal(stockAfterPartial, 6);
-    assert.equal(costAfterPartial, 19.33);
+    assert.equal(costAfterPartial, 18.67);
     assert.equal(
       derivePurchaseStatus([{ quantity: orderItems[0].quantity, receivedQuantity: 2 }]),
       'partially_received'
     );
 
-    const finalReceipt = normalizeReceiptItems([
-      { purchaseItemId: 1, quantity: 4, unitCost: 20 },
-    ]);
+    const finalReceipt = normalizeReceiptItems([{ purchaseItemId: 1, quantity: 4 }]);
     assert.equal(stockAfterPartial + finalReceipt[0].quantity, 10);
     assert.equal(derivePurchaseStatus([{ quantity: 6, receivedQuantity: 6 }]), 'received');
   });
@@ -47,7 +52,7 @@ describe('flujo orden → recepción → inventario', () => {
       /mayor que cero/
     );
     assert.throws(
-      () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 0, unitCost: 20 }]),
+      () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 0 }]),
       /entero positivo/
     );
   });

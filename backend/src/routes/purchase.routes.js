@@ -62,9 +62,10 @@ const receiptValidation = [
     .isInt({ min: 1 })
     .withMessage('Artículo de orden no válido.'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Cantidad no válida.'),
-  body('items.*.unitCost')
-    .isFloat({ gt: 0 })
-    .withMessage('El costo unitario debe ser mayor que cero.'),
+  // El costo unitario de una recepción se toma del PurchaseItem de la orden; si el
+  // cliente lo envía se ignora (ver normalizeReceiptItems). Se deja aceptar por
+  // compatibilidad con clientes que aún lo manden.
+  body('items.*.unitCost').optional().isFloat({ gt: 0 }),
 ];
 
 router.use(auth);

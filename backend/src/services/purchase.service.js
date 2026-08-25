@@ -208,13 +208,32 @@ export const create = async (data, userId) => {
       if (!product.isActive) throw httpError(`El producto «${product.name}» está inactivo.`);
     }
 
+    // Una misma factura no puede repetirse con el mismo proveedor. Se comprueba
+    // aqui para dar un 409 con mensaje util; el indice unico
+    // [supplierId, invoiceNumber] de la BD es la garantia real ante dos
+    // peticiones simultaneas (Postgres trata los NULL como distintos, asi que
+    // varias ordenes sin factura siguen siendo validas).
+    const invoiceNumber = cleanText(data.invoiceNumber, 80);
+    if (invoiceNumber) {
+      const duplicated = await tx.purchase.findFirst({
+        where: { supplierId: supplier.id, invoiceNumber },
+        select: { orderNumber: true },
+      });
+      if (duplicated) {
+        throw httpError(
+          `El proveedor «${supplier.name}» ya tiene la factura ${invoiceNumber} en la orden ${duplicated.orderNumber}.`,
+          409
+        );
+      }
+    }
+
     const totalAmount = Number(items.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2));
     return tx.purchase.create({
       data: {
         supplierId: supplier.id,
         supplierName: supplier.name,
         orderNumber: await allocateDocumentFolio(tx, DOC_TYPES.purchase_order),
-        invoiceNumber: cleanText(data.invoiceNumber, 80),
+        invoiceNumber,
         expectedAt,
         notes: cleanText(data.notes, 1000),
         totalAmount,
@@ -355,7 +374,8 @@ export const receive = async (id, data, userId) => {
 
     for (const requestedItem of requested) {
       const orderedItem = purchaseItems.get(requestedItem.purchaseItemId);
-      const unitCost = requestedItem.unitCost;
+      // Costo pactado en la orden. Nunca el que venga en la peticion.
+      const unitCost = Number(orderedItem.unitCost);
       const inventory = await ensureInventory(tx, orderedItem.productId);
       const oldCost = productCosts.get(orderedItem.productId);
       const newCost = weightedAverageCost(
