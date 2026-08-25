@@ -3,6 +3,7 @@ import { PackageCheck } from 'lucide-react';
 import * as purchaseService from '@/features/purchases/services/purchaseService';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 import { getApiErrorMessage, validatePurchaseReceiptForm } from '@/shared/utils/formValidation';
+import { formatMoney } from '@/shared/utils/money';
 
 const itemValue = (item, camel, snake, fallback = 0) => item?.[camel] ?? item?.[snake] ?? fallback;
 
@@ -15,7 +16,9 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
 
   useEffect(() => {
     if (!purchase) return;
-    setReference('');
+    // La remisión se hereda de la factura que ya trae la orden; queda editable por
+    // si el remito del proveedor viene con otro número.
+    setReference(String(purchase.invoiceNumber ?? purchase.invoice_number ?? ''));
     setNotes('');
     setError('');
     setItems(
@@ -39,7 +42,22 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
             )
           )
         ),
-        quantity: '',
+        // Se asume que llegó todo lo pendiente: el usuario solo resta lo que falte.
+        quantity: String(
+          Math.max(
+            0,
+            Number(
+              itemValue(
+                item,
+                'pendingQuantity',
+                'pending_quantity',
+                Number(itemValue(item, 'quantity', 'quantity')) -
+                  Number(itemValue(item, 'receivedQuantity', 'received_quantity'))
+              )
+            )
+          )
+        ),
+        // Solo para mostrar: el costo lo fija el backend desde la orden.
         unitCost: String(itemValue(item, 'unitCost', 'unit_cost', '')),
       }))
     );
@@ -71,10 +89,10 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
         reference: reference.trim(),
         receiptNumber: reference.trim(),
         notes: notes.trim() || undefined,
+        // Sin unitCost: el backend toma el costo pactado en la orden.
         items: selected.map((item) => ({
           purchaseItemId: item.purchaseItemId,
           quantity: Number(item.quantity),
-          unitCost: Number(item.unitCost),
         })),
       });
       onSuccess?.({
@@ -159,17 +177,15 @@ export default function PurchaseReceiptModal({ purchase, onClose, onSuccess }) {
                   className="input-premium mt-1 py-2 text-sm"
                 />
               </label>
-              <label className="text-[11px] font-semibold text-stone-600">
+              {/* Costo de la orden, no editable: cambiarlo aquí alteraría el costo
+                  promedio del producto. Si el proveedor cambió el precio, se corrige
+                  en la orden, no al recibir. */}
+              <div className="text-[11px] font-semibold text-stone-600">
                 Costo unitario
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={item.unitCost}
-                  onChange={(event) => update(item.purchaseItemId, 'unitCost', event.target.value)}
-                  className="input-premium mt-1 py-2 text-sm"
-                />
-              </label>
+                <p className="mt-1 rounded-xl border border-stone-200 bg-stone-100 px-3 py-2 text-sm font-semibold tabular-nums text-stone-700">
+                  {formatMoney(item.unitCost)}
+                </p>
+              </div>
             </div>
           ))}
           {receivable.length === 0 && (

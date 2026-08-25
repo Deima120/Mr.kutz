@@ -513,10 +513,8 @@ export function validatePurchaseReceiptForm({ reference, notes, receivable = [] 
         `No puedes recibir más de ${item.pending} unidades de ${item.name}.`;
     }
 
-    const cost = validateMoney(item.unitCost, 'El costo unitario', { required: true, min: 0.01 });
-    if (!cost.valid) {
-      errors[`item.${item.purchaseItemId}.unitCost`] = cost.message;
-    }
+    // El costo unitario ya no se valida aquí: dejó de ser un campo del formulario.
+    // La recepción lo toma del PurchaseItem de la orden en el backend.
   });
 
   return validationResult(errors);

@@ -46,31 +46,36 @@ describe('normalizeOrderItems', () => {
 });
 
 describe('normalizeReceiptItems', () => {
-  it('acepta costo positivo y nombres snake_case legacy', () => {
+  it('acepta nombres snake_case legacy y descarta el costo que envie el cliente', () => {
     assert.deepEqual(
       normalizeReceiptItems([
         { purchase_item_id: '8', quantity: '2', unitCost: 4.5 },
         { purchaseItemId: 9, quantity: 1, unitCost: 2 },
       ]),
       [
-        { purchaseItemId: 8, quantity: 2, unitCost: 4.5 },
-        { purchaseItemId: 9, quantity: 1, unitCost: 2 },
+        { purchaseItemId: 8, quantity: 2 },
+        { purchaseItemId: 9, quantity: 1 },
       ]
     );
   });
 
-  it('rechaza cantidades/costos no positivos y líneas repetidas', () => {
+  it('no exige costo: la recepcion lo toma del PurchaseItem de la orden', () => {
+    assert.deepEqual(normalizeReceiptItems([{ purchaseItemId: 3, quantity: 5 }]), [
+      { purchaseItemId: 3, quantity: 5 },
+    ]);
+  });
+
+  it('un costo manipulado en la peticion no llega al resultado', () => {
+    const [item] = normalizeReceiptItems([
+      { purchaseItemId: 4, quantity: 1, unitCost: 999999 },
+    ]);
+    assert.equal(item.unitCost, undefined);
+  });
+
+  it('rechaza cantidades no positivas y líneas repetidas', () => {
     assert.throws(
       () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 0 }]),
       /entero positivo/
-    );
-    assert.throws(
-      () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 1, unitCost: '' }]),
-      /mayor que cero/
-    );
-    assert.throws(
-      () => normalizeReceiptItems([{ purchaseItemId: 1, quantity: 1, unitCost: 0 }]),
-      /mayor que cero/
     );
     assert.throws(
       () =>
