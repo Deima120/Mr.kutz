@@ -98,4 +98,8 @@ router.post('/', authorize('admin'), createValidation, validate, barberControlle
 router.put('/:id', authorize('admin'), [idParam, ...updateValidation], validate, barberController.update);
 router.put('/:id/schedules', authorize('admin'), [idParam, ...schedulesValidation], validate, barberController.updateSchedules);
 
+// Solo se permite borrar barberos sin historial; el service responde 409 si tiene
+// citas o comisiones. Para dar de baja a uno con historial se usa isActive: false.
+router.delete('/:id', authorize('admin'), idParam, validate, barberController.remove);
+
 export default router;

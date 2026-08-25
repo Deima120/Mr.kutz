@@ -102,3 +102,15 @@ export const updateSchedules = async (req, res, next) => {
     next(error);
   }
 };
+
+export const remove = async (req, res, next) => {
+  try {
+    const deleted = await barberService.remove(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Barbero no encontrado.' });
+    }
+    res.json({ success: true, message: 'Barbero eliminado correctamente.' });
+  } catch (error) {
+    next(error);
+  }
+};

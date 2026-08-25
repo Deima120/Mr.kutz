@@ -234,3 +234,63 @@ export const updateSchedules = async (barberId, schedules) => {
   });
   return getSchedules(barberId);
 };
+
+/**
+ * Elimina un barbero definitivamente.
+ *
+ * Solo se permite si NO tiene historial. `Appointment.barber` está declarado con
+ * `onDelete: Cascade` en el schema, así que un borrado sin guarda arrastraría en
+ * silencio todas las citas del barbero (y con ellas el rastro de sus ventas). Por
+ * eso se cuenta primero y se responde 409, igual que hacen client.service.js y
+ * service.service.js: para dar de baja a un barbero con historial se usa
+ * `isActive: false`, no este borrado.
+ *
+ * Se borra el `User`, no el `Barber`: `Barber.user` es `onDelete: Cascade`, de modo
+ * que la fila del barbero y sus `BarberSchedule` se van con él en una sola
+ * operación atómica de la base de datos. Borrar solo el `Barber` dejaría una cuenta
+ * huérfana con rol barbero capaz de seguir iniciando sesión sin perfil asociado.
+ */
+export const remove = async (id) => {
+  const barberId = parseInt(id, 10);
+
+  const barber = await prisma.barber.findUnique({
+    where: { id: barberId },
+    select: { id: true, userId: true },
+  });
+  if (!barber) return false;
+
+  const [appointmentCount, commissionCount] = await Promise.all([
+    prisma.appointment.count({ where: { barberId } }),
+    prisma.commissionEntry.count({ where: { barberId } }),
+  ]);
+
+  if (appointmentCount > 0 || commissionCount > 0) {
+    const detalle = [
+      appointmentCount > 0 ? `${appointmentCount} cita(s)` : null,
+      commissionCount > 0 ? `${commissionCount} comisión(es)` : null,
+    ]
+      .filter(Boolean)
+      .join(' y ');
+    const err = new Error(
+      `No se puede eliminar el barbero porque tiene ${detalle} en su historial. Desactívalo si ya no debe trabajar.`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  try {
+    await prisma.user.delete({ where: { id: barber.userId } });
+    return true;
+  } catch (error) {
+    // La cuenta del barbero puede figurar como autor de otros registros
+    // (pagos, movimientos de inventario, compras) con FK Restrict.
+    if (error?.code === 'P2003') {
+      const err = new Error(
+        'No se puede eliminar el barbero porque su cuenta está relacionada con otros registros del sistema. Desactívalo en su lugar.'
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+    throw error;
+  }
+};
