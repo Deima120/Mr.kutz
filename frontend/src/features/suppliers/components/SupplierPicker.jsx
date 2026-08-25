@@ -286,7 +286,10 @@ export default function SupplierPicker({
                 />
               </div>
             </div>
-            <ul className="overflow-y-auto py-1.5 flex-1 min-h-0" role="presentation">
+            <ul
+              className="custom-select-panel overflow-y-auto overflow-x-hidden px-1.5 py-1.5 flex-1 min-h-0"
+              role="presentation"
+            >
               {loading ? (
                 <li className="px-3.5 py-2 text-sm text-stone-500">Buscando…</li>
               ) : results.length === 0 ? (
@@ -307,7 +310,7 @@ export default function SupplierPicker({
                         tabIndex={-1}
                         onMouseEnter={() => setHighlightIndex(index)}
                         onClick={() => selectSupplier(supplier)}
-                        className={`flex w-full items-start justify-between gap-3 mx-1.5 rounded-lg px-3.5 py-2 text-left text-sm transition-colors ${
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                           isSelected
                             ? 'bg-stone-100 text-barber-dark font-semibold ring-1 ring-gold/30'
                             : isHighlighted

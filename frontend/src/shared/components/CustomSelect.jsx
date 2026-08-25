@@ -33,7 +33,7 @@ const PANEL_VARIANT = {
 
 function optionClassName(resolvedVariant, isSelected, isHighlighted) {
   const base =
-    'flex w-full items-start justify-between gap-3 px-3.5 py-2 text-left text-sm transition-colors duration-150 rounded-lg mx-1.5';
+    'flex w-full items-start justify-between gap-3 px-3.5 py-2 text-left text-sm transition-colors duration-150 rounded-lg';
   const isDark = resolvedVariant === 'dark';
 
   if (isDark) {
@@ -235,7 +235,9 @@ export default function CustomSelect({
               maxHeight: menuPosition.maxHeight,
               zIndex: 10050,
             }}
-            className={`overflow-y-auto py-1.5 custom-select-panel ${panelClass}`}
+            // px-1.5 sustituye al mx-1.5 que llevaba cada opcion: con w-full median
+            // 100%+12px y el desborde sacaba una barra de scroll horizontal.
+            className={`overflow-y-auto overflow-x-hidden px-1.5 py-1.5 custom-select-panel ${panelClass}`}
           >
             {options.length === 0 ? (
               <li className="px-3.5 py-2 text-sm text-stone-500" role="presentation">
