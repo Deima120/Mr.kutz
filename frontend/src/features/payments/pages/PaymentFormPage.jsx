@@ -406,6 +406,15 @@ export function PaymentForm({
         if (!Number.isFinite(unit) || unit <= 0) {
           return setPrefillHints((h) => [...h, 'El producto no tiene precio de venta.']);
         }
+        // El enlace ?productId= puede venir de una pantalla donde el producto aun
+        // tenia stock; se revalida aqui en vez de dejarlo entrar al carrito.
+        const stock = Number(product.quantity) || 0;
+        if (stock <= 0) {
+          return setPrefillHints((h) => [
+            ...h,
+            `«${product.name}» no tiene existencias y no se puede vender.`,
+          ]);
+        }
         setLines((prev) => {
           if (prev.some((l) => l.type === 'product' && String(l.productId) === String(product.id))) {
             return prev;
@@ -456,8 +465,14 @@ export function PaymentForm({
     }
     const qty = parseInt(productQty, 10);
     const max = Number(productPick.quantity) || 0;
-    if (max > 0 && qty > max) {
-      setError(`Stock insuficiente (máx. ${max}).`);
+    // Antes la condicion era `max > 0 && qty > max`, asi que con stock 0 la guarda
+    // se saltaba entera y el producto entraba al carrito para reventar al cobrar.
+    if (max <= 0) {
+      setError(`«${productPick.name}» no tiene existencias.`);
+      return;
+    }
+    if (qty > max) {
+      setError(`Stock insuficiente de «${productPick.name}» (máx. ${max}).`);
       return;
     }
     const unit = Number(productPick.retailPrice ?? productPick.retail_price);
@@ -723,7 +738,9 @@ export function PaymentForm({
                     <Package className="inline h-3 w-3 mr-1 text-violet-700" />
                     Producto
                   </span>
+                  {/* Sin stock no se puede vender, asi que tampoco se ofrece. */}
                   <ProductPicker
+                    inStockOnly
                     value={productPick?.id ? String(productPick.id) : ''}
                     onChange={(id, product) => {
                       setProductPick(product || null);

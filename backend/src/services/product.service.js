@@ -42,9 +42,12 @@ function mapProductRow(p) {
   return toProductDto(p);
 }
 
-function buildProductWhere({ activeOnly, search, categoryId }) {
+function buildProductWhere({ activeOnly, search, categoryId, inStockOnly = false }) {
   const where = {};
   if (activeOnly) where.isActive = true;
+  // Un producto sin fila de Inventory tampoco tiene existencias: la relacion `is`
+  // deja fuera esos casos ademas de los que estan en cero.
+  if (inStockOnly) where.inventory = { is: { quantity: { gt: 0 } } };
   const cid = categoryId != null && categoryId !== '' ? parseInt(categoryId, 10) : null;
   if (Number.isFinite(cid) && cid > 0) where.categoryId = cid;
   if (search?.trim()) {
@@ -156,6 +159,7 @@ export const getInventoryInsights = async () => {
 export const getAll = async ({
   activeOnly = true,
   lowStockOnly = false,
+  inStockOnly = false,
   search = '',
   categoryId,
   limit = 20,
@@ -167,7 +171,7 @@ export const getAll = async ({
   const result = lowStockOnly
     ? await getLowStockPaginated({ activeOnly, search, categoryId, take, skip })
     : await (async () => {
-        const where = buildProductWhere({ activeOnly, search, categoryId });
+        const where = buildProductWhere({ activeOnly, search, categoryId, inStockOnly });
         const [products, total] = await Promise.all([
           prisma.product.findMany({
             where,

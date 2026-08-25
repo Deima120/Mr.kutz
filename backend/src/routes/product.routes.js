@@ -109,6 +109,9 @@ const importValidation = [
 const listValidation = [
   query('active').optional().isIn(['true', 'false']).withMessage('Filtro active no válido.'),
   query('lowStock').optional().isIn(['true', 'false']).withMessage('Filtro lowStock no válido.'),
+  // Solo productos con existencias > 0. Lo usa el selector del formulario de ventas:
+  // no tiene sentido ofrecer para vender algo de lo que no queda nada.
+  query('inStock').optional().isIn(['true', 'false']).withMessage('Filtro inStock no válido.'),
   query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
   query('categoryId')
     .optional({ checkFalsy: true })

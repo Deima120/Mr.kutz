@@ -48,6 +48,12 @@ export default function ProductPicker({
   allowCreate = true,
   ariaInvalid,
   ariaDescribedBy,
+  /**
+   * Oculta los productos sin existencias. Se filtra en el backend (`inStock=true`)
+   * y no en el cliente: la busqueda esta limitada a SEARCH_LIMIT resultados, asi
+   * que filtrar aqui podria dejar fuera productos con stock que si coinciden.
+   */
+  inStockOnly = false,
 }) {
   const selectId = useId();
   const listboxId = `${selectId}-listbox`;
@@ -110,6 +116,7 @@ export default function ProductPicker({
         .getProducts({
           search: q || undefined,
           active: 'true',
+          ...(inStockOnly ? { inStock: 'true' } : {}),
           limit: SEARCH_LIMIT,
           offset: 0,
         })
@@ -129,7 +136,7 @@ export default function ProductPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [open, query]);
+  }, [open, query, inStockOnly]);
 
   const close = useCallback((shouldBlur = true) => {
     setOpen(false);
