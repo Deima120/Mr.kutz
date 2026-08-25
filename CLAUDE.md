@@ -5,6 +5,7 @@
 > `mobile_kutz/`).
 >
 > **Antes de empezar cualquier tarea, lee también:**
+>
 > - **§39 — Contexto específico de Mr.Kutz** (stack real, comandos que existen de verdad, lo que
 >   está desactivado). Sin esto se corre el riesgo de inventar comandos o de trabajar sobre
 >   módulos que ya no están activos.
@@ -1083,13 +1084,13 @@ Sistema de gestión para una barbería (citas, ventas, inventario, compras, comi
 **sin workspaces**: cada paquete se instala y se ejecuta por separado. No hay `package.json` en la
 raíz (solo un `package-lock.json` residual).
 
-| Ruta | Qué es |
-|---|---|
-| `backend/` | API REST Node.js + Express + Prisma. Desplegada en Render. |
-| `frontend/` | SPA React 18 + Vite + Tailwind. Desplegada en Vercel. |
-| `mobile_kutz/` | App móvil Flutter. **Sin versionar todavía** (aparece como `untracked` en git). |
-| `docs/` | Documentación funcional y evidencias de pruebas. |
-| `private/` | **En `.gitignore`.** Contexto local extendido y ADRs. Ver §39.4. |
+| Ruta             | Qué es                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| `backend/`     | API REST Node.js + Express + Prisma. Desplegada en Render.                               |
+| `frontend/`    | SPA React 18 + Vite + Tailwind. Desplegada en Vercel.                                    |
+| `mobile_kutz/` | App móvil Flutter.**Sin versionar todavía** (aparece como `untracked` en git). |
+| `docs/`        | Documentación funcional y evidencias de pruebas.                                        |
+| `private/`     | **En `.gitignore`.** Contexto local extendido y ADRs. Ver §39.4.                |
 
 ## 39.2 Comandos que existen de verdad
 
@@ -1097,21 +1098,21 @@ Node requerido: **>=18** en ambos paquetes.
 
 **`backend/`**
 
-| Comando | Qué hace |
-|---|---|
-| `npm run dev` | Servidor con `node --watch` en el puerto 5000. |
-| `npm start` | Servidor de producción. |
-| `npm test` | Test runner **nativo de Node** (`node --test`) sobre una lista de archivos **hardcodeada** en `package.json`. |
-| `npm run db:generate` / `db:migrate` / `db:push` / `db:seed` / `db:studio` | Prisma. |
-| `npm run db:backup` / `db:wipe` | Scripts operativos. **`db:wipe` es destructivo — nunca ejecutarlo sin autorización explícita.** |
+| Comando                                                                              | Qué hace                                                                                                                    |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                                                      | Servidor con`node --watch` en el puerto 5000.                                                                              |
+| `npm start`                                                                        | Servidor de producción.                                                                                                     |
+| `npm test`                                                                         | Test runner**nativo de Node** (`node --test`) sobre una lista de archivos **hardcodeada** en `package.json`. |
+| `npm run db:generate` / `db:migrate` / `db:push` / `db:seed` / `db:studio` | Prisma.                                                                                                                      |
+| `npm run db:backup` / `db:wipe`                                                  | Scripts operativos.**`db:wipe` es destructivo — nunca ejecutarlo sin autorización explícita.**                    |
 
 **`frontend/`**
 
-| Comando | Qué hace |
-|---|---|
-| `npm run dev` | Vite en `localhost:5173`, con proxy `/api` → `localhost:5000`. |
-| `npm run build` | Build de producción a `frontend/dist/`. |
-| `npm test` | `node --test` sobre una lista **hardcodeada**. |
+| Comando           | Qué hace                                                            |
+| ----------------- | -------------------------------------------------------------------- |
+| `npm run dev`   | Vite en`localhost:5173`, con proxy `/api` → `localhost:5000`. |
+| `npm run build` | Build de producción a`frontend/dist/`.                            |
+| `npm test`      | `node --test` sobre una lista **hardcodeada**.               |
 
 > ⚠️ **No existen `npm run lint` ni `npm run typecheck` en ningún paquete**, y no hay TypeScript en
 > el código fuente (es `.js`/`.jsx` puro). Los pasos de lint y typecheck de la §4-FASE 6 y de la
@@ -1141,12 +1142,12 @@ Consecuencia de diseño: los `utils/` que quieran ser testeables **no deben impo
 
 `private/` está en `.gitignore`, así que **no viaja en los commits**: es contexto local.
 
-| Archivo | Contenido |
-|---|---|
-| `private/frontend/CLAUDE.md` | Arquitectura del frontend: rutas, estado, feedback/toasts, estilos, convenciones, formulario de ventas, responsive del panel. |
-| `private/backend/CLAUDE.md` | Arquitectura del backend: modelo de datos Prisma, auth, capas, endurecimiento de producción, migraciones. |
-| `private/adr/0001-desactivacion-reportes-y-caja.md` | Reportes y Caja diaria desactivados. |
-| `private/adr/0002-desactivacion-linea-caja-manual.md` | Fila «Caja (manual)» del formulario de ventas desactivada. |
+| Archivo                                                 | Contenido                                                                                                                     |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `private/frontend/CLAUDE.md`                          | Arquitectura del frontend: rutas, estado, feedback/toasts, estilos, convenciones, formulario de ventas, responsive del panel. |
+| `private/backend/CLAUDE.md`                           | Arquitectura del backend: modelo de datos Prisma, auth, capas, endurecimiento de producción, migraciones.                    |
+| `private/adr/0001-desactivacion-reportes-y-caja.md`   | Reportes y Caja diaria desactivados.                                                                                          |
+| `private/adr/0002-desactivacion-linea-caja-manual.md` | Fila «Caja (manual)» del formulario de ventas desactivada.                                                                  |
 
 **Convención de desactivación de este proyecto:** cuando se saca funcionalidad de circulación,
 **se comenta, no se borra**, con un marcador rastreable y un ADR que explique el porqué y cómo
@@ -1182,8 +1183,6 @@ por defecto** en los puntos que tocan.
 Al terminar cualquier cambio hay que **crear una rama** que describa el trabajo y **hacer el
 commit**, sin esperar a que se pida. Es parte de dar por terminada la tarea, no un paso opcional.
 
-* **Nunca commitear directo sobre `main`.** La rama por defecto es `main` y el equipo trabaja con
-  pull requests. Si al terminar la sesión está parada en `main`, crear la rama primero.
 * **Nombrar la rama según el trabajo**, con la convención que ya usa el repo: `feat/…`, `fix/…`,
   `chore/…` (ejemplos reales: `feat/desactivar-reportes-y-caja`,
   `feat/panel-responsive-y-resumen-flotante`).
