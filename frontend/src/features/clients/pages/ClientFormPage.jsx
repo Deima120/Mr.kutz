@@ -103,6 +103,15 @@ export function ClientForm({
     () => validateDocumentNumber(formData.documentNumber),
     [formData.documentNumber]
   );
+
+  /**
+   * Los clientes creados desde la reserva pública nacen sin documento, así que al
+   * EDITAR se admite dejarlo en blanco: de lo contrario no se podría ni corregirles
+   * el teléfono sin inventarles una cédula. En el alta sigue siendo obligatorio, y
+   * si se rellena solo uno de los dos campos se valida la pareja completa.
+   */
+  const documentOmitted =
+    isEdit && !formData.documentType.trim() && !formData.documentNumber.trim();
   const firstNameValidation = useMemo(
     () =>
       validatePersonName(formData.firstName, 'El nombre', {
@@ -141,14 +150,14 @@ export function ClientForm({
 
   const formValid = useMemo(
     () =>
-      documentTypeValidation.valid &&
-      documentValidation.valid &&
+      (documentOmitted || (documentTypeValidation.valid && documentValidation.valid)) &&
       firstNameValidation.valid &&
       lastNameValidation.valid &&
       emailReady &&
       phoneValidation.valid &&
       notesValidation.valid,
     [
+      documentOmitted,
       documentTypeValidation.valid,
       documentValidation.valid,
       firstNameValidation.valid,
@@ -218,11 +227,11 @@ export function ClientForm({
     });
 
     if (!formValid) {
-      if (!documentTypeValidation.valid) {
+      if (!documentOmitted && !documentTypeValidation.valid) {
         setError(documentTypeValidation.message);
         return;
       }
-      if (!documentValidation.valid) {
+      if (!documentOmitted && !documentValidation.valid) {
         setError(documentValidation.message || 'Revisa el número de documento.');
         return;
       }
@@ -265,8 +274,10 @@ export function ClientForm({
       lastName: formData.lastName.trim(),
       email: formData.email.trim() || undefined,
       phone: formData.phone || undefined,
-      documentType: formData.documentType.trim(),
-      documentNumber: formData.documentNumber.trim(),
+      // Omitidos (undefined) en vez de cadena vacía: client.service.update solo
+      // toca el documento si el campo viene, y con '' lanzaría 400.
+      documentType: documentOmitted ? undefined : formData.documentType.trim(),
+      documentNumber: documentOmitted ? undefined : formData.documentNumber.trim(),
       notes: formData.notes.trim(),
     };
 
@@ -349,7 +360,12 @@ export function ClientForm({
         <div className={ADMIN_FORM_GRID_CLASS}>
           <div className="group">
             <label htmlFor="documentType" className={ADMIN_FORM_LABEL_CLASS}>
-              Tipo de documento <span className="text-red-600 normal-case">*</span>
+              Tipo de documento{' '}
+              {documentOmitted ? (
+                <span className="normal-case font-medium text-stone-400">(opcional)</span>
+              ) : (
+                <span className="text-red-600 normal-case">*</span>
+              )}
             </label>
             <CustomSelect
               id="documentType"
@@ -371,18 +387,26 @@ export function ClientForm({
               placeholder="Selecciona…"
               variant="form"
               ariaLabel="Tipo de documento"
-              ariaInvalid={docTypeShow && !documentTypeValidation.valid}
-              selectClassName={adminFieldStateClass(documentTypeValidation.valid, docTypeShow)}
+              ariaInvalid={docTypeShow && !documentOmitted && !documentTypeValidation.valid}
+              selectClassName={adminFieldStateClass(
+                documentOmitted || documentTypeValidation.valid,
+                docTypeShow
+              )}
             />
             <FieldHint
-              valid={documentTypeValidation.valid}
+              valid={documentOmitted || documentTypeValidation.valid}
               touched={docTypeShow}
               message={documentTypeValidation.message}
             />
           </div>
           <div className="group">
             <label htmlFor="documentNumber" className={ADMIN_FORM_LABEL_CLASS}>
-              Número de documento <span className="text-red-600 normal-case">*</span>
+              Número de documento{' '}
+              {documentOmitted ? (
+                <span className="normal-case font-medium text-stone-400">(opcional)</span>
+              ) : (
+                <span className="text-red-600 normal-case">*</span>
+              )}
             </label>
             <input
               id="documentNumber"
@@ -393,14 +417,17 @@ export function ClientForm({
               value={formData.documentNumber}
               onChange={handleChange}
               onBlur={handleBlur}
-              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(documentValidation.valid, docShow)}`}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(
+                documentOmitted || documentValidation.valid,
+                docShow
+              )}`}
               placeholder="Solo números"
               maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
-              required
+              required={!documentOmitted}
               autoComplete="off"
             />
             <FieldHint
-              valid={documentValidation.valid}
+              valid={documentOmitted || documentValidation.valid}
               touched={docShow}
               message={documentValidation.message}
             />
