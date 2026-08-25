@@ -40,3 +40,18 @@ export const updateBarberSchedules = async (id, schedules) => {
   const response = await api.put(`${BARBERS_BASE}/${id}/schedules`, { schedules });
   return extract(response);
 };
+
+/** Activa o desactiva un barbero sin tocar el resto de su ficha. */
+export const setBarberActive = async (id, isActive) => {
+  const response = await api.put(`${BARBERS_BASE}/${id}`, { isActive });
+  return extract(response);
+};
+
+/**
+ * Borrado definitivo. El backend responde 409 si el barbero tiene citas o
+ * comisiones: en ese caso hay que desactivarlo, no borrarlo.
+ */
+export const deleteBarber = async (id) => {
+  const response = await api.delete(`${BARBERS_BASE}/${id}`);
+  return extract(response);
+};

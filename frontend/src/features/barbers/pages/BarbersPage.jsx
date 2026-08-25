@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Pencil, CalendarDays } from 'lucide-react';
+import { Plus, Pencil, CalendarDays, Power, Trash2 } from 'lucide-react';
 import * as barberService from '@/features/barbers/services/barberService';
 import { BarberForm } from '@/features/barbers/pages/BarberFormPage';
 import { useAuth } from '@/shared/contexts/AuthContext';
@@ -18,6 +18,7 @@ import {
   FilterSelect,
 } from '@/shared/components/admin/AdminListControls';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 
 const BARBER_STATUS_FILTERS = [
   { id: 'active', label: 'Activos' },
@@ -34,6 +35,9 @@ export default function BarbersPage() {
   const [documentFilter, setDocumentFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [formView, setFormView] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -132,6 +136,47 @@ export default function BarbersPage() {
     if (created) toast.success('Barbero registrado correctamente.');
     if (updated) toast.success('Barbero actualizado correctamente.');
     fetchBarbers();
+  };
+
+  /**
+   * Activar/desactivar es reversible, así que va sin modal de confirmación
+   * (convención de frontend/docs/FEEDBACK.md): basta el toast del resultado.
+   */
+  const handleToggleActive = async (barber) => {
+    const nextActive = !barber.is_active;
+    setTogglingId(barber.id);
+    try {
+      await barberService.setBarberActive(barber.id, nextActive);
+      toast.success(
+        `${barber.first_name} ${barber.last_name} ${nextActive ? 'activado' : 'desactivado'} correctamente.`
+      );
+      fetchBarbers();
+    } catch (err) {
+      toast.error(err?.message || 'No se pudo cambiar el estado del barbero.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  /**
+   * Borrado definitivo: el backend solo lo permite si el barbero no tiene citas
+   * ni comisiones. Si las tiene responde 409 y el mensaje sugiere desactivarlo,
+   * que es lo que se muestra tal cual en el toast.
+   */
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await barberService.deleteBarber(deleteTarget.id);
+      setDeleteTarget(null);
+      toast.success(`Barbero "${deleteTarget.name}" eliminado correctamente.`);
+      fetchBarbers();
+    } catch (err) {
+      setDeleteTarget(null);
+      toast.error(err?.message || 'No se pudo eliminar el barbero.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const openEditForm = (id) => setFormView(id);
@@ -240,6 +285,24 @@ export default function BarbersPage() {
                           label="Editar barbero"
                           onClick={() => openEditForm(b.id)}
                         />
+                        <AdminIconButton
+                          icon={Power}
+                          label={b.is_active ? 'Desactivar barbero' : 'Activar barbero'}
+                          variant={b.is_active ? 'default' : 'primary'}
+                          disabled={togglingId === b.id}
+                          onClick={() => handleToggleActive(b)}
+                        />
+                        <AdminIconButton
+                          icon={Trash2}
+                          label="Eliminar barbero"
+                          variant="danger"
+                          onClick={() =>
+                            setDeleteTarget({
+                              id: b.id,
+                              name: `${b.first_name} ${b.last_name}`.trim(),
+                            })
+                          }
+                        />
                       </div>
                     )}
                   </div>
@@ -249,6 +312,29 @@ export default function BarbersPage() {
           )}
         </>
       )}
+
+      <AdminConfirmModal
+        open={Boolean(deleteTarget)}
+        variant="danger"
+        title="¿Eliminar barbero?"
+        description={
+          deleteTarget ? (
+            <>
+              ¿Eliminar permanentemente a{' '}
+              <strong className="text-stone-800">{deleteTarget.name}</strong>? Se borra también su
+              cuenta de acceso y esta acción no se puede deshacer. Si ya tiene citas o comisiones
+              registradas no se podrá borrar: desactívalo en su lugar.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, eliminar"
+        submittingLabel="Eliminando…"
+        isSubmitting={isDeleting}
+        onCancel={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
