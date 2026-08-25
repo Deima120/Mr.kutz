@@ -14,6 +14,8 @@ import {
   optionalPhoneField,
   documentTypeField,
   documentNumberField,
+  optionalDocumentTypeField,
+  optionalDocumentNumberField,
 } from '../utils/validation.js';
 import * as barberController from '../controllers/barber.controller.js';
 
@@ -35,11 +37,16 @@ const updateValidation = [
   optionalPersonNameField('firstName', 'El nombre'),
   optionalPersonNameField('lastName', 'El apellido'),
   optionalPhoneField('phone'),
-  documentTypeField('documentType'),
-  documentNumberField('documentNumber'),
+  // Opcionales: un PUT parcial (p. ej. solo `isActive` desde la pildora de la
+  // tarjeta) no envia el documento y no debe fallar por ello. Si se envia vacio,
+  // barber.service.update sigue rechazandolo.
+  optionalDocumentTypeField('documentType'),
+  optionalDocumentNumberField('documentNumber'),
   body('specialties').optional({ checkFalsy: true }).isArray(),
   body('specialties.*').optional().trim().isLength({ max: 80 }),
-  body('isActive').optional({ checkFalsy: true }).isBoolean(),
+  // Sin checkFalsy: `false` es un valor legitimo aqui y debe validarse como booleano,
+  // no omitirse. Con checkFalsy un `isActive: ''` colaba y reventaba en Prisma como 500.
+  body('isActive').optional().isBoolean(),
   body('commissionPercent')
     .optional({ nullable: true })
     .custom((value) => {

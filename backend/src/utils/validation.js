@@ -87,6 +87,27 @@ export const documentNumberField = (field = 'documentNumber') =>
     .isLength({ min: 5, max: 20 })
     .withMessage('El número de documento debe tener entre 5 y 20 dígitos.');
 
+/**
+ * Variantes opcionales para actualizaciones parciales (PATCH/PUT que solo tocan
+ * unos campos): si el cliente no envía el documento, no se valida. Si lo envía
+ * vacío, el service sigue rechazándolo, así que no se pierde la obligatoriedad.
+ */
+export const optionalDocumentTypeField = (field = 'documentType') =>
+  body(field)
+    .optional({ checkFalsy: true })
+    .trim()
+    .isIn(DOCUMENT_TYPES)
+    .withMessage('Selecciona un tipo de documento válido.');
+
+export const optionalDocumentNumberField = (field = 'documentNumber') =>
+  body(field)
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^\d+$/)
+    .withMessage('El número de documento solo puede contener dígitos.')
+    .isLength({ min: 5, max: 20 })
+    .withMessage('El número de documento debe tener entre 5 y 20 dígitos.');
+
 export const optionalNotesField = (field = 'notes', max = 500) =>
   body(field)
     .optional({ checkFalsy: true, nullable: true })
