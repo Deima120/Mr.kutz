@@ -8,6 +8,7 @@ export const getAll = async (req, res, next) => {
   try {
     const activeOnly = req.query.active !== 'false';
     const lowStockOnly = req.query.lowStock === 'true';
+    const inStockOnly = req.query.inStock === 'true';
     const search = req.query.search || '';
     const categoryId = req.query.categoryId || undefined;
     const limit = req.query.limit;
@@ -15,6 +16,7 @@ export const getAll = async (req, res, next) => {
     const result = await productService.getAll({
       activeOnly,
       lowStockOnly,
+      inStockOnly,
       search,
       categoryId,
       limit,
