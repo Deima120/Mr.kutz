@@ -86,7 +86,14 @@ export const create = async (req, res, next) => {
     if (req.user.role_name === 'client' && req.user.client_id) {
       body.clientId = req.user.client_id;
     }
-    const appointment = await appointmentService.create(body);
+    // El tope de citas pendientes es un control antiabuso del canal self-service.
+    // El admin agenda por teléfono y para walk-ins con contexto que el sistema no
+    // tiene; bloquearlo solo llevaría al personal a cancelar y recrear citas.
+    // Ojo: esto NO se salta la comprobación de cliente inactivo, que es otra cosa.
+    const isAdmin = req.user.role_name === 'admin';
+    const appointment = await appointmentService.create(body, {
+      enforceClientLimit: !isAdmin,
+    });
     res.status(201).json({
       success: true,
       message: 'Cita creada correctamente.',
@@ -202,9 +209,10 @@ export const update = async (req, res, next) => {
     }
 
     if (req.user.role_name === 'barber') {
-      // El barbero solo confirma o cancela citas suyas. Confirmar es lo que
-      // habilita la promoción automática a in_progress/completed: sin ese paso
-      // la cita se queda en `scheduled` para siempre.
+      // El barbero solo confirma, cancela o marca «no asistió» en citas suyas
+      // (la propiedad la verifica `canBarberUpdate`). Confirmar es lo que habilita
+      // la promoción automática a in_progress/completed: sin ese paso la cita se
+      // queda en `scheduled` para siempre.
       const verdict = canBarberUpdate(existing, req.user.barber_id, body);
       if (!verdict.ok) {
         return res.status(verdict.statusCode).json({

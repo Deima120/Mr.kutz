@@ -10,11 +10,26 @@
  * avanza sola. El barbero es quien cierra ese circuito.
  */
 
-/** Estados que un barbero puede fijar manualmente. */
-export const BARBER_ALLOWED_STATUSES = new Set(['confirmed', 'cancelled']);
+/**
+ * Estados que un barbero puede fijar manualmente.
+ *
+ * `no_show` entra porque el barbero es quien ve la silla vacía; sigue limitado a
+ * sus propias citas por la comprobación de propiedad de `canBarberUpdate`. No le
+ * concede ningún permiso sobre el cliente: activar o inactivar a un cliente es
+ * exclusivo del admin y vive en otro módulo.
+ */
+export const BARBER_ALLOWED_STATUSES = new Set(['confirmed', 'cancelled', 'no_show']);
 
 /** Estados desde los que ya no se admite ningún cambio manual. */
 const TERMINAL_STATUSES = ['cancelled', 'no_show', 'completed'];
+
+/**
+ * Desenlaces ya cerrados: no se reescriben ni siquiera para registrar una
+ * inasistencia. `completed` no está aquí a propósito, porque la automatización
+ * completa sola las citas 10 minutos después de su hora de fin y el barbero se
+ * quedaría sin ventana para registrar al que no vino.
+ */
+const NO_SHOW_BLOCKED_STATUSES = ['cancelled', 'no_show'];
 
 export const BARBER_NOT_OWNER_MESSAGE = 'Solo puedes modificar tus propias citas.';
 
@@ -22,7 +37,7 @@ export const BARBER_TERMINAL_MESSAGE =
   'No se puede editar una cita cancelada, completada o marcada como no asistió.';
 
 export const BARBER_STATUS_MESSAGE =
-  'Como barbero solo puedes confirmar o cancelar la cita.';
+  'Como barbero solo puedes confirmar, cancelar o marcar «no asistió» en la cita.';
 
 export const BARBER_NO_PROFILE_MESSAGE = 'Perfil de barbero no vinculado.';
 
@@ -62,7 +77,9 @@ export function canBarberUpdate(existing, barberId, body = {}) {
     return { ok: false, statusCode: 403, message: BARBER_NOT_OWNER_MESSAGE };
   }
 
-  if (TERMINAL_STATUSES.includes(existing.status)) {
+  const markingNoShow = body.status === 'no_show';
+  const blocked = markingNoShow ? NO_SHOW_BLOCKED_STATUSES : TERMINAL_STATUSES;
+  if (blocked.includes(existing.status)) {
     return { ok: false, statusCode: 400, message: BARBER_TERMINAL_MESSAGE };
   }
 

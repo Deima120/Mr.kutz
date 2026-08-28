@@ -49,6 +49,7 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
         documentType: true,
         documentNumber: true,
         notes: true,
+        isActive: true,
         createdAt: true,
       },
     }),
@@ -65,6 +66,7 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
     document_type: c.documentType,
     document_number: c.documentNumber,
     notes: c.notes,
+    is_active: c.isActive,
     created_at: c.createdAt,
   }));
   return { clients: mapped, total, limit, offset };
@@ -82,6 +84,7 @@ const toSnake = (c) =>
         document_type: c.documentType,
         document_number: c.documentNumber,
         notes: c.notes,
+        is_active: c.isActive,
         created_at: c.createdAt,
         updated_at: c.updatedAt,
       }
@@ -224,6 +227,49 @@ export const update = async (id, data) => {
   return toSnake(client);
 };
 
+/**
+ * Activa o inactiva un cliente. **Solo admin** (lo impone la ruta).
+ *
+ * Toca dos banderas porque son dos puertas distintas:
+ *  - `Client.isActive`: puede agendar. Vale para todos, incluidos los clientes
+ *    creados desde la reserva pública, que no tienen cuenta.
+ *  - `User.isActive`: puede iniciar sesión. Solo existe si el cliente tiene
+ *    cuenta, y el middleware `auth` ya la comprueba en cada petición, así que el
+ *    cierre de sesión es inmediato sin esperar a que expire el token.
+ *
+ * No cancela las citas ya agendadas: sería destructivo y sorpresivo. El panel
+ * informa de cuántas hay para que el admin decida.
+ *
+ * @param {number|string} id
+ * @param {boolean} isActive
+ */
+export const setActive = async (id, isActive) => {
+  const clientId = parseInt(id, 10);
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, userId: true },
+  });
+  if (!client) return null;
+
+  const next = Boolean(isActive);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.client.update({
+      where: { id: clientId },
+      data: { isActive: next },
+    });
+    if (client.userId != null) {
+      await tx.user.update({
+        where: { id: client.userId },
+        data: { isActive: next },
+      });
+    }
+    return row;
+  });
+
+  return toSnake(updated);
+};
+
 export const remove = async (id) => {
   const clientId = parseInt(id, 10);
   const appointmentCount = await prisma.appointment.count({
@@ -231,7 +277,8 @@ export const remove = async (id) => {
   });
   if (appointmentCount > 0) {
     const err = new Error(
-      `No se puede eliminar el cliente porque tiene ${appointmentCount} cita(s) registrada(s).`
+      `No se puede eliminar el cliente porque tiene ${appointmentCount} cita(s) registrada(s). ` +
+        'Puedes inactivarlo en lugar de eliminarlo.'
     );
     err.statusCode = 409;
     throw err;

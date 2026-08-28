@@ -72,6 +72,16 @@ router.use(auth);
 router.use(authorize('admin'));
 
 router.get('/total', totalValidation, validate, purchaseController.getTotal);
+// Antes de `/:id` para que "invoice-availability" no se interprete como un id.
+router.get(
+  '/invoice-availability',
+  [
+    query('supplierId').isInt({ min: 1 }).withMessage('Selecciona un proveedor válido.'),
+    query('invoiceNumber').trim().isLength({ min: 1, max: 80 }).withMessage('Factura no válida.'),
+  ],
+  validate,
+  purchaseController.checkInvoice,
+);
 router.get('/', listValidation, validate, purchaseController.getAll);
 router.post('/:id/submit', idParam, validate, purchaseController.submit);
 router.post('/:id/cancel', cancelValidation, validate, purchaseController.cancel);
