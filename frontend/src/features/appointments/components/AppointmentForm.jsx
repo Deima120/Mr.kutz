@@ -4,10 +4,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as clientService from '@/features/clients/services/clientService';
+import ClientPicker from '@/features/clients/components/ClientPicker';
 import * as barberService from '@/features/barbers/services/barberService';
 import * as serviceService from '@/features/services/services/serviceService';
 import { validateAppointmentForm, getApiErrorMessage, CLIENT_NOTES_MAX } from '@/shared/utils/formValidation';
@@ -141,11 +142,10 @@ export default function AppointmentForm({
   const isClient = user?.role === 'client';
   const [searchParams] = useSearchParams();
 
-  const [clients, setClients] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [services, setServices] = useState([]);
   const [slots, setSlots] = useState([]);
-  const [servicePicker, setServicePicker] = useState('');
+  const [selectedClientObj, setSelectedClientObj] = useState(null);
   const [formData, setFormData] = useState(() => ({
     clientId: isClient ? String(user?.clientId ?? '') : '',
     barberId: '',
@@ -196,8 +196,8 @@ export default function AppointmentForm({
         email: user?.email,
       };
     }
-    return clients.find((c) => String(c.id) === String(formData.clientId));
-  }, [isClient, user, clients, formData.clientId]);
+    return selectedClientObj;
+  }, [isClient, user, selectedClientObj]);
 
   const selectedBarber = useMemo(
     () => barbers.find((b) => String(b.id) === String(formData.barberId)),
@@ -205,20 +205,10 @@ export default function AppointmentForm({
   );
 
   useEffect(() => {
-    const promises = [barberService.getBarbers(), serviceService.getServices()];
-    if (!isClient) promises.unshift(clientService.getClients());
-    Promise.all(promises)
-      .then((results) => {
-        if (!isClient) {
-          const [c, b, s] = results;
-          setClients(c?.clients || c || []);
-          setBarbers(Array.isArray(b) ? b : []);
-          setServices(Array.isArray(s) ? s : []);
-        } else {
-          const [b, s] = results;
-          setBarbers(Array.isArray(b) ? b : []);
-          setServices(Array.isArray(s) ? s : []);
-        }
+    Promise.all([barberService.getBarbers(), serviceService.getServices()])
+      .then(([b, s]) => {
+        setBarbers(Array.isArray(b) ? b : []);
+        setServices(Array.isArray(s) ? s : []);
       })
       .catch(() => {
         setBarbers([]);
@@ -226,6 +216,40 @@ export default function AppointmentForm({
       })
       .finally(() => setDataLoaded(true));
   }, [isClient]);
+
+  /**
+   * Resuelve el cliente seleccionado por id para la vista previa: `ClientPicker` ya
+   * entrega el objeto completo cuando el admin busca y elige uno, pero al editar una
+   * cita solo se conoce el `clientId` guardado, así que hay que ir a buscarlo.
+   */
+  useEffect(() => {
+    if (isClient) return undefined;
+    if (!formData.clientId) {
+      setSelectedClientObj(null);
+      return undefined;
+    }
+    let cancelled = false;
+    let skipFetch = false;
+    setSelectedClientObj((current) => {
+      if (current && String(current.id) === String(formData.clientId)) {
+        skipFetch = true;
+        return current;
+      }
+      return current;
+    });
+    if (skipFetch) return undefined;
+    clientService
+      .getClientById(formData.clientId)
+      .then((c) => {
+        if (!cancelled) setSelectedClientObj(c);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedClientObj(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.clientId, isClient]);
 
   useEffect(() => {
     if (isClient && user?.clientId && !isEdit) {
@@ -382,27 +406,6 @@ export default function AppointmentForm({
 
   const handleBlur = (e) => {
     markTouched(e.target.name);
-  };
-
-  const addService = () => {
-    if (!servicePicker) return;
-    if (formData.serviceIds.length >= MAX_SERVICES_PER_APPOINTMENT) {
-      setError(MAX_SERVICES_MESSAGE);
-      markTouched('serviceIds');
-      return;
-    }
-    setFormData((prev) => {
-      if (prev.serviceIds.includes(servicePicker)) return prev;
-      return {
-        ...prev,
-        serviceIds: [...prev.serviceIds, servicePicker],
-        startTime: isEdit ? prev.startTime : '',
-      };
-    });
-    setServicePicker('');
-    setError('');
-    clearFieldError('serviceIds');
-    markTouched('serviceIds');
   };
 
   const addServiceById = (id) => {
@@ -648,73 +651,6 @@ export default function AppointmentForm({
 
   const showFormFields = !isEdit || (!apptLoading && !loadError);
 
-  const servicesField = (
-    <div className="group">
-      <label className={labelClass}>Servicios *</label>
-      <>
-        <div className="flex gap-2.5">
-          <CustomSelect
-            value={servicePicker}
-            onChange={setServicePicker}
-            placeholder={
-              !dataLoaded ? 'Cargando...' : services.length === 0 ? 'Sin servicios' : 'Agregar servicio...'
-            }
-            variant={selectVariant}
-            className="flex-1 min-w-0"
-            disabled={!dataLoaded || services.length === 0 || atMaxServices}
-            options={services
-              .filter((s) => !formData.serviceIds.includes(String(s.id)))
-              .map((s) => ({
-                id: String(s.id),
-                label: `${s.name} — ${formatMoneyOrDash(s.price)} (${s.duration_minutes} min)`,
-              }))}
-          />
-          <button
-            type="button"
-            onClick={addService}
-            disabled={!servicePicker || atMaxServices}
-            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-barber-dark bg-gold/90 hover:bg-gold disabled:opacity-50 shrink-0 min-h-[42px]"
-          >
-            <Plus className="w-4 h-4" aria-hidden />
-            Agregar
-          </button>
-        </div>
-        {atMaxServices && (
-          <AppInlineAlert variant="warning" className="mt-2 text-xs py-2 px-3">
-            {MAX_SERVICES_MESSAGE}
-          </AppInlineAlert>
-        )}
-        {formData.serviceIds.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {selectedServices.map((s) => (
-              <span
-                key={s.id}
-                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800"
-              >
-                <span className="font-medium">{s.name}</span>
-                <span className="text-stone-400 tabular-nums text-xs">{s.duration_minutes} min</span>
-                <button
-                  type="button"
-                  onClick={() => removeService(String(s.id))}
-                  className="text-stone-400 hover:text-red-600 transition-colors"
-                  aria-label={`Quitar ${s.name}`}
-                >
-                  <X className="w-3.5 h-3.5" aria-hidden />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </>
-      {hintOrError(
-        'serviceIds',
-        formData.serviceIds.length,
-        servicesValidation,
-        isEdit ? 'Servicios de la cita.' : 'Servicios agregados.'
-      )}
-    </div>
-  );
-
   const timeSelect = (
     <div className="group">
       <label className={labelClass}>Hora *</label>
@@ -791,30 +727,30 @@ export default function AppointmentForm({
   const clientSelect = !isClient ? (
     <div className="group">
       <label className={labelClass}>Cliente *</label>
-      <CustomSelect
-        name="clientId"
+      <ClientPicker
         value={formData.clientId}
-        onChange={formSelectEvent('clientId', handleChange)}
+        onChange={(id, client) => {
+          setFormData((prev) => ({ ...prev, clientId: id }));
+          setSelectedClientObj(client || null);
+          setError('');
+          clearFieldError('clientId');
+        }}
         onBlur={() => markTouched('clientId')}
-        placeholder="Seleccionar cliente..."
-        variant={selectVariant}
-        selectClassName={`${fieldClass} ${borderFor('clientId', formData.clientId, clientValidation)}`}
-        options={clients.map((c) => ({
-          id: String(c.id),
-          label: `${c.first_name} ${c.last_name}${c.email ? ` (${c.email})` : ''}`,
-        }))}
+        placeholder="Buscar cliente por nombre, correo, teléfono o documento…"
+        triggerClassName={`${fieldClass} ${borderFor('clientId', formData.clientId, clientValidation)}`}
+        ariaInvalid={Boolean(fieldError('clientId')) || undefined}
       />
       {hintOrError('clientId', formData.clientId, clientValidation, 'Cliente seleccionado.')}
     </div>
   ) : null;
 
-  const clientServicesField = (
+  const servicesPickerField = (
     <div className="group">
-      <label className={labelClass} htmlFor="client-service-filter">
+      <label className={labelClass} htmlFor="appointment-service-filter">
         Servicios *
       </label>
       <FieldFilter
-        id="client-service-filter"
+        id="appointment-service-filter"
         value={serviceFilter}
         onChange={setServiceFilter}
         placeholder="Buscar servicio por nombre o categoría…"
@@ -889,6 +825,12 @@ export default function AppointmentForm({
           {MAX_SERVICES_MESSAGE}
         </AppInlineAlert>
       )}
+      {hintOrError(
+        'serviceIds',
+        formData.serviceIds.length,
+        servicesValidation,
+        isEdit ? 'Servicios de la cita.' : 'Servicios agregados.'
+      )}
     </div>
   );
 
@@ -944,7 +886,7 @@ export default function AppointmentForm({
 
               <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-1">
                 {barberSelect}
-                {servicesField}
+                {servicesPickerField}
                 {timeSelect}
                 {dateInput}
               </div>
@@ -1044,7 +986,7 @@ export default function AppointmentForm({
 
               <div className="grid gap-4">
                 {barberSelect}
-                {clientServicesField}
+                {servicesPickerField}
                 {dateInput}
                 {timeSelect}
               </div>
