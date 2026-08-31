@@ -54,7 +54,10 @@ const CLIENT_LIST_MIN_HEIGHT = '22rem';
 const CLIENT_STATUS_FILTER_OPTIONS = [
   { id: 'scheduled', label: 'Agendada', apiStatus: 'scheduled,confirmed,in_progress' },
   { id: 'completed', label: 'Completada', apiStatus: 'completed' },
-  { id: 'cancelled', label: 'Cancelada', apiStatus: 'cancelled' },
+  // Agrupa no_show con cancelled (mismo criterio que ya usa el móvil,
+  // `Appointment.isCancelled`): sin esto, una cita marcada «no asistió» no
+  // aparece en NINGÚN filtro del cliente y desaparece de su vista sin más.
+  { id: 'cancelled', label: 'Cancelada', apiStatus: 'cancelled,no_show' },
 ];
 
 function clientStatusApiParam(filterId) {
@@ -891,30 +894,6 @@ export default function AppointmentsPage() {
             )}
           </div>
         </div>
-
-        <AdminConfirmModal
-        open={Boolean(noShowTarget)}
-        variant="danger"
-        title="¿Marcar como «no asistió»?"
-        description={
-          noShowTarget ? (
-            <>
-              Se registrará que{' '}
-              <strong className="text-stone-800">
-                {noShowTarget.clientName || 'el cliente'}
-              </strong>{' '}
-              no se presentó a esta cita. Queda en su historial y no se puede deshacer.
-            </>
-          ) : null
-        }
-        confirmLabel="Sí, no asistió"
-        submittingLabel="Marcando…"
-        isSubmitting={markingNoShow}
-        onCancel={() => {
-          if (!markingNoShow) setNoShowTarget(null);
-        }}
-        onConfirm={confirmNoShow}
-      />
       <CancelAppointmentModal
           appointment={cancelTarget}
           open={Boolean(cancelTarget)}
@@ -1174,6 +1153,29 @@ export default function AppointmentsPage() {
           </Table>
         </DataCard>
       ) : null}
+      <AdminConfirmModal
+        open={Boolean(noShowTarget)}
+        variant="danger"
+        title="¿Marcar como «no asistió»?"
+        description={
+          noShowTarget ? (
+            <>
+              Se registrará que{' '}
+              <strong className="text-stone-800">
+                {noShowTarget.clientName || 'el cliente'}
+              </strong>{' '}
+              no se presentó a esta cita. Queda en su historial y no se puede deshacer.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, no asistió"
+        submittingLabel="Marcando…"
+        isSubmitting={markingNoShow}
+        onCancel={() => {
+          if (!markingNoShow) setNoShowTarget(null);
+        }}
+        onConfirm={confirmNoShow}
+      />
       <CancelAppointmentModal
         appointment={cancelTarget}
         open={Boolean(cancelTarget)}
