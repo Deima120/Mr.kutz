@@ -175,10 +175,10 @@ export default function ClientDetailPage() {
             </div>
 
             {/* Datos Principales e Indicadores */}
-            <div className="space-y-4 flex-1">
+            <div className="space-y-4 flex-1 min-w-0">
               <div>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-                  <h2 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">
+                  <h2 className="text-2xl font-bold text-stone-900 font-sans tracking-tight break-words">
                     {client.first_name} {client.last_name}
                   </h2>
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
