@@ -286,8 +286,14 @@ export function mapAppointmentServicesFields(orderedServices, fallbackService, n
 export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
   const where = {};
 
-  if (dateFrom && dateTo) {
-    where.appointmentDate = { gte: new Date(dateFrom), lte: new Date(dateTo) };
+  // Antes exigía las dos puntas del rango, así que un `dateFrom` suelto se
+  // ignoraba en silencio y devolvía también citas pasadas. Cada extremo se aplica
+  // por separado, que es lo que el validador de la ruta ya permitía enviar.
+  if (dateFrom || dateTo) {
+    where.appointmentDate = {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(dateTo) } : {}),
+    };
   } else if (date) {
     where.appointmentDate = new Date(date);
   }

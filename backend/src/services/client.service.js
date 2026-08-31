@@ -56,6 +56,21 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
     prisma.client.count({ where }),
   ]);
 
+  // Inasistencias por cliente: es el dato que justifica inactivar a alguien, así
+  // que viaja con el listado en vez de obligar a entrar ficha por ficha. Un solo
+  // groupBy acotado a los clientes de esta página, no una consulta por fila.
+  const noShowByClient = new Map(
+    clients.length
+      ? (
+          await prisma.appointment.groupBy({
+            by: ['clientId'],
+            where: { clientId: { in: clients.map((c) => c.id) }, status: 'no_show' },
+            _count: { _all: true },
+          })
+        ).map((row) => [row.clientId, row._count._all])
+      : []
+  );
+
   const mapped = clients.map((c) => ({
     id: c.id,
     user_id: c.userId,
@@ -67,6 +82,7 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
     document_number: c.documentNumber,
     notes: c.notes,
     is_active: c.isActive,
+    no_show_count: noShowByClient.get(c.id) ?? 0,
     created_at: c.createdAt,
   }));
   return { clients: mapped, total, limit, offset };
