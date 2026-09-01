@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#dd5b10"/>
-  <text x="16" y="22" font-size="18" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">K</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Mr. Kutz Barbershop">
+  <rect width="32" height="32" fill="#000000"/>
+  <g fill="#ffffff" font-family="'Arial Black','Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="700" text-anchor="middle">
+    <text x="16" y="13.5" font-size="11" textLength="21" lengthAdjust="spacingAndGlyphs">MR.</text>
+    <text x="16" y="24" font-size="11" textLength="26" lengthAdjust="spacingAndGlyphs">KUTZ</text>
+  </g>
+  <rect x="3" y="26.6" width="26" height="1.4" fill="#ffffff"/>
 </svg>
