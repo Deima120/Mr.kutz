@@ -142,7 +142,7 @@ export default function ClientsPage() {
       await clientService.deleteClient(deleteTarget.id);
       setDeleteTarget(null);
       toast.success(`Cliente "${deleteTarget.name}" eliminado correctamente.`);
-      fetchClients();
+      fetchClients(page);
     } catch (err) {
       toast.error(err?.message || 'Error al eliminar');
     } finally {
