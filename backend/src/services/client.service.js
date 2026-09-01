@@ -303,27 +303,44 @@ export const remove = async (id) => {
   return true;
 };
 
-export const getServiceHistory = async (clientId) => {
-  const appointments = await prisma.appointment.findMany({
-    where: { clientId: parseInt(clientId, 10) },
-    include: {
-      service: { select: { name: true, price: true, durationMinutes: true } },
-      barber: { select: { firstName: true, lastName: true } },
-    },
-    orderBy: [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
-    take: 100,
-  });
-  return appointments.map((a) => ({
-    id: a.id,
-    appointment_date: a.appointmentDate,
-    start_time: a.startTime,
-    end_time: a.endTime,
-    status: a.status,
-    notes: a.notes,
-    service_name: a.service.name,
-    price: a.service.price,
-    duration_minutes: a.service.durationMinutes,
-    barber_first_name: a.barber.firstName,
-    barber_last_name: a.barber.lastName,
-  }));
+/**
+ * Historial paginado del cliente. `total` y `completedTotal` cuentan TODAS sus citas,
+ * no solo la página devuelta: antes `take: 100` sin offset hacía que un cliente con más
+ * de 100 citas mostrara "100" como si fuera su total real en el perfil.
+ */
+export const getServiceHistory = async (clientId, { limit = 10, offset = 0 } = {}) => {
+  const where = { clientId: parseInt(clientId, 10) };
+  const [appointments, total, completedTotal] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        service: { select: { name: true, price: true, durationMinutes: true } },
+        barber: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
+      take: limit,
+      skip: offset,
+    }),
+    prisma.appointment.count({ where }),
+    prisma.appointment.count({ where: { ...where, status: 'completed' } }),
+  ]);
+  return {
+    appointments: appointments.map((a) => ({
+      id: a.id,
+      appointment_date: a.appointmentDate,
+      start_time: a.startTime,
+      end_time: a.endTime,
+      status: a.status,
+      notes: a.notes,
+      service_name: a.service.name,
+      price: a.service.price,
+      duration_minutes: a.service.durationMinutes,
+      barber_first_name: a.barber.firstName,
+      barber_last_name: a.barber.lastName,
+    })),
+    total,
+    completedTotal,
+    limit,
+    offset,
+  };
 };

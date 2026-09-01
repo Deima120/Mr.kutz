@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import * as clientService from '@/features/clients/services/clientService';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
+import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import {
   formatAppointmentCalendarDate,
   formatAppointmentClockTime,
@@ -36,24 +37,29 @@ const STATUS_LABELS = {
   no_show: 'No asistió',
 };
 
+const HISTORY_PAGE_SIZE_OPTIONS = [5, 10, 20];
+const HISTORY_DEFAULT_PAGE_SIZE = 5;
+
 export default function ClientDetailPage() {
   const { id } = useParams();
 
   const [client, setClient] = useState(null);
   const [history, setHistory] = useState([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyCompletedTotal, setHistoryCompletedTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(HISTORY_DEFAULT_PAGE_SIZE);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setHistoryPage(1);
     const load = async () => {
       setLoading(true);
       try {
-        const [clientData, historyData] = await Promise.all([
-          clientService.getClientById(id),
-          clientService.getClientHistory(id),
-        ]);
+        const clientData = await clientService.getClientById(id);
         setClient(clientData);
-        setHistory(historyData || []);
       } catch {
         setError('Cliente no encontrado');
       } finally {
@@ -62,6 +68,42 @@ export default function ClientDetailPage() {
     };
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return undefined;
+    let cancelled = false;
+    setHistoryLoading(true);
+    clientService
+      .getClientHistory(id, {
+        limit: historyPageSize,
+        offset: (historyPage - 1) * historyPageSize,
+      })
+      .then((result) => {
+        if (cancelled) return;
+        setHistory(result.appointments);
+        setHistoryTotal(result.total);
+        setHistoryCompletedTotal(result.completedTotal);
+        const totalPages = Math.max(1, Math.ceil(result.total / historyPageSize) || 1);
+        if (historyPage > totalPages) setHistoryPage(totalPages);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHistory([]);
+        setHistoryTotal(0);
+        setHistoryCompletedTotal(0);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, historyPage, historyPageSize]);
+
+  const handleHistoryPageSize = (size) => {
+    setHistoryPageSize(size);
+    setHistoryPage(1);
+  };
 
   if (loading) {
     return (
@@ -135,10 +177,10 @@ export default function ClientDetailPage() {
             </div>
 
             {/* Datos Principales e Indicadores */}
-            <div className="space-y-4 flex-1">
+            <div className="space-y-4 flex-1 min-w-0">
               <div>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-                  <h2 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">
+                  <h2 className="text-2xl font-bold text-stone-900 font-sans tracking-tight break-words">
                     {client.first_name} {client.last_name}
                   </h2>
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -296,7 +338,7 @@ export default function ClientDetailPage() {
                     <MessageSquare className="w-4 h-4 shrink-0 text-gold-dark" />
                     <span className="text-[10px] uppercase tracking-wider font-bold text-stone-500">Notas sobre el Cliente</span>
                   </div>
-                  <p className="text-stone-700 text-xs leading-relaxed italic">"{client.notes}"</p>
+                  <p className="text-stone-700 text-xs leading-relaxed italic break-words">"{client.notes}"</p>
                 </div>
               )}
 
@@ -307,19 +349,42 @@ export default function ClientDetailPage() {
         {/* Línea de Tiempo del Historial (3/5 Columnas) */}
         <div className="md:col-span-3">
           <div className="bg-white rounded-2xl border border-stone-100 p-5 shadow-card hover:shadow-card-hover transition-all duration-300 flex flex-col">
-            <div className="border-b border-stone-100 pb-3 flex items-center justify-between mb-6 shrink-0">
+            <div className="border-b border-stone-100 pb-3 flex items-center justify-between mb-4 shrink-0">
               <h3 className="font-bold text-stone-850 text-base">Historial de servicios</h3>
               <span className="text-[10px] text-stone-400 uppercase tracking-wider font-bold">Servicios Recibidos</span>
             </div>
 
-            <div className="flex-1 min-h-[300px]">
-              {history.length === 0 ? (
+            <AdminPagination
+              idPrefix="client-history"
+              page={historyPage}
+              pageSize={historyPageSize}
+              total={historyTotal}
+              onPageChange={setHistoryPage}
+              onPageSizeChange={handleHistoryPageSize}
+              pageSizeOptions={HISTORY_PAGE_SIZE_OPTIONS}
+              itemLabel={`cita${historyTotal !== 1 ? 's' : ''}`}
+              showSummary
+              layout="bar"
+              disabled={historyLoading}
+              className="mb-4"
+            />
+
+            <div className="flex-1 min-h-[240px]">
+              {historyLoading && history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                  <p className="text-stone-500 text-sm font-medium">Cargando historial...</p>
+                </div>
+              ) : historyTotal === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-10">
                   <Scissors className="w-12 h-12 text-stone-200 mb-2" />
                   <p className="text-stone-500 text-sm font-medium">Sin citas registradas aún.</p>
                 </div>
               ) : (
-                <div className="relative border-l-2 border-stone-100 ml-3.5 pl-5 pr-2 space-y-4 max-h-[300px] overflow-y-auto admin-content-scroll">
+                <div
+                  className={`relative border-l-2 border-stone-100 ml-3.5 pl-5 pr-2 space-y-4 transition-opacity duration-200 ${
+                    historyLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'
+                  }`}
+                >
                   {history.map((item) => {
                     const noteText = appointmentNotesOf(item);
                     
@@ -346,8 +411,8 @@ export default function ClientDetailPage() {
                         {/* Contenedor de la Cita */}
                         <div className="p-4 rounded-xl border border-stone-50 hover:border-stone-100 hover:bg-stone-50/30 transition-all duration-200">
                           <div className="flex justify-between items-start gap-4">
-                            <div className="space-y-1">
-                              <h4 className="font-bold text-stone-850 text-sm group-hover:text-gold-dark transition-colors duration-200">
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <h4 className="font-bold text-stone-850 text-sm group-hover:text-gold-dark transition-colors duration-200 break-words">
                                 {item.service_name}
                               </h4>
                               
@@ -373,7 +438,7 @@ export default function ClientDetailPage() {
 
                               {/* Nota de la cita */}
                               {noteText && (
-                                <div className="mt-2.5 pl-3 border-l-2 border-amber-300 text-stone-600 text-xs bg-amber-50/20 py-1.5 pr-2.5 rounded-r-lg">
+                                <div className="mt-2.5 pl-3 border-l-2 border-amber-300 text-stone-600 text-xs bg-amber-50/20 py-1.5 pr-2.5 rounded-r-lg break-words">
                                   <span className="font-bold text-[10px] text-amber-800 uppercase tracking-wider block mb-0.5">Nota de cita:</span>
                                   {noteText}
                                 </div>

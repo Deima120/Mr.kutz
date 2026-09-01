@@ -18,10 +18,15 @@ export const getClientById = async (id) => {
   return res?.data ?? res;
 };
 
-export const getClientHistory = async (id) => {
-  const response = await api.get(`${CLIENTS_BASE}/${id}/history`);
+export const getClientHistory = async (id, { limit = 10, offset = 0 } = {}) => {
+  const response = await api.get(`${CLIENTS_BASE}/${id}/history`, { params: { limit, offset } });
   const res = response?.data ?? response;
-  return res?.data ?? res;
+  const data = res?.data ?? res;
+  return {
+    appointments: Array.isArray(data?.appointments) ? data.appointments : [],
+    total: typeof data?.total === 'number' ? data.total : 0,
+    completedTotal: typeof data?.completedTotal === 'number' ? data.completedTotal : 0,
+  };
 };
 
 export const createClient = async (data) => {

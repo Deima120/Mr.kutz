@@ -50,8 +50,13 @@ const CLIENT_PAGE_SIZE_OPTIONS = [3, 6, 9, 12];
 /** Altura mínima estable del área de tarjetas (evita saltos de scrollbar). */
 const CLIENT_LIST_MIN_HEIGHT = '22rem';
 
-/** Filtro de estado en vista cliente → valores API (coma = OR). */
+/**
+ * Filtro de estado en vista cliente → valores API (coma = OR).
+ * `all` va sin `apiStatus`: el backend no filtra cuando no recibe `status`, asi que
+ * devuelve tambien `no_show`, que tiene etiqueta y badge propios.
+ */
 const CLIENT_STATUS_FILTER_OPTIONS = [
+  { id: 'all', label: 'Todas', apiStatus: '' },
   { id: 'scheduled', label: 'Agendada', apiStatus: 'scheduled,confirmed,in_progress' },
   { id: 'completed', label: 'Completada', apiStatus: 'completed' },
   // Agrupa no_show con cancelled (mismo criterio que ya usa el móvil,
@@ -763,13 +768,15 @@ export default function AppointmentsPage() {
               >
                 <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-8 sm:p-10 text-center animate-fade-in max-w-lg w-full mx-auto">
                   <p className="text-stone-500 mb-5">
-                    {filterStatus === 'scheduled'
-                      ? 'No tienes citas agendadas.'
-                      : filterStatus === 'completed'
-                        ? 'No tienes citas completadas.'
-                        : 'No tienes citas canceladas.'}
+                    {filterStatus === 'all'
+                      ? 'Todavía no tienes citas.'
+                      : filterStatus === 'scheduled'
+                        ? 'No tienes citas agendadas.'
+                        : filterStatus === 'completed'
+                          ? 'No tienes citas completadas.'
+                          : 'No tienes citas canceladas.'}
                   </p>
-                  {filterStatus === 'scheduled' && (
+                  {(filterStatus === 'all' || filterStatus === 'scheduled') && (
                     <button
                       type="button"
                       onClick={() => setFormView('create')}

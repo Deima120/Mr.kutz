@@ -133,7 +133,11 @@ export const remove = async (req, res, next) => {
  */
 export const getHistory = async (req, res, next) => {
   try {
-    const history = await clientService.getServiceHistory(req.params.id);
+    const { limit, offset } = req.query;
+    const history = await clientService.getServiceHistory(req.params.id, {
+      limit: limit ? parseInt(limit, 10) : 10,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
     res.json({
       success: true,
       data: history,

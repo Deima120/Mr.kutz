@@ -72,7 +72,12 @@ router.use(auth);
 router.use(authorize('admin'));
 
 router.get('/', listValidation, validate, clientController.getAll);
-router.get('/:id/history', idParam, validate, clientController.getHistory);
+router.get(
+  '/:id/history',
+  [idParam, ...paginationQuery({ maxLimit: 100 })],
+  validate,
+  clientController.getHistory
+);
 router.get('/:id', idParam, validate, clientController.getById);
 router.post('/', clientValidation, validate, clientController.create);
 router.put('/:id', [idParam, ...clientUpdateValidation], validate, clientController.update);
