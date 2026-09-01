@@ -61,6 +61,17 @@ async function resolveClient({ firstName, lastName, email, phone }) {
     where: { email: normalizedEmail },
   });
   if (existing) {
+    // Se corta antes de tocar nada: esta ruta no pide login, así que sin esta
+    // comprobación un cliente inactivado seguiría reservando por aquí y la
+    // inactivación sería puramente decorativa.
+    if (!existing.isActive) {
+      const err = new Error(
+        'Esta cuenta no puede agendar citas por el momento. Contacta con la barbería.'
+      );
+      err.statusCode = 403;
+      err.reason = 'CLIENT_INACTIVE';
+      throw err;
+    }
     if (phone && existing.phone !== phone) {
       await prisma.client.update({
         where: { id: existing.id },

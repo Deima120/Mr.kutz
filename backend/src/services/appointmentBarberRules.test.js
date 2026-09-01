@@ -47,13 +47,15 @@ describe('canBarberUpdate — propiedad de la cita', () => {
 });
 
 describe('canBarberUpdate — estados permitidos', () => {
-  for (const status of ['confirmed', 'cancelled']) {
+  // `no_show` se añadió porque el barbero es quien ve la silla vacía; sigue
+  // limitado a sus propias citas por la comprobación de propiedad de arriba.
+  for (const status of ['confirmed', 'cancelled', 'no_show']) {
     it(`permite fijar "${status}"`, () => {
       assert.deepEqual(canBarberUpdate(OWN, BARBER_ID, { status }), { ok: true });
     });
   }
 
-  for (const status of ['in_progress', 'completed', 'no_show', 'scheduled']) {
+  for (const status of ['in_progress', 'completed', 'scheduled']) {
     it(`rechaza "${status}" porque no es una transición del barbero`, () => {
       const res = canBarberUpdate(OWN, BARBER_ID, { status });
       assert.equal(res.ok, false);
@@ -78,6 +80,26 @@ describe('canBarberUpdate — estados terminales', () => {
       assert.equal(res.ok, false);
       assert.equal(res.statusCode, 400);
       assert.equal(res.message, BARBER_TERMINAL_MESSAGE);
+    });
+  }
+
+  it('sí deja marcar "no asistió" sobre una cita que la automatización ya completó', () => {
+    // La automatización completa sola las citas 10 min después de su hora de fin.
+    // Si `completed` bloqueara también el no_show, el barbero se quedaría sin
+    // ventana para registrar al cliente que no se presentó.
+    const res = canBarberUpdate({ barberId: BARBER_ID, status: 'completed' }, BARBER_ID, {
+      status: 'no_show',
+    });
+    assert.deepEqual(res, { ok: true });
+  });
+
+  for (const status of ['cancelled', 'no_show']) {
+    it(`no deja marcar "no asistió" sobre una cita ya en "${status}"`, () => {
+      const res = canBarberUpdate({ barberId: BARBER_ID, status }, BARBER_ID, {
+        status: 'no_show',
+      });
+      assert.equal(res.ok, false);
+      assert.equal(res.statusCode, 400);
     });
   }
 

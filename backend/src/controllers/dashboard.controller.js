@@ -6,7 +6,12 @@ import * as dashboardService from '../services/dashboard.service.js';
 
 export const getStats = async (req, res, next) => {
   try {
-    if (req.user?.role_name === 'barber' && req.user?.barber_id) {
+    if (req.user?.role_name === 'barber') {
+      // Fallar cerrado: sin barber_id vinculado, antes esto caía al panel general
+      // del negocio (ingresos totales, etc.), reservado a admin.
+      if (!req.user?.barber_id) {
+        return res.status(403).json({ success: false, message: 'Perfil de barbero no vinculado.' });
+      }
       const stats = await dashboardService.getBarberStats(req.user.barber_id);
       if (!stats) {
         return res.status(400).json({ success: false, message: 'No se pudo cargar el panel del barbero.' });

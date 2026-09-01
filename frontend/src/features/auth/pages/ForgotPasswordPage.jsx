@@ -13,6 +13,7 @@ import {
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { PublicFormField } from '@/shared/components/FormValidationFields';
+import PasswordInput from '@/shared/components/PasswordInput';
 
 const inputClass = 'input-premium';
 const labelClass = 'label-premium';
@@ -185,7 +186,7 @@ export default function ForgotPasswordPage() {
                         setError('');
                         clearFieldError('email');
                       }}
-                      className={`${inputClass} ${invalid ? inputInvalidClass('email') : ''}`}
+                      className={`${inputClass} ${invalid ? inputInvalidClass : ''}`}
                       placeholder="tu@email.com"
                       autoComplete="email"
                       aria-invalid={invalid || undefined}
@@ -251,7 +252,7 @@ export default function ForgotPasswordPage() {
                           clearFieldError('code');
                         }}
                         onBlur={handleVerifyCode}
-                        className={`${inputClass} flex-1 tracking-widest text-center font-mono ${invalid ? inputInvalidClass('code') : ''}`}
+                        className={`${inputClass} flex-1 tracking-widest text-center font-mono ${invalid ? inputInvalidClass : ''}`}
                         placeholder="000000"
                         autoComplete="one-time-code"
                         aria-invalid={invalid || undefined}
@@ -270,40 +271,40 @@ export default function ForgotPasswordPage() {
                 </PublicFormField>
                 <PublicFormField label="Nueva contraseña" htmlFor="fp-new" required error={fieldError('newPassword')}>
                   {({ invalid, errorId }) => (
-                    <input
+                    <PasswordInput
                       id="fp-new"
-                      type="password"
                       value={newPassword}
                       onChange={(e) => {
                         setNewPassword(e.target.value);
                         setError('');
                         clearFieldError('newPassword');
                       }}
-                      className={`${inputClass} ${invalid ? inputInvalidClass('newPassword') : ''}`}
+                      baseClassName={inputClass}
+                      invalid={invalid}
+                      invalidClassName={inputInvalidClass}
+                      errorId={errorId}
                       placeholder="Mín. 8 caracteres, con mayúscula, minúscula y número"
                       autoComplete="new-password"
                       disabled={!codeVerified}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={errorId}
                     />
                   )}
                 </PublicFormField>
                 <PublicFormField label="Confirmar contraseña" htmlFor="fp-confirm" required error={fieldError('confirmPassword')}>
                   {({ invalid, errorId }) => (
-                    <input
+                    <PasswordInput
                       id="fp-confirm"
-                      type="password"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         setError('');
                         clearFieldError('confirmPassword');
                       }}
-                      className={`${inputClass} ${invalid ? inputInvalidClass('confirmPassword') : ''}`}
+                      baseClassName={inputClass}
+                      invalid={invalid}
+                      invalidClassName={inputInvalidClass}
+                      errorId={errorId}
                       autoComplete="new-password"
                       disabled={!codeVerified}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={errorId}
                     />
                   )}
                 </PublicFormField>
