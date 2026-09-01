@@ -13,10 +13,19 @@ import {
 export const getAll = async (req, res, next) => {
   try {
     let { date, dateFrom, dateTo, barberId, clientId, status, limit, offset } = req.query;
-    if (req.user.role_name === 'barber' && req.user.barber_id) {
+    // Fallar cerrado: si el rol es barber/client pero falta el perfil vinculado,
+    // antes esto dejaba pasar el barberId/clientId tal cual venía en la query (o
+    // ninguno, listando TODO sin filtrar) en vez de negar el acceso.
+    if (req.user.role_name === 'barber') {
+      if (!req.user.barber_id) {
+        return res.status(403).json({ success: false, message: 'Perfil de barbero no vinculado.' });
+      }
       barberId = String(req.user.barber_id);
     }
-    if (req.user.role_name === 'client' && req.user.client_id) {
+    if (req.user.role_name === 'client') {
+      if (!req.user.client_id) {
+        return res.status(403).json({ success: false, message: 'Perfil de cliente no vinculado.' });
+      }
       clientId = String(req.user.client_id);
     }
     const appointments = await appointmentService.getAll({
@@ -83,7 +92,13 @@ export const create = async (req, res, next) => {
     if (!body.serviceId && (!Array.isArray(body.serviceIds) || body.serviceIds.length === 0)) {
       return res.status(400).json({ success: false, message: 'Indica al menos un servicio.' });
     }
-    if (req.user.role_name === 'client' && req.user.client_id) {
+    if (req.user.role_name === 'client') {
+      // Fallar cerrado: sin client_id vinculado, antes se dejaba pasar el
+      // clientId que el propio cuerpo de la petición trajera, permitiendo crear
+      // la cita a nombre de cualquier otro cliente.
+      if (!req.user.client_id) {
+        return res.status(403).json({ success: false, message: 'Perfil de cliente no vinculado.' });
+      }
       body.clientId = req.user.client_id;
     }
     // El tope de citas pendientes es un control antiabuso del canal self-service.
@@ -183,7 +198,15 @@ export const update = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
 
-    if (req.user.role_name === 'client' && req.user.client_id) {
+    if (req.user.role_name === 'client') {
+      // Antes esta comprobación era `role_name === 'client' && req.user.client_id`:
+      // si el rol era 'client' pero no había client_id vinculado, la condición
+      // completa era falsa y TODO este bloque de restricciones se saltaba, dejando
+      // pasar la petición sin ninguna verificación (como si no hubiera reglas).
+      // Falla cerrado: sin perfil de cliente vinculado, no hay nada que autorizar.
+      if (!req.user.client_id) {
+        return res.status(403).json({ success: false, message: 'Perfil de cliente no vinculado.' });
+      }
       if (Number(existing.clientId) !== Number(req.user.client_id)) {
         return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propias citas.' });
       }
