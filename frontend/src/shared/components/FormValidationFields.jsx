@@ -139,6 +139,14 @@ export function adminEmailBorderClass(formatValid, availability, show) {
   return '';
 }
 
+/** Borde del documento en variante admin (`!border-...`): mismo criterio que adminEmailBorderClass. */
+export function adminDocumentBorderClass(formatValid, availability, show) {
+  if (!show) return '';
+  if (!formatValid || availability === 'taken') return '!border-red-400';
+  if (availability === 'available') return '!border-emerald-500';
+  return '';
+}
+
 export function FieldHint({ valid, touched, message, successMessage }) {
   if (!touched) return null;
   if (valid) {

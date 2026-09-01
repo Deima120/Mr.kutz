@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as clientService from '@/features/clients/services/clientService';
-import { checkEmailAvailability } from '@/features/auth/services/authService';
+import { checkEmailAvailability, checkDocumentAvailability } from '@/features/auth/services/authService';
 import {
   sanitizeDocumentNumber,
   sanitizePhone,
@@ -26,8 +26,10 @@ import { validatePhone } from '@/shared/utils/formValidation';
 import {
   FieldHint,
   EmailAvailabilityHint,
+  DocumentAvailabilityHint,
   adminFieldStateClass,
   adminEmailBorderClass,
+  adminDocumentBorderClass,
 } from '@/shared/components/FormValidationFields';
 import AdminFormShell, {
   AdminFormCard,
@@ -59,6 +61,7 @@ export function ClientForm({
   const navigate = useNavigate();
   const toast = useAppToast();
   const initialEmailRef = useRef('');
+  const initialDocumentRef = useRef({ type: '', number: '' });
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -71,6 +74,7 @@ export function ClientForm({
   });
   const [touched, setTouched] = useState({});
   const [emailAvailability, setEmailAvailability] = useState('idle');
+  const [documentAvailability, setDocumentAvailability] = useState('idle');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -81,6 +85,10 @@ export function ClientForm({
         .then((client) => {
           const email = client.email || '';
           initialEmailRef.current = email.trim();
+          initialDocumentRef.current = {
+            type: (client.document_type || '').trim(),
+            number: (client.document_number || '').trim(),
+          };
           setFormData({
             firstName: client.first_name || '',
             lastName: client.last_name || '',
@@ -148,18 +156,28 @@ export function ClientForm({
   const emailShow = fieldTouched(touched, 'email', formData.email);
   const emailReady = emailValidation.valid && (emailUnchanged || emailAvailability === 'available');
 
+  const documentUnchanged =
+    isEdit &&
+    formData.documentType.trim() === initialDocumentRef.current.type &&
+    formData.documentNumber.trim() === initialDocumentRef.current.number;
+  const shouldCheckDocument =
+    !documentOmitted && documentTypeValidation.valid && documentValidation.valid && !documentUnchanged;
+  const documentReady =
+    documentOmitted ||
+    (documentTypeValidation.valid &&
+      documentValidation.valid &&
+      (documentUnchanged || documentAvailability === 'available'));
+
   const formValid = useMemo(
     () =>
-      (documentOmitted || (documentTypeValidation.valid && documentValidation.valid)) &&
+      documentReady &&
       firstNameValidation.valid &&
       lastNameValidation.valid &&
       emailReady &&
       phoneValidation.valid &&
       notesValidation.valid,
     [
-      documentOmitted,
-      documentTypeValidation.valid,
-      documentValidation.valid,
+      documentReady,
       firstNameValidation.valid,
       lastNameValidation.valid,
       emailReady,
@@ -193,6 +211,40 @@ export function ClientForm({
       controller.abort();
     };
   }, [formData.email, shouldCheckEmail, emailUnchanged]);
+
+  useEffect(() => {
+    if (!shouldCheckDocument) {
+      setDocumentAvailability(documentUnchanged ? 'available' : 'idle');
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setDocumentAvailability('checking');
+      try {
+        const result = await checkDocumentAvailability(
+          {
+            documentType: formData.documentType.trim(),
+            documentNumber: formData.documentNumber.trim(),
+          },
+          { signal: controller.signal }
+        );
+        setDocumentAvailability(result?.available ? 'available' : 'taken');
+      } catch (err) {
+        if (controller.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        // Igual que el chequeo de correo de este mismo formulario: un error de red dejará
+        // `documentReady` en falso (no es "available"), así que bloquea el guardado hasta
+        // que se pueda comprobar. Es más estricto que `RegisterPage` (que sí falla abierto);
+        // se mantiene así por consistencia con el resto de este archivo, no con el registro.
+        setDocumentAvailability('error');
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [formData.documentType, formData.documentNumber, shouldCheckDocument, documentUnchanged]);
 
   const markTouched = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -233,6 +285,14 @@ export function ClientForm({
       }
       if (!documentOmitted && !documentValidation.valid) {
         setError(documentValidation.message || 'Revisa el número de documento.');
+        return;
+      }
+      if (!documentOmitted && documentAvailability === 'taken') {
+        setError('Ya existe un cliente con este documento.');
+        return;
+      }
+      if (!documentOmitted && !documentUnchanged && documentAvailability !== 'available') {
+        setError('Espera a que se compruebe el documento.');
         return;
       }
       if (!firstNameValidation.valid) {
@@ -417,20 +477,29 @@ export function ClientForm({
               value={formData.documentNumber}
               onChange={handleChange}
               onBlur={handleBlur}
-              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(
-                documentOmitted || documentValidation.valid,
-                docShow
-              )}`}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                documentOmitted
+                  ? adminFieldStateClass(true, docShow)
+                  : adminDocumentBorderClass(documentValidation.valid, documentAvailability, docShow)
+              }`}
               placeholder="Solo números"
               maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
               required={!documentOmitted}
               autoComplete="off"
             />
-            <FieldHint
-              valid={documentOmitted || documentValidation.valid}
-              touched={docShow}
-              message={documentValidation.message}
-            />
+            {!documentOmitted && !documentValidation.valid && docShow && (
+              <FieldHint valid={false} touched message={documentValidation.message} />
+            )}
+            {!documentOmitted && documentValidation.valid && !documentUnchanged && (
+              <DocumentAvailabilityHint
+                formatValid={documentValidation.valid && documentTypeValidation.valid}
+                availability={documentAvailability}
+                show={docShow}
+              />
+            )}
+            {!documentOmitted && documentUnchanged && docShow && documentValidation.valid && (
+              <FieldHint valid touched message="" successMessage="Documento actual del cliente." />
+            )}
           </div>
         </div>
 
@@ -563,7 +632,12 @@ export function ClientForm({
 
         <AdminFormFooterActions className="mt-1">
           <AdminFormPrimaryButton
-            disabled={loading || !formValid || emailAvailability === 'checking'}
+            disabled={
+              loading ||
+              !formValid ||
+              emailAvailability === 'checking' ||
+              documentAvailability === 'checking'
+            }
           >
             <AdminFormLoadingButton loading={loading} loadingLabel="Guardando…">
               Guardar cliente
