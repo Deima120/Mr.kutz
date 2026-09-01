@@ -577,13 +577,13 @@ export default function AppointmentsPage() {
       }
 
       fetchAppointments();
-      if (isAdmin && newStatus === 'confirmed') {
+      if ((isAdmin || isBarber) && newStatus === 'confirmed') {
         toast.success('Cita confirmada.');
       }
-      if (isAdmin && newStatus === 'scheduled') {
+      if ((isAdmin || isBarber) && newStatus === 'scheduled') {
         toast.success('Confirmación retirada; cita agendada.');
       }
-      if (isAdmin && newStatus === 'cancelled') {
+      if ((isAdmin || isBarber) && newStatus === 'cancelled') {
         toast.success('Cita cancelada.');
       }
     } catch (err) {
@@ -982,6 +982,40 @@ export default function AppointmentsPage() {
                         ) : null}
                       </p>
                     )}
+                    {/* El barbero solo confirma, cancela o marca «no asistió» en sus
+                        propias citas; el backend ya lo verifica igualmente
+                        (canBarberUpdate). Nunca reprograma ni cambia servicios, así
+                        que aquí no hay lápiz de edición: editDisabled siempre true. */}
+                    {!['cancelled', 'no_show', 'completed'].includes(
+                      getEffectiveAppointmentStatus(a, clock)
+                    ) && (
+                      <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                        <AppointmentActionToggles
+                          appointmentId={a.id}
+                          status={a.status}
+                          canConfirm={canConfirmAppointment(a, clock)}
+                          canCancel={canCancelAppointment(a, clock)}
+                          onEdit={() => {}}
+                          onConfirmChange={handleConfirmChange}
+                          onCancelRequest={handleCancelRequest}
+                          editDisabled
+                        />
+                        {canMarkNoShow(a, clock) && a.barber_id === user?.barberId && (
+                          <AdminIconButton
+                            icon={UserX}
+                            label="Marcar «no asistió»"
+                            title="El cliente no se presentó a esta cita"
+                            variant="danger"
+                            onClick={() =>
+                              setNoShowTarget({
+                                id: a.id,
+                                clientName: `${a.client_first_name ?? ''} ${a.client_last_name ?? ''}`.trim(),
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </article>
               </li>
@@ -989,6 +1023,40 @@ export default function AppointmentsPage() {
             })}
           </ul>
         )}
+
+        <AdminConfirmModal
+          open={Boolean(noShowTarget)}
+          variant="danger"
+          title="¿Marcar como «no asistió»?"
+          description={
+            noShowTarget ? (
+              <>
+                Se registrará que{' '}
+                <strong className="text-stone-800">
+                  {noShowTarget.clientName || 'el cliente'}
+                </strong>{' '}
+                no se presentó a esta cita. Queda en su historial y no se puede deshacer.
+              </>
+            ) : null
+          }
+          confirmLabel="Sí, no asistió"
+          submittingLabel="Marcando…"
+          isSubmitting={markingNoShow}
+          onCancel={() => {
+            if (!markingNoShow) setNoShowTarget(null);
+          }}
+          onConfirm={confirmNoShow}
+        />
+        <CancelAppointmentModal
+          appointment={cancelTarget}
+          open={Boolean(cancelTarget)}
+          onClose={() => {
+            if (cancelling) return;
+            setCancelTarget(null);
+          }}
+          onConfirm={handleCancelConfirm}
+          confirming={cancelling}
+        />
       </div>
     );
   }
