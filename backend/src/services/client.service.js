@@ -286,8 +286,22 @@ export const setActive = async (id, isActive) => {
   return toSnake(updated);
 };
 
+/**
+ * Elimina un cliente y, si tiene cuenta de acceso, también su `User`.
+ *
+ * `Client.userId` apunta a `User` con `ON DELETE SET NULL` (no `CASCADE`, a
+ * diferencia de `Barber.userId`): borrar solo el `Client` deja la cuenta de
+ * login intacta y huérfana, así que el cliente eliminado seguía pudiendo
+ * iniciar sesión y agendar. Hay que borrar ambas filas explícitamente.
+ */
 export const remove = async (id) => {
   const clientId = parseInt(id, 10);
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, userId: true },
+  });
+  if (!client) return false;
+
   const appointmentCount = await prisma.appointment.count({
     where: { clientId },
   });
@@ -299,8 +313,27 @@ export const remove = async (id) => {
     err.statusCode = 409;
     throw err;
   }
-  await prisma.client.delete({ where: { id: clientId } });
-  return true;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.client.delete({ where: { id: clientId } });
+      if (client.userId != null) {
+        await tx.user.delete({ where: { id: client.userId } });
+      }
+    });
+    return true;
+  } catch (error) {
+    // La cuenta puede figurar como autora de otros registros (pagos, valoraciones
+    // de citas, etc.) con FK Restrict.
+    if (error?.code === 'P2003') {
+      const err = new Error(
+        'No se puede eliminar el cliente porque su cuenta está relacionada con otros registros del sistema. Inactívalo en su lugar.'
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+    throw error;
+  }
 };
 
 /**
