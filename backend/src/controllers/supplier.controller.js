@@ -41,8 +41,8 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    const data = await supplierService.remove(req.params.id);
-    res.json({ success: true, message: 'Proveedor desactivado.', data });
+    await supplierService.remove(req.params.id);
+    res.json({ success: true, message: 'Proveedor eliminado correctamente.' });
   } catch (error) {
     next(error);
   }
