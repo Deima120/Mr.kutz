@@ -793,7 +793,13 @@ export default function AppointmentsPage() {
   if (isClient) {
     if (isFormOpen) {
       return (
-        <div className="flex-1 min-h-0 overflow-y-auto bg-stone-50">
+        /*
+         * Sin `overflow-y-auto`: el contenedor nunca llegaba a scrollear (el layout
+         * es `min-h-screen`, así que quien scrollea es la ventana — por eso el header
+         * `sticky top-0` sí funciona). Pero al declararlo se convertía en el scrollport
+         * más cercano del aside y su `sticky` quedaba anclado a una caja inmóvil.
+         */
+        <div className="flex-1 min-h-0 bg-stone-50">
           <div className="container mx-auto max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="mb-4">
               <AdminBackNav label="Mis citas" onClick={() => setFormView(null)} />

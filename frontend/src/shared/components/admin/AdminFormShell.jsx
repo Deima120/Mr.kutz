@@ -278,6 +278,9 @@ function AdminFormAsideFloatingBar({ aside }) {
  * @param {boolean} [props.asideFloating=false] — El panel de resumen acompaña al scroll:
  *   sticky en la columna derecha desde `lg`, y barra flotante inferior desplegable por debajo.
  *   Requiere que ningún ancestro recorte con `overflow` (ver `DataCard overflowVisible`).
+ * @param {string} [props.asideStickyTopClass='lg:top-2'] — Offset del aside pegado. Cuando el
+ *   scrollport es la ventana y hay un header `sticky` encima (layout público/cliente), hay que
+ *   bajarlo lo suficiente para no quedar debajo de ese header.
  * @param {boolean} [props.asideFloatingBar=true] — Solo aplica con `asideFloating`. En `false` se
  *   conserva el sticky de escritorio pero se omite la barra inferior móvil: para formularios que ya
  *   tienen su propio pie pegajoso (el de cliente en `AppointmentForm`), donde la barra `fixed` lo
@@ -298,6 +301,7 @@ export default function AdminFormShell({
   showBackNav = true,
   asideFloating = false,
   asideFloatingBar = true,
+  asideStickyTopClass = 'lg:top-2',
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
   const showFloatingBar = asideFloating && asideFloatingBar;
@@ -359,7 +363,7 @@ export default function AdminFormShell({
                */
               className={`flex-col self-start ${
                 asideFloating
-                  ? `lg:sticky lg:top-2 lg:max-h-[calc(100dvh-1rem)] lg:overflow-y-auto ${
+                  ? `lg:sticky ${asideStickyTopClass} lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto ${
                       showFloatingBar ? 'hidden lg:flex' : 'flex'
                     }`
                   : 'flex'
