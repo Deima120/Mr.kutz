@@ -11,7 +11,22 @@ import {
 export const COMPLETION_GRACE_MINUTES = 10;
 
 const TERMINAL = new Set(['cancelled', 'no_show', 'completed']);
-export const MANUAL_ADMIN_STATUSES = new Set(['scheduled', 'confirmed', 'cancelled']);
+
+/** Misma lista, expuesta para no volver a copiarla en otras reglas. */
+export const APPOINTMENT_TERMINAL_STATUSES = TERMINAL;
+
+/**
+ * Estados que se pueden fijar a mano. `no_show` entra aquí para que el personal
+ * pueda registrar al cliente que no se presentó: sin ese dato no hay criterio
+ * para decidir a quién inactivar. Quién puede usarlo se decide fuera (el cliente
+ * no, el barbero solo en sus citas), esto solo abre la puerta.
+ */
+export const MANUAL_ADMIN_STATUSES = new Set([
+  'scheduled',
+  'confirmed',
+  'cancelled',
+  'no_show',
+]);
 
 export function computeAutomaticStatus(currentStatus, startMs, endMs, nowMs = getNowMs()) {
   if (TERMINAL.has(currentStatus)) return currentStatus;

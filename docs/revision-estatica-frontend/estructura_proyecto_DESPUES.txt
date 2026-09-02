@@ -1,0 +1,297 @@
+src
++---features
+|   +---agenda
+|   |   +---components
+|   |   |   +---AgendaDetailModal.jsx
+|   |   |   +---AgendaListView.jsx
+|   |   |   +---AgendaWeekToolbar.jsx
+|   |   |   \---WeeklyAgendaGrid.jsx
+|   |   +---pages
+|   |   |   \---AgendaPage.jsx
+|   |   +---services
+|   |   |   \---agendaService.js
+|   |   \---utils
+|   |       +---agendaConstants.js
+|   |       \---agendaHelpers.js
+|   +---appointments
+|   |   +---components
+|   |   |   +---AppointmentActionToggles.jsx
+|   |   |   \---AppointmentForm.jsx
+|   |   +---pages
+|   |   |   +---AppointmentFormPage.jsx
+|   |   |   \---AppointmentsPage.jsx
+|   |   +---services
+|   |   |   \---appointmentService.js
+|   |   \---utils
+|   |       +---appointmentLimits.js
+|   |       \---appointmentStatusAutomation.js
+|   +---auth
+|   |   +---pages
+|   |   |   +---ForgotPasswordPage.jsx
+|   |   |   +---LoginPage.jsx
+|   |   |   \---RegisterPage.jsx
+|   |   \---services
+|   |       \---authService.js
+|   +---barbers
+|   |   +---pages
+|   |   |   +---BarberFormPage.jsx
+|   |   |   +---BarberSchedulesPage.jsx
+|   |   |   \---BarbersPage.jsx
+|   |   \---services
+|   |       \---barberService.js
+|   +---booking
+|   |   +---pages
+|   |   |   \---BookingPage.jsx
+|   |   \---services
+|   |       \---publicBookingService.js
+|   +---cash-registers
+|   |   +---components
+|   |   |   +---CashMethodBreakdownList.jsx
+|   |   |   +---CashRegisterBanner.jsx
+|   |   |   +---CashRegisterFab.jsx
+|   |   |   +---CashRegisterStatusBadge.jsx
+|   |   |   +---CloseCashRegisterModal.jsx
+|   |   |   \---OpenCashRegisterModal.jsx
+|   |   +---services
+|   |   |   \---cashRegisterService.js
+|   |   +---utils
+|   |   |   +---cashCloseDifference.js
+|   |   |   +---cashCloseDifference.test.js
+|   |   |   +---cashRegisterBannerState.js
+|   |   |   +---cashRegisterBannerState.test.js
+|   |   |   +---cashRegisterBannerVisibility.js
+|   |   |   +---cashRegisterBannerVisibility.test.js
+|   |   |   +---cashRegisterFab.js
+|   |   |   +---cashRegisterFab.test.js
+|   |   |   +---cashRegisterPolling.js
+|   |   |   +---cashRegisterPolling.test.js
+|   |   |   +---cashRegisterStatusBadge.js
+|   |   |   \---cashRegisterStatusBadge.test.js
+|   |   \---CashRegisterContext.jsx
+|   +---clients
+|   |   +---components
+|   |   |   \---ClientPicker.jsx
+|   |   +---pages
+|   |   |   +---ClientDetailPage.jsx
+|   |   |   +---ClientFormPage.jsx
+|   |   |   \---ClientsPage.jsx
+|   |   +---services
+|   |   |   \---clientService.js
+|   |   \---utils
+|   |       \---exportClientsExcel.js
+|   +---commissions
+|   |   \---services
+|   |       \---commissionService.js
+|   +---dashboard
+|   |   +---components
+|   |   |   +---AdminDashboardCharts.jsx
+|   |   |   \---BarberDashboardCharts.jsx
+|   |   +---pages
+|   |   |   \---DashboardPage.jsx
+|   |   \---services
+|   |       \---dashboardService.js
+|   +---expenses
+|   |   \---services
+|   |       \---expenseService.js
+|   +---history
+|   |   \---pages
+|   |       \---HistoryPage.jsx
+|   +---home
+|   |   +---components
+|   |   |   +---BarberPole3D.jsx
+|   |   |   +---Carousel3D.jsx
+|   |   |   +---CortesGallery.jsx
+|   |   |   +---GalleryCarousel3D.jsx
+|   |   |   +---HeroCarousel.jsx
+|   |   |   +---LandingSatisfactionSection.jsx
+|   |   |   +---MobileAppFloating.jsx
+|   |   |   +---Model3DGLTF.jsx
+|   |   |   \---StoreBadgeButton.jsx
+|   |   +---config
+|   |   |   \---mobileAppLinks.js
+|   |   \---pages
+|   |       \---HomePage.jsx
+|   +---inventory
+|   |   +---components
+|   |   |   +---AdjustStockModal.jsx
+|   |   |   +---ImportProductsModal.jsx
+|   |   |   +---InventoryProductsTable.jsx
+|   |   |   +---MovementHistoryModal.jsx
+|   |   |   +---ProductCreateModal.jsx
+|   |   |   +---ProductForm.jsx
+|   |   |   +---ProductPicker.jsx
+|   |   |   \---VoidMovementModal.jsx
+|   |   +---hooks
+|   |   |   +---useInventoryList.js
+|   |   |   \---useInventoryStock.js
+|   |   +---models
+|   |   |   +---productFormModel.js
+|   |   |   +---productFormPayload.js
+|   |   |   \---productFormPayload.test.js
+|   |   +---pages
+|   |   |   +---InventoryPage.jsx
+|   |   |   +---ProductCategoriesPage.jsx
+|   |   |   +---ProductDetailPage.jsx
+|   |   |   \---ProductFormPage.jsx
+|   |   +---services
+|   |   |   +---productCategoryService.js
+|   |   |   \---productService.js
+|   |   +---utils
+|   |   |   +---inventoryExport.js
+|   |   |   +---kardexPagination.js
+|   |   |   +---kardexPagination.test.js
+|   |   |   +---productFormatters.js
+|   |   |   \---productFormatters.test.js
+|   |   \---inventoryFlags.js
+|   +---not-found
+|   |   \---pages
+|   |       \---NotFoundPage.jsx
+|   +---other-incomes
+|   |   \---services
+|   |       \---otherIncomeService.js
+|   +---payments
+|   |   +---components
+|   |   |   +---PaymentDetailModal.jsx
+|   |   |   +---PaymentTypeBadge.jsx
+|   |   |   \---VoidPaymentModal.jsx
+|   |   +---pages
+|   |   |   +---PaymentFormPage.jsx
+|   |   |   \---PaymentsPage.jsx
+|   |   +---services
+|   |   |   \---paymentService.js
+|   |   \---utils
+|   |       +---allocateMethodSplitAmounts.js
+|   |       +---allocateMethodSplitAmounts.test.js
+|   |       +---amountTenderedRule.js
+|   |       +---amountTenderedRule.test.js
+|   |       +---paymentCartSelect.test.js
+|   |       +---paymentFormatters.js
+|   |       \---paymentFormMixedSmoke.test.js
+|   +---portfolio
+|   |   \---services
+|   |       \---portfolioService.js
+|   +---profile
+|   |   \---pages
+|   |       \---ProfilePage.jsx
+|   +---purchases
+|   |   +---components
+|   |   |   +---PurchaseDetailModal.jsx
+|   |   |   +---PurchaseForm.jsx
+|   |   |   +---PurchaseReceiptModal.jsx
+|   |   |   +---ReceivedProductsModal.jsx
+|   |   |   \---VoidPurchaseModal.jsx
+|   |   +---pages
+|   |   |   \---PurchasesPage.jsx
+|   |   +---services
+|   |   |   \---purchaseService.js
+|   |   \---utils
+|   |       \---purchaseFormatters.js
+|   +---reports
+|   |   +---components
+|   |   |   +---CashHistoryReport.jsx
+|   |   |   +---CashLivePanel.jsx
+|   |   |   +---CashRegisterDetailModal.jsx
+|   |   |   +---CommissionsReport.jsx
+|   |   |   +---ExpensesReport.jsx
+|   |   |   +---InventoryReport.jsx
+|   |   |   +---OtherIncomesReport.jsx
+|   |   |   +---PortfolioReport.jsx
+|   |   |   +---ReportsPendingPanel.jsx
+|   |   |   +---ReportsSectionNav.jsx
+|   |   |   +---ReportsSummaryPanel.jsx
+|   |   |   \---SalesHistoryReport.jsx
+|   |   +---pages
+|   |   |   \---ReportsPage.jsx
+|   |   +---reportsNav.js
+|   |   \---reportsNav.test.js
+|   +---services
+|   |   +---components
+|   |   |   \---ServiceStatusToggle.jsx
+|   |   +---pages
+|   |   |   +---ServiceFormPage.jsx
+|   |   |   \---ServicesPage.jsx
+|   |   \---services
+|   |       \---serviceService.js
+|   +---suppliers
+|   |   +---components
+|   |   |   +---SupplierForm.jsx
+|   |   |   +---SupplierFormModal.jsx
+|   |   |   +---SupplierPicker.jsx
+|   |   |   \---SuppliersPanel.jsx
+|   |   +---models
+|   |   |   \---supplierFormModel.js
+|   |   +---pages
+|   |   |   \---SuppliersPage.jsx
+|   |   \---services
+|   |       \---supplierService.js
+|   \---testimonials
+|       \---pages
+|           \---TestimonialsPage.jsx
++---shared
+|   +---components
+|   |   +---admin
+|   |   |   +---AdminExportButtons.jsx
+|   |   |   +---AdminFormShell.jsx
+|   |   |   +---AdminIconButton.jsx
+|   |   |   +---AdminListControls.jsx
+|   |   |   +---AdminModalShell.jsx
+|   |   |   +---AdminMoreMenu.jsx
+|   |   |   +---AdminStatusToggle.jsx
+|   |   |   +---AppointmentRatingsPanel.jsx
+|   |   |   +---DashboardCard.jsx
+|   |   |   +---DataCard.jsx
+|   |   |   +---PageHeader.jsx
+|   |   |   +---RatingStars.jsx
+|   |   |   +---StatsCard.jsx
+|   |   |   \---Table.jsx
+|   |   +---layout
+|   |   |   +---AdminLayout.jsx
+|   |   |   \---MainLayout.jsx
+|   |   +---AppointmentNoteText.jsx
+|   |   +---CustomSelect.jsx
+|   |   +---customSelectLayout.js
+|   |   +---customSelectLayout.test.js
+|   |   +---ErrorBoundary.jsx
+|   |   +---FormValidationFields.jsx
+|   |   +---PasswordInput.jsx
+|   |   \---ProtectedRoute.jsx
+|   +---contexts
+|   |   +---AuthContext.jsx
+|   |   \---SettingsContext.jsx
+|   +---feedback
+|   |   +---AdminConfirmModal.jsx
+|   |   +---AppInlineAlert.jsx
+|   |   +---AppToastHost.jsx
+|   |   +---confirmActions.js
+|   |   +---confirmActions.test.js
+|   |   +---confirmConfig.js
+|   |   +---index.js
+|   |   +---ToastContext.jsx
+|   |   +---toastQueue.js
+|   |   +---toastQueue.test.js
+|   |   \---voidReasonField.js
+|   +---hooks
+|   |   \---useFormValidation.js
+|   +---services
+|   |   \---api.js
+|   +---styles
+|   |   \---index.css
+|   \---utils
+|       +---appointmentTime.js
+|       +---authValidation.js
+|       +---bookAppointmentPath.js
+|       +---colombiaTime.js
+|       +---constants.js
+|       +---cortes.js
+|       +---customSelectAdapters.js
+|       +---dateRange.js
+|       +---dateRange.test.js
+|       +---exportExcel.js
+|       +---exportPdf.js
+|       +---formatDisplayDate.js
+|       +---formValidation.js
+|       +---money.js
+|       \---money.test.js
++---App.js
++---index.js
+\---routes.js

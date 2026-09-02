@@ -101,7 +101,12 @@ export default function PaymentDetailModal({
 
       <DetailRow label="Fecha" value={formatPaymentDateTime(createdAt, payment.start_time)} />
       <DetailRow label="Referencia" value={payment.reference} mono />
-      <DetailRow label="Método" value={methodSummary} />
+      {/* La fila de texto «Método» se quitó: repetía el bloque de métodos de abajo,
+          importes incluidos (formatPaymentMethodsSummary ya los concatena). Solo se
+          conserva como respaldo para cobros antiguos que no tienen methodSplits. */}
+      {methodSplits.length === 0 ? (
+        <DetailRow label="Método" value={methodSummary} />
+      ) : null}
       <DetailRow label="Cliente" value={getPaymentClientName(payment)} />
       <DetailRow label="Concepto" value={getPaymentConcept(payment)} />
       <DetailRow label="Notas" value={payment.notes} />
@@ -118,10 +123,10 @@ export default function PaymentDetailModal({
         </>
       ) : null}
 
-      {methodSplits.length > 1 ? (
+      {methodSplits.length > 0 ? (
         <div className="mt-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-2">
-            Métodos ({methodSplits.length})
+            {methodSplits.length === 1 ? 'Método' : `Métodos (${methodSplits.length})`}
           </p>
           <div className="space-y-1.5">
             {methodSplits.map((split) => (

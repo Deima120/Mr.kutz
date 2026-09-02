@@ -1,0 +1,343 @@
+/**
+ * Selector de cliente con búsqueda remota (nombre, correo, teléfono o documento).
+ * Mismo patrón que ProductPicker/SupplierPicker: antes `AppointmentForm` cargaba
+ * `clientService.getClients()` sin parámetros, y el backend por defecto solo trae los
+ * primeros 50 clientes (orden alfabético) — con más clientes que eso, simplemente no
+ * aparecían en el desplegable. Al buscar en el backend (`search=`) ya no hay tope.
+ */
+
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, ChevronDown, Search } from 'lucide-react';
+import * as clientService from '@/features/clients/services/clientService';
+import { getMenuPositionFromRect } from '@/shared/components/customSelectLayout';
+
+const SEARCH_DEBOUNCE_MS = 280;
+const SEARCH_LIMIT = 30;
+
+function clientLabel(client) {
+  if (!client) return '';
+  return `${client.first_name ?? ''} ${client.last_name ?? ''}`.trim();
+}
+
+function clientMeta(client) {
+  return [client.email, client.phone].filter(Boolean).join(' · ');
+}
+
+function getMenuPosition(triggerEl) {
+  if (!triggerEl) return null;
+  const pos = getMenuPositionFromRect(triggerEl.getBoundingClientRect(), { maxHeight: 300 });
+  if (pos.top === 'auto') {
+    const rect = triggerEl.getBoundingClientRect();
+    return {
+      left: pos.left,
+      width: pos.width,
+      maxHeight: pos.maxHeight,
+      top: rect.top - 6 - pos.maxHeight,
+    };
+  }
+  return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: pos.top };
+}
+
+/**
+ * @param {string|number} value clientId
+ * @param {(clientId: string, client: object|null) => void} onChange
+ */
+export default function ClientPicker({
+  value,
+  onChange,
+  onBlur,
+  placeholder = 'Buscar cliente…',
+  triggerClassName = '',
+  disabled = false,
+  ariaInvalid,
+  ariaDescribedBy,
+}) {
+  const selectId = useId();
+  const listboxId = `${selectId}-listbox`;
+  const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  const inputRef = useRef(null);
+  const onBlurRef = useRef(onBlur);
+  onBlurRef.current = onBlur;
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  useEffect(() => {
+    if (!value) {
+      setSelectedClient(null);
+      return undefined;
+    }
+    let cancelled = false;
+    let skipFetch = false;
+    setSelectedClient((current) => {
+      if (current && String(current.id) === String(value)) {
+        skipFetch = true;
+        return current;
+      }
+      return current;
+    });
+    if (skipFetch) return undefined;
+
+    clientService
+      .getClientById(value)
+      .then((res) => {
+        if (!cancelled) setSelectedClient(res);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedClient(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const q = query.trim();
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setLoading(true);
+      clientService
+        .getClients({ search: q || undefined, limit: SEARCH_LIMIT, offset: 0 })
+        .then((result) => {
+          if (cancelled) return;
+          setResults(Array.isArray(result?.clients) ? result.clients : []);
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, query]);
+
+  const close = useCallback((shouldBlur = true) => {
+    setOpen(false);
+    setMenuPosition(null);
+    setHighlightIndex(0);
+    if (shouldBlur) onBlurRef.current?.();
+  }, []);
+
+  const selectClient = useCallback(
+    (client) => {
+      setSelectedClient(client);
+      onChange?.(String(client.id), client);
+      setQuery('');
+      close(true);
+    },
+    [close, onChange]
+  );
+
+  const refreshMenuPosition = useCallback(() => {
+    setMenuPosition(getMenuPosition(triggerRef.current));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    refreshMenuPosition();
+    const onViewportChange = () => refreshMenuPosition();
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+  }, [open, refreshMenuPosition, results.length]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      const root = rootRef.current;
+      const menu = document.getElementById(listboxId);
+      if (root && !root.contains(event.target) && menu && !menu.contains(event.target)) {
+        close(true);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close(true);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [close, listboxId, open]);
+
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [open]);
+
+  const handleKeyDown = (event) => {
+    if (disabled) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (!results.length) return;
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      setHighlightIndex((prev) => (prev + delta + results.length) % results.length);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      const client = results[highlightIndex];
+      if (client) selectClient(client);
+    }
+  };
+
+  const displayLabel = selectedClient ? clientLabel(selectedClient) : placeholder;
+  const hasValue = value !== undefined && value !== null && String(value) !== '';
+
+  const menu =
+    open && menuPosition
+      ? createPortal(
+          <div
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: 'fixed',
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+              maxHeight: menuPosition.maxHeight,
+              zIndex: 10050,
+            }}
+            className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_14px_32px_rgba(28,25,23,0.12)] flex flex-col"
+          >
+            <div className="p-2 border-b border-stone-100 shrink-0">
+              <div className="relative">
+                <Search
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400"
+                  aria-hidden
+                />
+                <input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setHighlightIndex(0);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Nombre, correo, teléfono o documento…"
+                  className="w-full rounded-lg border border-stone-200 bg-stone-50/80 py-1.5 pl-8 pr-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
+                  aria-autocomplete="list"
+                  aria-controls={listboxId}
+                />
+              </div>
+            </div>
+            <ul
+              className="custom-select-panel overflow-y-auto overflow-x-hidden px-1.5 py-1.5 flex-1 min-h-0"
+              role="presentation"
+            >
+              {loading ? (
+                <li className="px-3.5 py-2 text-sm text-stone-500">Buscando…</li>
+              ) : results.length === 0 ? (
+                <li className="px-3.5 py-2 text-sm text-stone-500">
+                  {query.trim() ? 'Sin resultados' : 'Escribe para buscar clientes'}
+                </li>
+              ) : (
+                results.map((client, index) => {
+                  const isSelected = String(client.id) === String(value);
+                  const isHighlighted = index === highlightIndex;
+                  const meta = clientMeta(client);
+                  return (
+                    <li key={client.id} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        tabIndex={-1}
+                        onMouseEnter={() => setHighlightIndex(index)}
+                        onClick={() => selectClient(client)}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
+                          isSelected
+                            ? 'bg-stone-100 text-barber-dark font-semibold ring-1 ring-gold/30'
+                            : isHighlighted
+                              ? 'bg-stone-50 text-stone-900'
+                              : 'text-stone-700 hover:bg-stone-50'
+                        }`}
+                        title={`${clientLabel(client)}${meta ? ` — ${meta}` : ''}`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate leading-tight">{clientLabel(client)}</span>
+                          {meta ? (
+                            <span className="block truncate text-[11px] leading-tight text-stone-500">
+                              {meta}
+                            </span>
+                          ) : null}
+                        </span>
+                        {isSelected ? (
+                          <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.5} aria-hidden />
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <div ref={rootRef} className="group relative min-w-0">
+        <button
+          ref={triggerRef}
+          type="button"
+          id={selectId}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
+          disabled={disabled}
+          title={hasValue && selectedClient ? displayLabel : undefined}
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          onKeyDown={handleKeyDown}
+          className={`flex w-full items-center justify-between gap-2 text-left pr-3 min-h-[2.25rem] ${triggerClassName} ${
+            open ? 'border-gold/50 ring-2 ring-gold/25 bg-white' : ''
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
+        >
+          <span className={`min-w-0 flex-1 truncate ${!hasValue || !selectedClient ? 'text-stone-400' : ''}`}>
+            {displayLabel}
+          </span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 text-stone-500 transition-transform duration-200 ${
+              open ? 'rotate-180 text-gold' : ''
+            }`}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </button>
+      </div>
+      {menu}
+    </>
+  );
+}

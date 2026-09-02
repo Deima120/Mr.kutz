@@ -7,14 +7,14 @@ import { useSearchParams } from 'react-router-dom';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import ReportsSectionNav from '@/features/reports/components/ReportsSectionNav';
 import ReportsPendingPanel from '@/features/reports/components/ReportsPendingPanel';
-import ReportsSummaryPanel from '@/features/reports/panels/ReportsSummaryPanel';
-import SalesHistoryReport from '@/features/reports/panels/SalesHistoryReport';
-import CashHistoryReport from '@/features/reports/panels/CashHistoryReport';
-import InventoryReport from '@/features/reports/panels/InventoryReport';
-import ExpensesReport from '@/features/reports/panels/ExpensesReport';
-import OtherIncomesReport from '@/features/reports/panels/OtherIncomesReport';
-import CommissionsReport from '@/features/reports/panels/CommissionsReport';
-import PortfolioReport from '@/features/reports/panels/PortfolioReport';
+import ReportsSummaryPanel from '@/features/reports/components/ReportsSummaryPanel';
+import SalesHistoryReport from '@/features/reports/components/SalesHistoryReport';
+import CashHistoryReport from '@/features/reports/components/CashHistoryReport';
+import InventoryReport from '@/features/reports/components/InventoryReport';
+import ExpensesReport from '@/features/reports/components/ExpensesReport';
+import OtherIncomesReport from '@/features/reports/components/OtherIncomesReport';
+import CommissionsReport from '@/features/reports/components/CommissionsReport';
+import PortfolioReport from '@/features/reports/components/PortfolioReport';
 import { REPORT_SECTIONS, resolveReportSectionId } from '@/features/reports/reportsNav';
 
 export default function ReportsPage() {

@@ -372,7 +372,7 @@ export default function BookingPage() {
                       onClick={openServicePicker}
                       placeholder="Buscar servicio por nombre o categoría…"
                       className={`${SERVICE_SEARCH_CLASS} ${
-                        fieldError('serviceIds') ? inputInvalidClass('serviceIds') : ''
+                        fieldError('serviceIds') ? inputInvalidClass : ''
                       }`}
                       autoComplete="off"
                       disabled={loadingCatalogue || atMaxServices}
@@ -442,7 +442,7 @@ export default function BookingPage() {
                       onChange={formSelectEvent('barberId', onChange)}
                       placeholder="Selecciona un barbero…"
                       variant="public"
-                      selectClassName={invalid ? inputInvalidClass('barberId') : ''}
+                      selectClassName={invalid ? inputInvalidClass : ''}
                       disabled={loadingCatalogue}
                       ariaInvalid={invalid || undefined}
                       ariaDescribedBy={errorId}
@@ -502,7 +502,7 @@ export default function BookingPage() {
                     max={bookingDateBounds.max}
                     value={form.appointmentDate}
                     onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('appointmentDate') : ''}`}
+                    className={`input-premium ${invalid ? inputInvalidClass : ''}`}
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
                   />
@@ -518,7 +518,7 @@ export default function BookingPage() {
                     onChange={formSelectEvent('startTime', onChange)}
                     placeholder={timePlaceholder}
                     variant="public"
-                    selectClassName={invalid ? inputInvalidClass('startTime') : ''}
+                    selectClassName={invalid ? inputInvalidClass : ''}
                     disabled={
                       !form.serviceIds.length ||
                       !form.barberId ||
@@ -547,7 +547,7 @@ export default function BookingPage() {
                     type="text"
                     value={form.firstName}
                     onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('firstName') : ''}`}
+                    className={`input-premium ${invalid ? inputInvalidClass : ''}`}
                     maxLength={CLIENT_NAME_MAX}
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
@@ -562,7 +562,7 @@ export default function BookingPage() {
                     type="text"
                     value={form.lastName}
                     onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('lastName') : ''}`}
+                    className={`input-premium ${invalid ? inputInvalidClass : ''}`}
                     maxLength={CLIENT_NAME_MAX}
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
@@ -577,7 +577,7 @@ export default function BookingPage() {
                     type="email"
                     value={form.email}
                     onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('email') : ''}`}
+                    className={`input-premium ${invalid ? inputInvalidClass : ''}`}
                     placeholder="tu@email.com"
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
@@ -593,7 +593,7 @@ export default function BookingPage() {
                     inputMode="numeric"
                     value={form.phone}
                     onChange={onChange}
-                    className={`input-premium ${invalid ? inputInvalidClass('phone') : ''}`}
+                    className={`input-premium ${invalid ? inputInvalidClass : ''}`}
                     placeholder="Solo números"
                     maxLength={CLIENT_PHONE_MAX_DIGITS}
                     aria-invalid={invalid || undefined}
@@ -618,7 +618,7 @@ export default function BookingPage() {
                 value={form.notes}
                 onChange={onChange}
                 className={`input-premium resize-none ${
-                  fieldError('notes') ? inputInvalidClass('notes') : ''
+                  fieldError('notes') ? inputInvalidClass : ''
                 }`}
                 rows={3}
                 maxLength={CLIENT_NOTES_MAX}

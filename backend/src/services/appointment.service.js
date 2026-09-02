@@ -22,6 +22,7 @@ import {
 import {
   isManualAdminStatus,
   resolveAutomaticStatus,
+  APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
 import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
@@ -284,8 +285,14 @@ export function mapAppointmentServicesFields(orderedServices, fallbackService, n
 export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, status, limit = 100, offset = 0 }) => {
   const where = {};
 
-  if (dateFrom && dateTo) {
-    where.appointmentDate = { gte: new Date(dateFrom), lte: new Date(dateTo) };
+  // Antes exigía las dos puntas del rango, así que un `dateFrom` suelto se
+  // ignoraba en silencio y devolvía también citas pasadas. Cada extremo se aplica
+  // por separado, que es lo que el validador de la ruta ya permitía enviar.
+  if (dateFrom || dateTo) {
+    where.appointmentDate = {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(dateTo) } : {}),
+    };
   } else if (date) {
     where.appointmentDate = new Date(date);
   }
@@ -568,8 +575,67 @@ export const getPublicRatingSummary = async ({ recentLimit = 24 } = {}) => {
   };
 };
 
-export const create = async (data) => {
+/**
+ * Citas del cliente que pueden estar ocupando cupo: no terminales y de hoy en
+ * adelante. El filtro por fecha se hace en SQL (aprovecha el índice) y el corte
+ * fino por hora lo aplica `appointmentLimitRules` sobre un puñado de filas.
+ *
+ * @param {number} clientId
+ * @returns {Promise<Array<{ appointmentDate: Date, startTime: Date, status: string }>>}
+ */
+export const getPendingAppointmentsForClient = async (clientId) =>
+  prisma.appointment.findMany({
+    where: {
+      clientId,
+      status: { notIn: [...APPOINTMENT_TERMINAL_STATUSES] },
+      appointmentDate: { gte: ymdToUtcDate(getColombiaTodayYmd()) },
+    },
+    select: { appointmentDate: true, startTime: true, status: true },
+  });
+
+/**
+ * @param {object} data
+ * @param {{ enforceClientLimit?: boolean }} [options] `enforceClientLimit` viene
+ *   activado por defecto para que cualquier llamador nuevo quede protegido salvo
+ *   que renuncie explícitamente. Solo el admin lo desactiva: agenda por teléfono
+ *   y para walk-ins, con contexto que el sistema no tiene.
+ */
+export const create = async (data, { enforceClientLimit = true } = {}) => {
   const { clientId, barberId, serviceId, serviceIds, appointmentDate, startTime, notes } = data;
+
+  const parsedClientId = parseInt(clientId, 10);
+  if (!Number.isFinite(parsedClientId) || parsedClientId <= 0) {
+    const err = new Error('Indica un cliente válido.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Una sola consulta resuelve las dos guardas de cliente: que exista y que no
+  // esté inactivado. El estado se comprueba SIEMPRE, también para el admin: son
+  // banderas distintas y si el admin quiere agendarle, primero lo reactiva.
+  const client = await prisma.client.findUnique({
+    where: { id: parsedClientId },
+    select: { id: true, isActive: true },
+  });
+  if (!client) {
+    const err = new Error('Cliente no encontrado.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!client.isActive) {
+    const err = new Error(
+      'Esta cuenta no puede agendar citas por el momento. Contacta con la barbería.'
+    );
+    err.statusCode = 403;
+    err.reason = 'CLIENT_INACTIVE';
+    throw err;
+  }
+
+  // Se comprueba antes que nada para que el cliente que agotó su cupo lea el
+  // motivo real y no un error de servicio o de horario que no viene al caso.
+  if (enforceClientLimit) {
+    assertUnderPendingLimit(await getPendingAppointmentsForClient(parsedClientId));
+  }
 
   const ids = Array.isArray(serviceIds) && serviceIds.length
     ? [...new Set(serviceIds.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0))]
@@ -617,7 +683,7 @@ export const create = async (data) => {
 
   const created = await prisma.appointment.create({
     data: {
-      clientId: parseInt(clientId, 10),
+      clientId: parsedClientId,
       barberId: parseInt(barberId, 10),
       serviceId: primaryService.id,
       appointmentDate: new Date(appointmentDate),

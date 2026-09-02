@@ -7,7 +7,7 @@ import {
   resolveCashRegisterBannerState,
 } from './cashRegisterBannerState.js';
 
-/** Por encima del contenido; debajo de toasts (z-[190]) y modales. */
+/** Por encima del contenido; debajo de modales y toasts (z-[220], ver AppToastHost). */
 export const CASH_REGISTER_FAB_POSITION_CLASS = 'fixed bottom-20 right-5 z-40';
 
 /**

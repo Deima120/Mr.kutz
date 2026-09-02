@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus, UserCheck, UserX, CalendarX } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as clientService from '@/features/clients/services/clientService';
 import { ClientForm } from '@/features/clients/pages/ClientFormPage';
@@ -38,6 +38,7 @@ export default function ClientsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name } o null
   const [isDeleting, setIsDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -102,6 +103,32 @@ export default function ClientsPage() {
     fetchClients(page);
   }, [fetchClients, page]);
 
+  /**
+   * Activar/inactivar es reversible, así que va sin modal de confirmación
+   * (convención de frontend/docs/FEEDBACK.md, igual que Barberos): basta el toast.
+   *
+   * Inactivar cierra dos puertas a la vez en el backend: iniciar sesión y agendar
+   * (incluida la reserva pública sin login). No cancela las citas ya agendadas.
+   */
+  const handleToggleActive = async (client) => {
+    const nextActive = client.is_active === false;
+    const name = `${client.first_name} ${client.last_name}`.trim();
+    setTogglingId(client.id);
+    try {
+      await clientService.setClientStatus(client.id, nextActive);
+      toast.success(
+        nextActive
+          ? `${name} activado. Ya puede iniciar sesión y agendar.`
+          : `${name} inactivado. No podrá iniciar sesión ni agendar citas.`
+      );
+      fetchClients(page);
+    } catch (err) {
+      toast.error(err?.message || 'No se pudo cambiar el estado del cliente.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   // Activar modal de eliminación
   const handleDelete = (id, name) => {
     setDeleteTarget({ id, name });
@@ -115,7 +142,7 @@ export default function ClientsPage() {
       await clientService.deleteClient(deleteTarget.id);
       setDeleteTarget(null);
       toast.success(`Cliente "${deleteTarget.name}" eliminado correctamente.`);
-      fetchClients();
+      fetchClients(page);
     } catch (err) {
       toast.error(err?.message || 'Error al eliminar');
     } finally {
@@ -355,12 +382,32 @@ export default function ClientsPage() {
                   {clients.map((client) => (
                     <TableRow key={client.id}>
                       <TableCell>
-                        <Link
-                          to={`/clients/${client.id}`}
-                          className="font-semibold text-stone-900 hover:text-gold-dark transition-colors duration-200"
-                        >
-                          {client.first_name} {client.last_name}
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Link
+                            to={`/clients/${client.id}`}
+                            className={`font-semibold transition-colors duration-200 hover:text-gold-dark ${
+                              client.is_active === false ? 'text-stone-400' : 'text-stone-900'
+                            }`}
+                          >
+                            {client.first_name} {client.last_name}
+                          </Link>
+                          {client.is_active === false && (
+                            <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-600">
+                              Inactivo
+                            </span>
+                          )}
+                          {/* Aviso solo a partir de 2: una falta puntual le pasa a cualquiera;
+                              la reincidencia es la que justifica inactivar al cliente. */}
+                          {(client.no_show_count ?? 0) >= 2 && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700"
+                              title={`No asistió a ${client.no_show_count} citas`}
+                            >
+                              <CalendarX className="w-3 h-3" aria-hidden />
+                              {client.no_show_count} inasistencias
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs text-stone-600 font-medium whitespace-nowrap">
                         {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
@@ -379,6 +426,23 @@ export default function ClientsPage() {
                               icon={Pencil}
                               label="Editar cliente"
                               onClick={() => openEditForm(client.id)}
+                            />
+                          )}
+                          {isAdmin && (
+                            <AdminIconButton
+                              icon={client.is_active === false ? UserCheck : UserX}
+                              label={
+                                client.is_active === false
+                                  ? 'Activar cliente'
+                                  : 'Inactivar cliente'
+                              }
+                              title={
+                                client.is_active === false
+                                  ? 'Activar: podrá iniciar sesión y agendar'
+                                  : 'Inactivar: no podrá iniciar sesión ni agendar'
+                              }
+                              disabled={togglingId === client.id}
+                              onClick={() => handleToggleActive(client)}
                             />
                           )}
                           {isAdmin && (

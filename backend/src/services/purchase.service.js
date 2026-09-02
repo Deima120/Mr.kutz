@@ -246,6 +246,37 @@ export const create = async (data, userId) => {
   return toDto(row);
 };
 
+/**
+ * ¿Puede usarse esta factura con este proveedor?
+ *
+ * Sirve para avisar en el formulario mientras se escribe, antes de que el usuario
+ * termine de cargar los artículos y choque con el 409 de `create`. No sustituye a
+ * esa comprobación ni al índice único de la BD: es solo la capa de aviso.
+ *
+ * La misma factura con OTRO proveedor es válida, así que el proveedor forma parte
+ * de la consulta.
+ *
+ * @param {{ supplierId: number|string, invoiceNumber: string }} params
+ * @returns {Promise<{ available: boolean, orderNumber: string|null }>}
+ */
+export const checkInvoiceAvailability = async ({ supplierId, invoiceNumber }) => {
+  const invoice = cleanText(invoiceNumber, 80);
+  const supplier = parseInt(supplierId, 10);
+  if (!invoice || !Number.isFinite(supplier) || supplier <= 0) {
+    return { available: true, orderNumber: null };
+  }
+
+  const duplicated = await prisma.purchase.findFirst({
+    where: { supplierId: supplier, invoiceNumber: invoice },
+    select: { orderNumber: true },
+  });
+
+  return {
+    available: !duplicated,
+    orderNumber: duplicated?.orderNumber ?? null,
+  };
+};
+
 export const submit = async (id) => {
   const purchaseId = Number.parseInt(id, 10);
   return runSerializable(prisma, async (tx) => {
