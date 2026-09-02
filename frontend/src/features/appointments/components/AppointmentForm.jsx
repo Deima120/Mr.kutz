@@ -665,6 +665,9 @@ export default function AppointmentForm({
     // con los botones de acción y la barra `fixed` lo taparía.
     asideFloating: true,
     asideFloatingBar: !isClient,
+    // En la vista cliente el scrollport es la ventana y el header del sitio es
+    // `sticky top-0` (h-16 / md:h-18): el aside tiene que quedar por debajo de él.
+    asideStickyTopClass: isClient ? 'lg:top-20' : 'lg:top-2',
   };
 
   const showFormFields = !isEdit || (!apptLoading && !loadError);
