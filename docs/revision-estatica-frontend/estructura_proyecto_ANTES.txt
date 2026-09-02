@@ -1,0 +1,406 @@
+src
++---features
+|   +---agenda
+|   |   +---components
+|   |   |   +---AgendaDetailModal.jsx
+|   |   |   +---AgendaListView.jsx
+|   |   |   +---AgendaWeekToolbar.jsx
+|   |   |   \---WeeklyAgendaGrid.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---AgendaPage.jsx
+|   |   +---services
+|   |   |   +---.gitkeep
+|   |   |   \---agendaService.js
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   \---utils
+|   |       +---agendaConstants.js
+|   |       \---agendaHelpers.js
+|   +---appointments
+|   |   +---components
+|   |   |   +---.gitkeep
+|   |   |   +---AppointmentActionToggles.jsx
+|   |   |   \---AppointmentForm.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   +---AppointmentFormPage.jsx
+|   |   |   \---AppointmentsPage.jsx
+|   |   +---services
+|   |   |   \---appointmentService.js
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   \---utils
+|   |       +---appointmentLimits.js
+|   |       \---appointmentStatusAutomation.js
+|   +---auth
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   +---ForgotPasswordPage.jsx
+|   |   |   +---LoginPage.jsx
+|   |   |   \---RegisterPage.jsx
+|   |   +---services
+|   |   |   \---authService.js
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---barbers
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   +---BarberFormPage.jsx
+|   |   |   +---BarberSchedulesPage.jsx
+|   |   |   \---BarbersPage.jsx
+|   |   +---services
+|   |   |   \---barberService.js
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---booking
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---BookingPage.jsx
+|   |   +---services
+|   |   |   \---publicBookingService.js
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---cash-registers
+|   |   +---components
+|   |   |   +---CashMethodBreakdownList.jsx
+|   |   |   +---CashRegisterBanner.jsx
+|   |   |   +---CashRegisterFab.jsx
+|   |   |   +---CashRegisterStatusBadge.jsx
+|   |   |   +---CloseCashRegisterModal.jsx
+|   |   |   \---OpenCashRegisterModal.jsx
+|   |   +---services
+|   |   |   \---cashRegisterService.js
+|   |   +---utils
+|   |   |   +---cashCloseDifference.js
+|   |   |   +---cashCloseDifference.test.js
+|   |   |   +---cashRegisterBannerState.js
+|   |   |   +---cashRegisterBannerState.test.js
+|   |   |   +---cashRegisterBannerVisibility.js
+|   |   |   +---cashRegisterBannerVisibility.test.js
+|   |   |   +---cashRegisterFab.js
+|   |   |   +---cashRegisterFab.test.js
+|   |   |   +---cashRegisterPolling.js
+|   |   |   +---cashRegisterPolling.test.js
+|   |   |   +---cashRegisterStatusBadge.js
+|   |   |   \---cashRegisterStatusBadge.test.js
+|   |   \---CashRegisterContext.jsx
+|   +---clients
+|   |   +---components
+|   |   |   +---.gitkeep
+|   |   |   \---ClientPicker.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   +---ClientDetailPage.jsx
+|   |   |   +---ClientFormPage.jsx
+|   |   |   \---ClientsPage.jsx
+|   |   +---services
+|   |   |   \---clientService.js
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   \---utils
+|   |       \---exportClientsExcel.js
+|   +---commissions
+|   |   \---services
+|   |       \---commissionService.js
+|   +---dashboard
+|   |   +---components
+|   |   |   +---AdminDashboardCharts.jsx
+|   |   |   \---BarberDashboardCharts.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---DashboardPage.jsx
+|   |   +---services
+|   |   |   \---dashboardService.js
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---expenses
+|   |   \---services
+|   |       \---expenseService.js
+|   +---history
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---HistoryPage.jsx
+|   |   +---services
+|   |   |   \---.gitkeep
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---home
+|   |   +---components
+|   |   |   +---BarberPole3D.jsx
+|   |   |   +---Carousel3D.jsx
+|   |   |   +---CortesGallery.jsx
+|   |   |   +---GalleryCarousel3D.jsx
+|   |   |   +---HeroCarousel.jsx
+|   |   |   +---LandingSatisfactionSection.jsx
+|   |   |   +---MobileAppFloating.jsx
+|   |   |   +---Model3DGLTF.jsx
+|   |   |   \---StoreBadgeButton.jsx
+|   |   +---config
+|   |   |   \---mobileAppLinks.js
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---HomePage.jsx
+|   |   +---services
+|   |   |   \---.gitkeep
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---inventory
+|   |   +---components
+|   |   |   +---AdjustStockModal.jsx
+|   |   |   +---ImportProductsModal.jsx
+|   |   |   +---InventoryProductsTable.jsx
+|   |   |   +---MovementHistoryModal.jsx
+|   |   |   +---ProductCreateModal.jsx
+|   |   |   +---ProductForm.jsx
+|   |   |   +---ProductPicker.jsx
+|   |   |   \---VoidMovementModal.jsx
+|   |   +---hooks
+|   |   |   +---.gitkeep
+|   |   |   +---useInventoryList.js
+|   |   |   \---useInventoryStock.js
+|   |   +---models
+|   |   |   +---productFormModel.js
+|   |   |   +---productFormPayload.js
+|   |   |   \---productFormPayload.test.js
+|   |   +---pages
+|   |   |   +---InventoryPage.jsx
+|   |   |   +---ProductCategoriesPage.jsx
+|   |   |   +---ProductDetailPage.jsx
+|   |   |   \---ProductFormPage.jsx
+|   |   +---services
+|   |   |   +---productCategoryService.js
+|   |   |   \---productService.js
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   +---utils
+|   |   |   +---inventoryExport.js
+|   |   |   +---kardexPagination.js
+|   |   |   +---kardexPagination.test.js
+|   |   |   +---productFormatters.js
+|   |   |   \---productFormatters.test.js
+|   |   \---inventoryFlags.js
+|   +---not-found
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---NotFoundPage.jsx
+|   |   +---services
+|   |   |   \---.gitkeep
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---other-incomes
+|   |   \---services
+|   |       \---otherIncomeService.js
+|   +---payments
+|   |   +---components
+|   |   |   +---.gitkeep
+|   |   |   +---PaymentDetailModal.jsx
+|   |   |   +---PaymentTypeBadge.jsx
+|   |   |   \---VoidPaymentModal.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   +---PaymentFormPage.jsx
+|   |   |   \---PaymentsPage.jsx
+|   |   +---services
+|   |   |   \---paymentService.js
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   \---utils
+|   |       +---allocateMethodSplitAmounts.js
+|   |       +---allocateMethodSplitAmounts.test.js
+|   |       +---amountTenderedRule.js
+|   |       +---amountTenderedRule.test.js
+|   |       +---paymentCartSelect.test.js
+|   |       +---paymentFormatters.js
+|   |       \---paymentFormMixedSmoke.test.js
+|   +---portfolio
+|   |   \---services
+|   |       \---portfolioService.js
+|   +---profile
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---ProfilePage.jsx
+|   |   +---services
+|   |   |   \---.gitkeep
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---purchases
+|   |   +---components
+|   |   |   +---.gitkeep
+|   |   |   +---PurchaseDetailModal.jsx
+|   |   |   +---PurchaseForm.jsx
+|   |   |   +---PurchaseReceiptModal.jsx
+|   |   |   +---ReceivedProductsModal.jsx
+|   |   |   \---VoidPurchaseModal.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---PurchasesPage.jsx
+|   |   +---services
+|   |   |   \---purchaseService.js
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   \---utils
+|   |       \---purchaseFormatters.js
+|   +---reports
+|   |   +---components
+|   |   |   +---.gitkeep
+|   |   |   +---CashLivePanel.jsx
+|   |   |   +---CashRegisterDetailModal.jsx
+|   |   |   +---ReportsPendingPanel.jsx
+|   |   |   \---ReportsSectionNav.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   \---ReportsPage.jsx
+|   |   +---panels
+|   |   |   +---CashHistoryReport.jsx
+|   |   |   +---CommissionsReport.jsx
+|   |   |   +---ExpensesReport.jsx
+|   |   |   +---InventoryReport.jsx
+|   |   |   +---OtherIncomesReport.jsx
+|   |   |   +---PortfolioReport.jsx
+|   |   |   +---ReportsSummaryPanel.jsx
+|   |   |   \---SalesHistoryReport.jsx
+|   |   +---services
+|   |   |   \---.gitkeep
+|   |   +---slices
+|   |   |   \---.gitkeep
+|   |   +---reportsNav.js
+|   |   \---reportsNav.test.js
+|   +---services
+|   |   +---components
+|   |   |   +---.gitkeep
+|   |   |   \---ServiceStatusToggle.jsx
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   +---pages
+|   |   |   +---ServiceFormPage.jsx
+|   |   |   \---ServicesPage.jsx
+|   |   +---services
+|   |   |   \---serviceService.js
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---settings
+|   |   +---components
+|   |   |   \---.gitkeep
+|   |   +---hooks
+|   |   |   \---.gitkeep
+|   |   \---slices
+|   |       \---.gitkeep
+|   +---suppliers
+|   |   +---components
+|   |   |   +---SupplierForm.jsx
+|   |   |   +---SupplierFormModal.jsx
+|   |   |   +---SupplierPicker.jsx
+|   |   |   \---SuppliersPanel.jsx
+|   |   +---models
+|   |   |   \---supplierFormModel.js
+|   |   +---pages
+|   |   |   \---SuppliersPage.jsx
+|   |   \---services
+|   |       \---supplierService.js
+|   \---testimonials
+|       +---components
+|       |   \---.gitkeep
+|       +---hooks
+|       |   \---.gitkeep
+|       +---pages
+|       |   \---TestimonialsPage.jsx
+|       +---services
+|       |   \---.gitkeep
+|       \---slices
+|           \---.gitkeep
++---shared
+|   +---components
+|   |   +---admin
+|   |   |   +---AdminExportButtons.jsx
+|   |   |   +---AdminFormShell.jsx
+|   |   |   +---AdminIconButton.jsx
+|   |   |   +---AdminListControls.jsx
+|   |   |   +---AdminModalShell.jsx
+|   |   |   +---AdminMoreMenu.jsx
+|   |   |   +---AdminStatusToggle.jsx
+|   |   |   +---AppointmentRatingsPanel.jsx
+|   |   |   +---DashboardCard.jsx
+|   |   |   +---DataCard.jsx
+|   |   |   +---PageHeader.jsx
+|   |   |   +---RatingStars.jsx
+|   |   |   +---StatsCard.jsx
+|   |   |   \---Table.jsx
+|   |   +---layout
+|   |   |   +---AdminLayout.jsx
+|   |   |   \---MainLayout.jsx
+|   |   +---AppointmentNoteText.jsx
+|   |   +---CustomSelect.jsx
+|   |   +---customSelectLayout.js
+|   |   +---customSelectLayout.test.js
+|   |   +---ErrorBoundary.jsx
+|   |   +---FormValidationFields.jsx
+|   |   +---PasswordInput.jsx
+|   |   \---ProtectedRoute.jsx
+|   +---contexts
+|   |   +---AuthContext.jsx
+|   |   \---SettingsContext.jsx
+|   +---feedback
+|   |   +---AdminConfirmModal.jsx
+|   |   +---AppInlineAlert.jsx
+|   |   +---AppToastHost.jsx
+|   |   +---confirmActions.js
+|   |   +---confirmActions.test.js
+|   |   +---confirmConfig.js
+|   |   +---index.js
+|   |   +---ToastContext.jsx
+|   |   +---toastQueue.js
+|   |   +---toastQueue.test.js
+|   |   \---voidReasonField.js
+|   +---hooks
+|   |   +---.gitkeep
+|   |   \---useFormValidation.js
+|   +---services
+|   |   \---api.js
+|   +---styles
+|   |   \---index.css
+|   \---utils
+|       +---appointmentTime.js
+|       +---authValidation.js
+|       +---bookAppointmentPath.js
+|       +---colombiaTime.js
+|       +---constants.js
+|       +---cortes.js
+|       +---customSelectAdapters.js
+|       +---dateRange.js
+|       +---dateRange.test.js
+|       +---exportExcel.js
+|       +---exportPdf.js
+|       +---formatDisplayDate.js
+|       +---formValidation.js
+|       +---money.js
+|       \---money.test.js
++---App.js
++---index.js
+\---routes.js
