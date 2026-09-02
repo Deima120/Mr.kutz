@@ -24,8 +24,7 @@ import {
   resolveAutomaticStatus,
   APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
-import { assertUnderPendingLimit } from './appointmentLimitRules.js';
-import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
+import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
 /** Días hacia atrás que revisa el job de estados (citas confirmadas sin actualizar). */
@@ -792,6 +791,18 @@ export const update = async (id, data, existingAppointment = null) => {
     updateData.notes = buildMultiServiceNotes(orderedServices, userPart);
   }
 
+  /*
+   * Estado *efectivo*, no `existing.status`: la promoción a `in_progress`/`completed`
+   * la persiste el job de sincronización, así que en BD la cita puede seguir como
+   * `confirmed` cuando el servicio ya empezó. Usar el valor crudo dejaba pasar
+   * reprogramaciones de citas en curso.
+   */
+  const effectiveStatus = resolveAutomaticStatus(existing);
+
+  // Reprogramar una cita que ya empezó no tiene sentido operativo: el servicio se
+  // está prestando. Aplica a admin y a cliente por igual.
+  assertAppointmentIsEditable(existing, data);
+
   if (data.status != null) {
     if (!isManualAdminStatus(data.status)) {
       const err = new Error(
@@ -800,22 +811,11 @@ export const update = async (id, data, existingAppointment = null) => {
       err.statusCode = 400;
       throw err;
     }
-    if (data.status === 'no_show') {
-      // `no_show` tiene sus propias reglas y no pasa por `autoLocked`: la
-      // automatización ya habría movido la cita a `in_progress`/`completed`
-      // antes de que al personal le dé tiempo de registrarla.
-      const activePayment = await prisma.paymentLine.findFirst({
-        where: { appointmentId: apptId, voidedAt: null, lineType: 'service' },
-        select: { id: true },
-      });
-      assertCanMarkNoShow(existing, new Date(), { hasActivePayment: Boolean(activePayment) });
-    } else {
-      const autoLocked = ['in_progress', 'completed', 'cancelled', 'no_show'];
-      if (autoLocked.includes(existing.status)) {
-        const err = new Error('Esta cita ya no admite cambios manuales de estado.');
-        err.statusCode = 400;
-        throw err;
-      }
+    const autoLocked = ['in_progress', 'completed', 'cancelled', 'no_show'];
+    if (autoLocked.includes(effectiveStatus)) {
+      const err = new Error('Esta cita ya no admite cambios manuales de estado.');
+      err.statusCode = 400;
+      throw err;
     }
   }
 

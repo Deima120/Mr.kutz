@@ -42,6 +42,10 @@ import {
 } from '@/shared/utils/dateRange';
 import { getColombiaNowParts } from '@/shared/utils/colombiaTime';
 import { formatMoneyOrDash } from '@/shared/utils/money';
+import {
+  isAppointmentActionsLocked,
+  getEffectiveAppointmentStatus,
+} from '@/features/appointments/utils/appointmentStatusAutomation';
 
 /** True si HH:MM ya pasó en el día de hoy (hora Colombia). */
 function isClockTimePastToday(timeStr) {
@@ -266,8 +270,14 @@ export default function AppointmentForm({
       .getAppointmentById(editId)
       .then((a) => {
         if (cancelled || !a) return;
-        if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
-          setLoadError('Esta cita ya no se puede modificar.');
+        // Estado efectivo, no `a.status`: una cita puede estar ya en curso aunque en
+        // BD siga como `confirmed` hasta que el job persista la promoción.
+        if (isAppointmentActionsLocked(a)) {
+          setLoadError(
+            getEffectiveAppointmentStatus(a) === 'in_progress'
+              ? 'Esta cita ya está en curso y no se puede modificar.'
+              : 'Esta cita ya no se puede modificar.'
+          );
           return;
         }
         const today = getLocalDateToday();
@@ -505,6 +515,12 @@ export default function AppointmentForm({
     bullets: [],
     statusLabel: 'Estado',
     statusValue: isEdit ? 'Modo edición' : 'Registro nuevo',
+    // Resumen de la barra flotante móvil (solo la usa la vista admin).
+    barHint:
+      selectedServices.length > 0
+        ? selectedServices.map((s) => s.name).join(' · ')
+        : 'Completa los datos',
+    barValue: selectedServices.length > 0 ? formatMoneyOrDash(totalPrice) : '',
     children: (
       <AdminFormPreviewPanel>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 -mt-2">
@@ -647,6 +663,11 @@ export default function AppointmentForm({
     onBackClick: embedded || isClient ? handleBack : undefined,
     modeBadge: isEdit ? 'Edición' : isClient ? 'Reserva' : 'Alta',
     aside: previewAside,
+    // La vista previa acompaña el scroll del formulario. En la vista de cliente se
+    // omite la barra inferior móvil: el formulario ya tiene su propio pie pegajoso
+    // con los botones de acción y la barra `fixed` lo taparía.
+    asideFloating: true,
+    asideFloatingBar: !isClient,
   };
 
   const showFormFields = !isEdit || (!apptLoading && !loadError);

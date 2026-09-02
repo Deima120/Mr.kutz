@@ -15,6 +15,16 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const recovered = location.state?.recovered;
+  /*
+   * Destino guardado por ProtectedRoute al expulsar a /login. Es el objeto `location`
+   * del router (ruta interna por construcción), nunca una URL que venga del query
+   * string: aceptar eso sería un open redirect. Sin destino, al inicio como antes.
+   */
+  const from = location.state?.from;
+  const redirectTo =
+    from && typeof from.pathname === 'string'
+      ? `${from.pathname}${from.search || ''}`
+      : '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,8 +33,8 @@ export default function LoginPage() {
   const { fieldError, inputInvalidClass, applyValidation, clearFieldError } = useFormValidation();
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) navigate(redirectTo, { replace: true });
+  }, [isAuthenticated, navigate, redirectTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +47,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/', { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       const validationMsg =
         Array.isArray(err?.errors) && err.errors.length > 0
