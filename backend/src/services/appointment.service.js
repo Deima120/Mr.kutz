@@ -24,6 +24,7 @@ import {
   resolveAutomaticStatus,
   APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
+import { assertUnderPendingLimit } from './appointmentLimitRules.js';
 import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
