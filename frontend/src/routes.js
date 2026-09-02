@@ -81,6 +81,8 @@ export default function AppRoutes() {
         { path: 'appointments', element: protectedPage(AppointmentsPage, ['admin', 'barber', 'client']) },
         { path: 'appointments/new', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         { path: 'appointments/:id/edit', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
+        // Destino del botón "Dejar mi valoración" del correo de cita completada.
+        { path: 'appointments/:id/valorar', element: protectedPage(AppointmentsPage, ['client']) },
         { path: 'payments', element: protectedPage(PaymentsPage, ['admin']) },
         { path: 'purchases', element: protectedPage(PurchasesPage, ['admin']) },
         { path: 'suppliers', element: createElement(Navigate, { to: '/purchases?tab=suppliers', replace: true }) },

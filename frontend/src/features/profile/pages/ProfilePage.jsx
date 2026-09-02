@@ -134,25 +134,29 @@ export default function ProfilePage() {
     <div className="min-h-[70vh] bg-stone-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <div className="max-w-4xl mx-auto">
-          <p className="section-label text-gold">Mi cuenta</p>
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-2">
-            <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight">
-              Mi perfil
-            </h1>
-            {!editing && (
-              <button
-                type="button"
-                onClick={startEdit}
-                className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 hover:border-gold/50 hover:bg-gold/5 transition-colors"
-              >
-                <Pencil className="w-4 h-4 text-gold" strokeWidth={2} aria-hidden />
-                Editar perfil
-              </button>
-            )}
+          {/* Encabezado dentro de una card: el kicker, el título y «Editar perfil»
+              forman un solo bloque, igual que el resto de secciones de la pantalla. */}
+          <div className="panel-card p-6 sm:p-8 mb-6">
+            <p className="section-label text-gold">Mi cuenta</p>
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-2">
+              <h1 className="font-serif text-3xl sm:text-4xl text-stone-900 font-medium tracking-tight">
+                Mi perfil
+              </h1>
+              {!editing && (
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:border-gold/50 hover:bg-gold/5 transition-colors"
+                >
+                  <Pencil className="w-4 h-4 text-gold" strokeWidth={2} aria-hidden />
+                  Editar perfil
+                </button>
+              )}
+            </div>
+            <p className="text-stone-500">
+              Gestiona tu información y accede rápido a tus acciones principales.
+            </p>
           </div>
-          <p className="text-stone-500 mb-8">
-            Gestiona tu información y accede rápido a tus acciones principales.
-          </p>
 
           {success && !editing && (
             <div
