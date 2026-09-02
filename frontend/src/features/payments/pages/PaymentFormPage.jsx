@@ -7,10 +7,12 @@
  * Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md
  */
 
-import { useState, useEffect, useMemo, useId } from 'react';
+import { useState, useEffect, useMemo, useId, useCallback, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] `Wallet` era el icono de la fila «Caja (manual)».
-import { CalendarCheck, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { getMenuPositionFromRect } from '@/shared/components/customSelectLayout';
 import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
@@ -108,6 +110,243 @@ function appointmentLabel(a) {
   return `${client || 'Cliente'} · ${service} · ${date}${time ? ` ${time}` : ''}`;
 }
 
+function comboboxMenuPosition(triggerEl) {
+  if (!triggerEl) return null;
+  const pos = getMenuPositionFromRect(triggerEl.getBoundingClientRect(), { maxHeight: 260 });
+  if (pos.top === 'auto') {
+    const rect = triggerEl.getBoundingClientRect();
+    return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: rect.top - 6 - pos.maxHeight };
+  }
+  return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: pos.top };
+}
+
+/**
+ * Combobox de una sola opción con búsqueda LOCAL (sin red): mismo look/interacción que
+ * `ClientPicker`/`ProductPicker` (botón disparador + panel en portal con buscador arriba
+ * y lista con scroll debajo), pero filtrando un array ya cargado en memoria en vez de
+ * pedirlo al backend — para listas acotadas por diseño, como las citas completadas
+ * pendientes de cobro.
+ */
+function LocalCombobox({
+  value,
+  onChange,
+  options,
+  placeholder = 'Buscar…',
+  searchPlaceholder = 'Escribe para buscar…',
+  emptyMessage = 'Sin resultados',
+  disabled = false,
+}) {
+  const selectId = useId();
+  const listboxId = `${selectId}-listbox`;
+  const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  const selected = options.find((o) => String(o.id) === String(value)) || null;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setMenuPosition(null);
+    setHighlightIndex(0);
+    setQuery('');
+  }, []);
+
+  const selectOption = useCallback(
+    (option) => {
+      onChange?.(option.id);
+      close();
+    },
+    [close, onChange]
+  );
+
+  const refreshMenuPosition = useCallback(() => {
+    setMenuPosition(comboboxMenuPosition(triggerRef.current));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    refreshMenuPosition();
+    const onViewportChange = () => refreshMenuPosition();
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+  }, [open, refreshMenuPosition, filtered.length]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      const root = rootRef.current;
+      const menu = document.getElementById(listboxId);
+      if (root && !root.contains(event.target) && menu && !menu.contains(event.target)) {
+        close();
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [close, listboxId, open]);
+
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus());
+  }, [open]);
+
+  const handleKeyDown = (event) => {
+    if (disabled) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (!filtered.length) return;
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      setHighlightIndex((prev) => (prev + delta + filtered.length) % filtered.length);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      const option = filtered[highlightIndex];
+      if (option) selectOption(option);
+    }
+  };
+
+  const hasValue = value !== undefined && value !== null && String(value) !== '';
+
+  const menu =
+    open && menuPosition
+      ? createPortal(
+          <div
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: 'fixed',
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+              maxHeight: menuPosition.maxHeight,
+              zIndex: 10050,
+            }}
+            className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_14px_32px_rgba(28,25,23,0.12)] flex flex-col"
+          >
+            <div className="p-2 border-b border-stone-100 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" aria-hidden />
+                <input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setHighlightIndex(0);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={searchPlaceholder}
+                  className="w-full rounded-lg border border-stone-200 bg-stone-50/80 py-1.5 pl-8 pr-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
+                  aria-autocomplete="list"
+                  aria-controls={listboxId}
+                />
+              </div>
+            </div>
+            <ul
+              className="custom-select-panel overflow-y-auto overflow-x-hidden px-1.5 py-1.5 flex-1 min-h-0"
+              role="presentation"
+            >
+              {filtered.length === 0 ? (
+                <li className="px-3.5 py-2 text-sm text-stone-500">{emptyMessage}</li>
+              ) : (
+                filtered.map((option, index) => {
+                  const isSelected = String(option.id) === String(value);
+                  const isHighlighted = index === highlightIndex;
+                  return (
+                    <li key={option.id} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        tabIndex={-1}
+                        onMouseEnter={() => setHighlightIndex(index)}
+                        onClick={() => selectOption(option)}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
+                          isSelected
+                            ? 'bg-stone-100 text-barber-dark font-semibold ring-1 ring-gold/30'
+                            : isHighlighted
+                              ? 'bg-stone-50 text-stone-900'
+                              : 'text-stone-700 hover:bg-stone-50'
+                        }`}
+                        title={option.label}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        {isSelected ? <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.5} aria-hidden /> : null}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <div ref={rootRef} className="group relative min-w-0">
+        <button
+          type="button"
+          ref={triggerRef}
+          id={selectId}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          disabled={disabled}
+          title={hasValue && selected ? selected.label : undefined}
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          onKeyDown={handleKeyDown}
+          className={`${ADMIN_FORM_FIELD_COMPACT} flex w-full items-center justify-between gap-2 text-left pr-3 ${
+            open ? 'border-gold/50 ring-2 ring-gold/25 bg-white' : ''
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
+        >
+          <span className={`min-w-0 flex-1 truncate ${!hasValue || !selected ? 'text-stone-400' : ''}`}>
+            {selected ? selected.label : placeholder}
+          </span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 text-stone-500 transition-transform duration-200 ${open ? 'rotate-180 text-gold' : ''}`}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </button>
+      </div>
+      {menu}
+    </>
+  );
+}
+
 export function PaymentForm({
   embedded = false,
   contained = false,
@@ -139,7 +378,6 @@ export function PaymentForm({
 
   const [completedAppointments, setCompletedAppointments] = useState([]);
   const [appointmentPick, setAppointmentPick] = useState('');
-  const [appointmentSearch, setAppointmentSearch] = useState('');
   const [productPick, setProductPick] = useState(null);
   const [productQty, setProductQty] = useState('1');
   // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] Estado de la fila «Caja (manual)».
@@ -178,18 +416,6 @@ export function PaymentForm({
       (a) => !a?.has_active_payment && !taken.has(String(a.id))
     );
   }, [completedAppointments, lines]);
-
-  /**
-   * Filtro local por nombre de cliente o servicio: la lista de citas completadas
-   * pendientes de cobro es acotada por naturaleza (se vacía al cobrarlas), así que
-   * no hace falta buscar contra el backend — a diferencia del selector de cliente
-   * en Citas, que sí necesitó búsqueda remota por no tener ese límite natural.
-   */
-  const filteredAppointmentOptions = useMemo(() => {
-    const q = appointmentSearch.trim().toLowerCase();
-    if (!q) return appointmentOptions;
-    return appointmentOptions.filter((a) => appointmentLabel(a).toLowerCase().includes(q));
-  }, [appointmentOptions, appointmentSearch]);
 
   const cartTotal = useMemo(
     () =>
@@ -495,7 +721,6 @@ export function PaymentForm({
       quantity: 1,
     });
     setAppointmentPick('');
-    setAppointmentSearch('');
   };
 
   const handleAddProduct = () => {
@@ -776,38 +1001,17 @@ export function PaymentForm({
                     <CalendarCheck className="inline h-3 w-3 mr-1 text-sky-700" />
                     Servicio (cita)
                   </span>
-                  {appointmentOptions.length > 0 ? (
-                    <div className="relative mb-1.5">
-                      <Search
-                        className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400"
-                        aria-hidden
-                      />
-                      <input
-                        type="search"
-                        value={appointmentSearch}
-                        onChange={(e) => setAppointmentSearch(e.target.value)}
-                        placeholder="Buscar por cliente o servicio…"
-                        className={`${ADMIN_FORM_FIELD_COMPACT} pl-8`}
-                        autoComplete="off"
-                        aria-label="Buscar cita completada"
-                      />
-                    </div>
-                  ) : null}
-                  <CustomSelect
+                  <LocalCombobox
                     value={appointmentPick}
-                    onChange={onCustomSelectValue(setAppointmentPick)}
-                    variant="form"
-                    options={filteredAppointmentOptions.map((a) => ({
+                    onChange={setAppointmentPick}
+                    options={appointmentOptions.map((a) => ({
                       id: String(a.id),
                       label: appointmentLabel(a),
                     }))}
-                    placeholder={
-                      appointmentOptions.length === 0
-                        ? 'No hay citas pendientes'
-                        : filteredAppointmentOptions.length === 0
-                          ? 'Sin resultados'
-                          : 'Cita completada…'
-                    }
+                    placeholder={appointmentOptions.length ? 'Cita completada…' : 'No hay citas pendientes'}
+                    searchPlaceholder="Buscar por cliente o servicio…"
+                    emptyMessage="Sin citas que coincidan"
+                    disabled={appointmentOptions.length === 0}
                   />
                 </div>
                 <button
