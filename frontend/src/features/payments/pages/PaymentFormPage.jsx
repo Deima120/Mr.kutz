@@ -10,7 +10,7 @@
 import { useState, useEffect, useMemo, useId } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] `Wallet` era el icono de la fila «Caja (manual)».
-import { CalendarCheck, Package, Plus, Trash2 } from 'lucide-react';
+import { CalendarCheck, Package, Plus, Search, Trash2 } from 'lucide-react';
 import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
@@ -139,6 +139,7 @@ export function PaymentForm({
 
   const [completedAppointments, setCompletedAppointments] = useState([]);
   const [appointmentPick, setAppointmentPick] = useState('');
+  const [appointmentSearch, setAppointmentSearch] = useState('');
   const [productPick, setProductPick] = useState(null);
   const [productQty, setProductQty] = useState('1');
   // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] Estado de la fila «Caja (manual)».
@@ -177,6 +178,18 @@ export function PaymentForm({
       (a) => !a?.has_active_payment && !taken.has(String(a.id))
     );
   }, [completedAppointments, lines]);
+
+  /**
+   * Filtro local por nombre de cliente o servicio: la lista de citas completadas
+   * pendientes de cobro es acotada por naturaleza (se vacía al cobrarlas), así que
+   * no hace falta buscar contra el backend — a diferencia del selector de cliente
+   * en Citas, que sí necesitó búsqueda remota por no tener ese límite natural.
+   */
+  const filteredAppointmentOptions = useMemo(() => {
+    const q = appointmentSearch.trim().toLowerCase();
+    if (!q) return appointmentOptions;
+    return appointmentOptions.filter((a) => appointmentLabel(a).toLowerCase().includes(q));
+  }, [appointmentOptions, appointmentSearch]);
 
   const cartTotal = useMemo(
     () =>
@@ -482,6 +495,7 @@ export function PaymentForm({
       quantity: 1,
     });
     setAppointmentPick('');
+    setAppointmentSearch('');
   };
 
   const handleAddProduct = () => {
@@ -762,16 +776,37 @@ export function PaymentForm({
                     <CalendarCheck className="inline h-3 w-3 mr-1 text-sky-700" />
                     Servicio (cita)
                   </span>
+                  {appointmentOptions.length > 0 ? (
+                    <div className="relative mb-1.5">
+                      <Search
+                        className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400"
+                        aria-hidden
+                      />
+                      <input
+                        type="search"
+                        value={appointmentSearch}
+                        onChange={(e) => setAppointmentSearch(e.target.value)}
+                        placeholder="Buscar por cliente o servicio…"
+                        className={`${ADMIN_FORM_FIELD_COMPACT} pl-8`}
+                        autoComplete="off"
+                        aria-label="Buscar cita completada"
+                      />
+                    </div>
+                  ) : null}
                   <CustomSelect
                     value={appointmentPick}
                     onChange={onCustomSelectValue(setAppointmentPick)}
                     variant="form"
-                    options={appointmentOptions.map((a) => ({
+                    options={filteredAppointmentOptions.map((a) => ({
                       id: String(a.id),
                       label: appointmentLabel(a),
                     }))}
                     placeholder={
-                      appointmentOptions.length ? 'Cita completada…' : 'No hay citas pendientes'
+                      appointmentOptions.length === 0
+                        ? 'No hay citas pendientes'
+                        : filteredAppointmentOptions.length === 0
+                          ? 'Sin resultados'
+                          : 'Cita completada…'
                     }
                   />
                 </div>
