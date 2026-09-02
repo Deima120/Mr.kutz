@@ -31,6 +31,17 @@ export const getPurchaseById = async (id) => {
   return extract(response);
 };
 
+/**
+ * Comprueba si la factura ya está usada con ese proveedor, para avisar mientras
+ * se escribe en vez de esperar al error del guardado.
+ */
+export const checkInvoiceAvailability = async ({ supplierId, invoiceNumber }) => {
+  const response = await api.get(`${BASE}/invoice-availability`, {
+    params: { supplierId, invoiceNumber },
+  });
+  return extract(response);
+};
+
 export const createPurchase = async (data) => {
   const response = await api.post(BASE, data);
   return extract(response);

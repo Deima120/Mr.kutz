@@ -3,15 +3,22 @@
  * Vista cliente: cards y flujo simple. Admin/Barber: tabla y filtros.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Star, Plus, ArrowRight, Pencil, Clock, User, Ban, CalendarDays } from 'lucide-react';
+import { Star, Plus, ArrowRight, Pencil, Clock, User, Ban, CalendarDays, UserX } from 'lucide-react';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as barberService from '@/features/barbers/services/barberService';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import { AdminPagination, AdminFilterDate, AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
+import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import {
+  MAX_PENDING_APPOINTMENTS_PER_CLIENT,
+  PENDING_STATUSES,
+  pendingLimitMessage,
+} from '@/features/appointments/utils/appointmentLimits';
+import { getColombiaTodayYmd } from '@/shared/utils/colombiaTime';
 import CustomSelect from '@/shared/components/CustomSelect';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import RatingStars from '@/shared/components/admin/RatingStars';
@@ -28,6 +35,7 @@ import {
   canConfirmAppointment,
   canCancelAppointment,
   isAppointmentActionsLocked,
+  canMarkNoShow,
 } from '@/features/appointments/utils/appointmentStatusAutomation';
 import {
   formatAppointmentClockTime,
@@ -43,11 +51,19 @@ const CLIENT_PAGE_SIZE_OPTIONS = [3, 6, 9, 12];
 /** Altura mínima estable del área de tarjetas (evita saltos de scrollbar). */
 const CLIENT_LIST_MIN_HEIGHT = '22rem';
 
-/** Filtro de estado en vista cliente → valores API (coma = OR). */
+/**
+ * Filtro de estado en vista cliente → valores API (coma = OR).
+ * `all` va sin `apiStatus`: el backend no filtra cuando no recibe `status`, asi que
+ * devuelve tambien `no_show`, que tiene etiqueta y badge propios.
+ */
 const CLIENT_STATUS_FILTER_OPTIONS = [
+  { id: 'all', label: 'Todas', apiStatus: '' },
   { id: 'scheduled', label: 'Agendada', apiStatus: 'scheduled,confirmed,in_progress' },
   { id: 'completed', label: 'Completada', apiStatus: 'completed' },
-  { id: 'cancelled', label: 'Cancelada', apiStatus: 'cancelled' },
+  // Agrupa no_show con cancelled (mismo criterio que ya usa el móvil,
+  // `Appointment.isCancelled`): sin esto, una cita marcada «no asistió» no
+  // aparece en NINGÚN filtro del cliente y desaparece de su vista sin más.
+  { id: 'cancelled', label: 'Cancelada', apiStatus: 'cancelled,no_show' },
 ];
 
 function clientStatusApiParam(filterId) {
@@ -481,6 +497,9 @@ export default function AppointmentsPage() {
   const [filterBarber, setFilterBarber] = useState('');
   const [loading, setLoading] = useState(true);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [pendingCount, setPendingCount] = useState(null);
+  const [noShowTarget, setNoShowTarget] = useState(null);
+  const [markingNoShow, setMarkingNoShow] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [filterStatus, setFilterStatus] = useState('scheduled');
   const [page, setPage] = useState(1);
@@ -623,6 +642,34 @@ export default function AppointmentsPage() {
     }
   }, [location.state, location.pathname, navigate, toast]);
 
+  /**
+   * Cuántas citas pendientes tiene el cliente ahora mismo, para avisarle antes de
+   * abrir el formulario en vez de dejar que lo llene y choque con el 409.
+   *
+   * Se pide con `limit: 1` porque solo interesa `total`; el corte por fecha evita
+   * contar citas viejas que nadie confirmó y que el backend tampoco cuenta.
+   */
+  const refreshPendingCount = useCallback(async () => {
+    if (!isClient || !user?.clientId) return;
+    try {
+      const data = await appointmentService.getAppointments({
+        clientId: user.clientId,
+        status: PENDING_STATUSES,
+        dateFrom: getColombiaTodayYmd(),
+        limit: 1,
+        offset: 0,
+      });
+      setPendingCount(data?.total ?? 0);
+    } catch {
+      // Si falla, no se bloquea nada: el backend sigue siendo la regla real.
+      setPendingCount(null);
+    }
+  }, [isClient, user?.clientId]);
+
+  useEffect(() => {
+    refreshPendingCount();
+  }, [refreshPendingCount, appointments]);
+
   const handleStatusChange = async (id, newStatus, extra = {}) => {
     try {
       await appointmentService.updateAppointment(id, { status: newStatus, ...extra });
@@ -637,13 +684,13 @@ export default function AppointmentsPage() {
       }
 
       fetchAppointments();
-      if (isAdmin && newStatus === 'confirmed') {
+      if ((isAdmin || isBarber) && newStatus === 'confirmed') {
         toast.success('Cita confirmada.');
       }
-      if (isAdmin && newStatus === 'scheduled') {
+      if ((isAdmin || isBarber) && newStatus === 'scheduled') {
         toast.success('Confirmación retirada; cita agendada.');
       }
-      if (isAdmin && newStatus === 'cancelled') {
+      if ((isAdmin || isBarber) && newStatus === 'cancelled') {
         toast.success('Cita cancelada.');
       }
     } catch (err) {
@@ -664,6 +711,26 @@ export default function AppointmentsPage() {
       return;
     }
     setCancelTarget(target);
+  };
+
+  /**
+   * Marcar «no asistió» sí lleva confirmación: deja constancia de que una persona
+   * faltó, alimenta el contador que justifica inactivarla y no se puede deshacer
+   * (el backend no admite salir de `no_show`).
+   */
+  const confirmNoShow = async () => {
+    if (!noShowTarget) return;
+    setMarkingNoShow(true);
+    try {
+      await appointmentService.updateAppointment(noShowTarget.id, { status: 'no_show' });
+      setNoShowTarget(null);
+      toast.success('Cita marcada como «no asistió».');
+      await fetchAppointments(page);
+    } catch (err) {
+      toast.error(err?.message || 'No se pudo marcar la inasistencia.');
+    } finally {
+      setMarkingNoShow(false);
+    }
   };
 
   const handleCancelRequest = (id) => {
@@ -718,6 +785,10 @@ export default function AppointmentsPage() {
 
   const openEditForm = (id) => setFormView(id);
 
+  // `null` mientras no se sabe: no se bloquea nada hasta tener el dato real.
+  const atPendingLimit =
+    isClient && pendingCount != null && pendingCount >= MAX_PENDING_APPOINTMENTS_PER_CLIENT;
+
   // ——— Vista cliente: pantalla completa, sin scroll de página ———
   if (isClient) {
     if (isFormOpen) {
@@ -755,12 +826,24 @@ export default function AppointmentsPage() {
             <button
               type="button"
               onClick={() => setFormView('create')}
-              className="inline-flex items-center gap-2 w-full sm:w-auto justify-center shrink-0 px-5 py-2.5 sm:px-6 sm:py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors"
+              disabled={atPendingLimit}
+              title={atPendingLimit ? pendingLimitMessage() : undefined}
+              className="inline-flex items-center gap-2 w-full sm:w-auto justify-center shrink-0 px-5 py-2.5 sm:px-6 sm:py-3 bg-barber-dark text-white font-semibold rounded-xl hover:bg-barber-charcoal focus:ring-2 focus:ring-gold focus:ring-offset-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-barber-dark"
             >
               <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
               Agendar nueva cita
             </button>
           </header>
+
+          {atPendingLimit && (
+            <div
+              className="shrink-0 mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              role="status"
+            >
+              <strong className="font-semibold">Llegaste al máximo de citas pendientes.</strong>{' '}
+              {pendingLimitMessage()}
+            </div>
+          )}
 
           <div className="shrink-0 mb-3">
             <ClientAppointmentsToolbar
@@ -793,17 +876,21 @@ export default function AppointmentsPage() {
               >
                 <div className="bg-white rounded-2xl border border-stone-200 shadow-card p-8 sm:p-10 text-center animate-fade-in max-w-lg w-full mx-auto">
                   <p className="text-stone-500 mb-5">
-                    {filterStatus === 'scheduled'
-                      ? 'No tienes citas agendadas.'
-                      : filterStatus === 'completed'
-                        ? 'No tienes citas completadas.'
-                        : 'No tienes citas canceladas.'}
+                    {filterStatus === 'all'
+                      ? 'Todavía no tienes citas.'
+                      : filterStatus === 'scheduled'
+                        ? 'No tienes citas agendadas.'
+                        : filterStatus === 'completed'
+                          ? 'No tienes citas completadas.'
+                          : 'No tienes citas canceladas.'}
                   </p>
-                  {filterStatus === 'scheduled' && (
+                  {(filterStatus === 'all' || filterStatus === 'scheduled') && (
                     <button
                       type="button"
                       onClick={() => setFormView('create')}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors"
+                      disabled={atPendingLimit}
+                      title={atPendingLimit ? pendingLimitMessage() : undefined}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gold/10 text-barber-dark font-semibold rounded-xl hover:bg-gold/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Agendar mi primera cita
                       <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
@@ -928,8 +1015,7 @@ export default function AppointmentsPage() {
             )}
           </div>
         </div>
-
-        <CancelAppointmentModal
+      <CancelAppointmentModal
           appointment={cancelTarget}
           open={Boolean(cancelTarget)}
           onClose={() => {
@@ -1029,6 +1115,40 @@ export default function AppointmentsPage() {
                         ) : null}
                       </p>
                     )}
+                    {/* El barbero solo confirma, cancela o marca «no asistió» en sus
+                        propias citas; el backend ya lo verifica igualmente
+                        (canBarberUpdate). Nunca reprograma ni cambia servicios, así
+                        que aquí no hay lápiz de edición: editDisabled siempre true. */}
+                    {!['cancelled', 'no_show', 'completed'].includes(
+                      getEffectiveAppointmentStatus(a, clock)
+                    ) && (
+                      <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                        <AppointmentActionToggles
+                          appointmentId={a.id}
+                          status={a.status}
+                          canConfirm={canConfirmAppointment(a, clock)}
+                          canCancel={canCancelAppointment(a, clock)}
+                          onEdit={() => {}}
+                          onConfirmChange={handleConfirmChange}
+                          onCancelRequest={handleCancelRequest}
+                          editDisabled
+                        />
+                        {canMarkNoShow(a, clock) && a.barber_id === user?.barberId && (
+                          <AdminIconButton
+                            icon={UserX}
+                            label="Marcar «no asistió»"
+                            title="El cliente no se presentó a esta cita"
+                            variant="danger"
+                            onClick={() =>
+                              setNoShowTarget({
+                                id: a.id,
+                                clientName: `${a.client_first_name ?? ''} ${a.client_last_name ?? ''}`.trim(),
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </article>
               </li>
@@ -1036,6 +1156,40 @@ export default function AppointmentsPage() {
             })}
           </ul>
         )}
+
+        <AdminConfirmModal
+          open={Boolean(noShowTarget)}
+          variant="danger"
+          title="¿Marcar como «no asistió»?"
+          description={
+            noShowTarget ? (
+              <>
+                Se registrará que{' '}
+                <strong className="text-stone-800">
+                  {noShowTarget.clientName || 'el cliente'}
+                </strong>{' '}
+                no se presentó a esta cita. Queda en su historial y no se puede deshacer.
+              </>
+            ) : null
+          }
+          confirmLabel="Sí, no asistió"
+          submittingLabel="Marcando…"
+          isSubmitting={markingNoShow}
+          onCancel={() => {
+            if (!markingNoShow) setNoShowTarget(null);
+          }}
+          onConfirm={confirmNoShow}
+        />
+        <CancelAppointmentModal
+          appointment={cancelTarget}
+          open={Boolean(cancelTarget)}
+          onClose={() => {
+            if (cancelling) return;
+            setCancelTarget(null);
+          }}
+          onConfirm={handleCancelConfirm}
+          confirming={cancelling}
+        />
       </div>
     );
   }
@@ -1149,29 +1303,49 @@ export default function AppointmentsPage() {
                     )}
                   </TableCell>
                   <TableCell className="align-middle">
-                    {effectiveStatus === 'completed' ? (
-                      !a.has_active_payment ? (
-                        <Link
-                          to={`/payments/new?appointmentId=${a.id}`}
-                          className="inline-flex items-center rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold-dark hover:bg-gold/20 transition-colors"
-                        >
-                          Registrar venta
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-stone-400">Con venta</span>
-                      )
-                    ) : ['cancelled', 'no_show'].includes(effectiveStatus) ? null : (
-                      <AppointmentActionToggles
-                        appointmentId={a.id}
-                        status={a.status}
-                        canConfirm={canConfirmAppointment(a, clock)}
-                        canCancel={canCancelAppointment(a, clock)}
-                        onEdit={openEditForm}
-                        onConfirmChange={handleConfirmChange}
-                        onCancelRequest={handleCancelRequest}
-                        editDisabled={locked}
-                      />
-                    )}
+                    <div className="inline-flex items-center gap-2">
+                      {effectiveStatus === 'completed' ? (
+                        !a.has_active_payment ? (
+                          <Link
+                            to={`/payments/new?appointmentId=${a.id}`}
+                            className="inline-flex items-center rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold-dark hover:bg-gold/20 transition-colors"
+                          >
+                            Registrar venta
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-stone-400">Con venta</span>
+                        )
+                      ) : ['cancelled', 'no_show'].includes(effectiveStatus) ? null : (
+                        <AppointmentActionToggles
+                          appointmentId={a.id}
+                          status={a.status}
+                          canConfirm={canConfirmAppointment(a, clock)}
+                          canCancel={canCancelAppointment(a, clock)}
+                          onEdit={openEditForm}
+                          onConfirmChange={handleConfirmChange}
+                          onCancelRequest={handleCancelRequest}
+                          editDisabled={locked}
+                        />
+                      )}
+                      {/* Fuera del deslizante a propósito: ese control tiene tres
+                          posiciones (Cancelar / Agendada / Confirmar) y una cuarta
+                          rompería la metáfora. El barbero solo ve el botón en sus
+                          propias citas; el backend lo verifica igualmente. */}
+                      {canMarkNoShow(a, clock) && (isAdmin || (isBarber && a.barber_id === user?.barberId)) && (
+                        <AdminIconButton
+                          icon={UserX}
+                          label="Marcar «no asistió»"
+                          title="El cliente no se presentó a esta cita"
+                          variant="danger"
+                          onClick={() =>
+                            setNoShowTarget({
+                              id: a.id,
+                              clientName: `${a.client_first_name ?? ''} ${a.client_last_name ?? ''}`.trim(),
+                            })
+                          }
+                        />
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
                 );
@@ -1180,6 +1354,29 @@ export default function AppointmentsPage() {
           </Table>
         </DataCard>
       ) : null}
+      <AdminConfirmModal
+        open={Boolean(noShowTarget)}
+        variant="danger"
+        title="¿Marcar como «no asistió»?"
+        description={
+          noShowTarget ? (
+            <>
+              Se registrará que{' '}
+              <strong className="text-stone-800">
+                {noShowTarget.clientName || 'el cliente'}
+              </strong>{' '}
+              no se presentó a esta cita. Queda en su historial y no se puede deshacer.
+            </>
+          ) : null
+        }
+        confirmLabel="Sí, no asistió"
+        submittingLabel="Marcando…"
+        isSubmitting={markingNoShow}
+        onCancel={() => {
+          if (!markingNoShow) setNoShowTarget(null);
+        }}
+        onConfirm={confirmNoShow}
+      />
       <CancelAppointmentModal
         appointment={cancelTarget}
         open={Boolean(cancelTarget)}

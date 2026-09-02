@@ -68,13 +68,22 @@ function ToastItem({ toast, onDismiss }) {
   );
 }
 
-/** Lista flotante abajo-derecha; flex-col-reverse pone el más reciente arriba. */
+/**
+ * Lista flotante abajo-derecha; flex-col-reverse pone el más reciente arriba.
+ *
+ * z-[220]: por encima de CUALQUIER modal del panel. Un toast es un aviso urgente y
+ * transitorio (p. ej. "no se puede eliminar, tiene citas registradas") que suele
+ * dispararse mientras un modal de confirmación sigue abierto tras un error — si el
+ * toast quedara por debajo, el fondo oscuro/difuminado del modal lo tapa por completo.
+ * El modal con mayor z-index conocido en el proyecto es `VoidMovementModal` en 210;
+ * si se agrega un modal por encima de eso, subir también este valor.
+ */
 export default function AppToastHost({ toasts = [], onDismiss }) {
   if (!toasts.length) return null;
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-[190] flex flex-col-reverse gap-2 pointer-events-none"
+      className="fixed bottom-5 right-5 z-[220] flex flex-col-reverse gap-2 pointer-events-none"
       aria-relevant="additions text"
     >
       {toasts.map((toast) => (

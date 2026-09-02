@@ -155,9 +155,16 @@ export function validatePersonName(
   if (!PERSON_NAME_RE.test(name)) {
     return { valid: false, message: `${label} solo puede contener letras.` };
   }
-  // Longitud mínima: sin mensaje escrito (solo bloquea el envío / borde).
-  if (name.length < minLength) {
-    return { valid: false, message: '' };
+  // Antes esto devolvía un mensaje vacío para no regañar al escribir la primera
+  // letra, pero `FieldHint` oculta los mensajes vacíos y `firstError` se quedaba
+  // en blanco: al enviar, el formulario se negaba a avanzar sin decir por qué.
+  // Mismo texto que el backend (`utils/validation.js`) para que ambas capas
+  // expliquen lo mismo.
+  if (name.length < minLength || name.length > CLIENT_NAME_MAX) {
+    return {
+      valid: false,
+      message: `${label} debe tener entre ${minLength} y ${CLIENT_NAME_MAX} caracteres.`,
+    };
   }
   return { valid: true, message: '' };
 }

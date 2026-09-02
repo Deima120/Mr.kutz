@@ -49,11 +49,27 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
         documentType: true,
         documentNumber: true,
         notes: true,
+        isActive: true,
         createdAt: true,
       },
     }),
     prisma.client.count({ where }),
   ]);
+
+  // Inasistencias por cliente: es el dato que justifica inactivar a alguien, así
+  // que viaja con el listado en vez de obligar a entrar ficha por ficha. Un solo
+  // groupBy acotado a los clientes de esta página, no una consulta por fila.
+  const noShowByClient = new Map(
+    clients.length
+      ? (
+          await prisma.appointment.groupBy({
+            by: ['clientId'],
+            where: { clientId: { in: clients.map((c) => c.id) }, status: 'no_show' },
+            _count: { _all: true },
+          })
+        ).map((row) => [row.clientId, row._count._all])
+      : []
+  );
 
   const mapped = clients.map((c) => ({
     id: c.id,
@@ -65,6 +81,8 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
     document_type: c.documentType,
     document_number: c.documentNumber,
     notes: c.notes,
+    is_active: c.isActive,
+    no_show_count: noShowByClient.get(c.id) ?? 0,
     created_at: c.createdAt,
   }));
   return { clients: mapped, total, limit, offset };
@@ -82,6 +100,7 @@ const toSnake = (c) =>
         document_type: c.documentType,
         document_number: c.documentNumber,
         notes: c.notes,
+        is_active: c.isActive,
         created_at: c.createdAt,
         updated_at: c.updatedAt,
       }
@@ -224,6 +243,49 @@ export const update = async (id, data) => {
   return toSnake(client);
 };
 
+/**
+ * Activa o inactiva un cliente. **Solo admin** (lo impone la ruta).
+ *
+ * Toca dos banderas porque son dos puertas distintas:
+ *  - `Client.isActive`: puede agendar. Vale para todos, incluidos los clientes
+ *    creados desde la reserva pública, que no tienen cuenta.
+ *  - `User.isActive`: puede iniciar sesión. Solo existe si el cliente tiene
+ *    cuenta, y el middleware `auth` ya la comprueba en cada petición, así que el
+ *    cierre de sesión es inmediato sin esperar a que expire el token.
+ *
+ * No cancela las citas ya agendadas: sería destructivo y sorpresivo. El panel
+ * informa de cuántas hay para que el admin decida.
+ *
+ * @param {number|string} id
+ * @param {boolean} isActive
+ */
+export const setActive = async (id, isActive) => {
+  const clientId = parseInt(id, 10);
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, userId: true },
+  });
+  if (!client) return null;
+
+  const next = Boolean(isActive);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.client.update({
+      where: { id: clientId },
+      data: { isActive: next },
+    });
+    if (client.userId != null) {
+      await tx.user.update({
+        where: { id: client.userId },
+        data: { isActive: next },
+      });
+    }
+    return row;
+  });
+
+  return toSnake(updated);
+};
+
 export const remove = async (id) => {
   const clientId = parseInt(id, 10);
   const appointmentCount = await prisma.appointment.count({
@@ -231,7 +293,8 @@ export const remove = async (id) => {
   });
   if (appointmentCount > 0) {
     const err = new Error(
-      `No se puede eliminar el cliente porque tiene ${appointmentCount} cita(s) registrada(s).`
+      `No se puede eliminar el cliente porque tiene ${appointmentCount} cita(s) registrada(s). ` +
+        'Puedes inactivarlo en lugar de eliminarlo.'
     );
     err.statusCode = 409;
     throw err;
@@ -240,27 +303,44 @@ export const remove = async (id) => {
   return true;
 };
 
-export const getServiceHistory = async (clientId) => {
-  const appointments = await prisma.appointment.findMany({
-    where: { clientId: parseInt(clientId, 10) },
-    include: {
-      service: { select: { name: true, price: true, durationMinutes: true } },
-      barber: { select: { firstName: true, lastName: true } },
-    },
-    orderBy: [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
-    take: 100,
-  });
-  return appointments.map((a) => ({
-    id: a.id,
-    appointment_date: a.appointmentDate,
-    start_time: a.startTime,
-    end_time: a.endTime,
-    status: a.status,
-    notes: a.notes,
-    service_name: a.service.name,
-    price: a.service.price,
-    duration_minutes: a.service.durationMinutes,
-    barber_first_name: a.barber.firstName,
-    barber_last_name: a.barber.lastName,
-  }));
+/**
+ * Historial paginado del cliente. `total` y `completedTotal` cuentan TODAS sus citas,
+ * no solo la página devuelta: antes `take: 100` sin offset hacía que un cliente con más
+ * de 100 citas mostrara "100" como si fuera su total real en el perfil.
+ */
+export const getServiceHistory = async (clientId, { limit = 10, offset = 0 } = {}) => {
+  const where = { clientId: parseInt(clientId, 10) };
+  const [appointments, total, completedTotal] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        service: { select: { name: true, price: true, durationMinutes: true } },
+        barber: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
+      take: limit,
+      skip: offset,
+    }),
+    prisma.appointment.count({ where }),
+    prisma.appointment.count({ where: { ...where, status: 'completed' } }),
+  ]);
+  return {
+    appointments: appointments.map((a) => ({
+      id: a.id,
+      appointment_date: a.appointmentDate,
+      start_time: a.startTime,
+      end_time: a.endTime,
+      status: a.status,
+      notes: a.notes,
+      service_name: a.service.name,
+      price: a.service.price,
+      duration_minutes: a.service.durationMinutes,
+      barber_first_name: a.barber.firstName,
+      barber_last_name: a.barber.lastName,
+    })),
+    total,
+    completedTotal,
+    limit,
+    offset,
+  };
 };

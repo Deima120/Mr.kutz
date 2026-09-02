@@ -17,6 +17,7 @@ import {
   appointmentDateBody,
   appointmentSlotDateQuery,
 } from '../utils/dateRange.js';
+import { personNameField, optionalPhoneField } from '../utils/validation.js';
 import * as authController from '../controllers/auth.controller.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 
@@ -41,11 +42,15 @@ router.get('/auth/me', auth, authController.getProfile);
 router.put(
   '/auth/me',
   auth,
+  // Mismas reglas que `PUT /api/auth/me` (auth.routes.js): antes esta ruta solo
+  // exigía "no vacío", así que por el móvil entraban nombres como `ad--rian` o `123`
+  // que la web sí rechazaba. Reutilizar los helpers evita que las dos superficies
+  // vuelvan a divergir.
   [
-    body('firstName').trim().notEmpty().withMessage('El nombre es obligatorio.'),
-    body('lastName').trim().notEmpty().withMessage('El apellido es obligatorio.'),
+    personNameField('firstName', 'El nombre'),
+    personNameField('lastName', 'El apellido'),
     body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
-    body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+    optionalPhoneField('phone'),
   ],
   validate,
   authController.updateProfile,

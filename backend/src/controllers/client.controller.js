@@ -90,6 +90,28 @@ export const update = async (req, res, next) => {
  * DELETE /api/clients/:id
  * Elimina un cliente
  */
+/**
+ * PATCH /api/clients/:id/status
+ * Activa o inactiva un cliente. Exclusivo de admin (lo impone el router).
+ */
+export const setStatus = async (req, res, next) => {
+  try {
+    const updated = await clientService.setActive(req.params.id, req.body.isActive);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado.' });
+    }
+    res.json({
+      success: true,
+      message: updated.is_active
+        ? 'Cliente activado correctamente.'
+        : 'Cliente inactivado correctamente.',
+      data: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const remove = async (req, res, next) => {
   try {
     const deleted = await clientService.remove(req.params.id);
@@ -111,7 +133,11 @@ export const remove = async (req, res, next) => {
  */
 export const getHistory = async (req, res, next) => {
   try {
-    const history = await clientService.getServiceHistory(req.params.id);
+    const { limit, offset } = req.query;
+    const history = await clientService.getServiceHistory(req.params.id, {
+      limit: limit ? parseInt(limit, 10) : 10,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
     res.json({
       success: true,
       data: history,

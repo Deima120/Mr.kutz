@@ -71,3 +71,28 @@ export function canCancelAppointment(appointment, now = new Date(), options = {}
 }
 
 export { extractAppointmentDateYmd, parseTimeParts, buildColombiaDateTimeMs, getNowMs };
+
+/**
+ * ¿Se puede marcar esta cita como «no asistió»?
+ *
+ * Espejo de `backend/src/services/appointmentNoShowRules.js`; el backend es la
+ * regla real y esta copia solo decide si el botón se muestra.
+ *
+ * Se admite desde `in_progress` y `completed` a propósito: la automatización
+ * promueve sola las citas confirmadas (a `in_progress` a su hora y a `completed`
+ * diez minutos después de terminar), así que cuando el personal se sienta a
+ * registrar la inasistencia la cita ya suele haber avanzado. Si no se admitieran,
+ * el botón desaparecería justo en el caso más común.
+ */
+const NO_SHOW_SOURCE = new Set(['scheduled', 'confirmed', 'in_progress', 'completed']);
+
+export function canMarkNoShow(appointment, now = new Date()) {
+  if (!appointment) return false;
+  const status = getEffectiveAppointmentStatus(appointment, now);
+  if (!NO_SHOW_SOURCE.has(status)) return false;
+  // Una cita cobrada es, por definición, una a la que el cliente asistió.
+  if (appointment.has_active_payment) return false;
+  const startMs = buildColombiaDateTimeMs(appointment.appointment_date, appointment.start_time);
+  if (startMs == null) return false;
+  return getNowMs(now) >= startMs;
+}

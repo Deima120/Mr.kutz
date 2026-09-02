@@ -33,6 +33,20 @@ export const getTotal = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/purchases/invoice-availability
+ * Avisa en el formulario si la factura ya existe para ese proveedor.
+ */
+export const checkInvoice = async (req, res, next) => {
+  try {
+    const { supplierId, invoiceNumber } = req.query;
+    const data = await purchaseService.checkInvoiceAvailability({ supplierId, invoiceNumber });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getById = async (req, res, next) => {
   try {
     const data = await purchaseService.getById(req.params.id);

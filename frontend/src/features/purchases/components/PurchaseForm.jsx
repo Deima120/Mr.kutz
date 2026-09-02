@@ -86,11 +86,56 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  /** 'idle' | 'checking' | 'available' | 'taken' — aviso de factura repetida. */
+  const [invoiceCheck, setInvoiceCheck] = useState({ state: 'idle', orderNumber: null });
   const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint, fieldBorderClass } =
     useFormValidation();
 
   const products = useMemo(() => Object.values(productsById), [productsById]);
   const focusSupplier = Boolean(initialProductId);
+
+  /**
+   * Aviso en tiempo real de factura repetida.
+   *
+   * Depende también del proveedor: la misma factura con otro proveedor es
+   * perfectamente válida, así que al cambiar de proveedor hay que reconsultar.
+   * El backend vuelve a comprobarlo al guardar y la BD tiene un índice único, así
+   * que esto es solo para no hacer perder el trabajo de cargar los artículos.
+   */
+  useEffect(() => {
+    const invoice = form.invoiceNumber.trim();
+    const supplierId = form.supplierId;
+    if (!invoice || !supplierId) {
+      setInvoiceCheck({ state: 'idle', orderNumber: null });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setInvoiceCheck({ state: 'checking', orderNumber: null });
+    const timer = window.setTimeout(() => {
+      purchaseService
+        .checkInvoiceAvailability({ supplierId, invoiceNumber: invoice })
+        .then((res) => {
+          if (cancelled) return;
+          const data = res?.data ?? res;
+          setInvoiceCheck(
+            data?.available
+              ? { state: 'available', orderNumber: null }
+              : { state: 'taken', orderNumber: data?.orderNumber ?? null },
+          );
+        })
+        .catch(() => {
+          // Un fallo de red no debe bloquear el formulario: el guardado sigue
+          // protegido por el backend.
+          if (!cancelled) setInvoiceCheck({ state: 'idle', orderNumber: null });
+        });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [form.invoiceNumber, form.supplierId]);
 
   useEffect(() => {
     const pid = parseInt(initialProductId, 10);
@@ -192,6 +237,15 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
       setError(validation.firstError);
       return;
     }
+    // Se corta aquí para no gastar el envío; el backend lo vuelve a comprobar.
+    if (invoiceCheck.state === 'taken') {
+      setError(
+        `Este proveedor ya tiene la factura ${form.invoiceNumber.trim()}` +
+          `${invoiceCheck.orderNumber ? ` en la orden ${invoiceCheck.orderNumber}` : ''}. ` +
+          'Usa otro número o elige otro proveedor.',
+      );
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -286,10 +340,31 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
             <input
               value={form.invoiceNumber}
               onChange={(e) => setForm((p) => ({ ...p, invoiceNumber: e.target.value }))}
-              className={ADMIN_FORM_FIELD_COMPACT}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                invoiceCheck.state === 'taken' ? '!border-red-400' : ''
+              }`}
               placeholder="Folio o referencia"
               maxLength={80}
+              aria-invalid={invoiceCheck.state === 'taken' || undefined}
             />
+            <div className={ITEM_FIELD_FEEDBACK_CLASS}>
+              {invoiceCheck.state === 'checking' && (
+                <span className="text-stone-500">Comprobando factura…</span>
+              )}
+              {invoiceCheck.state === 'taken' && (
+                <span className="text-red-600 flex items-center gap-1" role="alert">
+                  <X className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                  Este proveedor ya tiene esa factura
+                  {invoiceCheck.orderNumber ? ` en la orden ${invoiceCheck.orderNumber}` : ''}.
+                </span>
+              )}
+              {invoiceCheck.state === 'available' && (
+                <span className="text-emerald-700 flex items-center gap-1" role="status">
+                  <Check className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                  Factura disponible para este proveedor.
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

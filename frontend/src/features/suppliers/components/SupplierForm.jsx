@@ -2,7 +2,7 @@
  * Formulario de proveedor compartido (embedded en tab Compras / modal).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as supplierService from '@/features/suppliers/services/supplierService';
 import {
   buildSupplierPayload,
@@ -10,7 +10,25 @@ import {
   mapSupplierToForm,
   validateSupplierForm,
 } from '@/features/suppliers/models/supplierFormModel';
-import { getApiErrorMessage } from '@/shared/utils/formValidation';
+import {
+  getApiErrorMessage,
+  validateEmail,
+  validatePhone,
+  validateRequiredField,
+  validateTaxId,
+  TEXT_NAME_MAX,
+} from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
+import { AdminFormField } from '@/shared/components/FormValidationFields';
+import {
+  ADMIN_FORM_LABEL_CLASS,
+  ADMIN_FORM_FIELD_COMPACT,
+  ADMIN_FORM_ERROR_CLASS,
+  ADMIN_FORM_GRID_CLASS,
+  AdminFormFooterActions,
+  AdminFormPrimaryButton,
+  AdminFormLoadingButton,
+} from '@/shared/components/admin/AdminFormShell';
 
 export default function SupplierForm({
   variant = 'embedded',
@@ -26,6 +44,8 @@ export default function SupplierForm({
   const [loading, setLoading] = useState(Boolean(isEdit));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } =
+    useFormValidation();
 
   useEffect(() => {
     if (!isEdit) {
@@ -51,15 +71,30 @@ export default function SupplierForm({
     };
   }, [isEdit, supplierId, initialName]);
 
+  const nameValidation = useMemo(
+    () => validateRequiredField(form.name, 'El nombre'),
+    [form.name]
+  );
+  const taxIdValidation = useMemo(() => validateTaxId(form.taxId), [form.taxId]);
+  const phoneValidation = useMemo(
+    () => validatePhone(form.phone, { required: false }),
+    [form.phone]
+  );
+  const emailValidation = useMemo(
+    () => (String(form.email ?? '').trim() ? validateEmail(form.email) : { valid: true, message: '' }),
+    [form.email]
+  );
+
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError('');
+    clearFieldError(key);
   };
 
   const submit = async (event) => {
     event.preventDefault();
     const validation = validateSupplierForm(form);
-    if (!validation.valid) {
+    if (!applyValidation(validation)) {
       setError(validation.message);
       return;
     }
@@ -78,96 +113,165 @@ export default function SupplierForm({
     }
   };
 
-  const fieldClass =
-    variant === 'modal'
-      ? 'input-premium py-2 text-sm'
-      : 'input-premium py-2 text-sm';
-
   if (loading) {
     return <p className="py-8 text-center text-sm text-stone-500">Cargando proveedor…</p>;
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} noValidate className="space-y-3">
       {error ? (
-        <div className="alert-error text-sm" role="alert">
+        <div className={ADMIN_FORM_ERROR_CLASS} role="alert">
           {error}
         </div>
       ) : null}
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="text-xs font-semibold text-stone-600 sm:col-span-2">
-          Nombre *
+
+      <div className={ADMIN_FORM_GRID_CLASS}>
+        <AdminFormField
+          label="Nombre"
+          htmlFor={`supplier-name-${variant}`}
+          required
+          className="sm:col-span-2"
+          error={fieldError('name')}
+          live={buildLiveHint('name', form.name, nameValidation, 'Nombre válido.')}
+        >
+          {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+            <input
+              id={`supplier-name-${variant}`}
+              value={form.name}
+              onChange={(e) => setField('name', e.target.value)}
+              onBlur={() => markTouched('name')}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+              placeholder="Nombre del proveedor"
+              maxLength={TEXT_NAME_MAX}
+              data-autofocus
+              aria-invalid={invalid || undefined}
+              aria-describedby={errorId}
+            />
+          )}
+        </AdminFormField>
+
+        <AdminFormField
+          label="Identificación fiscal"
+          htmlFor={`supplier-taxid-${variant}`}
+          error={fieldError('taxId')}
+          live={buildLiveHint('taxId', form.taxId, taxIdValidation, 'Formato válido.')}
+        >
+          {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+            <input
+              id={`supplier-taxid-${variant}`}
+              value={form.taxId}
+              onChange={(e) => setField('taxId', e.target.value)}
+              onBlur={() => markTouched('taxId')}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+              maxLength={50}
+              placeholder="Opcional"
+              aria-invalid={invalid || undefined}
+              aria-describedby={errorId}
+            />
+          )}
+        </AdminFormField>
+
+        <div className="group shrink-0">
+          <label className={ADMIN_FORM_LABEL_CLASS} htmlFor={`supplier-contact-${variant}`}>
+            Contacto
+          </label>
           <input
-            value={form.name}
-            onChange={(e) => setField('name', e.target.value)}
-            className={`${fieldClass} mt-1`}
-            placeholder="Nombre del proveedor"
-            maxLength={150}
-            data-autofocus
-            required
-          />
-        </label>
-        <label className="text-xs font-semibold text-stone-600">
-          Identificación fiscal
-          <input
-            value={form.taxId}
-            onChange={(e) => setField('taxId', e.target.value)}
-            className={`${fieldClass} mt-1`}
-            maxLength={50}
-          />
-        </label>
-        <label className="text-xs font-semibold text-stone-600">
-          Contacto
-          <input
+            id={`supplier-contact-${variant}`}
             value={form.contactName}
             onChange={(e) => setField('contactName', e.target.value)}
-            className={`${fieldClass} mt-1`}
-            maxLength={150}
+            className={ADMIN_FORM_FIELD_COMPACT}
+            maxLength={TEXT_NAME_MAX}
+            placeholder="Opcional"
           />
-        </label>
-        <label className="text-xs font-semibold text-stone-600">
-          Teléfono
-          <input
-            type="tel"
-            inputMode="numeric"
-            value={form.phone}
-            onChange={(e) => setField('phone', e.target.value.replace(/\D/g, '').slice(0, 15))}
-            className={`${fieldClass} mt-1`}
-            maxLength={15}
-            placeholder="Solo dígitos"
-          />
-        </label>
-        <label className="text-xs font-semibold text-stone-600">
-          Correo
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => setField('email', e.target.value)}
-            className={`${fieldClass} mt-1`}
-            maxLength={150}
-          />
-        </label>
-        <label className="text-xs font-semibold text-stone-600 sm:col-span-2">
-          Dirección
-          <input
-            value={form.address}
-            onChange={(e) => setField('address', e.target.value)}
-            className={`${fieldClass} mt-1`}
-            maxLength={500}
-          />
-        </label>
-        <label className="text-xs font-semibold text-stone-600 sm:col-span-2">
-          Notas
-          <textarea
-            value={form.notes}
-            onChange={(e) => setField('notes', e.target.value)}
-            className={`${fieldClass} mt-1 resize-none`}
-            rows={2}
-            maxLength={1000}
-          />
-        </label>
+        </div>
+
+        <AdminFormField
+          label="Teléfono"
+          htmlFor={`supplier-phone-${variant}`}
+          error={fieldError('phone')}
+          live={buildLiveHint('phone', form.phone, phoneValidation, 'Teléfono válido.')}
+        >
+          {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+            <input
+              id={`supplier-phone-${variant}`}
+              type="tel"
+              inputMode="numeric"
+              value={form.phone}
+              onChange={(e) => setField('phone', e.target.value.replace(/\D/g, '').slice(0, 15))}
+              onBlur={() => markTouched('phone')}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+              maxLength={15}
+              placeholder="Solo dígitos"
+              aria-invalid={invalid || undefined}
+              aria-describedby={errorId}
+            />
+          )}
+        </AdminFormField>
+
+        <AdminFormField
+          label="Correo"
+          htmlFor={`supplier-email-${variant}`}
+          error={fieldError('email')}
+          live={buildLiveHint('email', form.email, emailValidation, 'Correo válido.')}
+        >
+          {({ errorId, invalid, liveBorderClass, submitBorderClass }) => (
+            <input
+              id={`supplier-email-${variant}`}
+              type="email"
+              value={form.email}
+              onChange={(e) => setField('email', e.target.value)}
+              onBlur={() => markTouched('email')}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
+              maxLength={150}
+              placeholder="Opcional"
+              aria-invalid={invalid || undefined}
+              aria-describedby={errorId}
+            />
+          )}
+        </AdminFormField>
+
+        <AdminFormField
+          label="Dirección"
+          htmlFor={`supplier-address-${variant}`}
+          className="sm:col-span-2"
+          error={fieldError('address')}
+        >
+          {({ errorId, invalid, submitBorderClass }) => (
+            <input
+              id={`supplier-address-${variant}`}
+              value={form.address}
+              onChange={(e) => setField('address', e.target.value)}
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass}`}
+              maxLength={500}
+              placeholder="Opcional"
+              aria-invalid={invalid || undefined}
+              aria-describedby={errorId}
+            />
+          )}
+        </AdminFormField>
+
+        <AdminFormField
+          label="Notas"
+          htmlFor={`supplier-notes-${variant}`}
+          className="sm:col-span-2"
+          error={fieldError('notes')}
+        >
+          {({ errorId, invalid, submitBorderClass }) => (
+            <textarea
+              id={`supplier-notes-${variant}`}
+              value={form.notes}
+              onChange={(e) => setField('notes', e.target.value)}
+              className={`${ADMIN_FORM_FIELD_COMPACT} resize-none ${submitBorderClass}`}
+              rows={2}
+              maxLength={1000}
+              aria-invalid={invalid || undefined}
+              aria-describedby={errorId}
+            />
+          )}
+        </AdminFormField>
+
         {isEdit ? (
-          <label className="flex items-center gap-2 text-sm text-stone-700 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm text-stone-700 sm:col-span-2 cursor-pointer">
             <input
               type="checkbox"
               checked={form.isActive !== false}
@@ -178,16 +282,24 @@ export default function SupplierForm({
           </label>
         ) : null}
       </div>
-      <div className="flex justify-end gap-2 pt-1">
+
+      <AdminFormFooterActions className="mt-1">
         {onCancel ? (
-          <button type="button" onClick={onCancel} disabled={saving} className="btn-admin-outline text-sm">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="btn-admin-outline text-sm py-2 px-3"
+          >
             Cancelar
           </button>
         ) : null}
-        <button type="submit" disabled={saving} className="btn-admin text-sm">
-          {saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Crear proveedor'}
-        </button>
-      </div>
+        <AdminFormPrimaryButton disabled={saving} className="text-sm py-2 px-4">
+          <AdminFormLoadingButton loading={saving} loadingLabel="Guardando…">
+            {isEdit ? 'Guardar cambios' : 'Crear proveedor'}
+          </AdminFormLoadingButton>
+        </AdminFormPrimaryButton>
+      </AdminFormFooterActions>
     </form>
   );
 }
