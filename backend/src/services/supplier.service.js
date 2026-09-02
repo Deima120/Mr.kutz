@@ -97,12 +97,29 @@ export const update = async (id, data) => {
   return prisma.supplier.update({ where: { id: supplierId }, data: patch });
 };
 
+/**
+ * Elimina un proveedor de verdad. Antes hacía `update({ isActive: false })` pese al
+ * verbo DELETE: el proveedor "eliminado" seguía existiendo tal cual, solo inactivo
+ * (y la UI ya tiene un botón de Activo/Inactivo aparte para eso, `toggleActive` en
+ * `SuppliersPanel.jsx`) — el modal de confirmación prometía "eliminar permanentemente"
+ * y no era cierto. `Purchase.supplier` es `onDelete: Restrict`, así que un proveedor
+ * con compras registradas no se puede borrar sin romper esa integridad; se comprueba
+ * antes y se ofrece inactivar en su lugar, igual que ya hacen clientes y barberos.
+ */
 export const remove = async (id) => {
   const supplierId = Number.parseInt(id, 10);
   const existing = await prisma.supplier.findUnique({ where: { id: supplierId } });
   if (!existing) throw httpError('Proveedor no encontrado.', 404);
-  return prisma.supplier.update({
-    where: { id: supplierId },
-    data: { isActive: false },
-  });
+
+  const purchaseCount = await prisma.purchase.count({ where: { supplierId } });
+  if (purchaseCount > 0) {
+    throw httpError(
+      `No se puede eliminar el proveedor porque tiene ${purchaseCount} compra(s) registrada(s). ` +
+        'Puedes inactivarlo en lugar de eliminarlo.',
+      409
+    );
+  }
+
+  await prisma.supplier.delete({ where: { id: supplierId } });
+  return true;
 };
