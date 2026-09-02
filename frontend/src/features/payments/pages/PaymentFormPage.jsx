@@ -30,7 +30,9 @@ import {
   validateAmountTendered,
   getApiErrorMessage,
   validatePositiveInt,
+  TEXT_NOTES_MAX,
 } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
@@ -147,6 +149,7 @@ export function PaymentForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [prefillHints, setPrefillHints] = useState([]);
+  const { fieldError, applyValidation, clearFieldError, markTouched } = useFormValidation();
 
   useEffect(() => {
     if (Array.isArray(methodsProp) && methodsProp.length) return undefined;
@@ -257,6 +260,26 @@ export function PaymentForm({
     String(amountTendered).trim() !== '' &&
     !tenderedValidation.valid;
 
+  /**
+   * Validación en vivo de la cantidad de producto: mismo criterio que ya aplica
+   * `handleAddProduct` al pulsar «Agregar» (positivo + no supera el stock), evaluado
+   * mientras se teclea para no esperar al clic para avisar.
+   */
+  const productQtyValidation = useMemo(() => {
+    const qtyCheck = validatePositiveInt(productQty, 'La cantidad', { required: true, min: 1 });
+    if (!qtyCheck.valid) return qtyCheck;
+    if (!productPick?.id) return { valid: true, message: '' };
+    const max = Number(productPick.quantity) || 0;
+    const qty = parseInt(productQty, 10);
+    if (max <= 0) return { valid: false, message: `«${productPick.name}» no tiene existencias.` };
+    if (qty > max) {
+      return { valid: false, message: `Stock insuficiente de «${productPick.name}» (máx. ${max}).` };
+    }
+    return { valid: true, message: '' };
+  }, [productQty, productPick]);
+
+  const showProductQtyError = String(productQty).trim() !== '' && !productQtyValidation.valid;
+
   const methodLabelSummary = useMemo(() => {
     const parts = methodRows
       .map((row) => {
@@ -286,6 +309,7 @@ export function PaymentForm({
       return displayRowsFromAllocated(allocated);
     });
     setError('');
+    clearFieldError('methodSplits');
   };
 
   const removeMethodRow = (key) => {
@@ -299,18 +323,23 @@ export function PaymentForm({
       return displayRowsFromAllocated(allocated);
     });
     setError('');
+    clearFieldError('methodSplits');
   };
 
   const updateMethodRowMethod = (key, paymentMethodId) => {
+    const index = methodRows.findIndex((row) => row.key === key);
     setMethodRows((prev) =>
       prev.map((row) => (row.key === key ? { ...row, paymentMethodId } : row))
     );
     setError('');
+    clearFieldError('methodSplits');
+    if (index >= 0) clearFieldError(`methodSplits.${index}`);
   };
 
   const updateMethodRowAmount = (key, displayValue) => {
     const formatted = formatMoneyInputDigits(displayValue);
     const parsed = parseMoneyInput(formatted);
+    const index = methodRows.findIndex((row) => row.key === key);
     setMethodRows((prev) => {
       const allocated = setMethodSplitManualAmount({
         total: cartTotal,
@@ -339,6 +368,8 @@ export function PaymentForm({
       });
     });
     setError('');
+    clearFieldError('methodSplits');
+    if (index >= 0) clearFieldError(`methodSplits.${index}`);
   };
 
   const addLine = (line) => {
@@ -543,8 +574,7 @@ export function PaymentForm({
       notes,
       lines,
     });
-    if (!validation.valid) {
-      setError(validation.firstError);
+    if (!applyValidation(validation)) {
       return;
     }
     setLoading(true);
@@ -594,6 +624,28 @@ export function PaymentForm({
   };
 
   const isMixedMethodsUi = methodRows.length > 1;
+
+  /**
+   * Misma regla que valida el envío (validatePaymentCartForm), evaluada en vivo para
+   * que el botón "Confirmar venta" refleje si falta método de pago, el pago mixto no
+   * cuadra, o "Efectivo recibido" es inválido — sin esperar al clic para enterarse.
+   * Solo lee `.valid`, no dispara `applyValidation` (eso solo corre en el submit real).
+   */
+  const cartFormValidation = useMemo(
+    () =>
+      validatePaymentCartForm({
+        methodSplits: methodRows.map((row) => ({
+          paymentMethodId: row.paymentMethodId,
+          amount: row.amount,
+        })),
+        amountTendered: hasCashMethodSelected ? amountTendered : undefined,
+        cartTotal,
+        methods,
+        notes,
+        lines,
+      }),
+    [methodRows, hasCashMethodSelected, amountTendered, cartTotal, methods, notes, lines]
+  );
 
   const paymentStatusLabel = (() => {
     if (!isMixedMethodsUi) return 'Cobro completo';
@@ -757,8 +809,11 @@ export function PaymentForm({
                     value={productQty}
                     onKeyDown={blockNonDigitKeys}
                     onChange={(e) => setProductQty(e.target.value.replace(/\D/g, ''))}
-                    className={ADMIN_FORM_FIELD_COMPACT}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                      showProductQtyError ? '!border-red-400' : ''
+                    }`}
                     placeholder="1"
+                    aria-invalid={showProductQtyError || undefined}
                   />
                 </label>
                 <button
@@ -768,6 +823,11 @@ export function PaymentForm({
                 >
                   <Plus className="h-3.5 w-3.5" /> Agregar
                 </button>
+                {showProductQtyError ? (
+                  <p className="sm:col-span-3">
+                    <FieldErrorMessage message={productQtyValidation.message} />
+                  </p>
+                ) : null}
               </div>
 
               {/* [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] Fila «Caja (manual)»: cobro libre
@@ -885,6 +945,9 @@ export function PaymentForm({
         <AdminFormCard>
           <AdminFormCardHeader eyebrow="Paso 2" title="Cómo se paga" />
           <div className="space-y-3 mt-1">
+            {fieldError('methodSplits') ? (
+              <FieldErrorMessage message={fieldError('methodSplits')} />
+            ) : null}
             {!isMixedMethodsUi ? (
               <div className="space-y-3">
                 <label className="group block max-w-md">
@@ -894,13 +957,19 @@ export function PaymentForm({
                     onChange={onCustomSelectValue((v) =>
                       updateMethodRowMethod(methodRows[0].key, v)
                     )}
+                    onBlur={() => markTouched('methodSplits.0')}
                     variant="form"
+                    selectClassName={fieldError('methodSplits.0') ? '!border-red-400' : ''}
+                    ariaInvalid={Boolean(fieldError('methodSplits.0')) || undefined}
                     options={methods.map((m) => ({
                       id: String(m.id),
                       label: formatPaymentMethodName(m.description || m.name),
                     }))}
                     placeholder="Selecciona…"
                   />
+                  {fieldError('methodSplits.0') ? (
+                    <FieldErrorMessage message={fieldError('methodSplits.0')} />
+                  ) : null}
                 </label>
                 <p className="text-sm text-stone-600">
                   Se cobra el total completo:{' '}
@@ -960,7 +1029,10 @@ export function PaymentForm({
                           onChange={onCustomSelectValue((v) =>
                             updateMethodRowMethod(row.key, v)
                           )}
+                          onBlur={() => markTouched(`methodSplits.${index}`)}
                           variant="form"
+                          selectClassName={fieldError(`methodSplits.${index}`) ? '!border-red-400' : ''}
+                          ariaInvalid={Boolean(fieldError(`methodSplits.${index}`)) || undefined}
                           options={options}
                           placeholder="Selecciona…"
                         />
@@ -981,10 +1053,19 @@ export function PaymentForm({
                           value={row.amount}
                           onKeyDown={blockNonDigitKeys}
                           onChange={(e) => updateMethodRowAmount(row.key, e.target.value)}
-                          className={ADMIN_FORM_FIELD_COMPACT}
+                          onBlur={() => markTouched(`methodSplits.${index}`)}
+                          className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                            fieldError(`methodSplits.${index}`) ? '!border-red-400' : ''
+                          }`}
                           placeholder="0"
+                          aria-invalid={Boolean(fieldError(`methodSplits.${index}`)) || undefined}
                         />
                       </label>
+                      {fieldError(`methodSplits.${index}`) ? (
+                        <p className="sm:col-span-3">
+                          <FieldErrorMessage message={fieldError(`methodSplits.${index}`)} />
+                        </p>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => removeMethodRow(row.key)}
@@ -1066,21 +1147,37 @@ export function PaymentForm({
 
         <AdminFormCard>
           <AdminFormCardHeader title="Notas" />
+          <p className="mt-1 text-right text-[10px] text-stone-400 tabular-nums">
+            {notes.length}/{TEXT_NOTES_MAX}
+          </p>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value.slice(0, 500))}
+            onChange={(e) => setNotes(e.target.value.slice(0, TEXT_NOTES_MAX))}
             rows={2}
-            maxLength={500}
+            maxLength={TEXT_NOTES_MAX}
             placeholder="Opcional: detalle de la venta…"
             className={`${ADMIN_FORM_FIELD_COMPACT} resize-none`}
           />
         </AdminFormCard>
 
         <AdminFormFooterActions>
+          {lines.length > 0 && !cartFormValidation.valid ? (
+            <p className="w-full text-xs text-amber-800 order-first" role="status">
+              {cartFormValidation.firstError}
+            </p>
+          ) : null}
           <AdminFormSecondaryButton onClick={handleCancel} disabled={loading}>
             Cancelar
           </AdminFormSecondaryButton>
-          <AdminFormPrimaryButton disabled={loading || lines.length === 0 || !canCharge || cashLoading}>
+          <AdminFormPrimaryButton
+            disabled={
+              loading ||
+              lines.length === 0 ||
+              !canCharge ||
+              cashLoading ||
+              !cartFormValidation.valid
+            }
+          >
             <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
               Confirmar venta
             </AdminFormLoadingButton>
