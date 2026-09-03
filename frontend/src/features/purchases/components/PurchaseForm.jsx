@@ -178,10 +178,11 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
     setForm((prev) => {
       const current = prev.items[idx];
       if (!current) return prev;
+      // El costo unitario siempre refleja el producto recién elegido: su último
+      // costo registrado, o vacío para escribirlo a mano si todavía no tiene uno.
+      // Antes solo se proponía cuando el campo estaba vacío, así que al cambiar
+      // de producto en la misma fila se quedaba pegado el costo del anterior.
       const proposed = product ? proposedUnitCostFromProduct(product) : '';
-      const shouldPropose =
-        proposed &&
-        (current.unitCost === '' || current.unitCost == null || Number(current.unitCost) <= 0);
       return {
         ...prev,
         items: prev.items.map((it, i) =>
@@ -189,7 +190,7 @@ export function PurchaseForm({ contained = false, onSuccess, onCancel, initialPr
             ? {
                 ...it,
                 productId: productId || '',
-                unitCost: shouldPropose ? proposed : it.unitCost,
+                unitCost: proposed,
               }
             : it
         ),
