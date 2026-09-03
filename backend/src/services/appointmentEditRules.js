@@ -7,6 +7,24 @@ import { resolveAutomaticStatus } from './appointmentStatusAutomation.js';
 export const IN_PROGRESS_EDIT_MESSAGE =
   'Esta cita ya está en curso y no se puede modificar.';
 
+export const CLOSED_EDIT_MESSAGE =
+  'Esta cita ya está cerrada y no se puede reprogramar.';
+
+/**
+ * Estados cuyo desenlace ya está escrito: reprogramarlos reescribiría el pasado.
+ *
+ * No basta con el candado de cambios manuales de estado que vive en el servicio:
+ * ese solo se evalúa cuando el PUT trae `status`. Un PUT que solo manda
+ * `startTime` lo esquiva por completo, que es exactamente el agujero que esta
+ * guarda vino a tapar para `in_progress` y que quedó abierto para el resto.
+ */
+export const NON_EDITABLE_STATUSES = new Set([
+  'in_progress',
+  'completed',
+  'cancelled',
+  'no_show',
+]);
+
 /**
  * Campos cuya presencia en el payload significa reprogramar o rehacer la cita.
  * `status` y `cancelReason` quedan fuera a propósito: confirmar o cancelar se rige
@@ -48,8 +66,11 @@ export function isRescheduleAttempt(data) {
 export function assertAppointmentIsEditable(appointment, data, now = new Date()) {
   if (!appointment) return;
   if (!isRescheduleAttempt(data)) return;
-  if (resolveAutomaticStatus(appointment, now) !== 'in_progress') return;
-  const err = new Error(IN_PROGRESS_EDIT_MESSAGE);
+  const status = resolveAutomaticStatus(appointment, now);
+  if (!NON_EDITABLE_STATUSES.has(status)) return;
+  const err = new Error(
+    status === 'in_progress' ? IN_PROGRESS_EDIT_MESSAGE : CLOSED_EDIT_MESSAGE
+  );
   err.statusCode = 400;
   throw err;
 }
