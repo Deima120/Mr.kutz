@@ -5,6 +5,9 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
 import { canonicalEmail } from '../utils/emailCanonical.js';
+import { timeStrFromRecord } from '../utils/colombiaTime.js';
+import { parseClockTime, clockTimeToDate } from './appointment.time.helpers.js';
+import { DEFAULT_BARBER_WEEK, normalizeScheduleInput } from './barberScheduleRules.js';
 
 const SALT_ROUNDS = 10;
 
@@ -96,11 +99,14 @@ export const getSchedules = async (barberId) => {
     where: { barberId: parseInt(barberId, 10) },
     orderBy: { dayOfWeek: 'asc' },
   });
+  // Se devuelve "HH:MM" y no el Date crudo: al serializarlo, Express lo convertía
+  // en "1970-01-01T18:00:00.000Z", y cada cliente lo interpretaba en su propia
+  // zona horaria (la web lo desplazaba; la app móvil lo pintaba tal cual).
   return schedules.map((s) => ({
     id: s.id,
     day_of_week: s.dayOfWeek,
-    start_time: s.startTime,
-    end_time: s.endTime,
+    start_time: timeStrFromRecord(s.startTime),
+    end_time: timeStrFromRecord(s.endTime),
     is_available: s.isAvailable,
   }));
 };
@@ -156,6 +162,10 @@ export const create = async (data) => {
         specialties: specialties || [],
       },
     });
+    // Nace con el horario oficial del negocio. Va dentro de la transacción para
+    // que no pueda quedar un barbero creado a medias, sin horarios: sin filas,
+    // el cálculo de turnos tendría que adivinar su disponibilidad.
+    await tx.barberSchedule.createMany({ data: defaultScheduleRows(barber.id) });
     return { barber, user };
   });
 
@@ -210,30 +220,40 @@ export const update = async (id, data) => {
   return toBarberDto(barber, { includePrivate: true });
 };
 
-const toTimeDate = (s) => {
-  if (!s) return new Date('1970-01-01T09:00:00');
-  const str = typeof s === 'string' && s.length === 5 ? s + ':00' : String(s);
-  return new Date('1970-01-01T' + str);
-};
+/**
+ * Filas listas para Prisma a partir de horas "HH:MM".
+ *
+ * Antes esto construía la fecha con `new Date('1970-01-01T' + hora)` **sin `Z`**,
+ * así que la hora se interpretaba en la zona del servidor: lo guardado dependía
+ * de si el proceso corría en Render (UTC) o en local (UTC-5), y los horarios se
+ * desplazaban solos. `clockTimeToDate` fija siempre el mismo instante UTC.
+ */
+const toScheduleRows = (barberId, schedules) =>
+  normalizeScheduleInput(schedules).map((s) => ({
+    barberId,
+    dayOfWeek: s.dayOfWeek,
+    startTime: clockTimeToDate(parseClockTime(s.startTime)),
+    endTime: clockTimeToDate(parseClockTime(s.endTime)),
+    isAvailable: s.isAvailable,
+  }));
 
 export const updateSchedules = async (barberId, schedules) => {
   const bid = parseInt(barberId, 10);
+  // Se normaliza y valida ANTES de abrir la transacción: si el payload trae días
+  // repetidos u horas imposibles, se rechaza sin haber borrado nada.
+  const rows = toScheduleRows(bid, schedules);
+
   await prisma.$transaction(async (tx) => {
     await tx.barberSchedule.deleteMany({ where: { barberId: bid } });
-    for (const s of schedules) {
-      await tx.barberSchedule.create({
-        data: {
-          barberId: bid,
-          dayOfWeek: s.dayOfWeek,
-          startTime: toTimeDate(s.startTime),
-          endTime: toTimeDate(s.endTime),
-          isAvailable: s.isAvailable !== false,
-        },
-      });
-    }
+    // Una sola sentencia en vez de siete: menos viajes a la base y menos tiempo
+    // con el barbero sin horarios dentro de la transacción.
+    await tx.barberSchedule.createMany({ data: rows });
   });
   return getSchedules(barberId);
 };
+
+/** Semana estándar del negocio para un barbero recién creado. */
+export const defaultScheduleRows = (barberId) => toScheduleRows(barberId, DEFAULT_BARBER_WEEK);
 
 /**
  * Elimina un barbero definitivamente.

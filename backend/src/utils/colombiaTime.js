@@ -11,7 +11,14 @@ export function parseTimeParts(timeStr) {
   return { h: parseInt(m[1], 10), min: parseInt(m[2], 10) };
 }
 
-function timeStrFromRecord(value) {
+/**
+ * Hora de reloj "HH:MM" a partir de lo que devuelve una columna Time de Prisma.
+ *
+ * Lee en UTC a propósito: las columnas `@db.Time` no llevan zona, y el proyecto
+ * las escribe siempre como `1970-01-01THH:MM:00Z` (ver `clockTimeToDate`).
+ * Leerlas en hora local desplazaría la hora según dónde corra el proceso.
+ */
+export function timeStrFromRecord(value) {
   if (value == null || value === '') return '';
   if (typeof value === 'string') return value;
   if (value instanceof Date) {
