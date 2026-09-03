@@ -16,6 +16,8 @@ import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import {
   MAX_PENDING_APPOINTMENTS_PER_CLIENT,
   PENDING_STATUSES,
+  PENDING_FETCH_LIMIT,
+  countPendingAppointments,
   pendingLimitMessage,
 } from '@/features/appointments/utils/appointmentLimits';
 import { getColombiaTodayYmd } from '@/shared/utils/colombiaTime';
@@ -646,8 +648,12 @@ export default function AppointmentsPage() {
    * Cuántas citas pendientes tiene el cliente ahora mismo, para avisarle antes de
    * abrir el formulario en vez de dejar que lo llene y choque con el 409.
    *
-   * Se pide con `limit: 1` porque solo interesa `total`; el corte por fecha evita
-   * contar citas viejas que nadie confirmó y que el backend tampoco cuenta.
+   * Se piden las filas y se cuentan aquí en vez de fiarse de `total`: el filtro
+   * por fecha del backend es «de hoy en adelante», así que `total` incluye la
+   * cita de esta misma mañana que ya empezó y que la regla real NO cuenta. Con
+   * `total` el aviso se adelantaba y bloqueaba el botón para algo que la API sí
+   * habría aceptado. `countPendingAppointments` aplica el mismo corte por hora
+   * de inicio que `appointmentLimitRules` en el backend.
    */
   const refreshPendingCount = useCallback(async () => {
     if (!isClient || !user?.clientId) return;
@@ -656,10 +662,10 @@ export default function AppointmentsPage() {
         clientId: user.clientId,
         status: PENDING_STATUSES,
         dateFrom: getColombiaTodayYmd(),
-        limit: 1,
+        limit: PENDING_FETCH_LIMIT,
         offset: 0,
       });
-      setPendingCount(data?.total ?? 0);
+      setPendingCount(countPendingAppointments(data?.appointments));
     } catch {
       // Si falla, no se bloquea nada: el backend sigue siendo la regla real.
       setPendingCount(null);
