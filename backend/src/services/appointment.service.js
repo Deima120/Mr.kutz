@@ -24,6 +24,8 @@ import {
   resolveAutomaticStatus,
   APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
+import { assertUnderPendingLimit } from './appointmentLimitRules.js';
+import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
 import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
@@ -811,11 +813,34 @@ export const update = async (id, data, existingAppointment = null) => {
       err.statusCode = 400;
       throw err;
     }
-    const autoLocked = ['in_progress', 'completed', 'cancelled', 'no_show'];
-    if (autoLocked.includes(effectiveStatus)) {
-      const err = new Error('Esta cita ya no admite cambios manuales de estado.');
-      err.statusCode = 400;
-      throw err;
+    if (data.status === 'no_show') {
+      /*
+       * `no_show` tiene sus propias reglas y NO pasa por `autoLocked`. El barbero
+       * confirma la cita por adelantado, así que la automatización ya la habrá
+       * promovido a `in_progress` (a su hora) o a `completed` (diez minutos
+       * después de terminar) cuando el personal se sienta a registrar que el
+       * cliente no vino. Si `no_show` pasara por el candado, la inasistencia
+       * sería imposible de registrar justo en el caso más común, y el módulo de
+       * inactivar clientes se quedaría sin su única entrada de datos.
+       *
+       * Se pasa el estado *efectivo* por coherencia con el resto del bloque: lo
+       * que decide es la realidad horaria, no lo que el job haya alcanzado a
+       * persistir en la tabla.
+       */
+      const activePayment = await prisma.paymentLine.findFirst({
+        where: { appointmentId: apptId, voidedAt: null, lineType: 'service' },
+        select: { id: true },
+      });
+      assertCanMarkNoShow({ ...existing, status: effectiveStatus }, new Date(), {
+        hasActivePayment: Boolean(activePayment),
+      });
+    } else {
+      const autoLocked = ['in_progress', 'completed', 'cancelled', 'no_show'];
+      if (autoLocked.includes(effectiveStatus)) {
+        const err = new Error('Esta cita ya no admite cambios manuales de estado.');
+        err.statusCode = 400;
+        throw err;
+      }
     }
   }
 

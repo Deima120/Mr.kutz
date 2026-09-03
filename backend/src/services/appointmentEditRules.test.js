@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   IN_PROGRESS_EDIT_MESSAGE,
+  CLOSED_EDIT_MESSAGE,
   assertAppointmentIsEditable,
   isRescheduleAttempt,
 } from './appointmentEditRules.js';
@@ -76,10 +77,27 @@ describe('assertAppointmentIsEditable', () => {
     );
   });
 
-  it('no aplica a citas ya terminadas: ahí manda la regla de estados terminales', () => {
+  /*
+   * Antes se daba por hecho que de las citas cerradas ya se encargaba «la regla de
+   * estados terminales». No es así: ese candado vive en el servicio y solo se
+   * evalúa cuando el PUT trae `status`, de modo que un PUT con solo `startTime`
+   * reprogramaba una cita ya completada y reescribía el pasado sin ningún error.
+   */
+  it('bloquea reprogramar una cita ya cerrada', () => {
+    for (const status of ['completed', 'cancelled', 'no_show']) {
+      const cerrada = { ...APPT, status };
+      assert.throws(
+        () => assertAppointmentIsEditable(cerrada, { startTime: '15:00' }, nowAt('2030-06-15T12:10:00')),
+        (err) => err.message === CLOSED_EDIT_MESSAGE && err.statusCode === 400,
+        `no bloqueó con ${status}`
+      );
+    }
+  });
+
+  it('sigue permitiendo cambiar el estado de una cita cerrada (tiene su propia regla)', () => {
     const completed = { ...APPT, status: 'completed' };
     assert.doesNotThrow(() =>
-      assertAppointmentIsEditable(completed, { startTime: '15:00' }, nowAt('2030-06-15T12:10:00'))
+      assertAppointmentIsEditable(completed, { status: 'no_show' }, nowAt('2030-06-15T12:10:00'))
     );
   });
 
