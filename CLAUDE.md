@@ -1,8 +1,8 @@
 # SENIOR SOFTWARE ENGINEER — PROJECT OPERATING SYSTEM
 
 > **Alcance:** este archivo vive en la raíz del repositorio Mr.Kutz y define el comportamiento
-> permanente dentro de este proyecto. Aplica a todo el monorepo (`backend/`, `frontend/`,
-> `mobile_kutz/`).
+> permanente dentro de este proyecto. Aplica a todo el monorepo (`backend/` y `frontend/`).
+> La app móvil Flutter **vive en un repositorio aparte** y no se trabaja desde aquí; ver §39.1.
 >
 > **Antes de empezar cualquier tarea, lee también:**
 >
@@ -1088,9 +1088,9 @@ raíz (solo un `package-lock.json` residual).
 | ---------------- | ---------------------------------------------------------------------------------------- |
 | `backend/`     | API REST Node.js + Express + Prisma. Desplegada en Render.                               |
 | `frontend/`    | SPA React 18 + Vite + Tailwind. Desplegada en Vercel.                                    |
-| `mobile_kutz/` | App móvil Flutter.**Sin versionar todavía** (aparece como `untracked` en git). |
+| ~~`mobile_kutz/`~~ | **Ya no está en este repositorio.** La app móvil Flutter se mantiene en un repo aparte. Aquí solo vive la API que consume: `/api/mobile` (`src/routes/mobile.routes.js`) y su contrato en `backend/docs/API_MOBILE.md`. La entrada `mobile_kutz/` del `.gitignore` es un residuo de cuando estuvo aquí. |
 | `docs/`        | Documentación funcional y evidencias de pruebas.                                        |
-| `private/`     | **En `.gitignore`.** Contexto local extendido y ADRs. Ver §39.4.                |
+| `private/`     | **En `.gitignore`.** Contexto local extendido. Ver §39.4.                |
 
 ## 39.2 Comandos que existen de verdad
 
@@ -1146,8 +1146,18 @@ Consecuencia de diseño: los `utils/` que quieran ser testeables **no deben impo
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `private/frontend/CLAUDE.md`                          | Arquitectura del frontend: rutas, estado, feedback/toasts, estilos, convenciones, formulario de ventas, responsive del panel. |
 | `private/backend/CLAUDE.md`                           | Arquitectura del backend: modelo de datos Prisma, auth, capas, endurecimiento de producción, migraciones.                    |
-| `private/adr/0001-desactivacion-reportes-y-caja.md`   | Reportes y Caja diaria desactivados.                                                                                          |
-| `private/adr/0002-desactivacion-linea-caja-manual.md` | Fila «Caja (manual)» del formulario de ventas desactivada.                                                                  |
+| `private/adr/0001-desactivacion-reportes-y-caja.md`   | Reportes y Caja diaria desactivados. **⚠️ El archivo no está presente** (ver aviso debajo).                                   |
+| `private/adr/0002-desactivacion-linea-caja-manual.md` | Fila «Caja (manual)» del formulario de ventas desactivada. **⚠️ El archivo no está presente** (ver aviso debajo).            |
+
+> ⚠️ **La carpeta `private/adr/` no existe ahora mismo en el equipo de trabajo** (verificado el
+> 2026-09-03). Los dos ADR siguen citados por su ruta en comentarios de código vivo
+> (`frontend/src/routes.js`, `frontend/src/shared/components/layout/AdminLayout.jsx`) y en los
+> `CLAUDE.md` privados, así que **esas referencias apuntan hoy a archivos ausentes**.
+>
+> Es una ausencia conocida y aceptada por el propietario: **no reconstruyas los ADR por tu cuenta ni
+> quites las referencias del código.** Si necesitas el porqué de una desactivación, la información
+> está duplicada en los `CLAUDE.md` de `private/frontend/` y `private/backend/` y en los propios
+> comentarios de los marcadores.
 
 **Convención de desactivación de este proyecto:** cuando se saca funcionalidad de circulación,
 **se comenta, no se borra**, con un marcador rastreable y un ADR que explique el porqué y cómo

@@ -18,6 +18,7 @@ import {
   getColombiaTodayYmd,
   getColombiaNowParts,
   ymdToUtcDate,
+  extractAppointmentDateYmd,
 } from '../utils/colombiaTime.js';
 import {
   isManualAdminStatus,
@@ -26,7 +27,9 @@ import {
 } from './appointmentStatusAutomation.js';
 import { assertUnderPendingLimit } from './appointmentLimitRules.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
-import { assertAppointmentIsEditable } from './appointmentEditRules.js';
+import { resolveDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
+import { isColombianHoliday } from '../utils/colombianHolidays.js';
+import { getForDate as getScheduleExceptionForDate } from './scheduleException.service.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
 /** Días hacia atrás que revisa el job de estados (citas confirmadas sin actualizar). */
@@ -68,6 +71,63 @@ async function assertNoOverlap({ barberId, appointmentDate, startMin, endMin, ex
       err.reason = 'APPOINTMENT_OVERLAP';
       throw err;
     }
+  }
+}
+
+/**
+ * Ventana que atiende un barbero un día concreto, aplicando festivos y
+ * excepciones. Es la fuente única que usan tanto el cálculo de turnos
+ * disponibles como la validación al crear una cita.
+ *
+ * @returns {Promise<{ open: boolean, start?: string, end?: string, reason: string }>}
+ */
+async function resolveBarberDayWindow(barberId, ymd) {
+  const dayOfWeek = weekdayOfYmd(ymd);
+
+  const [barberRows, exception] = await Promise.all([
+    prisma.barberSchedule.findMany({ where: { barberId: Number(barberId) } }),
+    getScheduleExceptionForDate(ymd),
+  ]);
+
+  return resolveDayWindow({
+    dayOfWeek,
+    barberRows: barberRows.map((r) => ({
+      dayOfWeek: r.dayOfWeek,
+      startTime: toTimeStr(r.startTime),
+      endTime: toTimeStr(r.endTime),
+      isAvailable: r.isAvailable,
+    })),
+    isHoliday: Boolean(isColombianHoliday(ymd)),
+    exception,
+  });
+}
+
+/** Lanza 409 si la cita no cabe en el horario que atiende el barbero ese día. */
+async function assertWithinBarberSchedule({ barberId, appointmentDate, startMinutes, endMinutes }) {
+  const ymd = extractAppointmentDateYmd(appointmentDate);
+  if (!ymd) return;
+
+  const window = await resolveBarberDayWindow(barberId, ymd);
+
+  if (!window.open) {
+    const err = new Error('El barbero no atiende ese día.');
+    err.statusCode = 409;
+    err.reason = 'BARBER_DAY_CLOSED';
+    throw err;
+  }
+
+  const [sh, sm] = window.start.split(':').map(Number);
+  const [eh, em] = window.end.split(':').map(Number);
+  const abre = sh * 60 + sm;
+  const cierra = eh * 60 + em;
+
+  if (startMinutes < abre || endMinutes > cierra) {
+    const err = new Error(
+      `La cita debe estar dentro del horario de atención (${window.start} a ${window.end}).`
+    );
+    err.statusCode = 409;
+    err.reason = 'OUTSIDE_BARBER_SCHEDULE';
+    throw err;
   }
 }
 
@@ -676,6 +736,18 @@ export const create = async (data, { enforceClientLimit = true } = {}) => {
     duration,
   );
 
+  // La cita debe caber dentro del horario que atiende el barbero ese día. Antes
+  // no se comprobaba: la reserva pública quedaba cubierta de rebote porque valida
+  // la hora contra los turnos disponibles, pero por esta vía se podían crear
+  // citas en un día cerrado o fuera de horario. Se reutiliza la misma regla que
+  // calcula los turnos, para que ambas no puedan discrepar.
+  await assertWithinBarberSchedule({
+    barberId,
+    appointmentDate,
+    startMinutes,
+    endMinutes,
+  });
+
   await assertNoOverlap({
     barberId,
     appointmentDate,
@@ -862,6 +934,22 @@ export const update = async (id, data, existingAppointment = null) => {
       endMin,
       excludeId: apptId,
     });
+
+    // Misma regla de horario que al crear. Sin esto se podía saltar la validación
+    // creando la cita en un hueco válido y moviéndola después a un día cerrado o
+    // fuera de horario.
+    //
+    // Va dentro de este `if` a propósito: solo se comprueba cuando cambian la
+    // hora, la fecha, los servicios o el barbero. Un cambio que no toca el
+    // horario —cancelar, completar, editar notas— no se valida, así que las citas
+    // antiguas que quedaron fuera de la franja oficial se pueden seguir
+    // gestionando con normalidad en vez de quedar bloqueadas.
+    await assertWithinBarberSchedule({
+      barberId: nextBarberId,
+      appointmentDate: nextAppointmentDate,
+      startMinutes: startMin,
+      endMinutes: endMin,
+    });
   }
 
   await prisma.appointment.update({
@@ -901,23 +989,18 @@ export const getAvailableSlots = async (barberId, date, excludeAppointmentId = n
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return [];
 
   const [y, m, day] = dateStr.split('-').map(Number);
-  const d = new Date(Date.UTC(y, m - 1, day, 12, 0, 0));
-  const dayOfWeek = d.getUTCDay();
 
-  const schedule = await prisma.barberSchedule.findFirst({
-    where: {
-      barberId: bid,
-      dayOfWeek,
-      isAvailable: true,
-    },
-  });
+  // `resolveBarberDayWindow` distingue dos casos que antes se confundían: "el
+  // barbero libra ese día" (no debe ofrecer turnos) y "este barbero no tiene
+  // horarios cargados" (se le aplica el horario del negocio para no dejarlo sin
+  // agenda). Al filtrar la consulta por `isAvailable: true`, ambos devolvían
+  // null y caían al mismo respaldo, así que un día cerrado seguía ofreciendo
+  // turnos de 09:00 a 18:00.
+  const window = await resolveBarberDayWindow(bid, dateStr);
+  if (!window.open) return [];
 
-  let startTime = '09:00';
-  let endTime = '18:00';
-  if (schedule) {
-    startTime = toTimeStr(schedule.startTime);
-    endTime = toTimeStr(schedule.endTime);
-  }
+  const startTime = window.start;
+  const endTime = window.end;
 
   const appointmentDateOnly = new Date(Date.UTC(y, m - 1, day));
   const excludeId =

@@ -4,9 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import * as barberService from '@/features/barbers/services/barberService';
 import { validateBarberSchedulesForm, getApiErrorMessage } from '@/shared/utils/formValidation';
+import { useAppToast } from '@/shared/feedback/ToastContext';
 import AdminFormShell, {
   AdminFormCardHeader,
   AdminFormFooterActions,
@@ -23,36 +24,48 @@ const DAYS = [
   { value: 6, label: 'Sábado' },
 ];
 
-const formatTime = (t) => {
-  if (!t) return '09:00';
-  if (t instanceof Date) {
-    const hh = String(t.getHours()).padStart(2, '0');
-    const mm = String(t.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
+/**
+ * Hora "HH:MM" a partir de lo que devuelve la API.
+ *
+ * **No usa `new Date`.** Antes convertía el texto a fecha y leía la hora local
+ * del navegador, así que un horario guardado como 09:00 se veía como 04:00 en
+ * Colombia. Ahora el backend envía "HH:MM" directo; se mantiene la tolerancia al
+ * formato ISO anterior por si el frontend se despliega antes que el backend.
+ */
+const formatTime = (t, porDefecto = '10:00') => {
+  if (!t) return porDefecto;
   const s = String(t);
-  const d = new Date(s);
-  if (!Number.isNaN(d.getTime()) && s.includes('T')) {
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
   const iso = s.match(/T(\d{1,2}):(\d{2})/);
   if (iso) return `${String(iso[1]).padStart(2, '0')}:${iso[2]}`;
-  const any = s.match(/(\d{1,2}):(\d{2})/);
-  if (any) return `${String(any[1]).padStart(2, '0')}:${any[2]}`;
-  return s.slice(0, 5);
+  const plano = s.match(/^(\d{1,2}):(\d{2})/);
+  if (plano) return `${String(plano[1]).padStart(2, '0')}:${plano[2]}`;
+  return porDefecto;
 };
+
+/**
+ * Horario oficial de la barbería: lunes a sábado 10:00-20:00, domingos y
+ * festivos 11:00-18:00. Réplica de `SHOP_HOURS` en el backend
+ * (`services/barberScheduleRules.js`), que es la fuente de verdad; aquí solo se
+ * usa para rellenar el formulario antes de que responda la API.
+ */
+const horarioEstandar = (dayOfWeek) =>
+  dayOfWeek === 0
+    ? { startTime: '11:00', endTime: '18:00' }
+    : { startTime: '10:00', endTime: '20:00' };
+
+const semanaPorDefecto = () =>
+  DAYS.map((d) => ({
+    dayOfWeek: d.value,
+    ...horarioEstandar(d.value),
+    isAvailable: true,
+  }));
 
 export default function BarberSchedulesPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const toast = useAppToast();
   const [barber, setBarber] = useState(null);
-  const [schedules, setSchedules] = useState(DAYS.map((d) => ({
-    dayOfWeek: d.value,
-    startTime: '09:00',
-    endTime: '18:00',
-    isAvailable: d.value !== 0,
-  })));
+  const [schedules, setSchedules] = useState(semanaPorDefecto);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -72,18 +85,18 @@ export default function BarberSchedulesPage() {
         if (list.length > 0) {
           const merged = DAYS.map((d) => {
             const found = list.find((s) => s.day_of_week === d.value || s.dayOfWeek === d.value);
+            const estandar = horarioEstandar(d.value);
             return found
               ? {
                   dayOfWeek: d.value,
-                  startTime: formatTime(found.start_time || found.startTime),
-                  endTime: formatTime(found.end_time || found.endTime),
+                  startTime: formatTime(found.start_time || found.startTime, estandar.startTime),
+                  endTime: formatTime(found.end_time || found.endTime, estandar.endTime),
                   isAvailable: found.is_available !== false && found.isAvailable !== false,
                 }
               : {
                   dayOfWeek: d.value,
-                  startTime: '09:00',
-                  endTime: '18:00',
-                  isAvailable: d.value !== 0,
+                  ...estandar,
+                  isAvailable: true,
                 };
           });
           setSchedules(merged);
@@ -114,9 +127,16 @@ export default function BarberSchedulesPage() {
     setSaving(true);
     try {
       await barberService.updateBarberSchedules(id, schedules);
+      // Antes el guardado ocurría de verdad pero la pantalla no daba ninguna
+      // señal: ni aviso ni navegación, así que parecía que el botón no hacía
+      // nada. El aviso sobrevive al cambio de pantalla porque el proveedor de
+      // avisos envuelve toda la aplicación, por encima del enrutador.
+      toast.success('Horarios actualizados correctamente.');
+      navigate('/barbers', { replace: true });
     } catch (err) {
+      // El error se queda en el formulario, junto a los campos que hay que
+      // corregir, siguiendo la convención de feedback del proyecto.
       setError(getApiErrorMessage(err, 'Error al guardar'));
-    } finally {
       setSaving(false);
     }
   };
