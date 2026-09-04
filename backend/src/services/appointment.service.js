@@ -27,7 +27,7 @@ import {
 } from './appointmentStatusAutomation.js';
 import { assertUnderPendingLimit } from './appointmentLimitRules.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
-import { resolveDayWindow } from './barberScheduleRules.js';
+import { resolveDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
 import { isColombianHoliday } from '../utils/colombianHolidays.js';
 import { getForDate as getScheduleExceptionForDate } from './scheduleException.service.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
@@ -82,8 +82,7 @@ async function assertNoOverlap({ barberId, appointmentDate, startMin, endMin, ex
  * @returns {Promise<{ open: boolean, start?: string, end?: string, reason: string }>}
  */
 async function resolveBarberDayWindow(barberId, ymd) {
-  const [y, m, day] = String(ymd).split('-').map(Number);
-  const dayOfWeek = new Date(Date.UTC(y, m - 1, day, 12, 0, 0)).getUTCDay();
+  const dayOfWeek = weekdayOfYmd(ymd);
 
   const [barberRows, exception] = await Promise.all([
     prisma.barberSchedule.findMany({ where: { barberId: Number(barberId) } }),
@@ -910,6 +909,22 @@ export const update = async (id, data, existingAppointment = null) => {
       startMin,
       endMin,
       excludeId: apptId,
+    });
+
+    // Misma regla de horario que al crear. Sin esto se podía saltar la validación
+    // creando la cita en un hueco válido y moviéndola después a un día cerrado o
+    // fuera de horario.
+    //
+    // Va dentro de este `if` a propósito: solo se comprueba cuando cambian la
+    // hora, la fecha, los servicios o el barbero. Un cambio que no toca el
+    // horario —cancelar, completar, editar notas— no se valida, así que las citas
+    // antiguas que quedaron fuera de la franja oficial se pueden seguir
+    // gestionando con normalidad en vez de quedar bloqueadas.
+    await assertWithinBarberSchedule({
+      barberId: nextBarberId,
+      appointmentDate: nextAppointmentDate,
+      startMinutes: startMin,
+      endMinutes: endMin,
     });
   }
 

@@ -6,6 +6,8 @@ import {
   shopWindowFor,
   intersectWindows,
   resolveDayWindow,
+  resolveShopDayWindow,
+  weekdayOfYmd,
   normalizeScheduleInput,
 } from './barberScheduleRules.js';
 import { parseClockTime, clockTimeToDate } from './appointment.time.helpers.js';
@@ -246,5 +248,84 @@ describe('normalizeScheduleInput', () => {
 
   it('rechaza una lista vacía', () => {
     assert.throws(() => normalizeScheduleInput([]), { statusCode: 400 });
+  });
+});
+
+describe('horario del negocio por día (resolveShopDayWindow)', () => {
+  // La pregunta que motivó esta función: un festivo cae en lunes, ¿el lunes se
+  // atiende con su horario normal o con el de festivo? Manda el festivo.
+  it('un festivo en lunes se atiende con horario de festivo, no de lunes', () => {
+    const normal = resolveShopDayWindow({ dayOfWeek: 1 });
+    assert.deepEqual(normal, { open: true, start: '10:00', end: '20:00', reason: 'shop_default' });
+
+    const festivo = resolveShopDayWindow({ dayOfWeek: 1, isHoliday: true });
+    assert.deepEqual(festivo, { open: true, start: '11:00', end: '18:00', reason: 'holiday_hours' });
+  });
+
+  it('el horario de festivo es el mismo caiga el día que caiga', () => {
+    for (const dayOfWeek of [0, 1, 2, 3, 4, 5, 6]) {
+      const v = resolveShopDayWindow({ dayOfWeek, isHoliday: true });
+      assert.deepEqual(
+        { start: v.start, end: v.end },
+        { start: SHOP_HOURS.holiday.start, end: SHOP_HOURS.holiday.end },
+        `falló el día ${dayOfWeek}`
+      );
+    }
+  });
+
+  it('una excepción sin horas devuelve el festivo a día normal', () => {
+    const v = resolveShopDayWindow({
+      dayOfWeek: 1,
+      isHoliday: true,
+      exception: { isClosed: false, startTime: null, endTime: null },
+    });
+    assert.deepEqual(v, { open: true, start: '10:00', end: '20:00', reason: 'exception_normal_day' });
+  });
+
+  it('una excepción con horas manda sobre el festivo', () => {
+    const v = resolveShopDayWindow({
+      dayOfWeek: 1,
+      isHoliday: true,
+      exception: { isClosed: false, startTime: '13:00', endTime: '17:00' },
+    });
+    assert.deepEqual(v, { open: true, start: '13:00', end: '17:00', reason: 'exception_hours' });
+  });
+
+  it('una excepción de cierre gana a todo lo demás', () => {
+    const v = resolveShopDayWindow({
+      dayOfWeek: 1,
+      isHoliday: true,
+      exception: { isClosed: true, startTime: '13:00', endTime: '17:00' },
+    });
+    assert.deepEqual(v, { open: false, reason: 'exception_closed' });
+  });
+
+  it('el domingo conserva su horario propio aunque no sea festivo', () => {
+    assert.deepEqual(resolveShopDayWindow({ dayOfWeek: 0 }), {
+      open: true,
+      start: '11:00',
+      end: '18:00',
+      reason: 'shop_default',
+    });
+  });
+});
+
+describe('weekdayOfYmd', () => {
+  it('devuelve el día de la semana sin depender de la zona horaria', () => {
+    // 2026-01-01 fue jueves; 2026-01-05, lunes; 2026-01-04, domingo.
+    assert.equal(weekdayOfYmd('2026-01-01'), 4);
+    assert.equal(weekdayOfYmd('2026-01-04'), 0);
+    assert.equal(weekdayOfYmd('2026-01-05'), 1);
+  });
+
+  it('coincide con el día que resuelve el barbero para esa misma fecha', () => {
+    // 2026-01-12 es lunes y es festivo trasladado (Reyes Magos cae el 6, martes).
+    const dayOfWeek = weekdayOfYmd('2026-01-12');
+    const v = resolveDayWindow({
+      dayOfWeek,
+      barberRows: semana('10:00', '20:00'),
+      isHoliday: true,
+    });
+    assert.deepEqual(v, { open: true, start: '11:00', end: '18:00', reason: 'holiday_hours' });
   });
 });

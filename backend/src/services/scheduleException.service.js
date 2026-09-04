@@ -11,6 +11,7 @@ import prisma from '../lib/prisma.js';
 import { ymdToUtcDate, timeStrFromRecord } from '../utils/colombiaTime.js';
 import { parseClockTime, clockTimeToDate } from './appointment.time.helpers.js';
 import { getColombianHolidays } from '../utils/colombianHolidays.js';
+import { resolveShopDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -84,33 +85,68 @@ export const getCalendar = async (year) => {
   const excepciones = await list({ from: `${anio}-01-01`, to: `${anio}-12-31` });
   const porFecha = new Map(excepciones.map((e) => [e.date, e]));
 
+  /**
+   * Añade a cada día el horario con el que queda realmente el negocio.
+   *
+   * Se resuelve aquí y no en el frontend para que la pantalla no tenga que
+   * duplicar la regla de precedencia. Es la respuesta visible a «este festivo cae
+   * en lunes, ¿a qué hora abrimos?».
+   */
+  const conHorario = (dia, ex, esFestivo) => {
+    const ventana = resolveShopDayWindow({
+      dayOfWeek: weekdayOfYmd(dia.date),
+      isHoliday: esFestivo,
+      exception: ex
+        ? { isClosed: ex.is_closed, startTime: ex.start_time, endTime: ex.end_time }
+        : null,
+    });
+    return {
+      ...dia,
+      day_of_week: weekdayOfYmd(dia.date),
+      effective_closed: !ventana.open,
+      effective_start: ventana.start ?? null,
+      effective_end: ventana.end ?? null,
+      effective_reason: ventana.reason,
+    };
+  };
+
   const dias = festivos.map((f) => {
     const ex = porFecha.get(f.date);
     porFecha.delete(f.date);
-    return {
-      date: f.date,
-      name: f.name,
-      source: ex ? 'festivo+excepcion' : 'festivo',
-      is_closed: ex ? ex.is_closed : false,
-      start_time: ex?.start_time ?? null,
-      end_time: ex?.end_time ?? null,
-      reason: ex?.reason ?? null,
-      exception_id: ex?.id ?? null,
-    };
+    return conHorario(
+      {
+        date: f.date,
+        name: f.name,
+        source: ex ? 'festivo+excepcion' : 'festivo',
+        is_closed: ex ? ex.is_closed : false,
+        start_time: ex?.start_time ?? null,
+        end_time: ex?.end_time ?? null,
+        reason: ex?.reason ?? null,
+        exception_id: ex?.id ?? null,
+      },
+      ex,
+      true,
+    );
   });
 
   // Las excepciones que no caen en festivo se añaden como días propios.
   for (const ex of porFecha.values()) {
-    dias.push({
-      date: ex.date,
-      name: ex.reason || 'Excepción',
-      source: 'excepcion',
-      is_closed: ex.is_closed,
-      start_time: ex.start_time,
-      end_time: ex.end_time,
-      reason: ex.reason,
-      exception_id: ex.id,
-    });
+    dias.push(
+      conHorario(
+        {
+          date: ex.date,
+          name: ex.reason || 'Excepción',
+          source: 'excepcion',
+          is_closed: ex.is_closed,
+          start_time: ex.start_time,
+          end_time: ex.end_time,
+          reason: ex.reason,
+          exception_id: ex.id,
+        },
+        ex,
+        false,
+      ),
+    );
   }
 
   return dias.sort((a, b) => a.date.localeCompare(b.date));

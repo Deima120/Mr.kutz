@@ -63,6 +63,52 @@ export function intersectWindows(a, b) {
   return { start: fromMinutes(start), end: fromMinutes(end) };
 }
 
+/** Día de la semana (0=domingo) de una fecha YYYY-MM-DD, sin depender de la zona. */
+export function weekdayOfYmd(ymd) {
+  const [y, m, d] = String(ymd).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).getUTCDay();
+}
+
+/**
+ * Horario del **negocio** para un día concreto, aplicando excepción y festivo.
+ *
+ * Son los dos primeros escalones de la precedencia que usa `resolveDayWindow`,
+ * sin la parte del barbero. Existe porque la pantalla de festivos y cierres tiene
+ * que mostrarle al administrador cómo queda cada día *antes* de elegir barbero, y
+ * calcularlo en el frontend obligaría a duplicar allí la regla.
+ *
+ * Es también la respuesta a «un festivo cae en lunes, ¿qué pasa con el lunes?»:
+ * el festivo manda sobre el día de la semana, así que ese lunes se atiende
+ * 11:00-18:00 en lugar de 10:00-20:00.
+ *
+ * @param {object} params
+ * @param {number} params.dayOfWeek 0=domingo … 6=sábado
+ * @param {boolean} [params.isHoliday]
+ * @param {{isClosed:boolean,startTime?:string|null,endTime?:string|null}|null} [params.exception]
+ * @returns {{ open: boolean, start?: string, end?: string, reason: string }}
+ */
+export function resolveShopDayWindow({ dayOfWeek, isHoliday = false, exception = null }) {
+  if (exception?.isClosed) {
+    return { open: false, reason: 'exception_closed' };
+  }
+
+  if (exception && exception.startTime && exception.endTime) {
+    return { open: true, start: exception.startTime, end: exception.endTime, reason: 'exception_hours' };
+  }
+
+  // Excepción sin horas y sin cierre: el día vuelve a ser normal aunque el
+  // calendario diga que es festivo. Es la forma de decir "este festivo se trabaja".
+  if (exception) {
+    return { open: true, ...shopWindowFor(dayOfWeek), reason: 'exception_normal_day' };
+  }
+
+  if (isHoliday) {
+    return { open: true, ...shopWindowFor(dayOfWeek, { isHoliday: true }), reason: 'holiday_hours' };
+  }
+
+  return { open: true, ...shopWindowFor(dayOfWeek), reason: 'shop_default' };
+}
+
 /**
  * Decide si un barbero atiende un día concreto y en qué franja.
  *
