@@ -7,10 +7,12 @@
  * Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md
  */
 
-import { useState, useEffect, useMemo, useId } from 'react';
+import { useState, useEffect, useMemo, useId, useCallback, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] `Wallet` era el icono de la fila «Caja (manual)».
-import { CalendarCheck, Package, Plus, Trash2 } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { getMenuPositionFromRect } from '@/shared/components/customSelectLayout';
 import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
 import * as productService from '@/features/inventory/services/productService';
@@ -30,7 +32,9 @@ import {
   validateAmountTendered,
   getApiErrorMessage,
   validatePositiveInt,
+  TEXT_NOTES_MAX,
 } from '@/shared/utils/formValidation';
+import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import CustomSelect from '@/shared/components/CustomSelect';
 import { onCustomSelectValue } from '@/shared/utils/customSelectAdapters';
@@ -106,6 +110,243 @@ function appointmentLabel(a) {
   return `${client || 'Cliente'} · ${service} · ${date}${time ? ` ${time}` : ''}`;
 }
 
+function comboboxMenuPosition(triggerEl) {
+  if (!triggerEl) return null;
+  const pos = getMenuPositionFromRect(triggerEl.getBoundingClientRect(), { maxHeight: 260 });
+  if (pos.top === 'auto') {
+    const rect = triggerEl.getBoundingClientRect();
+    return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: rect.top - 6 - pos.maxHeight };
+  }
+  return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: pos.top };
+}
+
+/**
+ * Combobox de una sola opción con búsqueda LOCAL (sin red): mismo look/interacción que
+ * `ClientPicker`/`ProductPicker` (botón disparador + panel en portal con buscador arriba
+ * y lista con scroll debajo), pero filtrando un array ya cargado en memoria en vez de
+ * pedirlo al backend — para listas acotadas por diseño, como las citas completadas
+ * pendientes de cobro.
+ */
+function LocalCombobox({
+  value,
+  onChange,
+  options,
+  placeholder = 'Buscar…',
+  searchPlaceholder = 'Escribe para buscar…',
+  emptyMessage = 'Sin resultados',
+  disabled = false,
+}) {
+  const selectId = useId();
+  const listboxId = `${selectId}-listbox`;
+  const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  const selected = options.find((o) => String(o.id) === String(value)) || null;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setMenuPosition(null);
+    setHighlightIndex(0);
+    setQuery('');
+  }, []);
+
+  const selectOption = useCallback(
+    (option) => {
+      onChange?.(option.id);
+      close();
+    },
+    [close, onChange]
+  );
+
+  const refreshMenuPosition = useCallback(() => {
+    setMenuPosition(comboboxMenuPosition(triggerRef.current));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    refreshMenuPosition();
+    const onViewportChange = () => refreshMenuPosition();
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+  }, [open, refreshMenuPosition, filtered.length]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      const root = rootRef.current;
+      const menu = document.getElementById(listboxId);
+      if (root && !root.contains(event.target) && menu && !menu.contains(event.target)) {
+        close();
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [close, listboxId, open]);
+
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus());
+  }, [open]);
+
+  const handleKeyDown = (event) => {
+    if (disabled) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (!filtered.length) return;
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      setHighlightIndex((prev) => (prev + delta + filtered.length) % filtered.length);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      const option = filtered[highlightIndex];
+      if (option) selectOption(option);
+    }
+  };
+
+  const hasValue = value !== undefined && value !== null && String(value) !== '';
+
+  const menu =
+    open && menuPosition
+      ? createPortal(
+          <div
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: 'fixed',
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+              maxHeight: menuPosition.maxHeight,
+              zIndex: 10050,
+            }}
+            className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_14px_32px_rgba(28,25,23,0.12)] flex flex-col"
+          >
+            <div className="p-2 border-b border-stone-100 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" aria-hidden />
+                <input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setHighlightIndex(0);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={searchPlaceholder}
+                  className="w-full rounded-lg border border-stone-200 bg-stone-50/80 py-1.5 pl-8 pr-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
+                  aria-autocomplete="list"
+                  aria-controls={listboxId}
+                />
+              </div>
+            </div>
+            <ul
+              className="custom-select-panel overflow-y-auto overflow-x-hidden px-1.5 py-1.5 flex-1 min-h-0"
+              role="presentation"
+            >
+              {filtered.length === 0 ? (
+                <li className="px-3.5 py-2 text-sm text-stone-500">{emptyMessage}</li>
+              ) : (
+                filtered.map((option, index) => {
+                  const isSelected = String(option.id) === String(value);
+                  const isHighlighted = index === highlightIndex;
+                  return (
+                    <li key={option.id} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        tabIndex={-1}
+                        onMouseEnter={() => setHighlightIndex(index)}
+                        onClick={() => selectOption(option)}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
+                          isSelected
+                            ? 'bg-stone-100 text-barber-dark font-semibold ring-1 ring-gold/30'
+                            : isHighlighted
+                              ? 'bg-stone-50 text-stone-900'
+                              : 'text-stone-700 hover:bg-stone-50'
+                        }`}
+                        title={option.label}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        {isSelected ? <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.5} aria-hidden /> : null}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <div ref={rootRef} className="group relative min-w-0">
+        <button
+          type="button"
+          ref={triggerRef}
+          id={selectId}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          disabled={disabled}
+          title={hasValue && selected ? selected.label : undefined}
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          onKeyDown={handleKeyDown}
+          className={`${ADMIN_FORM_FIELD_COMPACT} flex w-full items-center justify-between gap-2 text-left pr-3 ${
+            open ? 'border-gold/50 ring-2 ring-gold/25 bg-white' : ''
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
+        >
+          <span className={`min-w-0 flex-1 truncate ${!hasValue || !selected ? 'text-stone-400' : ''}`}>
+            {selected ? selected.label : placeholder}
+          </span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 text-stone-500 transition-transform duration-200 ${open ? 'rotate-180 text-gold' : ''}`}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </button>
+      </div>
+      {menu}
+    </>
+  );
+}
+
 export function PaymentForm({
   embedded = false,
   contained = false,
@@ -147,6 +388,7 @@ export function PaymentForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [prefillHints, setPrefillHints] = useState([]);
+  const { fieldError, applyValidation, clearFieldError, markTouched } = useFormValidation();
 
   useEffect(() => {
     if (Array.isArray(methodsProp) && methodsProp.length) return undefined;
@@ -257,6 +499,26 @@ export function PaymentForm({
     String(amountTendered).trim() !== '' &&
     !tenderedValidation.valid;
 
+  /**
+   * Validación en vivo de la cantidad de producto: mismo criterio que ya aplica
+   * `handleAddProduct` al pulsar «Agregar» (positivo + no supera el stock), evaluado
+   * mientras se teclea para no esperar al clic para avisar.
+   */
+  const productQtyValidation = useMemo(() => {
+    const qtyCheck = validatePositiveInt(productQty, 'La cantidad', { required: true, min: 1 });
+    if (!qtyCheck.valid) return qtyCheck;
+    if (!productPick?.id) return { valid: true, message: '' };
+    const max = Number(productPick.quantity) || 0;
+    const qty = parseInt(productQty, 10);
+    if (max <= 0) return { valid: false, message: `«${productPick.name}» no tiene existencias.` };
+    if (qty > max) {
+      return { valid: false, message: `Stock insuficiente de «${productPick.name}» (máx. ${max}).` };
+    }
+    return { valid: true, message: '' };
+  }, [productQty, productPick]);
+
+  const showProductQtyError = String(productQty).trim() !== '' && !productQtyValidation.valid;
+
   const methodLabelSummary = useMemo(() => {
     const parts = methodRows
       .map((row) => {
@@ -286,6 +548,7 @@ export function PaymentForm({
       return displayRowsFromAllocated(allocated);
     });
     setError('');
+    clearFieldError('methodSplits');
   };
 
   const removeMethodRow = (key) => {
@@ -299,18 +562,23 @@ export function PaymentForm({
       return displayRowsFromAllocated(allocated);
     });
     setError('');
+    clearFieldError('methodSplits');
   };
 
   const updateMethodRowMethod = (key, paymentMethodId) => {
+    const index = methodRows.findIndex((row) => row.key === key);
     setMethodRows((prev) =>
       prev.map((row) => (row.key === key ? { ...row, paymentMethodId } : row))
     );
     setError('');
+    clearFieldError('methodSplits');
+    if (index >= 0) clearFieldError(`methodSplits.${index}`);
   };
 
   const updateMethodRowAmount = (key, displayValue) => {
     const formatted = formatMoneyInputDigits(displayValue);
     const parsed = parseMoneyInput(formatted);
+    const index = methodRows.findIndex((row) => row.key === key);
     setMethodRows((prev) => {
       const allocated = setMethodSplitManualAmount({
         total: cartTotal,
@@ -339,6 +607,8 @@ export function PaymentForm({
       });
     });
     setError('');
+    clearFieldError('methodSplits');
+    if (index >= 0) clearFieldError(`methodSplits.${index}`);
   };
 
   const addLine = (line) => {
@@ -543,8 +813,7 @@ export function PaymentForm({
       notes,
       lines,
     });
-    if (!validation.valid) {
-      setError(validation.firstError);
+    if (!applyValidation(validation)) {
       return;
     }
     setLoading(true);
@@ -594,6 +863,28 @@ export function PaymentForm({
   };
 
   const isMixedMethodsUi = methodRows.length > 1;
+
+  /**
+   * Misma regla que valida el envío (validatePaymentCartForm), evaluada en vivo para
+   * que el botón "Confirmar venta" refleje si falta método de pago, el pago mixto no
+   * cuadra, o "Efectivo recibido" es inválido — sin esperar al clic para enterarse.
+   * Solo lee `.valid`, no dispara `applyValidation` (eso solo corre en el submit real).
+   */
+  const cartFormValidation = useMemo(
+    () =>
+      validatePaymentCartForm({
+        methodSplits: methodRows.map((row) => ({
+          paymentMethodId: row.paymentMethodId,
+          amount: row.amount,
+        })),
+        amountTendered: hasCashMethodSelected ? amountTendered : undefined,
+        cartTotal,
+        methods,
+        notes,
+        lines,
+      }),
+    [methodRows, hasCashMethodSelected, amountTendered, cartTotal, methods, notes, lines]
+  );
 
   const paymentStatusLabel = (() => {
     if (!isMixedMethodsUi) return 'Cobro completo';
@@ -710,17 +1001,17 @@ export function PaymentForm({
                     <CalendarCheck className="inline h-3 w-3 mr-1 text-sky-700" />
                     Servicio (cita)
                   </span>
-                  <CustomSelect
+                  <LocalCombobox
                     value={appointmentPick}
-                    onChange={onCustomSelectValue(setAppointmentPick)}
-                    variant="form"
+                    onChange={setAppointmentPick}
                     options={appointmentOptions.map((a) => ({
                       id: String(a.id),
                       label: appointmentLabel(a),
                     }))}
-                    placeholder={
-                      appointmentOptions.length ? 'Cita completada…' : 'No hay citas pendientes'
-                    }
+                    placeholder={appointmentOptions.length ? 'Cita completada…' : 'No hay citas pendientes'}
+                    searchPlaceholder="Buscar por cliente o servicio…"
+                    emptyMessage="Sin citas que coincidan"
+                    disabled={appointmentOptions.length === 0}
                   />
                 </div>
                 <button
@@ -757,8 +1048,11 @@ export function PaymentForm({
                     value={productQty}
                     onKeyDown={blockNonDigitKeys}
                     onChange={(e) => setProductQty(e.target.value.replace(/\D/g, ''))}
-                    className={ADMIN_FORM_FIELD_COMPACT}
+                    className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                      showProductQtyError ? '!border-red-400' : ''
+                    }`}
                     placeholder="1"
+                    aria-invalid={showProductQtyError || undefined}
                   />
                 </label>
                 <button
@@ -768,6 +1062,11 @@ export function PaymentForm({
                 >
                   <Plus className="h-3.5 w-3.5" /> Agregar
                 </button>
+                {showProductQtyError ? (
+                  <p className="sm:col-span-3">
+                    <FieldErrorMessage message={productQtyValidation.message} />
+                  </p>
+                ) : null}
               </div>
 
               {/* [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] Fila «Caja (manual)»: cobro libre
@@ -885,6 +1184,9 @@ export function PaymentForm({
         <AdminFormCard>
           <AdminFormCardHeader eyebrow="Paso 2" title="Cómo se paga" />
           <div className="space-y-3 mt-1">
+            {fieldError('methodSplits') ? (
+              <FieldErrorMessage message={fieldError('methodSplits')} />
+            ) : null}
             {!isMixedMethodsUi ? (
               <div className="space-y-3">
                 <label className="group block max-w-md">
@@ -894,13 +1196,19 @@ export function PaymentForm({
                     onChange={onCustomSelectValue((v) =>
                       updateMethodRowMethod(methodRows[0].key, v)
                     )}
+                    onBlur={() => markTouched('methodSplits.0')}
                     variant="form"
+                    selectClassName={fieldError('methodSplits.0') ? '!border-red-400' : ''}
+                    ariaInvalid={Boolean(fieldError('methodSplits.0')) || undefined}
                     options={methods.map((m) => ({
                       id: String(m.id),
                       label: formatPaymentMethodName(m.description || m.name),
                     }))}
                     placeholder="Selecciona…"
                   />
+                  {fieldError('methodSplits.0') ? (
+                    <FieldErrorMessage message={fieldError('methodSplits.0')} />
+                  ) : null}
                 </label>
                 <p className="text-sm text-stone-600">
                   Se cobra el total completo:{' '}
@@ -960,7 +1268,10 @@ export function PaymentForm({
                           onChange={onCustomSelectValue((v) =>
                             updateMethodRowMethod(row.key, v)
                           )}
+                          onBlur={() => markTouched(`methodSplits.${index}`)}
                           variant="form"
+                          selectClassName={fieldError(`methodSplits.${index}`) ? '!border-red-400' : ''}
+                          ariaInvalid={Boolean(fieldError(`methodSplits.${index}`)) || undefined}
                           options={options}
                           placeholder="Selecciona…"
                         />
@@ -981,10 +1292,19 @@ export function PaymentForm({
                           value={row.amount}
                           onKeyDown={blockNonDigitKeys}
                           onChange={(e) => updateMethodRowAmount(row.key, e.target.value)}
-                          className={ADMIN_FORM_FIELD_COMPACT}
+                          onBlur={() => markTouched(`methodSplits.${index}`)}
+                          className={`${ADMIN_FORM_FIELD_COMPACT} ${
+                            fieldError(`methodSplits.${index}`) ? '!border-red-400' : ''
+                          }`}
                           placeholder="0"
+                          aria-invalid={Boolean(fieldError(`methodSplits.${index}`)) || undefined}
                         />
                       </label>
+                      {fieldError(`methodSplits.${index}`) ? (
+                        <p className="sm:col-span-3">
+                          <FieldErrorMessage message={fieldError(`methodSplits.${index}`)} />
+                        </p>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => removeMethodRow(row.key)}
@@ -1066,21 +1386,37 @@ export function PaymentForm({
 
         <AdminFormCard>
           <AdminFormCardHeader title="Notas" />
+          <p className="mt-1 text-right text-[10px] text-stone-400 tabular-nums">
+            {notes.length}/{TEXT_NOTES_MAX}
+          </p>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value.slice(0, 500))}
+            onChange={(e) => setNotes(e.target.value.slice(0, TEXT_NOTES_MAX))}
             rows={2}
-            maxLength={500}
+            maxLength={TEXT_NOTES_MAX}
             placeholder="Opcional: detalle de la venta…"
             className={`${ADMIN_FORM_FIELD_COMPACT} resize-none`}
           />
         </AdminFormCard>
 
         <AdminFormFooterActions>
+          {lines.length > 0 && !cartFormValidation.valid ? (
+            <p className="w-full text-xs text-amber-800 order-first" role="status">
+              {cartFormValidation.firstError}
+            </p>
+          ) : null}
           <AdminFormSecondaryButton onClick={handleCancel} disabled={loading}>
             Cancelar
           </AdminFormSecondaryButton>
-          <AdminFormPrimaryButton disabled={loading || lines.length === 0 || !canCharge || cashLoading}>
+          <AdminFormPrimaryButton
+            disabled={
+              loading ||
+              lines.length === 0 ||
+              !canCharge ||
+              cashLoading ||
+              !cartFormValidation.valid
+            }
+          >
             <AdminFormLoadingButton loading={loading} loadingLabel="Registrando…">
               Confirmar venta
             </AdminFormLoadingButton>

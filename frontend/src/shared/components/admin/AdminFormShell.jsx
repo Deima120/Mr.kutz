@@ -278,6 +278,13 @@ function AdminFormAsideFloatingBar({ aside }) {
  * @param {boolean} [props.asideFloating=false] — El panel de resumen acompaña al scroll:
  *   sticky en la columna derecha desde `lg`, y barra flotante inferior desplegable por debajo.
  *   Requiere que ningún ancestro recorte con `overflow` (ver `DataCard overflowVisible`).
+ * @param {string} [props.asideStickyTopClass='lg:top-2'] — Offset del aside pegado. Cuando el
+ *   scrollport es la ventana y hay un header `sticky` encima (layout público/cliente), hay que
+ *   bajarlo lo suficiente para no quedar debajo de ese header.
+ * @param {boolean} [props.asideFloatingBar=true] — Solo aplica con `asideFloating`. En `false` se
+ *   conserva el sticky de escritorio pero se omite la barra inferior móvil: para formularios que ya
+ *   tienen su propio pie pegajoso (el de cliente en `AppointmentForm`), donde la barra `fixed` lo
+ *   taparía. En móvil el aside vuelve entonces a caer al final del documento.
  */
 export default function AdminFormShell({
   backTo,
@@ -293,8 +300,11 @@ export default function AdminFormShell({
   fillHeight = false,
   showBackNav = true,
   asideFloating = false,
+  asideFloatingBar = true,
+  asideStickyTopClass = 'lg:top-2',
 }) {
   const asideVisible = showAside && aside && (Array.isArray(aside.bullets) && aside.bullets.length > 0 || aside.children);
+  const showFloatingBar = asideFloating && asideFloatingBar;
 
   const formWrapClass = contained
     ? 'relative flex-1 min-h-0 w-full'
@@ -307,7 +317,7 @@ export default function AdminFormShell({
       : 'px-0 pt-0 pb-4';
 
   /** Con barra flotante hay que dejar hueco: si no, tapa los botones del pie en móvil. */
-  const floatingBarSpace = asideFloating ? 'pb-24 lg:pb-0' : '';
+  const floatingBarSpace = showFloatingBar ? 'pb-24 lg:pb-0' : '';
 
   const backNavOffset = showBackNav ? (compact ? 'pt-11' : 'pt-12') : '';
 
@@ -346,7 +356,18 @@ export default function AdminFormShell({
 
           {asideVisible && (
             <aside
-              className={`flex-col self-start ${asideFloating ? 'hidden lg:flex lg:sticky lg:top-2' : 'flex'} ${
+              /*
+               * Con el aside pegado hay que acotarlo al alto de la ventana y darle
+               * scroll propio: si el resumen crece (muchos servicios), sin esto el
+               * pie de la tarjeta queda fuera de pantalla y no hay forma de verlo.
+               */
+              className={`flex-col self-start ${
+                asideFloating
+                  ? `lg:sticky ${asideStickyTopClass} lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto ${
+                      showFloatingBar ? 'hidden lg:flex' : 'flex'
+                    }`
+                  : 'flex'
+              } ${
                 compact ? 'lg:col-span-5' : 'lg:col-span-5 xl:col-span-4'
               }`}
             >
@@ -356,7 +377,7 @@ export default function AdminFormShell({
         </div>
       </div>
 
-      {asideVisible && asideFloating ? <AdminFormAsideFloatingBar aside={aside} /> : null}
+      {asideVisible && showFloatingBar ? <AdminFormAsideFloatingBar aside={aside} /> : null}
     </div>
   );
 }

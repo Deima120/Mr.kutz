@@ -16,6 +16,8 @@ import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import {
   MAX_PENDING_APPOINTMENTS_PER_CLIENT,
   PENDING_STATUSES,
+  PENDING_FETCH_LIMIT,
+  countPendingAppointments,
   pendingLimitMessage,
 } from '@/features/appointments/utils/appointmentLimits';
 import { getColombiaTodayYmd } from '@/shared/utils/colombiaTime';
@@ -27,6 +29,7 @@ import AppointmentForm from '@/features/appointments/components/AppointmentForm'
 import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import { VOID_REASON_FIELD_CLASS, VOID_REASON_MAX } from '@/shared/feedback/voidReasonField';
 import {
@@ -321,7 +324,7 @@ function clientRatingCommentOf(a) {
   return a?.clientRatingComment ?? a?.client_rating_comment ?? null;
 }
 
-function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
+function ClientAppointmentRatingForm({ appointmentId, onSuccess, bare = false }) {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
@@ -345,7 +348,7 @@ function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
   };
 
   return (
-    <div className="mt-4 pt-4 border-t border-stone-100">
+    <div className={bare ? '' : 'mt-4 pt-4 border-t border-stone-100'}>
       <p className="text-sm font-medium text-stone-800 mb-2">¿Cómo fue tu visita?</p>
       <div className="flex gap-1 mb-3" role="group" aria-label="Puntuación de 1 a 5">
         {[1, 2, 3, 4, 5].map((n) => (
@@ -393,6 +396,95 @@ function ClientAppointmentRatingForm({ appointmentId, onSuccess }) {
   );
 }
 
+/**
+ * Modal de valoración por enlace directo (`/appointments/:id/valorar`, el botón del
+ * correo de cita completada). Carga la cita por id en vez de buscarla en el listado:
+ * así funciona aunque esté en cualquier página de la paginación. La propiedad de la
+ * cita la verifica el backend en `GET /appointments/:id` (403 si no es del cliente).
+ */
+function ClientRatingModal({ appointmentId, onClose, onRated }) {
+  const [appointment, setAppointment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (appointmentId == null) return undefined;
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    setAppointment(null);
+    appointmentService
+      .getAppointmentById(appointmentId)
+      .then((a) => {
+        if (cancelled) return;
+        if (!a) setError('No encontramos esa cita.');
+        else setAppointment(a);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || 'No pudimos cargar esa cita.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentId]);
+
+  const alreadyRated = appointment ? clientRatingOf(appointment) != null : false;
+  const subtitle = appointment
+    ? [appointment.service_name, formatAppointmentCalendarDate(appointment.appointment_date)]
+        .filter(Boolean)
+        .join(' · ')
+    : undefined;
+
+  let body;
+  if (loading) {
+    body = <p className="py-6 text-center text-stone-500 text-sm">Cargando tu cita…</p>;
+  } else if (error) {
+    body = (
+      <p className="py-4 text-sm text-red-700" role="alert">
+        {error}
+      </p>
+    );
+  } else if (alreadyRated) {
+    body = (
+      <div className="py-2">
+        <p className="text-sm text-stone-700 mb-2">
+          Ya registramos tu valoración de esta cita. ¡Gracias!
+        </p>
+        <RatingStars value={clientRatingOf(appointment)} sizeClass="w-5 h-5" />
+        {clientRatingCommentOf(appointment) ? (
+          <p className="text-sm text-stone-500 mt-2 italic">"{clientRatingCommentOf(appointment)}"</p>
+        ) : null}
+      </div>
+    );
+  } else if (appointment.status !== 'completed') {
+    body = (
+      <p className="py-4 text-sm text-stone-600">
+        Esta cita todavía no está completada, así que aún no se puede valorar. Cuando termine tu
+        servicio te llegará el enlace por correo.
+      </p>
+    );
+  } else {
+    body = (
+      <ClientAppointmentRatingForm bare appointmentId={appointment.id} onSuccess={onRated} />
+    );
+  }
+
+  return (
+    <AdminModalShell
+      open
+      onClose={onClose}
+      title="Valora tu servicio"
+      subtitle={subtitle}
+      size="lg"
+    >
+      {body}
+    </AdminModalShell>
+  );
+}
+
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const toast = useAppToast();
@@ -416,6 +508,8 @@ export default function AppointmentsPage() {
   const [pageSize, setPageSize] = useState(6);
   const [formView, setFormView] = useState(null);
   const [clock, setClock] = useState(() => new Date());
+  /** Cita a valorar cuando se entra por `/appointments/:id/valorar` (enlace del correo). */
+  const [ratingTargetId, setRatingTargetId] = useState(null);
 
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
@@ -490,6 +584,16 @@ export default function AppointmentsPage() {
       navigate('/appointments', { replace: true });
       return;
     }
+    // Enlace del correo: abre la valoración de esa cita sobre el listado de completadas.
+    const rateMatch = location.pathname.match(/^\/appointments\/(\d+)\/valorar$/);
+    if (rateMatch) {
+      setRatingTargetId(parseInt(rateMatch[1], 10));
+      setFormView(null);
+      setFilterStatus('completed');
+      setPage(1);
+      navigate('/appointments', { replace: true });
+      return;
+    }
     if (location.pathname === '/appointments/new') {
       setFormView('create');
       const params = new URLSearchParams(location.search);
@@ -544,8 +648,12 @@ export default function AppointmentsPage() {
    * Cuántas citas pendientes tiene el cliente ahora mismo, para avisarle antes de
    * abrir el formulario en vez de dejar que lo llene y choque con el 409.
    *
-   * Se pide con `limit: 1` porque solo interesa `total`; el corte por fecha evita
-   * contar citas viejas que nadie confirmó y que el backend tampoco cuenta.
+   * Se piden las filas y se cuentan aquí en vez de fiarse de `total`: el filtro
+   * por fecha del backend es «de hoy en adelante», así que `total` incluye la
+   * cita de esta misma mañana que ya empezó y que la regla real NO cuenta. Con
+   * `total` el aviso se adelantaba y bloqueaba el botón para algo que la API sí
+   * habría aceptado. `countPendingAppointments` aplica el mismo corte por hora
+   * de inicio que `appointmentLimitRules` en el backend.
    */
   const refreshPendingCount = useCallback(async () => {
     if (!isClient || !user?.clientId) return;
@@ -554,10 +662,10 @@ export default function AppointmentsPage() {
         clientId: user.clientId,
         status: PENDING_STATUSES,
         dateFrom: getColombiaTodayYmd(),
-        limit: 1,
+        limit: PENDING_FETCH_LIMIT,
         offset: 0,
       });
-      setPendingCount(data?.total ?? 0);
+      setPendingCount(countPendingAppointments(data?.appointments));
     } catch {
       // Si falla, no se bloquea nada: el backend sigue siendo la regla real.
       setPendingCount(null);
@@ -691,7 +799,13 @@ export default function AppointmentsPage() {
   if (isClient) {
     if (isFormOpen) {
       return (
-        <div className="flex-1 min-h-0 overflow-y-auto bg-stone-50">
+        /*
+         * Sin `overflow-y-auto`: el contenedor nunca llegaba a scrollear (el layout
+         * es `min-h-screen`, así que quien scrollea es la ventana — por eso el header
+         * `sticky top-0` sí funciona). Pero al declararlo se convertía en el scrollport
+         * más cercano del aside y su `sticky` quedaba anclado a una caja inmóvil.
+         */
+        <div className="flex-1 min-h-0 bg-stone-50">
           <div className="container mx-auto max-w-[min(72rem,100%)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="mb-4">
               <AdminBackNav label="Mis citas" onClick={() => setFormView(null)} />
@@ -799,10 +913,14 @@ export default function AppointmentsPage() {
                 {appointments.map((a) => {
                   const noteText = appointmentNotesOf(a);
                   const effectiveStatus = getEffectiveAppointmentStatus(a, clock);
-                  const canAct = !['cancelled', 'no_show', 'completed'].includes(a.status);
                   const statusAllowsCancel =
                     effectiveStatus === 'scheduled' || effectiveStatus === 'confirmed';
                   const canCancel = canCancelAppointment(a, clock, { requireLeadTime: true });
+                  // Sobre el estado *efectivo*: una cita en curso ya no se edita (el
+                  // servicio está ocurriendo), aunque en BD siga como `confirmed`
+                  // hasta que corra el job de sincronización.
+                  const canEdit = !isAppointmentActionsLocked(a, clock);
+                  const showActions = canEdit || canCancel || statusAllowsCancel;
                   return (
                     <li key={a.id} className="min-w-0 animate-fade-in">
                       <article className="h-full bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden hover:border-stone-300 transition-all duration-300 flex flex-col">
@@ -823,10 +941,12 @@ export default function AppointmentsPage() {
                             </time>
                           </div>
 
-                          {canAct && (
+                          {showActions && (
                             <div className="flex flex-col items-end gap-1.5 mb-2">
                               <div className="flex items-center justify-end gap-2">
-                                <EditAppointmentButton onClick={() => openEditForm(a.id)} />
+                                {canEdit ? (
+                                  <EditAppointmentButton onClick={() => openEditForm(a.id)} />
+                                ) : null}
                                 {canCancel ? (
                                   <CancelAppointmentButton onClick={() => handleCancelClick(a.id)} />
                                 ) : null}
@@ -911,6 +1031,18 @@ export default function AppointmentsPage() {
           onConfirm={handleCancelConfirm}
           confirming={cancelling}
         />
+
+        {ratingTargetId != null ? (
+          <ClientRatingModal
+            appointmentId={ratingTargetId}
+            onClose={() => setRatingTargetId(null)}
+            onRated={() => {
+              setRatingTargetId(null);
+              toast.success('¡Gracias por tu valoración!');
+              fetchAppointments();
+            }}
+          />
+        ) : null}
       </div>
     );
   }

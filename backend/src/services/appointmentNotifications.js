@@ -150,7 +150,12 @@ export async function notifyAppointmentCompleted(appointment) {
   if (!appointment || !appointment.client_email) return;
   const businessName = await resolveBusinessName();
   const base = resolvePublicBaseUrl();
-  const reviewUrl = base ? `${base}/appointments` : undefined;
+  // Enlace a la cita concreta: el frontend abre ahí el formulario de valoración sin
+  // que el cliente tenga que buscarla en el listado. Si no hay sesión, pasa por
+  // /login y vuelve a esta misma ruta.
+  const reviewUrl = base && appointment.id != null
+    ? `${base}/appointments/${appointment.id}/valorar`
+    : undefined;
 
   trackMail(
     'Correo de valoración',
