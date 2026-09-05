@@ -753,34 +753,55 @@ export function validateCategoryForm({ name, description }) {
   return validationResult(errors);
 }
 
+
 /**
- * Excepción del calendario (cierre o horario especial de un día concreto).
+ * Alta de un usuario del personal y restablecimiento de contraseña.
  *
- * Los tres modos son excluyentes y determinan qué campos importan:
- *  - `closed`  — el negocio no abre; las horas se ignoran.
- *  - `hours`   — horario especial; ambas horas son obligatorias.
- *  - `normal`  — el día se trata como normal; sirve para trabajar un festivo.
+ * Las reglas de contraseña replican las del backend (`strongPassword` en
+ * `utils/validation.js`): ocho caracteres, mayúscula, minúscula y dígito. Se
+ * comprueban aquí solo para avisar antes de enviar; el backend vuelve a
+ * validarlas y es el que manda.
+ *
+ * @param {{email?: string, password?: string, roleId?: string|number}} data
+ * @param {{soloPassword?: boolean}} [opciones] para el modal de restablecer, que
+ *   no pide ni correo ni rol.
  */
-export function validateScheduleExceptionForm({ date, mode, startTime, endTime, reason } = {}) {
+export function validateUserForm(data = {}, { soloPassword = false } = {}) {
   const errors = {};
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date ?? '').trim())) {
-    errors.date = 'Indica una fecha válida.';
+  if (!soloPassword) {
+    const email = String(data.email ?? '').trim();
+    if (!email) errors.email = 'Indica el correo.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'El correo no es válido.';
+    else if (email.length > 255) errors.email = 'El correo es demasiado largo.';
+
+    if (!data.roleId) errors.roleId = 'Elige un rol.';
   }
 
-  if (mode === 'hours') {
-    if (!startTime) errors.startTime = 'Indica la hora de apertura.';
-    if (!endTime) errors.endTime = 'Indica la hora de cierre.';
-    if (startTime && endTime) {
-      const rango = validateTimeRange(startTime, endTime);
-      if (!rango.valid) errors.endTime = rango.message;
-    }
-  }
+  const password = String(data.password ?? '');
+  if (!password) errors.password = 'Indica la contraseña.';
+  else if (password.length < 8) errors.password = 'Debe tener al menos 8 caracteres.';
+  else if (!/[A-Z]/.test(password)) errors.password = 'Debe incluir al menos una mayúscula.';
+  else if (!/[a-z]/.test(password)) errors.password = 'Debe incluir al menos una minúscula.';
+  else if (!/\d/.test(password)) errors.password = 'Debe incluir al menos un número.';
 
-  // El motivo es opcional, pero el backend lo recorta a 200: se avisa antes de
-  // enviar en vez de dejar que el texto se pierda en silencio.
-  if (String(reason ?? '').trim().length > 200) {
-    errors.reason = 'Máximo 200 caracteres.';
+  return validationResult(errors);
+}
+
+/**
+ * Rol personalizado. El nombre es obligatorio; los permisos pueden ir vacíos
+ * (un rol sin permisos existe, simplemente no puede hacer nada todavía).
+ */
+export function validateRoleForm({ name, description } = {}) {
+  const errors = {};
+  const nombre = String(name ?? '').trim();
+
+  if (!nombre) errors.name = 'Indica el nombre del rol.';
+  else if (nombre.length < 2) errors.name = 'Mínimo 2 caracteres.';
+  else if (nombre.length > 50) errors.name = 'Máximo 50 caracteres.';
+
+  if (String(description ?? '').trim().length > 255) {
+    errors.description = 'Máximo 255 caracteres.';
   }
 
   return validationResult(errors);

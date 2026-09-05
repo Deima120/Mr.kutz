@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   CalendarCheck,
   CalendarDays,
-  CalendarOff,
+  ShieldCheck,
+  Lock,
   BarChart3,
   UsersRound,
   Sparkles,
@@ -51,12 +52,6 @@ const adminNavSections = [
       { path: '/clients', label: 'Clientes', description: 'Base de datos', Icon: UsersRound },
       { path: '/services', label: 'Servicios', description: 'Servicios y precios', Icon: Scissors },
       { path: '/barbers', label: 'Barberos', description: 'Equipo de trabajo', Icon: UserCog },
-      {
-        path: '/schedule-exceptions',
-        label: 'Festivos y cierres',
-        description: 'Calendario del negocio',
-        Icon: CalendarOff,
-      },
     ],
   },
   {
@@ -67,6 +62,31 @@ const adminNavSections = [
       { path: '/payments', label: 'Ventas', description: 'Registro de ventas', Icon: CreditCard },
       { path: '/purchases', label: 'Compras', description: 'Órdenes y proveedores', Icon: ShoppingCart },
       { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
+    ],
+  },
+  {
+    // Ojo: el id NO es 'system'. Ese lo usa el bloque comentado del ADR de
+    // Reportes/Caja que hay justo debajo, y si algún día se reactiva habría dos
+    // secciones con el mismo identificador.
+    id: 'access',
+    label: 'Sistema',
+    // Los dos items se filtran por permiso más abajo: un rol personalizado sin
+    // `users.view` no debe ver siquiera la entrada del menú.
+    items: [
+      {
+        path: '/users',
+        label: 'Usuarios',
+        description: 'Personal y accesos',
+        Icon: ShieldCheck,
+        permission: 'users.view',
+      },
+      {
+        path: '/roles',
+        label: 'Roles',
+        description: 'Permisos por rol',
+        Icon: Lock,
+        permission: 'roles.view',
+      },
     ],
   },
   // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Reportes/Caja oculto de la vista del usuario.
@@ -146,18 +166,35 @@ function NavItem({ item, pathname, sidebarCollapsed }) {
 }
 
 export default function AdminLayout({ children }) {
-  const { user, logout } = useAuth();
+  const { user, logout, permissions } = useAuth();
   const { businessName } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = user?.role === 'admin';
-  const navSections = useMemo(() => (isAdmin ? adminNavSections : barberNavSections), [isAdmin]);
+  // Se ocultan los items que exigen un permiso que el usuario no tiene, y las
+  // secciones que se quedan sin ningún item, para no dejar un encabezado huérfano.
+  // Es solo cosmético: quien fuerce la URL se topa igualmente con ProtectedRoute y
+  // con el backend.
+  const navSections = useMemo(() => {
+    const base = isAdmin ? adminNavSections : barberNavSections;
+    return base
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) => !item.permission || (permissions ?? []).includes(item.permission)
+        ),
+      }))
+      .filter((section) => section.items.length > 0);
+    // Se depende de `permissions` y no del helper `can`, que se recrea en cada
+    // render y haria inutil el memo.
+  }, [isAdmin, permissions]);
   const dashboardItem = isAdmin ? adminDashboardItem : barberDashboardItem;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [openSections, setOpenSections] = useState(() => ({
     operation: true,
     business: true,
+    access: true,
     system: true,
   }));
 

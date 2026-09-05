@@ -6,11 +6,14 @@ import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-describe('rutas commissions (admin)', () => {
-  it('monta auth + authorize(admin) y GET /', () => {
+describe('rutas commissions (permiso commissions)', () => {
+  it('monta auth + guardia de permisos y GET /', () => {
     const source = readFileSync(join(__dirname, 'commission.routes.js'), 'utf8');
     assert.match(source, /router\.use\(auth\)/);
-    assert.match(source, /authorize\(\s*['"]admin['"]\s*\)/);
+    // El guardia ya no es por rol sino por permiso: entrar exige poder consultar,
+    // y escribir exige poder gestionar.
+    assert.match(source, /requirePermission\(\s*'commissions\.view',\s*'commissions\.manage'\s*\)/);
+    assert.match(source, /requirePermission\(\s*'commissions\.manage'\s*\)/);
     assert.match(source, /router\.get\(\s*['"]\/['"]/);
   });
 
@@ -21,11 +24,11 @@ describe('rutas commissions (admin)', () => {
   });
 });
 
-describe('rutas portfolio (admin)', () => {
-  it('monta auth + authorize(admin) y GET /', () => {
+describe('rutas portfolio (permiso portfolio)', () => {
+  it('monta auth + guardia de permisos y GET /', () => {
     const source = readFileSync(join(__dirname, 'portfolio.routes.js'), 'utf8');
     assert.match(source, /router\.use\(auth\)/);
-    assert.match(source, /authorize\(\s*['"]admin['"]\s*\)/);
+    assert.match(source, /requirePermission\(\s*'portfolio\.manage'\s*\)/);
     assert.match(source, /router\.get\(\s*['"]\/['"]/);
   });
 

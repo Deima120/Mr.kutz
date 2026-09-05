@@ -7,10 +7,12 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe('rutas cash-registers (admin)', () => {
-  it('monta auth + authorize(admin) y los 5 endpoints', () => {
+  it('monta auth + guardia de permisos y los 5 endpoints', () => {
     const source = readFileSync(join(__dirname, 'cashRegister.routes.js'), 'utf8');
     assert.match(source, /router\.use\(auth\)/);
-    assert.match(source, /authorize\(\s*['"]admin['"]\s*\)/);
+    // Antes esta comprobación buscaba authorize('admin') y pasaba por casualidad:
+    // el texto había quedado en un comentario. Ahora comprueba el guardia real.
+    assert.match(source, /requirePermission\(\s*'cash_register\.view',\s*'cash_register\.manage'\s*\)/);
     assert.match(source, /router\.get\(\s*['"]\/current['"]/);
     assert.match(source, /router\.get\(\s*['"]\/history['"]/);
     assert.match(source, /router\.post\(\s*['"]\/open['"]/);

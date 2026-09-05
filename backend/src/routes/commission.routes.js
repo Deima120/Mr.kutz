@@ -4,7 +4,7 @@
 
 import express from 'express';
 import { query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { optionalDateQuery, paginationQuery } from '../utils/validation.js';
 import { dateRangeOrderQuery } from '../utils/dateRange.js';
@@ -24,7 +24,13 @@ const listValidation = [
 ];
 
 router.use(auth);
-router.use(authorize('admin'));
+// Entrar exige poder consultar el modulo; escribir exige poder gestionarlo.
+// Sustituye al antiguo authorize('admin'): ahora un rol nuevo de solo lectura
+// (p. ej. Contador) puede consultar sin poder modificar nada.
+router.use(requirePermission('commissions.view', 'commissions.manage'));
+router.use((req, res, next) =>
+  req.method === 'GET' ? next() : requirePermission('commissions.manage')(req, res, next)
+);
 
 router.get('/', listValidation, validate, commissionController.list);
 

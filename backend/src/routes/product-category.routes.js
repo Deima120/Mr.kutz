@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import * as categoryController from '../controllers/product-category.controller.js';
 
@@ -21,7 +21,7 @@ const updateValidation = [
 ];
 
 router.use(auth);
-router.use(authorize('admin'));
+router.use(requirePermission('product_categories.manage'));
 
 router.get('/', categoryController.getAll);
 router.get('/:id', idParam, validate, categoryController.getById);

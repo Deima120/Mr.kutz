@@ -251,3 +251,48 @@ Content-Type: application/json
   4. Consumir `/client/availability`, `/client/appointments`, `POST /client/appointments` y, tras citas completadas, `POST /client/appointments/:id/rating` si aplica.
   5. La app **barbero** puede consumir `GET /api/appointments/rating-summary` en la base `http://localhost:5000/api` con el token del barbero.
 
+---
+
+## 5. Roles y permisos en el perfil (2026-09-04)
+
+`GET /auth/me` (y su gemelo `GET /api/mobile/auth/me`) devuelve ahora dos campos más:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 12,
+    "email": "cliente@ejemplo.com",
+    "role": "client",
+    "permissions": ["appointments.view.own", "appointments.create", "appointments.rate", "barbers.view"],
+    "firstName": "María",
+    "lastName": "García",
+    "clientId": 34
+  }
+}
+```
+
+- `role` — nombre del rol, como hasta ahora.
+- `permissions` — **campo nuevo**, lista de códigos con forma `modulo.accion`.
+
+La app puede usarlos para ocultar opciones que el usuario no puede ejecutar. **Es solo cosmético**: el
+backend vuelve a comprobar los permisos en cada petición y es el que manda, así que ocultar un botón no
+sustituye a manejar un 403.
+
+Los permisos de un usuario con rol `client` son los cuatro del ejemplo. Si la barbería crea roles
+nuevos desde el panel web, sus permisos aparecerán aquí igual, sin que la app tenga que conocerlos de
+antemano: basta con comprobar el código concreto que interese.
+
+### Lo que NO cambia
+
+El contrato de las rutas móviles es idéntico: `/api/mobile/client/*` sigue exigiendo el rol `client`, y
+ni las URL ni los cuerpos ni las respuestas de disponibilidad, citas y valoración se han modificado.
+
+### Dos avisos para el equipo de la app
+
+1. **`POST /api/mobile/auth/login` no filtra por rol.** Un barbero o un administrador pueden
+   autenticarse por ese endpoint y obtener un token válido para toda la API. Si la app debe ser solo de
+   clientes, conviene comprobar `role` tras el login y rechazar el resto.
+2. **Desactivar una cuenta la expulsa de inmediato.** No hay refresh tokens: si el administrador
+   desactiva a un usuario, su siguiente petición devuelve **401** aunque el token no haya caducado. La
+   app debe tratar ese 401 como cierre de sesión.

@@ -9,25 +9,52 @@ import {
   canBarberUpdate,
   stripBarberForbiddenFields,
 } from '../services/appointmentBarberRules.js';
+import { userCan } from '../middlewares/auth.js';
+
+/**
+ * A qué perfil propio hay que acotar la consulta de quien no puede verlo todo.
+ *
+ * Se resuelve por la IDENTIDAD del usuario —tiene ficha de barbero, o de
+ * cliente— y no por cómo se llame su rol, para que un rol personalizado no pueda
+ * colarse por una rama que no le corresponde.
+ *
+ * Si alguien tuviera ambas fichas, manda la de barbero: es el alcance más
+ * restrictivo respecto a la agenda del negocio.
+ *
+ * @returns {{barberId?: number, clientId?: number} | null} `null` si no tiene
+ *   ninguna ficha propia, en cuyo caso no hay nada que se le pueda mostrar.
+ */
+function resolveOwnScope(reqUser) {
+  if (reqUser?.barber_id) return { barberId: reqUser.barber_id };
+  if (reqUser?.client_id) return { clientId: reqUser.client_id };
+  return null;
+}
 
 export const getAll = async (req, res, next) => {
   try {
     let { date, dateFrom, dateTo, barberId, clientId, status, limit, offset } = req.query;
-    // Fallar cerrado: si el rol es barber/client pero falta el perfil vinculado,
-    // antes esto dejaba pasar el barberId/clientId tal cual venía en la query (o
-    // ninguno, listando TODO sin filtrar) en vez de negar el acceso.
-    if (req.user.role_name === 'barber') {
-      if (!req.user.barber_id) {
-        return res.status(403).json({ success: false, message: 'Perfil de barbero no vinculado.' });
+
+    // El alcance lo decide el PERMISO, no el nombre del rol.
+    //
+    // Antes esto era `if (rol === 'barber') … else if (rol === 'client') …`, y
+    // cualquier otro rol caía al caso general y veía la agenda completa. Mientras
+    // solo existían tres roles el único que caía ahí era admin, pero al poder
+    // crearse roles nuevos desde el panel esa rama se convertía en una escalada de
+    // privilegios silenciosa.
+    if (!userCan(req.user, 'appointments.view.all')) {
+      const alcance = resolveOwnScope(req.user);
+      if (!alcance) {
+        // Fallar cerrado: sin permiso para verlo todo y sin un perfil propio al
+        // que acotar, no hay nada que se pueda listar sin filtrar.
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para consultar la agenda.',
+        });
       }
-      barberId = String(req.user.barber_id);
+      if (alcance.barberId) barberId = String(alcance.barberId);
+      if (alcance.clientId) clientId = String(alcance.clientId);
     }
-    if (req.user.role_name === 'client') {
-      if (!req.user.client_id) {
-        return res.status(403).json({ success: false, message: 'Perfil de cliente no vinculado.' });
-      }
-      clientId = String(req.user.client_id);
-    }
+
     const appointments = await appointmentService.getAll({
       date,
       dateFrom: dateFrom || undefined,
@@ -50,14 +77,26 @@ export const getById = async (req, res, next) => {
     if (!appointment) {
       return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
-    const role = req.user.role_name;
-    const ownerClientId = appointment.client_id ?? appointment.clientId;
-    const ownerBarberId = appointment.barber_id ?? appointment.barberId;
-    if (role === 'client' && Number(ownerClientId) !== Number(req.user.client_id)) {
-      return res.status(403).json({ success: false, message: 'Solo puedes ver tus propias citas.' });
-    }
-    if (role === 'barber' && Number(ownerBarberId) !== Number(req.user.barber_id)) {
-      return res.status(403).json({ success: false, message: 'Solo puedes ver tus propias citas.' });
+    // Igual que en `getAll`: manda el permiso, y quien no lo tiene solo alcanza lo
+    // suyo. Antes se comparaba el nombre del rol, así que un rol nuevo veía
+    // cualquier cita por su id.
+    if (!userCan(req.user, 'appointments.view.all')) {
+      const alcance = resolveOwnScope(req.user);
+      if (!alcance) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para consultar esta cita.',
+        });
+      }
+      const ownerClientId = appointment.client_id ?? appointment.clientId;
+      const ownerBarberId = appointment.barber_id ?? appointment.barberId;
+      const esSuya = alcance.barberId
+        ? Number(ownerBarberId) === Number(alcance.barberId)
+        : Number(ownerClientId) === Number(alcance.clientId);
+
+      if (!esSuya) {
+        return res.status(403).json({ success: false, message: 'Solo puedes ver tus propias citas.' });
+      }
     }
     res.json({ success: true, data: appointment });
   } catch (error) {
@@ -85,29 +124,39 @@ export const getAvailableSlots = async (req, res, next) => {
 
 export const create = async (req, res, next) => {
   try {
-    if (req.user.role_name === 'barber') {
-      return res.status(403).json({ success: false, message: 'Los barberos no pueden crear citas.' });
-    }
     const body = { ...req.body };
     if (!body.serviceId && (!Array.isArray(body.serviceIds) || body.serviceIds.length === 0)) {
       return res.status(400).json({ success: false, message: 'Indica al menos un servicio.' });
     }
-    if (req.user.role_name === 'client') {
-      // Fallar cerrado: sin client_id vinculado, antes se dejaba pasar el
-      // clientId que el propio cuerpo de la petición trajera, permitiendo crear
-      // la cita a nombre de cualquier otro cliente.
+
+    // Agendar a nombre de otra persona es una acción de mostrador, y quien la hace
+    // necesita ver la agenda completa. Quien no puede verla toda solo puede
+    // agendar para sí mismo, así que la cita se fuerza a su propia ficha.
+    //
+    // Este era el criterio de antes expresado por rol (`admin` libre, `client`
+    // forzado, `barber` bloqueado); ahora sale del permiso, de modo que un rol
+    // nuevo no hereda por accidente la capacidad de agendar para terceros.
+    const puedeAgendarParaOtros = userCan(req.user, 'appointments.view.all');
+
+    if (!puedeAgendarParaOtros) {
+      // Fallar cerrado: sin ficha de cliente propia, antes se dejaba pasar el
+      // clientId que trajera el cuerpo de la petición, permitiendo crear la cita a
+      // nombre de cualquier otro cliente.
       if (!req.user.client_id) {
-        return res.status(403).json({ success: false, message: 'Perfil de cliente no vinculado.' });
+        return res.status(403).json({
+          success: false,
+          message: 'Solo puedes agendar citas a tu propio nombre.',
+        });
       }
       body.clientId = req.user.client_id;
     }
+
     // El tope de citas pendientes es un control antiabuso del canal self-service.
-    // El admin agenda por teléfono y para walk-ins con contexto que el sistema no
-    // tiene; bloquearlo solo llevaría al personal a cancelar y recrear citas.
+    // El personal agenda por teléfono y para walk-ins con contexto que el sistema
+    // no tiene; bloquearlo solo llevaría a cancelar y recrear citas.
     // Ojo: esto NO se salta la comprobación de cliente inactivo, que es otra cosa.
-    const isAdmin = req.user.role_name === 'admin';
     const appointment = await appointmentService.create(body, {
-      enforceClientLimit: !isAdmin,
+      enforceClientLimit: !puedeAgendarParaOtros,
     });
     res.status(201).json({
       success: true,
@@ -121,13 +170,18 @@ export const create = async (req, res, next) => {
 
 export const getRatingSummary = async (req, res, next) => {
   try {
-    const role = req.user.role_name;
     let { barberId, days } = req.query;
-    if (role === 'barber') {
-      barberId = req.user.barber_id != null ? String(req.user.barber_id) : '';
-      if (!barberId) {
-        return res.status(403).json({ success: false, message: 'Perfil de barbero no vinculado.' });
+    // Quien no ve la agenda completa solo ve su propio resumen. Antes dependía de
+    // que el rol se llamara 'barber'; ahora depende de tener ficha de barbero, que
+    // es lo que de verdad determina de quién son las valoraciones.
+    if (!userCan(req.user, 'appointments.view.all')) {
+      if (req.user.barber_id == null) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para consultar el resumen de valoraciones.',
+        });
       }
+      barberId = String(req.user.barber_id);
     }
     const daysRaw = days;
     const daysNum =
@@ -162,7 +216,10 @@ export const getPublicRatingSummary = async (req, res, next) => {
 
 export const submitClientRating = async (req, res, next) => {
   try {
-    if (req.user.role_name !== 'client' || !req.user.client_id) {
+    // Valorar es un acto del cliente que recibió el servicio, así que hace falta
+    // el permiso y además tener ficha de cliente: el permiso por sí solo no
+    // identifica a nadie.
+    if (!userCan(req.user, 'appointments.rate') || !req.user.client_id) {
       return res.status(403).json({ success: false, message: 'Solo los clientes pueden enviar una valoración.' });
     }
     const appointment = await appointmentService.submitClientRating(req.params.id, req.user.client_id, {
@@ -198,16 +255,26 @@ export const update = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Cita no encontrada.' });
     }
 
-    if (req.user.role_name === 'client') {
-      // Antes esta comprobación era `role_name === 'client' && req.user.client_id`:
-      // si el rol era 'client' pero no había client_id vinculado, la condición
-      // completa era falsa y TODO este bloque de restricciones se saltaba, dejando
-      // pasar la petición sin ninguna verificación (como si no hubiera reglas).
-      // Falla cerrado: sin perfil de cliente vinculado, no hay nada que autorizar.
-      if (!req.user.client_id) {
-        return res.status(403).json({ success: false, message: 'Perfil de cliente no vinculado.' });
-      }
-      if (Number(existing.clientId) !== Number(req.user.client_id)) {
+    // Quien puede ver la agenda completa edita sin restricciones de propiedad; es
+    // el caso del personal de mostrador. El resto solo alcanza lo suyo, y con qué
+    // reglas depende de si es el cliente de la cita o el barbero que la atiende.
+    //
+    // El `if/else` va sobre la IDENTIDAD, no sobre el nombre del rol, y sin ficha
+    // propia se deniega: antes, un rol que no fuera 'client' ni 'barber' se saltaba
+    // los dos bloques de restricciones y editaba cualquier cita sin ninguna
+    // comprobación.
+    const puedeEditarCualquiera = userCan(req.user, 'appointments.view.all');
+    const alcancePropio = puedeEditarCualquiera ? null : resolveOwnScope(req.user);
+
+    if (!puedeEditarCualquiera && !alcancePropio) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permiso para modificar esta cita.',
+      });
+    }
+
+    if (alcancePropio?.clientId) {
+      if (Number(existing.clientId) !== Number(alcancePropio.clientId)) {
         return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propias citas.' });
       }
       const terminal = ['cancelled', 'no_show', 'completed'];
@@ -231,12 +298,12 @@ export const update = async (req, res, next) => {
       delete body.serviceId; // el cliente actualiza servicios con serviceIds
     }
 
-    if (req.user.role_name === 'barber') {
+    if (alcancePropio?.barberId) {
       // El barbero solo confirma, cancela o marca «no asistió» en citas suyas
       // (la propiedad la verifica `canBarberUpdate`). Confirmar es lo que habilita
       // la promoción automática a in_progress/completed: sin ese paso la cita se
       // queda en `scheduled` para siempre.
-      const verdict = canBarberUpdate(existing, req.user.barber_id, body);
+      const verdict = canBarberUpdate(existing, alcancePropio.barberId, body);
       if (!verdict.ok) {
         return res.status(verdict.statusCode).json({
           success: false,

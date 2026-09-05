@@ -45,8 +45,48 @@ model Role {
   id          Int      @id @default(autoincrement())
   name        String   @unique @db.VarChar(50)
   description String?  @db.VarChar(255)
+  /// Los tres roles originales (admin, barber, client) son la base del flujo de
+  /// negocio: no se pueden borrar ni renombrar desde el panel. Los roles que crea
+  /// el administrador nacen con `false`.
+  isSystem    Boolean  @default(false) @map("is_system")
+  /// Un rol desactivado deja de poder asignarse a usuarios nuevos. No expulsa a
+  /// quien ya lo tenía: para eso está `User.isActive`.
+  isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
   users       User[]
+  permissions RolePermission[]
+}
+
+/// Catálogo de permisos del sistema. Es una tabla de solo lectura para la
+/// aplicación: se siembra desde `prisma/seed.js` a partir de
+/// `src/config/permissions.js`, que es la fuente de verdad. Nadie crea permisos
+/// desde el panel, porque un permiso sin código que lo consulte no haría nada.
+model Permission {
+  id          Int              @id @default(autoincrement())
+  /// Código estable con forma `modulo.accion`, p. ej. `appointments.view.all`.
+  code        String           @unique @db.VarChar(80)
+  /// Módulo al que pertenece, para poder agruparlos en la pantalla de roles.
+  module      String           @db.VarChar(40)
+  description String?          @db.VarChar(255)
+  roles       RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+/// Qué permisos tiene cada rol. `Cascade` en ambos lados: al borrar un rol
+/// personalizado o al retirar un permiso del catálogo, sus asignaciones se van
+/// con él y no queda basura.
+model RolePermission {
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
 }
 
 model User {
@@ -132,29 +172,6 @@ model BarberSchedule {
 
   @@unique([barberId, dayOfWeek])
   @@map("barber_schedules")
-}
-
-/// Excepciones del calendario de la barbería: cierres puntuales y horarios
-/// especiales. Los festivos colombianos NO se guardan aquí — se calculan en
-/// `utils/colombianHolidays.js` para no depender de que alguien los cargue cada
-/// año. Esta tabla es solo para lo que ningún calendario sabe: un cierre por
-/// inventario, un puente que se decide trabajar, el 24 de diciembre con horario
-/// corto. Una excepción manda siempre sobre el festivo calculado.
-model ScheduleException {
-  id        Int       @id @default(autoincrement())
-  /// Día afectado. Único: una sola excepción por fecha.
-  date      DateTime  @unique @db.Date
-  /// `true` cierra la barbería ese día e ignora las horas.
-  isClosed  Boolean   @default(false) @map("is_closed")
-  /// Horario especial. Si van vacías y no está cerrado, el día se trata como
-  /// normal (sirve para anular un festivo y trabajar igual).
-  startTime DateTime? @map("start_time") @db.Time(6)
-  endTime   DateTime? @map("end_time") @db.Time(6)
-  reason    String?   @db.VarChar(200)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@map("schedule_exceptions")
 }
 
 model Service {

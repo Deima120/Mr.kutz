@@ -4,7 +4,7 @@
 
 import express from 'express';
 import { body, param, query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { paginationQuery } from '../utils/validation.js';
 import * as productController from '../controllers/product.controller.js';
@@ -126,7 +126,13 @@ const movementsListValidation = [
 ];
 
 router.use(auth);
-router.use(authorize('admin'));
+// Entrar exige poder consultar el modulo; escribir exige poder gestionarlo.
+// Sustituye al antiguo authorize('admin'): ahora un rol nuevo de solo lectura
+// (p. ej. Contador) puede consultar sin poder modificar nada.
+router.use(requirePermission('inventory.view', 'inventory.manage'));
+router.use((req, res, next) =>
+  req.method === 'GET' ? next() : requirePermission('inventory.manage')(req, res, next)
+);
 
 router.post('/import', importValidation, validate, productController.importProducts);
 router.post('/movements/:movementId/void', voidMovementValidation, validate, productController.voidMovement);

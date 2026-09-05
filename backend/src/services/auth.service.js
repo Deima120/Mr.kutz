@@ -404,14 +404,27 @@ export const resetPassword = async (email, code, newPassword) => {
 export const getProfile = async (userId) => {
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    include: { role: true, client: true, barber: true },
+    include: {
+      // Los permisos viajan en el perfil para que la interfaz —web y móvil—
+      // pueda ocultar lo que el usuario no puede hacer. Es solo cosmético: la
+      // decisión que cuenta la sigue tomando el backend en cada petición.
+      role: { include: { permissions: { include: { permission: true } } } },
+      client: true,
+      barber: true,
+    },
   });
 
   if (!dbUser) return null;
 
-  let profile = formatUserResponse(dbUser);
+  let profile = {
+    ...formatUserResponse(dbUser),
+    permissions: (dbUser.role?.permissions ?? []).map((rp) => rp.permission.code),
+  };
 
-  if (dbUser.role?.name === 'client' && dbUser.client) {
+  // El perfil vinculado se añade por la EXISTENCIA de la ficha, no por cómo se
+  // llame el rol: un rol personalizado que además sea barbero debe seguir
+  // recibiendo su `barberId`.
+  if (dbUser.client) {
     profile = {
       ...profile,
       clientId: dbUser.client.id,
@@ -419,7 +432,7 @@ export const getProfile = async (userId) => {
       lastName: dbUser.client.lastName,
       phone: dbUser.client.phone,
     };
-  } else if (dbUser.role?.name === 'barber' && dbUser.barber) {
+  } else if (dbUser.barber) {
     profile = {
       ...profile,
       barberId: dbUser.barber.id,

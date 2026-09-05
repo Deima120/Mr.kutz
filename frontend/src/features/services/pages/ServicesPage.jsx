@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, ArrowRight, Pencil, Trash2 } from 'lucide-react';
 import * as serviceService from '@/features/services/services/serviceService';
 import { ServiceForm } from '@/features/services/pages/ServiceFormPage';
@@ -257,14 +257,22 @@ export default function ServicesPage() {
       {!isFormOpen && (
         <PageHeader
           actions={
-            <button
-              type="button"
-              onClick={() => setFormView('create')}
-              className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
-            >
-              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-              Nuevo
-            </button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Acceso a la gestión de categorías, igual que Inventario lleva a
+                  las suyas. Antes no había forma de crear ni renombrar una
+                  categoría de servicio desde ninguna pantalla. */}
+              <Link to="/services/categories" className="btn-admin-outline text-xs px-3 py-2">
+                Categorías
+              </Link>
+              <button
+                type="button"
+                onClick={() => setFormView('create')}
+                className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
+              >
+                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Nuevo
+              </button>
+            </div>
           }
         />
       )}

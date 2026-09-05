@@ -15,11 +15,11 @@ const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswo
 const ClientsPage = lazy(() => import('@/features/clients/pages/ClientsPage'));
 const ClientDetailPage = lazy(() => import('@/features/clients/pages/ClientDetailPage'));
 const ServicesPage = lazy(() => import('@/features/services/pages/ServicesPage'));
+const ServiceCategoriesPage = lazy(
+  () => import('@/features/services/pages/ServiceCategoriesPage')
+);
 const BarbersPage = lazy(() => import('@/features/barbers/pages/BarbersPage'));
 const BarberSchedulesPage = lazy(() => import('@/features/barbers/pages/BarberSchedulesPage'));
-const ScheduleExceptionsPage = lazy(
-  () => import('@/features/schedule-exceptions/pages/ScheduleExceptionsPage')
-);
 const AppointmentsPage = lazy(() => import('@/features/appointments/pages/AppointmentsPage'));
 const PaymentsPage = lazy(() => import('@/features/payments/pages/PaymentsPage'));
 const InventoryPage = lazy(() => import('@/features/inventory/pages/InventoryPage'));
@@ -34,6 +34,8 @@ const HistoryPage = lazy(() => import('@/features/history/pages/HistoryPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
+const UsersPage = lazy(() => import('@/features/users/pages/UsersPage'));
+const RolesPage = lazy(() => import('@/features/users/pages/RolesPage'));
 const NotFoundPage = lazy(() => import('@/features/not-found/pages/NotFoundPage'));
 const BookingPage = lazy(() => import('@/features/booking/pages/BookingPage'));
 
@@ -59,6 +61,18 @@ function protectedPage(Component, allowedRoles) {
   );
 }
 
+/**
+ * Ruta protegida por PERMISO en vez de por rol, para que un rol personalizado
+ * pueda entrar sin tener que enumerarlo aqui.
+ */
+function permissionPage(Component, requiredPermission) {
+  return createElement(
+    ProtectedRoute,
+    { requiredPermission },
+    createElement(Component)
+  );
+}
+
 export default function AppRoutes() {
   return useRoutes([
     {
@@ -76,15 +90,15 @@ export default function AppRoutes() {
         { path: 'clients/:id/edit', element: protectedPage(ClientsPage, ['admin']) },
         { path: 'services', element: protectedPage(ServicesPage, ['admin']) },
         { path: 'services/new', element: protectedPage(ServicesPage, ['admin']) },
+        {
+          path: 'services/categories',
+          element: permissionPage(ServiceCategoriesPage, 'service_categories.manage'),
+        },
         { path: 'services/:id/edit', element: protectedPage(ServicesPage, ['admin']) },
         { path: 'barbers', element: protectedPage(BarbersPage, ['admin']) },
         { path: 'barbers/new', element: protectedPage(BarbersPage, ['admin']) },
         { path: 'barbers/:id/schedules', element: protectedPage(BarberSchedulesPage, ['admin']) },
         { path: 'barbers/:id/edit', element: protectedPage(BarbersPage, ['admin']) },
-        {
-          path: 'schedule-exceptions',
-          element: protectedPage(ScheduleExceptionsPage, ['admin']),
-        },
         { path: 'appointments', element: protectedPage(AppointmentsPage, ['admin', 'barber', 'client']) },
         { path: 'appointments/new', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         { path: 'appointments/:id/edit', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
@@ -100,6 +114,8 @@ export default function AppRoutes() {
         { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin']) },
         { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin']) },
         { path: 'profile', element: protectedPage(ProfilePage, ['client']) },
+        { path: 'users', element: permissionPage(UsersPage, 'users.view') },
+        { path: 'roles', element: permissionPage(RolesPage, 'roles.view') },
         { path: 'dashboard', element: protectedPage(DashboardPage, ['admin', 'barber']) },
         { path: 'agenda', element: protectedPage(AgendaPage, ['barber']) },
         { path: 'history', element: protectedPage(HistoryPage, ['barber']) },

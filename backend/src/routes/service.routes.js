@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { body, param } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import * as serviceController from '../controllers/service.controller.js';
 
@@ -36,7 +36,9 @@ router.get('/categories', serviceController.listPublicCategories);
 router.get('/:id', idParam, validate, serviceController.getById);
 
 router.use(auth);
-router.use(authorize('admin', 'barber'));
+// La lectura de servicios es publica (la usa la landing); esto solo cubre la
+// escritura. Barbero conserva el acceso que ya tenia, ahora via permiso.
+router.use(requirePermission('services.manage'));
 
 router.post('/', createValidation, validate, serviceController.create);
 router.put('/:id', [idParam, ...updateValidation], validate, serviceController.update);
