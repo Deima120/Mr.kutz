@@ -5,6 +5,8 @@
 
 import express from 'express';
 
+import userRoutes from './user.routes.js';
+import roleRoutes from './role.routes.js';
 import authRoutes from './auth.routes.js';
 import clientRoutes from './client.routes.js';
 import serviceRoutes from './service.routes.js';
@@ -42,6 +44,8 @@ router.get('/', (req, res) => {
 });
 
 router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/roles', roleRoutes);
 router.use('/clients', clientRoutes);
 router.use('/services', serviceRoutes);
 router.use('/barbers', barberRoutes);
