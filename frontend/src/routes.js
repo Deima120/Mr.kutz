@@ -15,6 +15,9 @@ const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswo
 const ClientsPage = lazy(() => import('@/features/clients/pages/ClientsPage'));
 const ClientDetailPage = lazy(() => import('@/features/clients/pages/ClientDetailPage'));
 const ServicesPage = lazy(() => import('@/features/services/pages/ServicesPage'));
+const ServiceCategoriesPage = lazy(
+  () => import('@/features/services/pages/ServiceCategoriesPage')
+);
 const BarbersPage = lazy(() => import('@/features/barbers/pages/BarbersPage'));
 const BarberSchedulesPage = lazy(() => import('@/features/barbers/pages/BarberSchedulesPage'));
 const AppointmentsPage = lazy(() => import('@/features/appointments/pages/AppointmentsPage'));
@@ -87,6 +90,10 @@ export default function AppRoutes() {
         { path: 'clients/:id/edit', element: protectedPage(ClientsPage, ['admin']) },
         { path: 'services', element: protectedPage(ServicesPage, ['admin']) },
         { path: 'services/new', element: protectedPage(ServicesPage, ['admin']) },
+        {
+          path: 'services/categories',
+          element: permissionPage(ServiceCategoriesPage, 'service_categories.manage'),
+        },
         { path: 'services/:id/edit', element: protectedPage(ServicesPage, ['admin']) },
         { path: 'barbers', element: protectedPage(BarbersPage, ['admin']) },
         { path: 'barbers/new', element: protectedPage(BarbersPage, ['admin']) },
