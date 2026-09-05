@@ -6,7 +6,7 @@
 >
 > **Para qué sirve.** Si algún cambio no convence y hay que volver atrás, o simplemente entender qué
 > comportamiento había originalmente, este documento es el punto de referencia. Todo lo que aquí se
-> describe corresponde al commit **`64df684`**, que además está marcado con la etiqueta de git
+> describe corresponde al commit **`eebd4f9`**, que además está marcado con la etiqueta de git
 > **`antes-roles-usuarios`** y empujado a `origin/fix/horarios-barbero-y-festivos`.
 >
 > Para recuperar el estado completo de ese momento: `git checkout antes-roles-usuarios`.

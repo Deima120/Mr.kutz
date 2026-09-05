@@ -5,7 +5,7 @@
 > recomendó la profesora. Este documento conserva el diseño completo para poder
 > retomarlo sin volver a investigarlo.
 >
-> **Dónde está el código.** En el commit `64df684`, accesible con la etiqueta
+> **Dónde está el código.** En el commit `eebd4f9`, accesible con la etiqueta
 > `antes-roles-usuarios`:
 >
 > ```bash
