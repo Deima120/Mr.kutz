@@ -34,6 +34,8 @@ const HistoryPage = lazy(() => import('@/features/history/pages/HistoryPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
+const UsersPage = lazy(() => import('@/features/users/pages/UsersPage'));
+const RolesPage = lazy(() => import('@/features/users/pages/RolesPage'));
 const NotFoundPage = lazy(() => import('@/features/not-found/pages/NotFoundPage'));
 const BookingPage = lazy(() => import('@/features/booking/pages/BookingPage'));
 
@@ -55,6 +57,18 @@ function protectedPage(Component, allowedRoles) {
   return createElement(
     ProtectedRoute,
     { allowedRoles },
+    createElement(Component)
+  );
+}
+
+/**
+ * Ruta protegida por PERMISO en vez de por rol, para que un rol personalizado
+ * pueda entrar sin tener que enumerarlo aqui.
+ */
+function permissionPage(Component, requiredPermission) {
+  return createElement(
+    ProtectedRoute,
+    { requiredPermission },
     createElement(Component)
   );
 }
@@ -100,6 +114,8 @@ export default function AppRoutes() {
         { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin']) },
         { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin']) },
         { path: 'profile', element: protectedPage(ProfilePage, ['client']) },
+        { path: 'users', element: permissionPage(UsersPage, 'users.view') },
+        { path: 'roles', element: permissionPage(RolesPage, 'roles.view') },
         { path: 'dashboard', element: protectedPage(DashboardPage, ['admin', 'barber']) },
         { path: 'agenda', element: protectedPage(AgendaPage, ['barber']) },
         { path: 'history', element: protectedPage(HistoryPage, ['barber']) },

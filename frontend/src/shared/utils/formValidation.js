@@ -785,3 +785,56 @@ export function validateScheduleExceptionForm({ date, mode, startTime, endTime, 
 
   return validationResult(errors);
 }
+
+/**
+ * Alta de un usuario del personal y restablecimiento de contraseña.
+ *
+ * Las reglas de contraseña replican las del backend (`strongPassword` en
+ * `utils/validation.js`): ocho caracteres, mayúscula, minúscula y dígito. Se
+ * comprueban aquí solo para avisar antes de enviar; el backend vuelve a
+ * validarlas y es el que manda.
+ *
+ * @param {{email?: string, password?: string, roleId?: string|number}} data
+ * @param {{soloPassword?: boolean}} [opciones] para el modal de restablecer, que
+ *   no pide ni correo ni rol.
+ */
+export function validateUserForm(data = {}, { soloPassword = false } = {}) {
+  const errors = {};
+
+  if (!soloPassword) {
+    const email = String(data.email ?? '').trim();
+    if (!email) errors.email = 'Indica el correo.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'El correo no es válido.';
+    else if (email.length > 255) errors.email = 'El correo es demasiado largo.';
+
+    if (!data.roleId) errors.roleId = 'Elige un rol.';
+  }
+
+  const password = String(data.password ?? '');
+  if (!password) errors.password = 'Indica la contraseña.';
+  else if (password.length < 8) errors.password = 'Debe tener al menos 8 caracteres.';
+  else if (!/[A-Z]/.test(password)) errors.password = 'Debe incluir al menos una mayúscula.';
+  else if (!/[a-z]/.test(password)) errors.password = 'Debe incluir al menos una minúscula.';
+  else if (!/\d/.test(password)) errors.password = 'Debe incluir al menos un número.';
+
+  return validationResult(errors);
+}
+
+/**
+ * Rol personalizado. El nombre es obligatorio; los permisos pueden ir vacíos
+ * (un rol sin permisos existe, simplemente no puede hacer nada todavía).
+ */
+export function validateRoleForm({ name, description } = {}) {
+  const errors = {};
+  const nombre = String(name ?? '').trim();
+
+  if (!nombre) errors.name = 'Indica el nombre del rol.';
+  else if (nombre.length < 2) errors.name = 'Mínimo 2 caracteres.';
+  else if (nombre.length > 50) errors.name = 'Máximo 50 caracteres.';
+
+  if (String(description ?? '').trim().length > 255) {
+    errors.description = 'Máximo 255 caracteres.';
+  }
+
+  return validationResult(errors);
+}

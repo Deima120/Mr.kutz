@@ -103,6 +103,20 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
   };
 
+  /**
+   * ¿Puede el usuario hacer esto?
+   *
+   * **Sirve solo para ocultar cosas de la interfaz.** La decisión real la toma el
+   * backend en cada petición, que consulta los permisos en la base y no se fía de
+   * nada que venga del navegador. Aquí los permisos pueden estar desfasados: si
+   * una petición falla por algo que no parece de autenticación, se restaura el
+   * usuario cacheado de `localStorage`, con los permisos que tuviera entonces.
+   *
+   * Falla cerrado: sin permisos cargados, `can()` devuelve false y el botón
+   * simplemente no aparece.
+   */
+  const can = (code) => Boolean(user?.permissions?.includes(code));
+
   const value = {
     user,
     isAuthenticated,
@@ -112,6 +126,8 @@ export function AuthProvider({ children }) {
     register,
     refreshUser,
     applyUser,
+    permissions: user?.permissions ?? [],
+    can,
   };
 
   return (
