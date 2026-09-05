@@ -4,7 +4,7 @@
 
 import express from 'express';
 import { body, param, query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { publicThrottle } from '../middlewares/publicThrottle.js';
 import {
@@ -204,7 +204,9 @@ router.post(
 );
 
 router.use(auth);
-router.use(authorize('admin', 'barber', 'client'));
+// Entrar exige poder ver la agenda, entera o solo la propia. El alcance real lo
+// aplica el controlador segun el permiso y la ficha del usuario.
+router.use(requirePermission('appointments.view.all', 'appointments.view.own'));
 
 /**
  * Rutas literales y segmentos fijos antes de `/:id` para que Express no interprete
@@ -219,7 +221,7 @@ router.get('/slots', [
 ], validate, appointmentController.getAvailableSlots);
 router.get(
   '/rating-summary',
-  authorize('admin', 'barber'),
+  requirePermission('appointments.rating_summary'),
   [
     query('barberId').optional({ values: 'falsy' }).isInt({ min: 1 }).withMessage('barberId no válido.'),
     query('days')
@@ -236,16 +238,16 @@ router.get(
 );
 router.post(
   '/:id/rating',
-  authorize('client'),
+  requirePermission('appointments.rate'),
   idParam,
   clientRatingBody,
   validate,
   appointmentController.submitClientRating,
 );
 router.get('/:id', idParam, validate, appointmentController.getById);
-router.post('/', authorize('admin', 'client'), createValidation, validate, appointmentController.create);
+router.post('/', requirePermission('appointments.create'), createValidation, validate, appointmentController.create);
 // El barbero entra aquí para confirmar o cancelar SUS citas; el alcance real lo
 // impone `canBarberUpdate` en el controlador (propiedad de la cita y estados).
-router.put('/:id', authorize('admin', 'client', 'barber'), [idParam, ...updateValidation], validate, appointmentController.update);
+router.put('/:id', requirePermission('appointments.update'), [idParam, ...updateValidation], validate, appointmentController.update);
 
 export default router;

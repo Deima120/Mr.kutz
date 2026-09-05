@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { body, param } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import {
   strongPassword,
@@ -97,16 +97,16 @@ const schedulesValidation = [
 
 router.use(auth);
 
-router.get('/', authorize('admin', 'barber', 'client'), barberController.getAll);
-router.get('/:id/schedules', authorize('admin', 'barber', 'client'), idParam, validate, barberController.getSchedules);
-router.get('/:id', authorize('admin', 'barber', 'client'), idParam, validate, barberController.getById);
+router.get('/', requirePermission('barbers.view'), barberController.getAll);
+router.get('/:id/schedules', requirePermission('barbers.view'), idParam, validate, barberController.getSchedules);
+router.get('/:id', requirePermission('barbers.view'), idParam, validate, barberController.getById);
 
-router.post('/', authorize('admin'), createValidation, validate, barberController.create);
-router.put('/:id', authorize('admin'), [idParam, ...updateValidation], validate, barberController.update);
-router.put('/:id/schedules', authorize('admin'), [idParam, ...schedulesValidation], validate, barberController.updateSchedules);
+router.post('/', requirePermission('barbers.manage'), createValidation, validate, barberController.create);
+router.put('/:id', requirePermission('barbers.manage'), [idParam, ...updateValidation], validate, barberController.update);
+router.put('/:id/schedules', requirePermission('barbers.schedules.manage'), [idParam, ...schedulesValidation], validate, barberController.updateSchedules);
 
 // Solo se permite borrar barberos sin historial; el service responde 409 si tiene
 // citas o comisiones. Para dar de baja a uno con historial se usa isActive: false.
-router.delete('/:id', authorize('admin'), idParam, validate, barberController.remove);
+router.delete('/:id', requirePermission('barbers.manage'), idParam, validate, barberController.remove);
 
 export default router;

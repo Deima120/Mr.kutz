@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { body, param, query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import * as testimonialController from '../controllers/testimonial.controller.js';
 
@@ -56,7 +56,7 @@ const listValidation = [
 router.get('/', listValidation, validate, testimonialController.getAll);
 
 router.use(auth);
-router.use(authorize('admin'));
+router.use(requirePermission('testimonials.manage'));
 
 router.post('/', createValidation, validate, testimonialController.create);
 router.get('/:id', idParam, validate, testimonialController.getById);

@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param, query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { optionalPhoneField, optionalTaxIdField } from '../utils/validation.js';
 import * as supplierController from '../controllers/supplier.controller.js';
@@ -44,7 +44,13 @@ const updateFields = [
 ];
 
 router.use(auth);
-router.use(authorize('admin'));
+// Entrar exige poder consultar el modulo; escribir exige poder gestionarlo.
+// Sustituye al antiguo authorize('admin'): ahora un rol nuevo de solo lectura
+// (p. ej. Contador) puede consultar sin poder modificar nada.
+router.use(requirePermission('suppliers.view', 'suppliers.manage'));
+router.use((req, res, next) =>
+  req.method === 'GET' ? next() : requirePermission('suppliers.manage')(req, res, next)
+);
 router.get('/', listValidation, validate, supplierController.getAll);
 router.get('/:id', idParam, validate, supplierController.getById);
 router.post('/', fields, validate, supplierController.create);

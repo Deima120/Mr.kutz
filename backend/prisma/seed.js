@@ -5,6 +5,12 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import {
+  PERMISSIONS,
+  PERMISSION_CODES,
+  ROLE_PRESETS,
+  assertPresetsAreValid,
+} from '../src/config/permissions.js';
 
 const prisma = new PrismaClient();
 
@@ -20,11 +26,57 @@ async function main() {
   for (const r of roles) {
     await prisma.role.upsert({
       where: { name: r.name },
-      update: { description: r.description },
-      create: r,
+      // `isSystem: true` los protege de que los borren o renombren desde el panel.
+      update: { description: r.description, isSystem: true },
+      create: { ...r, isSystem: true },
     });
   }
   console.log('✅ Roles creados');
+
+  // 1b. Catálogo de permisos y permisos de fábrica de cada rol.
+  //
+  // La fuente de verdad es src/config/permissions.js: aquí solo se vuelca. Se
+  // sincroniza en ambos sentidos —alta de los que falten y baja de los que ya no
+  // estén en el catálogo— para que la tabla no acumule permisos muertos que
+  // seguirían apareciendo en la pantalla de Roles.
+  assertPresetsAreValid();
+
+  for (const p of PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      update: { module: p.module, description: p.description },
+      create: p,
+    });
+  }
+  const retirados = await prisma.permission.deleteMany({
+    where: { code: { notIn: PERMISSION_CODES } },
+  });
+  if (retirados.count > 0) {
+    console.log(`   ${retirados.count} permiso(s) obsoleto(s) retirados del catálogo`);
+  }
+
+  const permisosPorCodigo = new Map(
+    (await prisma.permission.findMany({ select: { id: true, code: true } })).map((p) => [p.code, p.id])
+  );
+
+  // Solo se (re)asignan los permisos de los tres roles del sistema. Los roles que
+  // haya creado el administrador NO se tocan: el seed es idempotente y no debe
+  // deshacer configuración hecha desde el panel.
+  for (const [nombreRol, codigos] of Object.entries(ROLE_PRESETS)) {
+    const rol = await prisma.role.findUnique({ where: { name: nombreRol } });
+    if (!rol) continue;
+
+    const deseados = codigos.map((c) => permisosPorCodigo.get(c)).filter(Boolean);
+
+    await prisma.$transaction([
+      prisma.rolePermission.deleteMany({ where: { roleId: rol.id } }),
+      prisma.rolePermission.createMany({
+        data: deseados.map((permissionId) => ({ roleId: rol.id, permissionId })),
+        skipDuplicates: true,
+      }),
+    ]);
+  }
+  console.log(`✅ Permisos sembrados (${PERMISSIONS.length}) y asignados a los roles del sistema`);
 
   // 2. Métodos de pago (solo efectivo, transferencia y tarjeta)
   const legacyRenames = [

@@ -3,6 +3,7 @@
  */
 
 import * as barberService from '../services/barber.service.js';
+import { userCan } from '../middlewares/auth.js';
 
 function parseActiveFilter(queryActive) {
   const value = String(queryActive ?? '').trim().toLowerCase();
@@ -12,12 +13,15 @@ function parseActiveFilter(queryActive) {
 }
 
 /**
- * Solo admin ve datos personales del personal (cédula, teléfono, correo) y su
- * porcentaje de comisión. Barberos y clientes consumen estos endpoints para
- * agendar, y les basta con los campos públicos.
+ * Los datos personales del personal (cédula, teléfono, correo) y el porcentaje de
+ * comisión solo los ve quien puede gestionar barberos. Barberos y clientes
+ * consumen estos endpoints para agendar, y les basta con los campos públicos.
+ *
+ * Se mide por permiso y no por el nombre del rol, para que un rol nuevo no vea
+ * datos personales solo por no llamarse 'barber' ni 'client'.
  */
 function canSeePrivateBarberData(req) {
-  return req.user?.role_name === 'admin';
+  return userCan(req.user, 'barbers.manage');
 }
 
 export const getAll = async (req, res, next) => {

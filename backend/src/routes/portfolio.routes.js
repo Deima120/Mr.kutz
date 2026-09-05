@@ -4,7 +4,7 @@
 
 import express from 'express';
 import { query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { optionalDateQuery } from '../utils/validation.js';
 import { dateRangeOrderQuery } from '../utils/dateRange.js';
@@ -23,7 +23,7 @@ const listValidation = [
 ];
 
 router.use(auth);
-router.use(authorize('admin'));
+router.use(requirePermission('portfolio.manage'));
 
 router.get('/', listValidation, validate, portfolioController.list);
 

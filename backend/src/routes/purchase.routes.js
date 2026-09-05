@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param, query } from 'express-validator';
-import { auth, authorize } from '../middlewares/auth.js';
+import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import { optionalDateQuery } from '../utils/validation.js';
 import { dateRangeOrderQuery } from '../utils/dateRange.js';
@@ -69,7 +69,13 @@ const receiptValidation = [
 ];
 
 router.use(auth);
-router.use(authorize('admin'));
+// Entrar exige poder consultar el modulo; escribir exige poder gestionarlo.
+// Sustituye al antiguo authorize('admin'): ahora un rol nuevo de solo lectura
+// (p. ej. Contador) puede consultar sin poder modificar nada.
+router.use(requirePermission('purchases.view', 'purchases.manage'));
+router.use((req, res, next) =>
+  req.method === 'GET' ? next() : requirePermission('purchases.manage')(req, res, next)
+);
 
 router.get('/total', totalValidation, validate, purchaseController.getTotal);
 // Antes de `/:id` para que "invoice-availability" no se interprete como un id.
