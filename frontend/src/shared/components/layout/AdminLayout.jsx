@@ -17,7 +17,6 @@ import {
   CalendarDays,
   ShieldCheck,
   Lock,
-  CalendarOff,
   BarChart3,
   UsersRound,
   Sparkles,
@@ -53,12 +52,6 @@ const adminNavSections = [
       { path: '/clients', label: 'Clientes', description: 'Base de datos', Icon: UsersRound },
       { path: '/services', label: 'Servicios', description: 'Servicios y precios', Icon: Scissors },
       { path: '/barbers', label: 'Barberos', description: 'Equipo de trabajo', Icon: UserCog },
-      {
-        path: '/schedule-exceptions',
-        label: 'Festivos y cierres',
-        description: 'Calendario del negocio',
-        Icon: CalendarOff,
-      },
     ],
   },
   {

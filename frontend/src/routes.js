@@ -17,9 +17,6 @@ const ClientDetailPage = lazy(() => import('@/features/clients/pages/ClientDetai
 const ServicesPage = lazy(() => import('@/features/services/pages/ServicesPage'));
 const BarbersPage = lazy(() => import('@/features/barbers/pages/BarbersPage'));
 const BarberSchedulesPage = lazy(() => import('@/features/barbers/pages/BarberSchedulesPage'));
-const ScheduleExceptionsPage = lazy(
-  () => import('@/features/schedule-exceptions/pages/ScheduleExceptionsPage')
-);
 const AppointmentsPage = lazy(() => import('@/features/appointments/pages/AppointmentsPage'));
 const PaymentsPage = lazy(() => import('@/features/payments/pages/PaymentsPage'));
 const InventoryPage = lazy(() => import('@/features/inventory/pages/InventoryPage'));
@@ -95,10 +92,6 @@ export default function AppRoutes() {
         { path: 'barbers/new', element: protectedPage(BarbersPage, ['admin']) },
         { path: 'barbers/:id/schedules', element: protectedPage(BarberSchedulesPage, ['admin']) },
         { path: 'barbers/:id/edit', element: protectedPage(BarbersPage, ['admin']) },
-        {
-          path: 'schedule-exceptions',
-          element: protectedPage(ScheduleExceptionsPage, ['admin']),
-        },
         { path: 'appointments', element: protectedPage(AppointmentsPage, ['admin', 'barber', 'client']) },
         { path: 'appointments/new', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         { path: 'appointments/:id/edit', element: protectedPage(AppointmentsPage, ['admin', 'client']) },

@@ -28,8 +28,6 @@ import {
 import { assertUnderPendingLimit } from './appointmentLimitRules.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
 import { resolveDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
-import { isColombianHoliday } from '../utils/colombianHolidays.js';
-import { getForDate as getScheduleExceptionForDate } from './scheduleException.service.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
 /** Días hacia atrás que revisa el job de estados (citas confirmadas sin actualizar). */
@@ -75,19 +73,18 @@ async function assertNoOverlap({ barberId, appointmentDate, startMin, endMin, ex
 }
 
 /**
- * Ventana que atiende un barbero un día concreto, aplicando festivos y
- * excepciones. Es la fuente única que usan tanto el cálculo de turnos
- * disponibles como la validación al crear una cita.
+ * Ventana que atiende un barbero un día concreto. Es la fuente única que usan
+ * tanto el cálculo de turnos disponibles como la validación al crear o editar una
+ * cita, para que ambas no puedan discrepar.
  *
  * @returns {Promise<{ open: boolean, start?: string, end?: string, reason: string }>}
  */
 async function resolveBarberDayWindow(barberId, ymd) {
   const dayOfWeek = weekdayOfYmd(ymd);
 
-  const [barberRows, exception] = await Promise.all([
-    prisma.barberSchedule.findMany({ where: { barberId: Number(barberId) } }),
-    getScheduleExceptionForDate(ymd),
-  ]);
+  const barberRows = await prisma.barberSchedule.findMany({
+    where: { barberId: Number(barberId) },
+  });
 
   return resolveDayWindow({
     dayOfWeek,
@@ -97,8 +94,6 @@ async function resolveBarberDayWindow(barberId, ymd) {
       endTime: toTimeStr(r.endTime),
       isAvailable: r.isAvailable,
     })),
-    isHoliday: Boolean(isColombianHoliday(ymd)),
-    exception,
   });
 }
 

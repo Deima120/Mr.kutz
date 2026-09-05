@@ -174,29 +174,6 @@ model BarberSchedule {
   @@map("barber_schedules")
 }
 
-/// Excepciones del calendario de la barbería: cierres puntuales y horarios
-/// especiales. Los festivos colombianos NO se guardan aquí — se calculan en
-/// `utils/colombianHolidays.js` para no depender de que alguien los cargue cada
-/// año. Esta tabla es solo para lo que ningún calendario sabe: un cierre por
-/// inventario, un puente que se decide trabajar, el 24 de diciembre con horario
-/// corto. Una excepción manda siempre sobre el festivo calculado.
-model ScheduleException {
-  id        Int       @id @default(autoincrement())
-  /// Día afectado. Único: una sola excepción por fecha.
-  date      DateTime  @unique @db.Date
-  /// `true` cierra la barbería ese día e ignora las horas.
-  isClosed  Boolean   @default(false) @map("is_closed")
-  /// Horario especial. Si van vacías y no está cerrado, el día se trata como
-  /// normal (sirve para anular un festivo y trabajar igual).
-  startTime DateTime? @map("start_time") @db.Time(6)
-  endTime   DateTime? @map("end_time") @db.Time(6)
-  reason    String?   @db.VarChar(200)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@map("schedule_exceptions")
-}
-
 model Service {
   id              Int              @id @default(autoincrement())
   name            String           @db.VarChar(150)

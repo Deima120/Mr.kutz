@@ -753,38 +753,6 @@ export function validateCategoryForm({ name, description }) {
   return validationResult(errors);
 }
 
-/**
- * Excepción del calendario (cierre o horario especial de un día concreto).
- *
- * Los tres modos son excluyentes y determinan qué campos importan:
- *  - `closed`  — el negocio no abre; las horas se ignoran.
- *  - `hours`   — horario especial; ambas horas son obligatorias.
- *  - `normal`  — el día se trata como normal; sirve para trabajar un festivo.
- */
-export function validateScheduleExceptionForm({ date, mode, startTime, endTime, reason } = {}) {
-  const errors = {};
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date ?? '').trim())) {
-    errors.date = 'Indica una fecha válida.';
-  }
-
-  if (mode === 'hours') {
-    if (!startTime) errors.startTime = 'Indica la hora de apertura.';
-    if (!endTime) errors.endTime = 'Indica la hora de cierre.';
-    if (startTime && endTime) {
-      const rango = validateTimeRange(startTime, endTime);
-      if (!rango.valid) errors.endTime = rango.message;
-    }
-  }
-
-  // El motivo es opcional, pero el backend lo recorta a 200: se avisa antes de
-  // enviar en vez de dejar que el texto se pierda en silencio.
-  if (String(reason ?? '').trim().length > 200) {
-    errors.reason = 'Máximo 200 caracteres.';
-  }
-
-  return validationResult(errors);
-}
 
 /**
  * Alta de un usuario del personal y restablecimiento de contraseña.
