@@ -64,7 +64,8 @@ export const getStats = async (dateFrom, dateTo) => {
 
   const svcCount = {};
   servicesTop.forEach((a) => {
-    const n = a.service.name;
+    const n = a.service?.name;
+    if (!n) return;
     svcCount[n] = (svcCount[n] || 0) + 1;
   });
   const topServices = Object.entries(svcCount)
@@ -74,6 +75,7 @@ export const getStats = async (dateFrom, dateTo) => {
 
   const barberCount = {};
   barbersTop.forEach((a) => {
+    if (!a.barber) return;
     const n = `${a.barber.firstName} ${a.barber.lastName}`;
     barberCount[n] = (barberCount[n] || 0) + 1;
   });
