@@ -32,6 +32,9 @@ export const create = async (req, res, next) => {
       email: req.body.email,
       password: req.body.password,
       roleId: req.body.roleId,
+      // Solo hace falta si el rol elegido es `barber`/`client`: el service
+      // valida qué exige según el rol resuelto, no esta capa.
+      profile: req.body.profile,
     });
     res.status(201).json({ success: true, message: 'Usuario creado correctamente.', data: user });
   } catch (error) {
@@ -43,7 +46,12 @@ export const changeRole = async (req, res, next) => {
   try {
     // El actor sale del token, nunca del cuerpo de la petición: si viniera de
     // fuera, cualquiera podría saltarse la comprobación de "no a ti mismo".
-    const user = await userService.changeRole(req.params.id, req.body.roleId, req.user.id);
+    const user = await userService.changeRole(
+      req.params.id,
+      req.body.roleId,
+      req.user.id,
+      req.body.profile,
+    );
     res.json({ success: true, message: 'Rol actualizado correctamente.', data: user });
   } catch (error) {
     next(error);

@@ -294,3 +294,77 @@ lista clientes y barberos junto al personal, `GET /api/users/:id` devuelve el
 detalle de ficha, `PATCH /api/users/:id/role` cambia el rol de un cliente y
 de un barbero reales, las tres rutas retiradas responden 404, y se confirmó
 que ya no queda ningún dato de prueba alterado sin resolver.
+
+---
+
+## 6. Cuarta fase: cualquier rol se puede asignar, incluidos `client`/`barber`
+
+### Por qué
+
+El propietario pidió ir un paso más allá de la fase 3: no solo cambiar el
+rol de cualquiera desde Usuarios, sino poder asignar **cualquier** rol,
+incluidos `barber`/`client` — un usuario puede pasar a ser barbero y
+viceversa — y que el alta desde Usuarios también pueda crear directamente un
+barbero o un cliente, no solo personal sin ficha.
+
+### El problema técnico y cómo se resolvió sin reabrir el bug original
+
+Asignar `client`/`barber` con un simple `UPDATE roleId` es exactamente el bug
+de cuentas huérfanas con el que arrancó esta serie de cambios (ver sección 1):
+una cuenta con ese rol pero sin la ficha (`Client`/`Barber`, y en el caso de
+barbero también sus horarios) que las altas de sus propios módulos crean de
+forma transaccional. La solución no es bloquear esos roles: es que
+`create`/`changeRole` **creen esa ficha en la misma transacción** cuando
+hace falta, pidiendo los mismos datos que ya exige el alta de
+Barberos/Clientes (nombre, apellido, tipo y número de documento). Si la
+cuenta ya tiene la ficha correspondiente (p. ej. alguien al que se le quitó
+y luego se le devolvió el rol), no se pide nada: se reutiliza tal cual.
+
+### Qué cambió
+
+- `assertAssignableRole` ya no bloquea `client`/`barber` por nombre: solo
+  comprueba que el rol exista y esté activo. El único candado que queda —y
+  que no depende de esta decisión de negocio, sino de la integridad del
+  dato— es que crear la ficha exige nombre, apellido, tipo y número de
+  documento; sin eso, `create`/`changeRole` responden **400**.
+- `user.service.js` gana `createBarberFicha`/`createClientFicha` (helpers
+  internos, dentro de la transacción de `$transaction`): crean la fila
+  `Barber` (+ horarios por defecto, reutilizando
+  `defaultScheduleRows` de `barber.service.js`) o `Client` (con las mismas
+  comprobaciones de unicidad de documento/correo que ya hace
+  `client.service.js:create`) enlazada al `userId`.
+- `POST /api/users` y `PATCH /api/users/:id/role` aceptan ahora un campo
+  `profile` (`firstName`, `lastName`, `phone`, `documentType`,
+  `documentNumber`, y `specialties` solo para barbero). Es opcional a nivel
+  de validación de ruta —el formato se comprueba si viene, nada más—; quien
+  exige que esté completo cuando hace falta es el servicio, porque solo él
+  sabe si el rol resuelto necesita ficha y si la cuenta ya tiene una.
+- Frontend: `UsersPage.jsx` ofrece ahora **todos** los roles activos, tanto
+  al crear un usuario como al cambiarle el rol a uno existente. Si el rol
+  elegido es `barber`/`client` y la cuenta no tiene esa ficha, se piden los
+  datos (en el propio formulario de alta, o en un modal de "Ascender a
+  barbero/cliente" nuevo antes de confirmar el cambio de fila); si ya la
+  tiene, el cambio es directo.
+
+### Verificación de esta fase
+
+`backend/npm test`: 287/287. `frontend/npm test`: 92/93 (mismo fallo
+preexistente). `frontend/npm run build`: correcto. Verificado a mano contra
+la base de datos real, con limpieza de cada dato de prueba creado:
+- Alta de un usuario con rol `barber` sin `profile` → 400; con `profile` →
+  crea `User` + `Barber` + 7 horarios por defecto, visible en `/api/barbers`.
+- Alta de un usuario con rol `client` sin `profile` → 400; con `profile` →
+  crea `User` + `Client`.
+- Promover una cuenta existente a `barber` sin ficha → exige `profile`;
+  promoverla de vuelta a `client` y otra vez a `barber` reutiliza las fichas
+  ya creadas sin pedir nada.
+
+**Incidente durante esta verificación:** al limpiar una ficha de barbero de
+prueba con `DELETE /api/barbers/:id`, se borró por error la cuenta de acceso
+real de un cliente (`barber.service.js:remove` borra el `User` completo, no
+solo el `Barber`, por diseño — ver sección de borrado de barberos). Su ficha
+de cliente y su historial de citas quedaron intactos (`Client.userId` pasó a
+`null`); su cuenta de acceso (correo y contraseña) no. El propietario decidió
+no restaurarla de inmediato («me encargo después»), así que queda pendiente
+para cuando él lo pida — no crear una cuenta de reemplazo sin que lo pida
+explícitamente.

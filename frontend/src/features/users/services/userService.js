@@ -26,12 +26,17 @@ export const getUsers = async (params = {}) => {
 
 export const getUserById = async (id) => extract(await api.get(`${BASE}/${id}`));
 
-/** El administrador define una contraseña temporal; el usuario la cambia después. */
-export const createUser = async ({ email, password, roleId }) =>
-  extract(await api.post(BASE, { email, password, roleId }));
+/**
+ * El administrador define una contraseña temporal; el usuario la cambia después.
+ * `profile` solo hace falta si `roleId` corresponde a un rol `barber`/`client`
+ * sin ficha propia todavía: el backend crea esa ficha en la misma transacción.
+ */
+export const createUser = async ({ email, password, roleId, profile }) =>
+  extract(await api.post(BASE, { email, password, roleId, profile }));
 
-export const changeUserRole = async (id, roleId) =>
-  extract(await api.patch(`${BASE}/${id}/role`, { roleId }));
+/** `profile` solo hace falta al promover a `barber`/`client` sin ficha previa. */
+export const changeUserRole = async (id, roleId, profile) =>
+  extract(await api.patch(`${BASE}/${id}/role`, { roleId, profile }));
 
 /** Desactivar corta el acceso en la petición siguiente, sin esperar a que caduque el token. */
 export const setUserActive = async (id, isActive) =>
