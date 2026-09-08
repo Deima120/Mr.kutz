@@ -318,7 +318,7 @@ export function ProductForm({
               </p>
             )}
             <p className="text-stone-500 text-xs mt-2 inline-flex flex-wrap items-center gap-1">
-              <span>El stock entra por Compras</span>
+              <span>El stock entra por Gastos</span>
               <ArrowRight className="w-3 h-3 shrink-0 text-stone-400" strokeWidth={2} aria-hidden />
               <span>Recibir mercancía.</span>
             </p>

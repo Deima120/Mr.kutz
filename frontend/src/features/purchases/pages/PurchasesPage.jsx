@@ -156,7 +156,7 @@ export default function PurchasesPage() {
       setListTotal(listData.total ?? 0);
       setPeriodTotal(totalData || { total: 0, count: 0 });
     } catch (err) {
-      toast.error(err?.message || 'Error al cargar compras');
+      toast.error(err?.message || 'Error al cargar gastos');
       setPurchases([]);
       setListTotal(0);
     } finally {
@@ -258,14 +258,14 @@ export default function PurchasesPage() {
     if (exportRows.length === 0) return;
     const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todas';
     downloadExcelTable({
-      sheetName: 'Compras',
-      title: 'Registro de compras',
+      sheetName: 'Gastos',
+      title: 'Registro de gastos',
       meta: [
         `Periodo: ${dateFrom} — ${dateTo}`,
         `Total en listado: ${exportRows.length}`,
         `Estado: ${statusLabel}`,
         search ? `Búsqueda: «${search}»` : null,
-        `Total activo del periodo: ${formatPurchaseAmount(periodTotal.total)} (${periodTotal.count} compras)`,
+        `Total activo del periodo: ${formatPurchaseAmount(periodTotal.total)} (${periodTotal.count} gastos)`,
       ],
       columns: [
         { header: 'ID', key: 'id', align: 'center' },
@@ -278,7 +278,7 @@ export default function PurchasesPage() {
         { header: 'Notas', key: 'notas' },
       ],
       rows: exportRows,
-      fileBase: 'compras-mrkutz',
+      fileBase: 'gastos-mrkutz',
     });
   };
 
@@ -286,14 +286,14 @@ export default function PurchasesPage() {
     if (exportRows.length === 0) return;
     const statusLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label || 'Todas';
     downloadTablePDF({
-      filename: `compras-mrkutz-${pdfFileDateSuffix()}.pdf`,
-      title: 'Registro de compras',
+      filename: `gastos-mrkutz-${pdfFileDateSuffix()}.pdf`,
+      title: 'Registro de gastos',
       subtitle: `Periodo: ${dateFrom} — ${dateTo}`,
       meta: [
         `Total en listado: ${exportRows.length}`,
         `Estado: ${statusLabel}`,
         search ? `Búsqueda: «${search}»` : null,
-        `Total activo del periodo: ${formatPurchaseAmount(periodTotal.total)} (${periodTotal.count} compras)`,
+        `Total activo del periodo: ${formatPurchaseAmount(periodTotal.total)} (${periodTotal.count} gastos)`,
       ],
       orientation: 'landscape',
       columns: [
@@ -321,8 +321,8 @@ export default function PurchasesPage() {
     <div className="page-shell">
       {!isFormOpen ? (
         <PageHeader
-          title="Compras"
-          subtitle="Órdenes de compra y directorio de proveedores"
+          title="Gastos"
+          subtitle="Gastos de insumos y directorio de proveedores"
           actions={
             <div className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5">
               <button
@@ -426,11 +426,11 @@ export default function PurchasesPage() {
         {loading ? (
               <div className="py-10 text-center text-stone-500">
                 <div className="inline-block h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin mb-2" />
-                <p className="text-sm">Cargando compras…</p>
+                <p className="text-sm">Cargando gastos…</p>
               </div>
             ) : purchases.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-sm text-stone-500 mb-3">No hay compras con los filtros seleccionados.</p>
+                <p className="text-sm text-stone-500 mb-3">No hay gastos con los filtros seleccionados.</p>
                 <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin text-sm">
                   Crear primera orden
                 </button>

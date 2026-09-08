@@ -37,7 +37,10 @@ export const MODULE_LABELS = {
   services: 'Servicios',
   service_categories: 'Categorías de servicio',
   payments: 'Ventas',
-  purchases: 'Compras',
+  // La clienta llama "Gastos" a este proceso (lo que gasta para abastecer el
+  // inventario). El código del permiso sigue siendo `purchases.*`: solo cambia
+  // la etiqueta que se muestra en la pantalla de Roles.
+  purchases: 'Gastos',
   suppliers: 'Proveedores',
   inventory: 'Inventario',
   product_categories: 'Categorías de producto',
@@ -83,8 +86,8 @@ export const PERMISSIONS = [
   // --- Dinero ------------------------------------------------------------
   { code: 'payments.view', module: 'payments', description: 'Consultar las ventas registradas' },
   { code: 'payments.manage', module: 'payments', description: 'Registrar y anular ventas' },
-  { code: 'purchases.view', module: 'purchases', description: 'Consultar las órdenes de compra' },
-  { code: 'purchases.manage', module: 'purchases', description: 'Crear órdenes de compra y registrar recepciones' },
+  { code: 'purchases.view', module: 'purchases', description: 'Consultar los gastos registrados' },
+  { code: 'purchases.manage', module: 'purchases', description: 'Registrar gastos y sus recepciones de mercancía' },
   { code: 'suppliers.view', module: 'suppliers', description: 'Consultar los proveedores' },
   { code: 'suppliers.manage', module: 'suppliers', description: 'Crear y editar proveedores' },
   { code: 'cash_register.view', module: 'cash_register', description: 'Consultar las cajas' },

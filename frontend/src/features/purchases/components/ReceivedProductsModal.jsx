@@ -51,7 +51,7 @@ export default function ReceivedProductsModal({ open, products = [], onClose }) 
       )}
       <div className="flex justify-end pt-3 border-t border-stone-100 mt-2">
         <button type="button" onClick={onClose} className="btn-admin text-sm">
-          Seguir en compras
+          Seguir en gastos
         </button>
       </div>
     </AdminModalShell>
