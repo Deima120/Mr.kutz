@@ -18,16 +18,16 @@ function nowAt(isoColombiaLocal) {
 }
 
 describe('canClientCancelByLeadTime', () => {
-  it('permite cancelar con más de 30 minutos de anticipación (31 min)', () => {
-    assert.equal(canClientCancelByLeadTime(APPT, nowAt('2030-06-15T11:29:00')), true);
+  it('permite cancelar con más de 60 minutos de anticipación (61 min)', () => {
+    assert.equal(canClientCancelByLeadTime(APPT, nowAt('2030-06-15T10:59:00')), true);
   });
 
-  it('rechaza en el límite exacto de 30 minutos', () => {
-    assert.equal(canClientCancelByLeadTime(APPT, nowAt('2030-06-15T11:30:00')), false);
+  it('rechaza en el límite exacto de 60 minutos', () => {
+    assert.equal(canClientCancelByLeadTime(APPT, nowAt('2030-06-15T11:00:00')), false);
   });
 
-  it('rechaza con menos de 30 minutos (29 min)', () => {
-    assert.equal(canClientCancelByLeadTime(APPT, nowAt('2030-06-15T11:31:00')), false);
+  it('rechaza con menos de 60 minutos (59 min)', () => {
+    assert.equal(canClientCancelByLeadTime(APPT, nowAt('2030-06-15T11:01:00')), false);
   });
 
   it('rechaza si la cita ya empezó', () => {
@@ -36,20 +36,20 @@ describe('canClientCancelByLeadTime', () => {
 
   it('acepta snake_case appointment_date / start_time', () => {
     const appt = { appointment_date: '2030-06-15', start_time: '12:00' };
-    assert.equal(canClientCancelByLeadTime(appt, nowAt('2030-06-15T11:00:00')), true);
+    assert.equal(canClientCancelByLeadTime(appt, nowAt('2030-06-15T10:00:00')), true);
   });
 });
 
 describe('assertClientCanCancelByLeadTime', () => {
   it('no lanza cuando hay margen suficiente', () => {
     assert.doesNotThrow(() =>
-      assertClientCanCancelByLeadTime(APPT, nowAt('2030-06-15T11:00:00'))
+      assertClientCanCancelByLeadTime(APPT, nowAt('2030-06-15T10:00:00'))
     );
   });
 
   it('lanza 400 con mensaje claro cuando ya no hay margen', () => {
     try {
-      assertClientCanCancelByLeadTime(APPT, nowAt('2030-06-15T11:45:00'));
+      assertClientCanCancelByLeadTime(APPT, nowAt('2030-06-15T11:30:00'));
       assert.fail('debía lanzar');
     } catch (err) {
       assert.equal(err.statusCode, 400);

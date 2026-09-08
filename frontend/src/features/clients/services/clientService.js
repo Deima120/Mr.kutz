@@ -26,7 +26,15 @@ export const getClientHistory = async (id, { limit = 10, offset = 0 } = {}) => {
     appointments: Array.isArray(data?.appointments) ? data.appointments : [],
     total: typeof data?.total === 'number' ? data.total : 0,
     completedTotal: typeof data?.completedTotal === 'number' ? data.completedTotal : 0,
+    noShowTotal: typeof data?.noShowTotal === 'number' ? data.noShowTotal : 0,
   };
+};
+
+export const getClientLoyaltyRewards = async (id) => {
+  const response = await api.get(`${CLIENTS_BASE}/${id}/loyalty-rewards`);
+  const res = response?.data ?? response;
+  const data = res?.data ?? res;
+  return Array.isArray(data) ? data : [];
 };
 
 export const createClient = async (data) => {

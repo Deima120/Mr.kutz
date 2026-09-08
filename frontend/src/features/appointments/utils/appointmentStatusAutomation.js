@@ -10,7 +10,7 @@ import {
 } from '@/shared/utils/colombiaTime';
 
 export const COMPLETION_GRACE_MINUTES = 10;
-export const CLIENT_CANCEL_LEAD_MINUTES = 30;
+export const CLIENT_CANCEL_LEAD_MINUTES = 60;
 
 const TERMINAL = new Set(['cancelled', 'no_show', 'completed']);
 

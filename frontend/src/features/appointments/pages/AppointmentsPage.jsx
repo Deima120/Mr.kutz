@@ -713,7 +713,7 @@ export default function AppointmentsPage() {
     const target = appointments.find((a) => a.id === id) || null;
     if (!target) return;
     if (isClient && !canCancelAppointment(target, new Date(), { requireLeadTime: true })) {
-      toast.error('Solo puedes cancelar la cita hasta 30 minutos antes de la hora de inicio.');
+      toast.error('Solo puedes cancelar la cita hasta 60 minutos antes de la hora de inicio.');
       return;
     }
     setCancelTarget(target);

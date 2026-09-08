@@ -11,6 +11,7 @@ import {
   runSerializable,
 } from './inventory.helpers.js';
 import { assertVoidReason } from './payment.rules.js';
+import { getPendingLoyaltyRewards, markLoyaltyRewardsRedeemed } from './clientLoyaltyRewards.service.js';
 import {
   assertSingleClientForServiceLines,
   derivePaymentType,
@@ -537,6 +538,15 @@ export async function createWithTx(tx, data) {
 
   const clientId = assertSingleClientForServiceLines(appointmentsById, serviceInputs);
 
+  // Fidelización: si el cliente de este cobro tiene hitos ganados sin canjear
+  // (mascarilla cada 5 servicios, cerveza+depilación cada 10), se aplican solos
+  // como líneas gratis, sin que el staff tenga que seleccionarlas. Solo tiene
+  // sentido cuando el cobro trae una cita de ese cliente identificado — un
+  // cobro de solo productos no tiene cliente resuelto de forma fiable.
+  const pendingLoyaltyRewards = clientId
+    ? await getPendingLoyaltyRewards(clientId, { prisma: tx })
+    : [];
+
   if (appointmentIds.length) {
     const already = await tx.paymentLine.findMany({
       where: {
@@ -617,6 +627,20 @@ export async function createWithTx(tx, data) {
     });
   }
 
+  for (const reward of pendingLoyaltyRewards) {
+    for (const line of reward.rewardLines) {
+      resolvedLines.push({
+        lineType: 'manual',
+        appointmentId: null,
+        productId: null,
+        quantity: 1,
+        unitPrice: toMoneyDecimal(0),
+        lineAmount: toMoneyDecimal(0),
+        description: line.description.slice(0, 200),
+      });
+    }
+  }
+
   const headerAmountNum = sumActiveLineAmounts(resolvedLines);
   const headerAmount = toMoneyDecimal(headerAmountNum);
   if (headerAmountNum <= 0) {
@@ -689,6 +713,14 @@ export async function createWithTx(tx, data) {
       }
       throw err;
     }
+  }
+
+  if (pendingLoyaltyRewards.length) {
+    await markLoyaltyRewardsRedeemed(
+      pendingLoyaltyRewards.map((r) => r.id),
+      payment.id,
+      { prisma: tx }
+    );
   }
 
   if (productIds.length) {

@@ -93,3 +93,56 @@ export function assertUnderPendingLimit(
   err.details = { limit, pending };
   throw err;
 }
+
+/**
+ * Tope de citas por cliente EL MISMO DÍA calendario.
+ *
+ * Es una regla distinta del cupo de pendientes de arriba: aquella cuenta el
+ * saldo vivo sin importar la fecha (protege contra acumular reservas sin ir);
+ * esta cuenta cuántas veces se agenda un mismo día, sin importar si ya pasaron
+ * o no. Por eso aquí `completed` SÍ cuenta — un cliente que ya fue y completó
+ * 3 citas hoy no debería poder agendar una 4ª para hoy mismo — y solo se
+ * excluyen `cancelled`/`no_show`, que representan cupos que quedaron libres.
+ */
+export const MAX_APPOINTMENTS_PER_CLIENT_PER_DAY = 3;
+
+/** Código estable para que web y móvil distingan este 409 de los otros topes. */
+export const APPOINTMENT_DAILY_LIMIT_REASON = 'APPOINTMENT_DAILY_LIMIT_REACHED';
+
+export function buildDailyLimitMessage(limit = MAX_APPOINTMENTS_PER_CLIENT_PER_DAY) {
+  return (
+    `Ya tienes ${limit} citas agendadas para ese día, que es el máximo permitido. ` +
+    'Elige otra fecha.'
+  );
+}
+
+const DAILY_LIMIT_EXCLUDED_STATUSES = new Set(['cancelled', 'no_show']);
+
+/**
+ * @param {Array<{ status?: unknown }>} appointmentsOnDate Citas del cliente para el día candidato.
+ * @returns {number}
+ */
+export function countAppointmentsForDay(appointmentsOnDate) {
+  if (!Array.isArray(appointmentsOnDate)) return 0;
+  return appointmentsOnDate.filter((a) => !DAILY_LIMIT_EXCLUDED_STATUSES.has(a?.status)).length;
+}
+
+/**
+ * Lanza 409 si el cliente ya agotó su tope de citas para ese día.
+ *
+ * @param {Array<{ status?: unknown }>} appointmentsOnDate Citas del cliente para el día candidato.
+ * @param {{ limit?: number }} [options]
+ */
+export function assertUnderDailyLimit(
+  appointmentsOnDate,
+  { limit = MAX_APPOINTMENTS_PER_CLIENT_PER_DAY } = {}
+) {
+  const count = countAppointmentsForDay(appointmentsOnDate);
+  if (count < limit) return;
+
+  const err = new Error(buildDailyLimitMessage(limit));
+  err.statusCode = 409;
+  err.reason = APPOINTMENT_DAILY_LIMIT_REASON;
+  err.details = { limit, count };
+  throw err;
+}

@@ -47,6 +47,8 @@ export default function ClientDetailPage() {
   const [history, setHistory] = useState([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyCompletedTotal, setHistoryCompletedTotal] = useState(0);
+  const [historyNoShowTotal, setHistoryNoShowTotal] = useState(0);
+  const [pendingLoyaltyRewards, setPendingLoyaltyRewards] = useState([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(HISTORY_DEFAULT_PAGE_SIZE);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -72,6 +74,22 @@ export default function ClientDetailPage() {
   useEffect(() => {
     if (!id) return undefined;
     let cancelled = false;
+    clientService
+      .getClientLoyaltyRewards(id)
+      .then((rewards) => {
+        if (!cancelled) setPendingLoyaltyRewards(rewards);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingLoyaltyRewards([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return undefined;
+    let cancelled = false;
     setHistoryLoading(true);
     clientService
       .getClientHistory(id, {
@@ -83,6 +101,7 @@ export default function ClientDetailPage() {
         setHistory(result.appointments);
         setHistoryTotal(result.total);
         setHistoryCompletedTotal(result.completedTotal);
+        setHistoryNoShowTotal(result.noShowTotal);
         const totalPages = Math.max(1, Math.ceil(result.total / historyPageSize) || 1);
         if (historyPage > totalPages) setHistoryPage(totalPages);
       })
@@ -91,6 +110,7 @@ export default function ClientDetailPage() {
         setHistory([]);
         setHistoryTotal(0);
         setHistoryCompletedTotal(0);
+        setHistoryNoShowTotal(0);
       })
       .finally(() => {
         if (!cancelled) setHistoryLoading(false);
@@ -148,10 +168,14 @@ export default function ClientDetailPage() {
     return (first + last).toUpperCase() || '?';
   };
 
-  // Calcular estadísticas
-  const totalAppointments = history.length;
-  const completedAppointments = history.filter((item) => item.status === 'completed').length;
-  const noShowAppointments = history.filter((item) => item.status === 'no_show').length;
+  // Estadísticas sobre el TOTAL real del cliente (`historyTotal`/`historyCompletedTotal`/
+  // `historyNoShowTotal`, ya calculados en el backend sobre todas sus citas), no sobre
+  // `history`, que es solo la página actual del historial paginado — usar `history.length`
+  // aquí hacía que la insignia "Cliente Frecuente" y los contadores dependieran de qué
+  // página se estuviera viendo en vez del total real.
+  const totalAppointments = historyTotal;
+  const completedAppointments = historyCompletedTotal;
+  const noShowAppointments = historyNoShowTotal;
   const isFrequent = completedAppointments >= 3;
 
   return (
@@ -197,6 +221,17 @@ export default function ClientDetailPage() {
                       'Cliente Registrado'
                     )}
                   </span>
+                  {pendingLoyaltyRewards.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      title={pendingLoyaltyRewards
+                        .flatMap((r) => r.rewardLines.map((l) => l.description))
+                        .join(' · ')}
+                    >
+                      <Award className="w-3 h-3 shrink-0" />
+                      Recompensa pendiente de canjear
+                    </span>
+                  )}
                 </div>
                 <p className="text-stone-500 text-sm mt-1 font-medium">Cliente ID: #{client.id}</p>
               </div>
