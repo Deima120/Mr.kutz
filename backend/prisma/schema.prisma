@@ -142,32 +142,95 @@ model Client {
   user           User?                 @relation(fields: [userId], references: [id])
 }
 
-/// Hito de fidelización otorgado a un cliente (mascarilla gratis cada 5 servicios
-/// completados, cerveza+depilación cada 10, y cualquier hito nuevo que se agregue
-/// a `LOYALTY_MILESTONES` en `clientLoyaltyRules.js`). Se otorga automáticamente
-/// al completar una cita y se canjea solo, sin intervención del staff, en el
-/// siguiente cobro con línea de servicio del cliente.
-model ClientLoyaltyReward {
-  id             Int       @id @default(autoincrement())
-  clientId       Int       @map("client_id")
-  /// Identifica la regla de `LOYALTY_MILESTONES` que otorgó este hito.
-  milestoneKey   String    @map("milestone_key") @db.VarChar(40)
-  /// 1ª vez que se cumple ese ciclo para este cliente, 2ª, 3ª... Junto con
-  /// `milestoneKey` forma la clave de idempotencia: si la función que otorga
-  /// hitos se invoca dos veces para la misma cita completada, el segundo intento
-  /// de crear la misma fila choca con `@@unique` en vez de duplicar el premio.
-  occurrence     Int
-  grantedAt      DateTime  @default(now()) @map("granted_at")
-  /// Nº de servicios completados del cliente que disparó el hito, para auditoría.
-  grantedAtCount Int       @map("granted_at_count")
-  redeemedAt     DateTime? @map("redeemed_at")
-  paymentId      Int?      @map("payment_id")
-  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  payment        Payment?  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+enum LoyaltyRewardItemType {
+  service
+  product
+}
 
-  @@unique([clientId, milestoneKey, occurrence])
+/// Regla de fidelización configurable por el administrador: cada cuántos
+/// servicios completados se otorga un premio, y qué premio (uno o varios
+/// ítems, ver `LoyaltyMilestoneRewardItem`). Reemplaza la lista hardcodeada
+/// `LOYALTY_MILESTONES` que existía en código — agregar un hito nuevo ahora es
+/// una fila nueva desde el panel, sin deploy.
+model LoyaltyMilestoneRule {
+  id          Int                          @id @default(autoincrement())
+  /// 5, 10, 15... El admin puede agregar los que quiera; no hay tope fijo en código.
+  everyCount  Int                          @unique @map("every_count")
+  label       String                       @db.VarChar(120)
+  /// Un hito desactivado deja de otorgarse a partir de ahí, pero no borra el
+  /// historial de lo ya otorgado — mismo criterio que servicios/productos inactivos.
+  isActive    Boolean                      @default(true) @map("is_active")
+  createdAt   DateTime                     @default(now()) @map("created_at")
+  updatedAt   DateTime                     @updatedAt @map("updated_at")
+  rewardItems LoyaltyMilestoneRewardItem[]
+  grants      ClientLoyaltyReward[]
+
+  @@map("loyalty_milestone_rules")
+}
+
+/// Qué se regala en una regla — uno o varios ítems (ej. a los 10 servicios: un
+/// producto + un servicio a la vez). Exactamente uno de `serviceId`/`productId`
+/// debe estar presente según `itemType` (se valida en el servicio, no aquí).
+model LoyaltyMilestoneRewardItem {
+  id        Int                   @id @default(autoincrement())
+  ruleId    Int                   @map("rule_id")
+  itemType  LoyaltyRewardItemType @map("item_type")
+  serviceId Int?                  @map("service_id")
+  productId Int?                  @map("product_id")
+  quantity  Int                   @default(1)
+  rule      LoyaltyMilestoneRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  service   Service?              @relation(fields: [serviceId], references: [id])
+  product   Product?              @relation(fields: [productId], references: [id])
+
+  @@index([ruleId])
+  @@map("loyalty_milestone_reward_items")
+}
+
+/// Hito de fidelización YA otorgado a un cliente. Se otorga automáticamente al
+/// completar una cita (ver `grantLoyaltyRewardsIfEligible`) y sus ítems
+/// (`ClientLoyaltyRewardItem`) se canjean solos, sin intervención del staff, en
+/// el siguiente cobro con línea de servicio del cliente.
+model ClientLoyaltyReward {
+  id             Int                       @id @default(autoincrement())
+  clientId       Int                       @map("client_id")
+  ruleId         Int                       @map("rule_id")
+  /// 1ª vez que se cumple ese ciclo para este cliente, 2ª, 3ª... Junto con
+  /// `ruleId` forma la clave de idempotencia: si la función que otorga hitos se
+  /// invoca dos veces para la misma cita completada, el segundo intento de
+  /// crear la misma fila choca con `@@unique` en vez de duplicar el premio.
+  occurrence     Int
+  grantedAt      DateTime                  @default(now()) @map("granted_at")
+  /// Nº de servicios completados del cliente que disparó el hito, para auditoría.
+  grantedAtCount Int                       @map("granted_at_count")
+  redeemedAt     DateTime?                 @map("redeemed_at")
+  paymentId      Int?                      @map("payment_id")
+  client         Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rule           LoyaltyMilestoneRule      @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  payment        Payment?                  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  items          ClientLoyaltyRewardItem[]
+
+  @@unique([clientId, ruleId, occurrence])
   @@index([clientId, redeemedAt])
+  @@index([grantedAt])
   @@map("client_loyalty_rewards")
+}
+
+/// Snapshot de qué se otorgó realmente (nombre/tipo/cantidad al momento del
+/// hito) — igual que `PaymentLine` snapshotea su `description`/`unitPrice`, para
+/// que editar o desactivar la regla o el catálogo después no reescriba el
+/// historial de lo que un cliente concreto recibió.
+model ClientLoyaltyRewardItem {
+  id          Int                   @id @default(autoincrement())
+  rewardId    Int                   @map("reward_id")
+  itemType    LoyaltyRewardItemType @map("item_type")
+  serviceId   Int?                  @map("service_id")
+  productId   Int?                  @map("product_id")
+  quantity    Int                   @default(1)
+  description String                @db.VarChar(200)
+  reward      ClientLoyaltyReward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@index([rewardId])
+  @@map("client_loyalty_reward_items")
 }
 
 model Barber {
@@ -204,17 +267,18 @@ model BarberSchedule {
 }
 
 model Service {
-  id              Int              @id @default(autoincrement())
-  name            String           @db.VarChar(150)
-  categoryId      Int?             @map("category_id")
-  category        ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  description     String?
-  price           Decimal          @db.Decimal(10, 2)
-  durationMinutes Int              @map("duration_minutes")
-  isActive        Boolean          @default(true) @map("is_active")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  appointments    Appointment[]
+  id                 Int                          @id @default(autoincrement())
+  name               String                       @db.VarChar(150)
+  categoryId         Int?                         @map("category_id")
+  category           ServiceCategory?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  description        String?
+  price              Decimal                      @db.Decimal(10, 2)
+  durationMinutes    Int                          @map("duration_minutes")
+  isActive           Boolean                      @default(true) @map("is_active")
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+  appointments       Appointment[]
+  loyaltyRewardItems LoyaltyMilestoneRewardItem[]
 }
 
 model ServiceCategory {
@@ -457,23 +521,24 @@ model PaymentLine {
 }
 
 model Product {
-  id                 Int                 @id @default(autoincrement())
-  categoryId         Int?                @map("category_id")
-  name               String              @db.VarChar(150)
+  id                 Int                          @id @default(autoincrement())
+  categoryId         Int?                         @map("category_id")
+  name               String                       @db.VarChar(150)
   description        String?
-  sku                String?             @unique @db.VarChar(50)
-  retailPrice        Decimal?            @map("retail_price") @db.Decimal(10, 2)
-  costPrice          Decimal?            @map("cost_price") @db.Decimal(10, 2)
-  unit               String              @default("unit") @db.VarChar(20)
-  minStock           Int                 @default(0) @map("min_stock")
-  isActive           Boolean             @default(true) @map("is_active")
-  createdAt          DateTime            @default(now()) @map("created_at")
-  updatedAt          DateTime            @updatedAt @map("updated_at")
-  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sku                String?                      @unique @db.VarChar(50)
+  retailPrice        Decimal?                     @map("retail_price") @db.Decimal(10, 2)
+  costPrice          Decimal?                     @map("cost_price") @db.Decimal(10, 2)
+  unit               String                       @default("unit") @db.VarChar(20)
+  minStock           Int                          @default(0) @map("min_stock")
+  isActive           Boolean                      @default(true) @map("is_active")
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+  category           ProductCategory?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   inventory          Inventory?
   inventoryMovements InventoryMovement[]
   purchaseItems      PurchaseItem[]
   paymentLines       PaymentLine[]
+  loyaltyRewardItems LoyaltyMilestoneRewardItem[]
 }
 
 model Inventory {

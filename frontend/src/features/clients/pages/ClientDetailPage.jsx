@@ -49,6 +49,7 @@ export default function ClientDetailPage() {
   const [historyCompletedTotal, setHistoryCompletedTotal] = useState(0);
   const [historyNoShowTotal, setHistoryNoShowTotal] = useState(0);
   const [pendingLoyaltyRewards, setPendingLoyaltyRewards] = useState([]);
+  const [loyaltyProgress, setLoyaltyProgress] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(HISTORY_DEFAULT_PAGE_SIZE);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -81,6 +82,14 @@ export default function ClientDetailPage() {
       })
       .catch(() => {
         if (!cancelled) setPendingLoyaltyRewards([]);
+      });
+    clientService
+      .getClientLoyaltyProgress(id)
+      .then((progress) => {
+        if (!cancelled) setLoyaltyProgress(progress);
+      })
+      .catch(() => {
+        if (!cancelled) setLoyaltyProgress(null);
       });
     return () => {
       cancelled = true;
@@ -225,7 +234,7 @@ export default function ClientDetailPage() {
                     <span
                       className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
                       title={pendingLoyaltyRewards
-                        .flatMap((r) => r.rewardLines.map((l) => l.description))
+                        .flatMap((r) => r.items.map((it) => it.description))
                         .join(' · ')}
                     >
                       <Award className="w-3 h-3 shrink-0" />
@@ -234,6 +243,17 @@ export default function ClientDetailPage() {
                   )}
                 </div>
                 <p className="text-stone-500 text-sm mt-1 font-medium">Cliente ID: #{client.id}</p>
+                {pendingLoyaltyRewards.length > 0 && (
+                  <p className="text-emerald-700 text-xs mt-1">
+                    {pendingLoyaltyRewards.flatMap((r) => r.items.map((it) => it.description)).join(' · ')}
+                  </p>
+                )}
+                {loyaltyProgress?.nextMilestone && (
+                  <p className="text-stone-400 text-xs mt-1">
+                    Le faltan {loyaltyProgress.nextMilestone.remaining} servicio(s) para su próxima
+                    recompensa ({loyaltyProgress.nextMilestone.label})
+                  </p>
+                )}
               </div>
 
               {/* Métricas Rápidas */}

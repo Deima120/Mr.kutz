@@ -627,8 +627,50 @@ export async function createWithTx(tx, data) {
     });
   }
 
+  // Fidelización: un premio de producto se registra como línea de producto de
+  // verdad (no `manual`) para que el bucle de stock de más abajo lo descuente
+  // del inventario real, igual que cualquier venta — la decisión del
+  // propietario fue que un regalo físico sí sale de existencias. Un premio de
+  // servicio se queda como `manual`: ese tipo de línea exige `appointmentId`
+  // (no aplica a un servicio de regalo sin cita propia) y el cálculo de
+  // comisión ya filtra por `lineType === 'service' && appointmentId`, así que
+  // dejarlo `manual` logra a propósito que nunca genere comisión.
+  const loyaltyProductIds = [
+    ...new Set(
+      pendingLoyaltyRewards
+        .flatMap((r) => r.items)
+        .filter((item) => item.itemType === 'product' && item.productId)
+        .map((item) => item.productId)
+    ),
+  ];
+  const loyaltyProductsById = loyaltyProductIds.length
+    ? new Map(
+        (
+          await tx.product.findMany({
+            where: { id: { in: loyaltyProductIds }, isActive: true },
+            select: { id: true },
+          })
+        ).map((p) => [p.id, p])
+      )
+    : new Map();
+
   for (const reward of pendingLoyaltyRewards) {
-    for (const line of reward.rewardLines) {
+    for (const item of reward.items) {
+      // Si el producto del premio ya no existe o se desactivó desde que se
+      // otorgó, se cae a una línea informativa en $0 en vez de reventar el
+      // cobro por una referencia que ya no es válida.
+      if (item.itemType === 'product' && loyaltyProductsById.has(item.productId)) {
+        resolvedLines.push({
+          lineType: 'product',
+          appointmentId: null,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: toMoneyDecimal(0),
+          lineAmount: toMoneyDecimal(0),
+          description: item.description.slice(0, 200),
+        });
+        continue;
+      }
       resolvedLines.push({
         lineType: 'manual',
         appointmentId: null,
@@ -636,7 +678,7 @@ export async function createWithTx(tx, data) {
         quantity: 1,
         unitPrice: toMoneyDecimal(0),
         lineAmount: toMoneyDecimal(0),
-        description: line.description.slice(0, 200),
+        description: item.description.slice(0, 200),
       });
     }
   }
@@ -723,8 +765,9 @@ export async function createWithTx(tx, data) {
     );
   }
 
-  if (productIds.length) {
-    await lockProducts(tx, productIds);
+  const productIdsToLock = [...new Set([...productIds, ...loyaltyProductIds])];
+  if (productIdsToLock.length) {
+    await lockProducts(tx, productIdsToLock);
   }
 
   for (let i = 0; i < createdLines.length; i += 1) {

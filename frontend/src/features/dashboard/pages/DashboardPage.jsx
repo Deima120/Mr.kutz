@@ -13,6 +13,7 @@ import * as appointmentService from '@/features/appointments/services/appointmen
 import { appointmentNotesOf } from '@/shared/utils/appointmentTime';
 import { AppointmentNoteBlock } from '@/shared/components/AppointmentNoteText';
 import DashboardCard, { DashboardChartPanel } from '@/shared/components/admin/DashboardCard';
+import LoyaltyRecentGrantsCard from '@/features/loyalty/components/LoyaltyRecentGrantsCard';
 import AppointmentRatingsPanel from '@/shared/components/admin/AppointmentRatingsPanel';
 import { AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import {
@@ -257,7 +258,7 @@ function BarberDashboard() {
 }
 
 function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const navigate = useNavigate();
   const toast = useAppToast();
 
@@ -599,6 +600,8 @@ function AdminDashboard() {
           </div>
         </DashboardCard>
       )}
+
+      {can('loyalty.view') && <LoyaltyRecentGrantsCard />}
     </div>
   );
 }
