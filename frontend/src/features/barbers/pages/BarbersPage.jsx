@@ -4,17 +4,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Pencil, CalendarDays, Trash2, KeyRound } from 'lucide-react';
+import { Plus, Pencil, CalendarDays, Trash2 } from 'lucide-react';
 import * as barberService from '@/features/barbers/services/barberService';
-import * as roleService from '@/features/users/services/roleService';
 import { BarberForm } from '@/features/barbers/pages/BarberFormPage';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
-import CustomSelect from '@/shared/components/CustomSelect';
-import AdminModalShell from '@/shared/components/admin/AdminModalShell';
-import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import {
   AdminEntityCard,
   AdminFilterRow,
@@ -24,8 +20,6 @@ import {
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import AdminStatusToggle from '@/shared/components/admin/AdminStatusToggle';
-import { getAssignableRoles } from '@/shared/utils/assignableRoles';
-import { getApiErrorMessage, validateUserForm } from '@/shared/utils/formValidation';
 
 const BARBER_STATUS_FILTERS = [
   { id: 'active', label: 'Activos' },
@@ -34,10 +28,9 @@ const BARBER_STATUS_FILTERS = [
 ];
 
 export default function BarbersPage() {
-  const { user, can } = useAuth();
+  const { user } = useAuth();
   const toast = useAppToast();
   const isAdmin = user?.role === 'admin';
-  const puedeAsignarRol = can('users.manage');
   const [barbers, setBarbers] = useState([]);
   const [statusFilter, setStatusFilter] = useState('active');
   const [documentFilter, setDocumentFilter] = useState('');
@@ -46,12 +39,6 @@ export default function BarbersPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
-  const [roles, setRoles] = useState([]);
-  const [changingRoleId, setChangingRoleId] = useState(null);
-  const [passTarget, setPassTarget] = useState(null);
-  const [nuevaPass, setNuevaPass] = useState('');
-  const [passError, setPassError] = useState('');
-  const [restableciendo, setRestableciendo] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -98,58 +85,6 @@ export default function BarbersPage() {
   useEffect(() => {
     fetchBarbers();
   }, [statusFilter]);
-
-  // El catálogo de roles solo hace falta si se puede asignar uno.
-  useEffect(() => {
-    if (!puedeAsignarRol) return;
-    roleService
-      .getRoles()
-      .then((data) => setRoles(Array.isArray(data) ? data : []))
-      .catch((err) => toast.error(getApiErrorMessage(err, 'No se pudieron cargar los roles.')));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [puedeAsignarRol]);
-
-  const rolesAsignables = getAssignableRoles(roles);
-
-  /**
-   * Cambia el rol de la cuenta del barbero (p. ej. lo asciende a un rol de
-   * administración). El barbero conserva su ficha y sus horarios: solo
-   * cambia `User.roleId`.
-   */
-  const cambiarRolBarbero = async (barber, roleId) => {
-    if (Number(roleId) === Number(barber.role_id)) return;
-    setChangingRoleId(barber.id);
-    try {
-      await barberService.changeBarberRole(barber.id, Number(roleId));
-      toast.success('Rol actualizado.');
-      fetchBarbers();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, 'No se pudo cambiar el rol.'));
-    } finally {
-      setChangingRoleId(null);
-    }
-  };
-
-  const restablecerPassword = async (e) => {
-    e.preventDefault();
-    const validacion = validateUserForm({ password: nuevaPass }, { soloPassword: true });
-    if (!validacion.valid) {
-      setPassError(validacion.errors.password);
-      return;
-    }
-    setRestableciendo(true);
-    try {
-      await barberService.resetBarberPassword(passTarget.id, nuevaPass);
-      toast.success('Contraseña restablecida.');
-      setPassTarget(null);
-      setNuevaPass('');
-      setPassError('');
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, 'No se pudo restablecer la contraseña.'));
-    } finally {
-      setRestableciendo(false);
-    }
-  };
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
@@ -352,24 +287,6 @@ export default function BarbersPage() {
                           ))}
                         </div>
                       )}
-                      {puedeAsignarRol && b.user_id != null && (
-                        <div className="mt-2.5 max-w-[180px]">
-                          <CustomSelect
-                            id={`rol-barbero-${b.id}`}
-                            name={`rol-barbero-${b.id}`}
-                            value={String(b.role_id ?? '')}
-                            onChange={(e) => cambiarRolBarbero(b, e?.target?.value ?? e)}
-                            variant="filter"
-                            disabled={changingRoleId === b.id}
-                            options={[
-                              { id: String(b.role_id ?? ''), label: b.role_name ?? 'barber' },
-                              ...rolesAsignables
-                                .filter((r) => r.id !== b.role_id)
-                                .map((r) => ({ id: String(r.id), label: r.name })),
-                            ]}
-                          />
-                        </div>
-                      )}
                     </div>
                     {isAdmin && (
                       <div className="inline-flex items-center gap-1.5 shrink-0">
@@ -383,17 +300,6 @@ export default function BarbersPage() {
                           label="Editar barbero"
                           onClick={() => openEditForm(b.id)}
                         />
-                        {puedeAsignarRol && b.user_id != null && (
-                          <AdminIconButton
-                            icon={KeyRound}
-                            label="Restablecer contraseña"
-                            onClick={() => {
-                              setPassTarget(b);
-                              setNuevaPass('');
-                              setPassError('');
-                            }}
-                          />
-                        )}
                         <AdminIconButton
                           icon={Trash2}
                           label="Eliminar barbero"
@@ -437,50 +343,6 @@ export default function BarbersPage() {
         }}
         onConfirm={confirmDelete}
       />
-
-      <AdminModalShell
-        open={Boolean(passTarget)}
-        title="Restablecer contraseña"
-        onClose={() => {
-          if (!restableciendo) setPassTarget(null);
-        }}
-      >
-        <form className="grid gap-3" onSubmit={restablecerPassword} noValidate>
-          <p className="text-xs text-stone-600">
-            Nueva contraseña para{' '}
-            <strong className="text-stone-800">
-              {passTarget ? `${passTarget.first_name} ${passTarget.last_name}` : ''}
-            </strong>
-            .
-          </p>
-          <div>
-            <input
-              type="text"
-              value={nuevaPass}
-              onChange={(e) => {
-                setNuevaPass(e.target.value);
-                setPassError('');
-              }}
-              className={`input-premium w-full py-2 text-sm ${passError ? '!border-red-400' : ''}`}
-              autoComplete="new-password"
-            />
-            <FieldErrorMessage message={passError} />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="btn-admin-outline text-sm py-2"
-              onClick={() => setPassTarget(null)}
-              disabled={restableciendo}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="btn-admin text-sm py-2" disabled={restableciendo}>
-              {restableciendo ? 'Restableciendo…' : 'Restablecer'}
-            </button>
-          </div>
-        </form>
-      </AdminModalShell>
     </div>
   );
 }

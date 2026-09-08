@@ -3,7 +3,6 @@
  */
 
 import * as barberService from '../services/barber.service.js';
-import * as userService from '../services/user.service.js';
 import { userCan } from '../middlewares/auth.js';
 
 function parseActiveFilter(queryActive) {
@@ -103,45 +102,6 @@ export const updateSchedules = async (req, res, next) => {
       message: 'Horarios actualizados.',
       data: schedules,
     });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * PATCH /api/barbers/:id/role
- * Cambia el rol de la cuenta del barbero (p. ej. lo asciende a un rol de
- * administración). Requiere `users.manage` además de `barbers.manage`. El
- * barbero conserva su ficha y sus horarios: cambiar el rol solo toca
- * `User.roleId`.
- */
-export const changeRole = async (req, res, next) => {
-  try {
-    const barber = await barberService.getById(req.params.id, { includePrivate: true });
-    if (!barber) {
-      return res.status(404).json({ success: false, message: 'Barbero no encontrado.' });
-    }
-    const updated = await userService.promoteAccount(barber.user_id, req.body.roleId, req.user.id);
-    res.json({ success: true, message: 'Rol actualizado correctamente.', data: updated });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * PATCH /api/barbers/:id/password
- * Restablece la contraseña de acceso del barbero. Requiere `users.manage`
- * además de `barbers.manage`: es la única acción de este router que toca la
- * seguridad de la cuenta y no la ficha.
- */
-export const resetPassword = async (req, res, next) => {
-  try {
-    const barber = await barberService.getById(req.params.id, { includePrivate: true });
-    if (!barber) {
-      return res.status(404).json({ success: false, message: 'Barbero no encontrado.' });
-    }
-    await userService.resetAccountPassword(barber.user_id, req.body.password);
-    res.json({ success: true, message: 'Contraseña restablecida correctamente.' });
   } catch (error) {
     next(error);
   }

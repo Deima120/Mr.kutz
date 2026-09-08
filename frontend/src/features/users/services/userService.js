@@ -1,8 +1,7 @@
 /**
- * Usuarios del personal.
- *
- * Los clientes no se gestionan por aquí: el backend los excluye de la lista y
- * rechaza cambiarles el rol. Para ellos está el módulo de Clientes.
+ * Usuarios (`/users`): único lugar para cambiar el rol, ver el detalle y
+ * restablecer la contraseña de cualquier cuenta, tenga o no ficha propia de
+ * cliente o de barbero.
  */
 
 import api from '@/shared/services/api';

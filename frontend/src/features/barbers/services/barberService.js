@@ -55,19 +55,3 @@ export const deleteBarber = async (id) => {
   const response = await api.delete(`${BARBERS_BASE}/${id}`);
   return extract(response);
 };
-
-/**
- * Cambia el rol de la cuenta del barbero (p. ej. lo asciende a un rol de
- * administración). Requiere el permiso `users.manage` además de
- * `barbers.manage` (lo impone la ruta).
- */
-export const changeBarberRole = async (id, roleId) => {
-  const response = await api.patch(`${BARBERS_BASE}/${id}/role`, { roleId });
-  return extract(response);
-};
-
-/** Restablece la contraseña de acceso del barbero. Requiere `users.manage`. */
-export const resetBarberPassword = async (id, password) => {
-  const response = await api.patch(`${BARBERS_BASE}/${id}/password`, { password });
-  return extract(response);
-};

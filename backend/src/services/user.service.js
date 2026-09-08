@@ -1,19 +1,45 @@
 /**
- * Gestión de usuarios del PERSONAL **sin ficha propia**: administradores y
- * cualquier rol nuevo que se cree desde el panel (un contador, por ejemplo).
+ * Gestión de usuarios (`/api/users`): el único lugar donde se cambia el rol,
+ * se ve el detalle y se restablece la contraseña de cualquier cuenta del
+ * sistema, tenga o no ficha propia (cliente, barbero, o personal sin ficha
+ * como un administrador o un contador).
  *
- * ## Qué entra aquí y qué no
+ * ## Por qué está centralizado aquí
  *
- * **Los clientes y los barberos quedan fuera a propósito.** Cada uno tiene su
- * propio módulo (Clientes, Barberos) que ya cubre alta, edición, activación y
- * borrado — incluido el cambio de rol, que delega en `promoteAccount` de este
- * mismo archivo. Duplicarlo aquí sería mantener dos caminos para lo mismo.
+ * Se intentó repartir el cambio de rol a la ficha de cada quien (Clientes,
+ * Barberos), pero el propietario del proyecto pidió revertirlo: el rol de
+ * una cuenta es un concepto transversal a cliente/barbero/personal, y quiere
+ * un único lugar de auditoría y control para tocarlo, verlo en detalle y
+ * restablecer el acceso. Clientes y Barberos conservan todo lo demás (alta,
+ * edición de la ficha, activar/inactivar), que sigue siendo específico de
+ * cada uno.
  *
- * Los clientes, además, tienen un candado de seguridad propio: si se pudiera
- * promover a un cliente a administrador desde Usuarios (en vez de desde su
- * propia ficha, con el permiso `users.manage` explícito), alguien que se
- * registró solo para reservar una cita podría acabar con acceso al dinero del
- * negocio. La restricción se aplica en el servidor, no solo ocultando botones.
+ * ## El candado que SÍ se mantiene: qué rol se puede asignar
+ *
+ * `client` y `barber` no se pueden asignar como rol destino aunque el cambio
+ * se pida desde aquí: asignarlos solo tocaría `User.roleId`, sin crear la
+ * ficha (`Client`/`Barber`, y en el caso del barbero también sus horarios)
+ * que las altas de sus propios módulos crean de forma transaccional. El
+ * resultado sería una cuenta con ese rol pero sin ficha, huérfana. Esto no
+ * es negociable por diseño de datos, aunque el resto del cambio de rol sí lo
+ * sea por decisión de negocio.
+ *
+ * Promover a un cliente a un rol de personal (admin, un rol personalizado)
+ * SÍ está permitido desde aquí, con `users.manage` exigido en la ruta como
+ * única barrera: es el requisito explícito de negocio, y el permiso es la
+ * mitigación acordada para el riesgo de que alguien que se registró para
+ * agendar acabe con acceso al dinero del negocio.
+ *
+ * ## Qué sigue viviendo en el módulo de cada ficha
+ *
+ * `Client.isActive` (puede agendar) y `Barber.isActive` (está en el equipo)
+ * son conceptos de la ficha, no de la cuenta, y sus altas/ediciones/borrados
+ * de ficha siguen en Clientes/Barberos. `setActive`/`remove` de este archivo
+ * respetan esa frontera: activar o borrar a un cliente sigue bloqueado aquí;
+ * un barbero sí se activa/desactiva desde aquí porque así funcionaba antes
+ * de que existiera este módulo (sincroniza `User.isActive` y
+ * `Barber.isActive` a la vez), y borrarlo sigue exigiendo pasar por Barberos
+ * para que se retiren también sus horarios.
  *
  * ## Por qué se desactiva en vez de borrar
  *
@@ -46,31 +72,65 @@ const toDto = (u) => ({
   role_name: u.role?.name ?? null,
   role_description: u.role?.description ?? null,
   is_system_role: u.role?.isSystem ?? false,
+  // De qué ficha dispone. Sirve para que la pantalla explique por qué a un
+  // cliente no se le puede activar/inactivar o borrar desde aquí, por
+  // ejemplo, y para el enlace de "ver detalle".
+  client_id: u.client?.id ?? null,
+  client_name: u.client ? `${u.client.firstName} ${u.client.lastName}`.trim() : null,
+  barber_id: u.barber?.id ?? null,
+  barber_name: u.barber ? `${u.barber.firstName} ${u.barber.lastName}`.trim() : null,
   created_at: u.createdAt,
 });
 
-// `barber`/`client` viajan aunque este módulo ya no los liste: hacen falta
-// para los candados de `changeRole`/`setActive`/`resetPassword`/`remove`, que
-// deben poder detectar y rechazar a alguien con ficha propia aunque se les
-// llame directo por API con su id.
 const includeAll = {
   role: true,
-  barber: { select: { id: true } },
-  client: { select: { id: true } },
+  barber: { select: { id: true, firstName: true, lastName: true } },
+  client: { select: { id: true, firstName: true, lastName: true } },
 };
 
-/**
- * Usuarios del personal sin ficha propia. Excluye a quien tenga ficha de
- * cliente o de barbero (se gestionan, incluido su rol, desde su propio
- * módulo) y a quien tenga el rol `client` aunque por algún motivo no tuviera
- * ficha.
- */
+/** Detalle completo: la ficha (cliente o barbero) si tiene una. */
+const includeDetail = {
+  role: true,
+  barber: true,
+  client: true,
+};
+
+const toDetailDto = (u) => {
+  const base = toDto(u);
+  if (u.client) {
+    return {
+      ...base,
+      profile_type: 'client',
+      profile: {
+        phone: u.client.phone,
+        document_type: u.client.documentType,
+        document_number: u.client.documentNumber,
+        notes: u.client.notes,
+        is_active: u.client.isActive,
+      },
+    };
+  }
+  if (u.barber) {
+    return {
+      ...base,
+      profile_type: 'barber',
+      profile: {
+        phone: u.barber.phone,
+        document_type: u.barber.documentType,
+        document_number: u.barber.documentNumber,
+        specialties: u.barber.specialties,
+        commission_percent:
+          u.barber.commissionPercent != null ? Number(u.barber.commissionPercent) : null,
+        is_active: u.barber.isActive,
+      },
+    };
+  }
+  return { ...base, profile_type: null, profile: null };
+};
+
+/** Todas las cuentas del sistema, con o sin ficha propia. */
 export const getAll = async ({ search, roleId, active, limit = 100, offset = 0 } = {}) => {
-  const where = {
-    role: { name: { not: ROLES.CLIENT } },
-    client: null,
-    barber: null,
-  };
+  const where = {};
 
   if (search) {
     where.email = { contains: String(search).trim(), mode: 'insensitive' };
@@ -96,31 +156,26 @@ export const getAll = async ({ search, roleId, active, limit = 100, offset = 0 }
   return { users: rows.map(toDto), total };
 };
 
+/** Detalle de una cuenta, con la ficha completa si tiene una (cliente o barbero). */
 export const getById = async (id) => {
   const user = await prisma.user.findUnique({
     where: { id: parseInt(id, 10) },
-    include: includeAll,
+    include: includeDetail,
   });
   if (!user) return null;
-  if (user.client || user.barber || user.role?.name === ROLES.CLIENT) {
-    // Existe, pero no es personal sin ficha: se trata como inexistente para
-    // este módulo, en vez de filtrar datos de un cliente o barbero por una
-    // ruta que no le toca.
-    return null;
-  }
-  return toDto(user);
+  return toDetailDto(user);
 };
 
 /**
- * Rol de personal válido: existe, está activo y no es el de cliente ni el de
- * barbero.
+ * Rol asignable: existe, está activo y no es el de cliente ni el de barbero.
  *
- * El rol `barber` se excluye igual que `client`: asignarlo desde aquí solo
- * cambiaría `User.roleId`, sin crear la ficha `Barber` (nombre, teléfono,
- * horarios) que `POST /api/barbers` crea de forma transaccional. El resultado
- * sería una cuenta con rol de barbero pero sin ficha — no aparece en el
- * módulo de Barberos y no puede recibir citas ni horarios. Un barbero se da
- * de alta y se asciende únicamente desde su propio módulo.
+ * `client`/`barber` se excluyen siempre como destino, sin importar desde
+ * dónde se pida el cambio: asignarlos aquí solo cambiaría `User.roleId`, sin
+ * crear la ficha (`Client`/`Barber`, y en el caso del barbero también sus
+ * horarios) que las altas de sus propios módulos crean de forma
+ * transaccional. El resultado sería una cuenta con ese rol pero sin ficha —
+ * no aparecería en el módulo correspondiente y, si es barbero, no podría
+ * recibir citas ni horarios.
  */
 async function assertAssignableRole(roleId) {
   const id = parseInt(roleId, 10);
@@ -131,14 +186,14 @@ async function assertAssignableRole(roleId) {
 
   if (role.name === ROLES.CLIENT) {
     throw httpError(
-      'El rol de cliente no se asigna desde aquí: los clientes se gestionan en su propio módulo.',
+      'El rol de cliente no se asigna así: nace solo del alta de cliente o del registro público.',
       409,
       'CLIENT_ROLE_NOT_ASSIGNABLE',
     );
   }
   if (role.name === ROLES.BARBER) {
     throw httpError(
-      'El rol de barbero no se asigna desde aquí: da de alta al barbero desde su propio módulo, que crea también su ficha y horarios.',
+      'El rol de barbero no se asigna así: da de alta al barbero desde su propio módulo, que crea también su ficha y horarios.',
       409,
       'BARBER_ROLE_NOT_ASSIGNABLE',
     );
@@ -198,15 +253,12 @@ export const create = async ({ email, password, roleId }) => {
 };
 
 /**
- * Núcleo del cambio de rol: auto-cambio bloqueado, rol asignable, resguardo
- * del último administrador, actualización. **Sin** candado por ficha propia:
- * lo usa tanto `changeRole` (Usuarios, con el candado puesto más abajo) como
- * `promoteAccount` (Clientes y Barberos, que sí necesitan poder tocar el rol
- * de alguien con ficha).
+ * Cambia el rol de cualquier cuenta (cliente, barbero o personal sin ficha).
  *
  * @param {number} actorId quien realiza el cambio, para impedir que se lo haga a sí mismo
  */
-async function changeRoleCore(userId, roleId, actorId) {
+export const changeRole = async (id, roleId, actorId) => {
+  const userId = parseInt(id, 10);
   if (userId === Number(actorId)) {
     throw httpError('No puedes cambiar tu propio rol.', 409, 'SELF_ROLE_CHANGE');
   }
@@ -230,43 +282,18 @@ async function changeRoleCore(userId, roleId, actorId) {
     include: includeAll,
   });
   return toDto(actualizado);
-}
-
-/** Cambia el rol de un usuario del personal sin ficha propia (Usuarios). */
-export const changeRole = async (id, roleId, actorId) => {
-  const userId = parseInt(id, 10);
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: includeAll });
-  if (!user) throw httpError('Usuario no encontrado.', 404);
-
-  if (user.client || user.role?.name === ROLES.CLIENT) {
-    throw httpError(
-      'Los clientes no cambian de rol. Se gestionan desde el módulo de clientes.',
-      409,
-      'CLIENT_ROLE_LOCKED',
-    );
-  }
-  if (user.barber) {
-    throw httpError(
-      'Los barberos no cambian de rol desde aquí. Se gestionan desde el módulo de barberos.',
-      409,
-      'BARBER_ROLE_LOCKED',
-    );
-  }
-
-  return changeRoleCore(userId, roleId, actorId);
 };
 
 /**
- * Cambia el rol de una cuenta con ficha propia (cliente o barbero). La usan
- * `client.controller.js` y `barber.controller.js` tras resolver el `userId`
- * de la ficha correspondiente; no lleva el candado de `changeRole` porque
- * aquí el cambio se pide explícitamente desde el módulo dueño de esa ficha,
- * con el permiso `users.manage` exigido en la ruta.
+ * Activa o desactiva el acceso al sistema.
+ *
+ * Un cliente sigue sin poder activarse/inactivarse desde aquí: `Client.isActive`
+ * (puede agendar) es un concepto de la ficha, con reglas propias (no cancela
+ * citas ya agendadas) que viven en `client.service.js`. Un barbero sí, porque
+ * así funcionaba desde antes de que existiera este módulo: se mantienen
+ * alineadas su ficha y su acceso, para que un barbero sin acceso tampoco
+ * siga figurando como activo en el equipo.
  */
-export const promoteAccount = async (userId, roleId, actorId) =>
-  changeRoleCore(parseInt(userId, 10), roleId, actorId);
-
-/** Activa o desactiva el acceso al sistema. */
 export const setActive = async (id, isActive, actorId) => {
   const userId = parseInt(id, 10);
   if (userId === Number(actorId)) {
@@ -282,30 +309,31 @@ export const setActive = async (id, isActive, actorId) => {
       'CLIENT_STATUS_LOCKED',
     );
   }
-  if (user.barber) {
-    throw httpError(
-      'El acceso de los barberos se activa desde el módulo de barberos.',
-      409,
-      'BARBER_STATUS_LOCKED',
-    );
-  }
 
   const activar = Boolean(isActive);
   if (!activar) await assertNotLastAdmin(userId);
 
-  const actualizado = await prisma.user.update({
-    where: { id: userId },
-    data: { isActive: activar },
-    include: includeAll,
+  const actualizado = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({
+      where: { id: userId },
+      data: { isActive: activar },
+      include: includeAll,
+    });
+    if (u.barber) {
+      await tx.barber.update({ where: { id: u.barber.id }, data: { isActive: activar } });
+    }
+    return u;
   });
+
   return toDto(actualizado);
 };
 
-/**
- * Núcleo de restablecer contraseña, sin candado por ficha propia. Lo usan
- * `resetPassword` (Usuarios) y `resetAccountPassword` (Barberos).
- */
-async function resetPasswordCore(userId, password) {
+/** Restablece la contraseña de cualquier cuenta a una temporal elegida por el administrador. */
+export const resetPassword = async (id, password) => {
+  const userId = parseInt(id, 10);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw httpError('Usuario no encontrado.', 404);
+
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
   await prisma.user.update({
     where: { id: userId },
@@ -314,29 +342,7 @@ async function resetPasswordCore(userId, password) {
     data: { passwordHash, resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
   });
   return true;
-}
-
-/** Restablece la contraseña de un usuario del personal sin ficha propia (Usuarios). */
-export const resetPassword = async (id, password) => {
-  const userId = parseInt(id, 10);
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: includeAll });
-  if (!user) throw httpError('Usuario no encontrado.', 404);
-  if (user.client || user.role?.name === ROLES.CLIENT) {
-    throw httpError('Los clientes recuperan su contraseña desde el correo.', 409);
-  }
-  if (user.barber) {
-    throw httpError('La contraseña de un barbero se restablece desde el módulo de barberos.', 409);
-  }
-
-  return resetPasswordCore(userId, password);
 };
-
-/**
- * Restablece la contraseña de una cuenta con ficha propia. La usa
- * `barber.controller.js` tras resolver el `userId` del barbero.
- */
-export const resetAccountPassword = async (userId, password) =>
-  resetPasswordCore(parseInt(userId, 10), password);
 
 /**
  * Borrado definitivo. Reservado a altas hechas por error: en cuanto el usuario

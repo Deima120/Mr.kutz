@@ -234,3 +234,63 @@ datos real (con reversión inmediata de cualquier dato tocado): `promoteAccount`
 sobre un cliente y un barbero reales, los candados `CLIENT_ROLE_LOCKED` /
 `BARBER_ROLE_LOCKED` de Usuarios, el rechazo 409 para un cliente sin cuenta,
 y la sincronización `Barber.isActive` ↔ `User.isActive`.
+
+---
+
+## 5. Tercera fase: se revierte la segunda — todo vuelve a Usuarios
+
+### Por qué
+
+El propietario del proyecto revisó la fase 2 y pidió revertirla: el rol de
+una cuenta, verla en detalle y restablecer su contraseña deben gestionarse
+**solo desde Usuarios**, sin importar si esa cuenta tiene ficha de cliente o
+de barbero. Repartir el cambio de rol a la ficha de cada quien —lo que se
+hizo en la fase 2— quedó descartado a favor de un único punto de control y
+auditoría para estas tres acciones.
+
+### Qué cambió
+
+- Se retiraron por completo `PATCH /api/clients/:id/role`,
+  `PATCH /api/barbers/:id/role` y `PATCH /api/barbers/:id/password`, y con
+  ellos `promoteAccount`/`resetAccountPassword` de `user.service.js` (ya no
+  hace falta el núcleo sin candado: ahora hay un único `changeRole` y un
+  único `resetPassword`, sin distinción de ficha).
+- `user.service.js` vuelve a listar **todas** las cuentas del sistema
+  (`getAll` ya no filtra por rol ni por ficha). `changeRole` y
+  `resetPassword` funcionan para cualquier cuenta, incluidos clientes y
+  barberos — el único candado que queda, y que **no** es negociable, es que
+  `client`/`barber` no se pueden asignar como rol *destino* (`assertAssignableRole`):
+  seguirían dejando una cuenta sin la ficha que su alta propia crea. Promover
+  a un cliente a un rol de personal (admin, un rol personalizado) sí está
+  permitido, con `users.manage` como única barrera — es la mitigación
+  acordada para el riesgo de escalada de privilegios que motivó la
+  exclusión original.
+- **Nuevo:** `GET /api/users/:id` (`getById`) devuelve ahora el detalle
+  completo: si la cuenta tiene ficha de cliente o de barbero, incluye
+  `profile_type` y un objeto `profile` con sus datos propios (teléfono,
+  documento, especialidades/comisión si es barbero, si puede agendar/está
+  activo en el equipo). La pantalla de Usuarios usa esto en un modal de "Ver
+  detalle" nuevo.
+- `setActive` conserva el candado de clientes (`Client.isActive` — puede
+  agendar — sigue siendo un concepto de la ficha, con reglas propias en
+  `client.service.js` que no se tocaron) y vuelve a sincronizar
+  `Barber.isActive` con `User.isActive` en una transacción, como funcionaba
+  antes de la fase 2.
+- El fix del bug de sincronización en `barber.service.js:update()` (que
+  Barberos también sincronice `User.isActive` al inactivar) **se conserva**:
+  es una corrección de causa raíz independiente de dónde viva la acción, y
+  sigue haciendo falta porque Barberos conserva su propio interruptor de
+  activo/inactivo.
+- Clientes y Barberos vuelven a su forma de antes de la fase 2: sin selector
+  de rol ni botón de restablecer contraseña en sus pantallas.
+
+### Verificación de esta fase
+
+`backend/npm test`: 287/287 (se retiraron los 4 tests de rutas de la fase 2,
+ya no aplicables). `frontend/npm test`: 92/93 (mismo fallo preexistente).
+`frontend/npm run build`: correcto. Verificado a mano contra la base de datos
+real (con reversión inmediata de cualquier dato tocado): `GET /api/users`
+lista clientes y barberos junto al personal, `GET /api/users/:id` devuelve el
+detalle de ficha, `PATCH /api/users/:id/role` cambia el rol de un cliente y
+de un barbero reales, las tres rutas retiradas responden 404, y se confirmó
+que ya no queda ningún dato de prueba alterado sin resolver.

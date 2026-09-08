@@ -1,17 +1,18 @@
 /**
- * Usuarios del personal SIN ficha propia (`/users`): administradores y los
- * roles personalizados que se hayan creado (un contador, por ejemplo).
+ * Usuarios (`/users`): único lugar del panel para cambiar el rol, ver el
+ * detalle y restablecer la contraseña de **cualquier** cuenta del sistema,
+ * tenga o no ficha propia (cliente, barbero, o personal sin ficha como un
+ * administrador o un contador).
  *
- * **Los clientes y los barberos no salen aquí**: el backend los excluye de la
- * lista y rechaza cambiarles el rol o el estado desde este módulo. Cada uno
- * se gestiona por completo —incluido su rol— desde su propia pantalla
- * (Clientes, Barberos), que ya cubre alta, edición, activación y borrado.
- * Duplicarlo aquí sería mantener dos caminos para lo mismo.
+ * Lo que sigue siendo exclusivo de cada ficha: el alta, la edición de sus
+ * datos propios (nombre, teléfono, documento...) y activar/inactivar a un
+ * cliente (`Client.isActive`, que decide si puede agendar — un concepto de
+ * la ficha, no de la cuenta). Eso sigue en Clientes/Barberos.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { KeyRound, Trash2, ShieldCheck } from 'lucide-react';
+import { KeyRound, Trash2, ShieldCheck, Eye } from 'lucide-react';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, {
@@ -36,6 +37,9 @@ import * as roleService from '@/features/users/services/roleService';
 
 const FORM_VACIO = { email: '', password: '', roleId: '' };
 
+/** Etiqueta legible del tipo de perfil, para el modal de detalle. */
+const PROFILE_LABELS = { client: 'Cliente', barber: 'Barbero' };
+
 export default function UsersPage() {
   const toast = useAppToast();
   const { user: actual, can } = useAuth();
@@ -57,6 +61,10 @@ export default function UsersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [eliminando, setEliminando] = useState(false);
+
+  const [detailTarget, setDetailTarget] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +88,14 @@ export default function UsersPage() {
   }, [load]);
 
   const rolesAsignables = getAssignableRoles(roles);
+
+  /** Opciones del selector: los asignables más el rol actual, aunque sea
+   * `client`/`barber` (no asignable como destino, pero sí debe poder verse
+   * seleccionado sin que el control se quede sin opción válida). */
+  const opcionesDeRol = (u) => [
+    { id: String(u.role_id), label: u.role_name },
+    ...rolesAsignables.filter((r) => r.id !== u.role_id).map((r) => ({ id: String(r.id), label: r.name })),
+  ];
 
   const crear = async (e) => {
     e.preventDefault();
@@ -128,8 +144,9 @@ export default function UsersPage() {
       toast.success(u.is_active ? 'Usuario desactivado.' : 'Usuario activado.');
       await load();
     } catch (err) {
-      // El backend responde 409 si sería el último administrador activo, con un
-      // mensaje que explica qué hacer. Se muestra tal cual.
+      // El backend responde 409 si sería el último administrador activo, o si
+      // es un cliente (se activa desde Clientes), con un mensaje que explica
+      // qué hacer. Se muestra tal cual.
       toast.error(getApiErrorMessage(err, 'No se pudo cambiar el estado.'));
     } finally {
       setBusy(null);
@@ -171,11 +188,26 @@ export default function UsersPage() {
     }
   };
 
+  const verDetalle = async (u) => {
+    setDetailTarget(u);
+    setDetailData(null);
+    setDetailLoading(true);
+    try {
+      const data = await userService.getUserById(u.id);
+      setDetailData(data);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'No se pudo cargar el detalle.'));
+      setDetailTarget(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   return (
     <div className="page-shell">
       <PageHeader
         title="Usuarios"
-        subtitle="Personal con acceso al sistema. Los clientes se gestionan desde su propia pantalla."
+        subtitle="Todas las cuentas del sistema: cambia su rol, consulta su ficha y restablece su contraseña."
         actions={
           <div className="flex flex-wrap gap-1.5">
             <Link to="/roles" className="btn-admin-outline text-xs px-3 py-2">
@@ -194,7 +226,7 @@ export default function UsersPage() {
         {loading ? (
           <div className="py-10 text-center text-sm text-stone-500">Cargando…</div>
         ) : users.length === 0 ? (
-          <div className="py-10 text-center text-sm text-stone-500">No hay usuarios del personal.</div>
+          <div className="py-10 text-center text-sm text-stone-500">No hay usuarios.</div>
         ) : (
           <Table>
             <TableHead>
@@ -208,10 +240,20 @@ export default function UsersPage() {
             <TableBody>
               {users.map((u) => {
                 const esYo = Number(u.id) === Number(actual?.id);
+                // Cliente o barbero: tiene ficha propia. Borrarlo y (si es
+                // cliente) activarlo/inactivarlo siguen viviendo en su
+                // módulo — el backend los rechaza aquí con un mensaje claro,
+                // así que ni se ofrece el botón.
+                const nombreFicha = u.client_name || u.barber_name || null;
+                const tieneFicha = Boolean(u.client_id || u.barber_id);
+                const esCliente = Boolean(u.client_id);
                 return (
                   <TableRow key={u.id}>
                     <TableCell compact className="text-xs font-medium">
                       <span className="break-all">{u.email}</span>
+                      {nombreFicha ? (
+                        <span className="ml-1.5 text-[11px] text-stone-400">({nombreFicha})</span>
+                      ) : null}
                       {esYo ? (
                         <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600">
                           tú
@@ -230,7 +272,7 @@ export default function UsersPage() {
                           onChange={(e) => cambiarRol(u, e?.target?.value ?? e)}
                           variant="filter"
                           disabled={busy === u.id}
-                          options={rolesAsignables.map((r) => ({ id: String(r.id), label: r.name }))}
+                          options={opcionesDeRol(u)}
                         />
                       ) : (
                         <span className="text-xs text-stone-700">{u.role_name}</span>
@@ -238,19 +280,33 @@ export default function UsersPage() {
                     </TableCell>
 
                     <TableCell compact>
-                      <AdminStatusToggle
-                        active={u.is_active}
-                        onClick={() => alternarEstado(u)}
-                        disabled={!puedeGestionar || esYo || busy === u.id}
-                        activeTitle={
-                          esYo ? 'No puedes desactivar tu propia cuenta' : 'Clic para desactivar'
-                        }
-                        inactiveTitle={esYo ? 'Es tu propia cuenta' : 'Clic para activar'}
-                      />
+                      {esCliente ? (
+                        <span
+                          className="text-[11px] text-stone-400"
+                          title="El acceso de los clientes se activa desde el módulo de Clientes."
+                        >
+                          Ver en Clientes
+                        </span>
+                      ) : (
+                        <AdminStatusToggle
+                          active={u.is_active}
+                          onClick={() => alternarEstado(u)}
+                          disabled={!puedeGestionar || esYo || busy === u.id}
+                          activeTitle={
+                            esYo ? 'No puedes desactivar tu propia cuenta' : 'Clic para desactivar'
+                          }
+                          inactiveTitle={esYo ? 'Es tu propia cuenta' : 'Clic para activar'}
+                        />
+                      )}
                     </TableCell>
 
                     <TableCell compact>
                       <div className="inline-flex justify-end gap-1.5">
+                        <AdminIconButton
+                          icon={Eye}
+                          label="Ver detalle"
+                          onClick={() => verDetalle(u)}
+                        />
                         {puedeGestionar ? (
                           <>
                             <AdminIconButton
@@ -262,7 +318,10 @@ export default function UsersPage() {
                                 setPassError('');
                               }}
                             />
-                            {!esYo ? (
+                            {/* Un cliente o un barbero se elimina desde su
+                                propio módulo (retira también su ficha y, si
+                                es barbero, sus horarios). */}
+                            {!esYo && !tieneFicha ? (
                               <AdminIconButton
                                 icon={Trash2}
                                 label="Eliminar usuario"
@@ -398,6 +457,91 @@ export default function UsersPage() {
         </form>
       </AdminModalShell>
 
+      <AdminModalShell
+        open={Boolean(detailTarget)}
+        title="Detalle del usuario"
+        onClose={() => setDetailTarget(null)}
+      >
+        {detailLoading ? (
+          <div className="py-6 text-center text-sm text-stone-500">Cargando…</div>
+        ) : detailData ? (
+          <div className="grid gap-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-stone-500">Correo</span>
+              <span className="font-medium text-stone-800 break-all text-right">{detailData.email}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-stone-500">Rol</span>
+              <span className="font-medium text-stone-800">{detailData.role_name}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-stone-500">Estado de la cuenta</span>
+              <span className="font-medium text-stone-800">
+                {detailData.is_active ? 'Activa' : 'Inactiva'}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-stone-500">Alta</span>
+              <span className="font-medium text-stone-800">
+                {detailData.created_at ? new Date(detailData.created_at).toLocaleDateString() : '—'}
+              </span>
+            </div>
+
+            {detailData.profile ? (
+              <>
+                <hr className="my-1.5 border-stone-100" />
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                  Ficha de {PROFILE_LABELS[detailData.profile_type] ?? detailData.profile_type}
+                  {detailData.client_name || detailData.barber_name
+                    ? `: ${detailData.client_name || detailData.barber_name}`
+                    : ''}
+                </p>
+                {detailData.profile.phone ? (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-stone-500">Teléfono</span>
+                    <span className="font-medium text-stone-800">{detailData.profile.phone}</span>
+                  </div>
+                ) : null}
+                {detailData.profile.document_type || detailData.profile.document_number ? (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-stone-500">Documento</span>
+                    <span className="font-medium text-stone-800">
+                      {[detailData.profile.document_type, detailData.profile.document_number]
+                        .filter(Boolean)
+                        .join(' ')}
+                    </span>
+                  </div>
+                ) : null}
+                {detailData.profile_type === 'barber' && detailData.profile.specialties?.length > 0 ? (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-stone-500">Especialidades</span>
+                    <span className="font-medium text-stone-800 text-right">
+                      {detailData.profile.specialties.join(', ')}
+                    </span>
+                  </div>
+                ) : null}
+                {detailData.profile_type === 'barber' && detailData.profile.commission_percent != null ? (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-stone-500">Comisión</span>
+                    <span className="font-medium text-stone-800">
+                      {detailData.profile.commission_percent}%
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between gap-3">
+                  <span className="text-stone-500">
+                    {detailData.profile_type === 'client' ? 'Puede agendar' : 'Activo en el equipo'}
+                  </span>
+                  <span className="font-medium text-stone-800">
+                    {detailData.profile.is_active ? 'Sí' : 'No'}
+                  </span>
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </AdminModalShell>
+
       <AdminConfirmModal
         open={Boolean(deleteTarget)}
         variant="danger"
@@ -423,7 +567,8 @@ export default function UsersPage() {
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
         <span>
           Desactivar una cuenta corta su acceso de inmediato. No puedes cambiar tu propio rol ni
-          desactivarte, y el sistema impide quedarse sin ningún administrador activo.
+          desactivarte, y el sistema impide quedarse sin ningún administrador activo. El acceso de
+          los clientes y el borrado de clientes/barberos siguen gestionándose desde su propio módulo.
         </span>
       </p>
     </div>
