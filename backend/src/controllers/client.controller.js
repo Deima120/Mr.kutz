@@ -3,6 +3,7 @@
  */
 
 import * as clientService from '../services/client.service.js';
+import * as userService from '../services/user.service.js';
 import { getPendingLoyaltyRewards, getClientLoyaltyProgress } from '../services/clientLoyaltyRewards.service.js';
 
 /**
@@ -108,6 +109,32 @@ export const setStatus = async (req, res, next) => {
         : 'Cliente inactivado correctamente.',
       data: updated,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/clients/:id/role
+ * Cambia el rol de la cuenta de un cliente (p. ej. lo asciende a un rol de
+ * personal). Requiere `users.manage` además del guardia de escritura de este
+ * router (lo impone la ruta). El cliente conserva su ficha y su historial de
+ * citas: cambiar el rol solo toca `User.roleId`.
+ */
+export const changeRole = async (req, res, next) => {
+  try {
+    const client = await clientService.getById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado.' });
+    }
+    if (!client.user_id) {
+      return res.status(409).json({
+        success: false,
+        message: 'Este cliente no tiene cuenta de acceso: no se le puede asignar un rol.',
+      });
+    }
+    const updated = await userService.promoteAccount(client.user_id, req.body.roleId, req.user.id);
+    res.json({ success: true, message: 'Rol actualizado correctamente.', data: updated });
   } catch (error) {
     next(error);
   }

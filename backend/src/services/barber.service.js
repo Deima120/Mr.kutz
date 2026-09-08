@@ -43,7 +43,7 @@ export const getAll = async ({ activeFilter = 'active', document, includePrivate
 
   const barbers = await prisma.barber.findMany({
     where,
-    include: { user: { select: { email: true } } },
+    include: { user: { select: { email: true, roleId: true, role: { select: { name: true } } } } },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
   return barbers.map((b) => toBarberDto(b, { includePrivate }));
@@ -82,13 +82,15 @@ export function toBarberDto(barber, { includePrivate = false } = {}) {
     created_at: barber.createdAt,
     updated_at: barber.updatedAt,
     email: barber.user?.email,
+    role_id: barber.user?.roleId ?? null,
+    role_name: barber.user?.role?.name ?? null,
   };
 }
 
 export const getById = async (id, { includePrivate = false } = {}) => {
   const barber = await prisma.barber.findUnique({
     where: { id: parseInt(id, 10) },
-    include: { user: { select: { email: true } } },
+    include: { user: { select: { email: true, roleId: true, role: { select: { name: true } } } } },
   });
   if (!barber) return null;
   return toBarberDto(barber, { includePrivate });
@@ -169,8 +171,13 @@ export const create = async (data) => {
     return { barber, user };
   });
 
-  // create/update son rutas solo-admin: devuelven la ficha completa.
-  return toBarberDto({ ...result.barber, user: result.user }, { includePrivate: true });
+  // create/update son rutas solo-admin: devuelven la ficha completa. `role`
+  // ya se resolvió arriba al validar el rol de barbero; se reutiliza en vez
+  // de pedirlo de nuevo solo para completar el DTO.
+  return toBarberDto(
+    { ...result.barber, user: { ...result.user, role } },
+    { includePrivate: true },
+  );
 };
 
 export const update = async (id, data) => {
@@ -212,10 +219,27 @@ export const update = async (id, data) => {
     }
   }
 
-  const barber = await prisma.barber.update({
-    where: { id: parseInt(id, 10) },
-    data: patch,
-    include: { user: { select: { email: true } } },
+  const barberId = parseInt(id, 10);
+
+  // `isActive` toca dos filas a la vez: `Barber.isActive` (está en el equipo)
+  // y `User.isActive` (puede iniciar sesión). Antes solo se tocaba la primera,
+  // así que un barbero "inactivado" desde aquí seguía pudiendo iniciar sesión
+  // con normalidad — el candado real vivía en Usuarios (`setActive`), que
+  // ahora ya no gestiona barberos. Se sincronizan ambas para que Barberos sea
+  // el único lugar que hace falta para dar de baja a alguien del equipo.
+  const barber = await prisma.$transaction(async (tx) => {
+    const updated = await tx.barber.update({
+      where: { id: barberId },
+      data: patch,
+      include: { user: { select: { email: true, roleId: true, role: { select: { name: true } } } } },
+    });
+    if (data.isActive !== undefined) {
+      await tx.user.update({
+        where: { id: updated.userId },
+        data: { isActive: data.isActive },
+      });
+    }
+    return updated;
   });
   return toBarberDto(barber, { includePrivate: true });
 };

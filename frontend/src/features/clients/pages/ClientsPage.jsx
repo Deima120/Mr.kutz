@@ -3,33 +3,40 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Eye, Pencil, Trash2, Search, Plus, UserCheck, UserX, CalendarX } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import * as clientService from '@/features/clients/services/clientService';
+import * as roleService from '@/features/users/services/roleService';
 import { ClientForm } from '@/features/clients/pages/ClientFormPage';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
 import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
+import CustomSelect from '@/shared/components/CustomSelect';
 import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import { downloadClientsExcel } from '@/features/clients/utils/exportClientsExcel';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import { getAssignableRoles } from '@/shared/utils/assignableRoles';
+import { getApiErrorMessage } from '@/shared/utils/formValidation';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 const SEARCH_DEBOUNCE_MS = 350;
 
 export default function ClientsPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const toast = useAppToast();
   const isAdmin = user?.role === 'admin';
   const isBarber = user?.role === 'barber';
-  
+  const puedeAsignarRol = can('users.manage');
+
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  
+  const [roles, setRoles] = useState([]);
+  const [changingRoleId, setChangingRoleId] = useState(null);
+
   // Estados de paginación
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -102,6 +109,39 @@ export default function ClientsPage() {
   useEffect(() => {
     fetchClients(page);
   }, [fetchClients, page]);
+
+  // El catálogo de roles solo hace falta si se puede asignar uno; se carga
+  // una vez, no en cada página/búsqueda.
+  useEffect(() => {
+    if (!puedeAsignarRol) return;
+    roleService
+      .getRoles()
+      .then((data) => setRoles(Array.isArray(data) ? data : []))
+      .catch((err) => toast.error(getApiErrorMessage(err, 'No se pudieron cargar los roles.')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puedeAsignarRol]);
+
+  const rolesAsignables = getAssignableRoles(roles);
+
+  /**
+   * Cambia el rol de la cuenta del cliente (p. ej. lo asciende a un rol de
+   * personal). El cliente conserva su ficha y su historial: solo cambia
+   * `User.roleId`. El backend rechaza el cambio si el cliente no tiene cuenta
+   * de acceso (`user_id` nulo) — ver `client.service.js`.
+   */
+  const cambiarRolCliente = async (client, roleId) => {
+    if (Number(roleId) === Number(client.role_id)) return;
+    setChangingRoleId(client.id);
+    try {
+      await clientService.changeClientRole(client.id, Number(roleId));
+      toast.success('Rol actualizado.');
+      fetchClients(page);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'No se pudo cambiar el rol.'));
+    } finally {
+      setChangingRoleId(null);
+    }
+  };
 
   /**
    * Activar/inactivar es reversible, así que va sin modal de confirmación
@@ -376,6 +416,7 @@ export default function ClientsPage() {
                   <TableHeader>Documento</TableHeader>
                   <TableHeader>Correo</TableHeader>
                   <TableHeader>Teléfono</TableHeader>
+                  {puedeAsignarRol && <TableHeader>Rol</TableHeader>}
                   <TableHeader>Acciones</TableHeader>
                 </TableHead>
                 <TableBody>
@@ -414,6 +455,33 @@ export default function ClientsPage() {
                       </TableCell>
                       <TableCell className="text-xs font-semibold text-stone-700">{client.email || '-'}</TableCell>
                       <TableCell className="text-xs font-semibold text-stone-700">{client.phone || '-'}</TableCell>
+                      {puedeAsignarRol && (
+                        <TableCell>
+                          {client.user_id ? (
+                            <CustomSelect
+                              id={`rol-cliente-${client.id}`}
+                              name={`rol-cliente-${client.id}`}
+                              value={String(client.role_id ?? '')}
+                              onChange={(e) => cambiarRolCliente(client, e?.target?.value ?? e)}
+                              variant="filter"
+                              disabled={changingRoleId === client.id}
+                              options={[
+                                { id: String(client.role_id ?? ''), label: client.role_name ?? 'client' },
+                                ...rolesAsignables
+                                  .filter((r) => r.id !== client.role_id)
+                                  .map((r) => ({ id: String(r.id), label: r.name })),
+                              ]}
+                            />
+                          ) : (
+                            <span
+                              className="text-[11px] text-stone-400"
+                              title="Este cliente no tiene cuenta de acceso: no se le puede asignar un rol."
+                            >
+                              Sin cuenta
+                            </span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="inline-flex items-center gap-1.5">
                           <AdminIconButton

@@ -1,11 +1,12 @@
 /**
- * Usuarios del personal (`/users`).
+ * Usuarios del personal SIN ficha propia (`/users`): administradores y los
+ * roles personalizados que se hayan creado (un contador, por ejemplo).
  *
- * Gestiona a quien trabaja en la barbería: administradores, barberos y los roles
- * que se hayan creado. **Los clientes no salen aquí**: el backend los excluye de
- * la lista y rechaza cambiarles el rol, porque un cliente es un cliente y no se
- * promueve a administrador. Para ellos está la pantalla de Clientes, que sigue
- * funcionando exactamente igual que siempre.
+ * **Los clientes y los barberos no salen aquí**: el backend los excluye de la
+ * lista y rechaza cambiarles el rol o el estado desde este módulo. Cada uno
+ * se gestiona por completo —incluido su rol— desde su propia pantalla
+ * (Clientes, Barberos), que ya cubre alta, edición, activación y borrado.
+ * Duplicarlo aquí sería mantener dos caminos para lo mismo.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -29,6 +30,7 @@ import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { getApiErrorMessage, validateUserForm } from '@/shared/utils/formValidation';
+import { getAssignableRoles } from '@/shared/utils/assignableRoles';
 import * as userService from '@/features/users/services/userService';
 import * as roleService from '@/features/users/services/roleService';
 
@@ -64,8 +66,7 @@ export default function UsersPage() {
         roleService.getRoles(),
       ]);
       setUsers(Array.isArray(filas) ? filas : []);
-      // El rol de cliente no se ofrece: no se asigna desde este módulo.
-      setRoles((Array.isArray(listaRoles) ? listaRoles : []).filter((r) => r.name !== 'client'));
+      setRoles(Array.isArray(listaRoles) ? listaRoles : []);
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'No se pudieron cargar los usuarios.'));
     } finally {
@@ -78,7 +79,7 @@ export default function UsersPage() {
     load();
   }, [load]);
 
-  const rolesActivos = roles.filter((r) => r.is_active);
+  const rolesAsignables = getAssignableRoles(roles);
 
   const crear = async (e) => {
     e.preventDefault();
@@ -211,9 +212,6 @@ export default function UsersPage() {
                   <TableRow key={u.id}>
                     <TableCell compact className="text-xs font-medium">
                       <span className="break-all">{u.email}</span>
-                      {u.barber_name ? (
-                        <span className="ml-1.5 text-[11px] text-stone-400">({u.barber_name})</span>
-                      ) : null}
                       {esYo ? (
                         <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600">
                           tú
@@ -232,7 +230,7 @@ export default function UsersPage() {
                           onChange={(e) => cambiarRol(u, e?.target?.value ?? e)}
                           variant="filter"
                           disabled={busy === u.id}
-                          options={rolesActivos.map((r) => ({ id: String(r.id), label: r.name }))}
+                          options={rolesAsignables.map((r) => ({ id: String(r.id), label: r.name }))}
                         />
                       ) : (
                         <span className="text-xs text-stone-700">{u.role_name}</span>
@@ -264,9 +262,7 @@ export default function UsersPage() {
                                 setPassError('');
                               }}
                             />
-                            {/* Un barbero se elimina desde su propio módulo, para
-                                que se retiren también sus horarios. */}
-                            {!esYo && !u.barber_id ? (
+                            {!esYo ? (
                               <AdminIconButton
                                 icon={Trash2}
                                 label="Eliminar usuario"
@@ -348,7 +344,7 @@ export default function UsersPage() {
               }}
               variant="form"
               placeholder="Elige un rol"
-              options={rolesActivos.map((r) => ({ id: String(r.id), label: r.name }))}
+              options={rolesAsignables.map((r) => ({ id: String(r.id), label: r.name }))}
             />
             <FieldErrorMessage message={errors.roleId} />
           </div>

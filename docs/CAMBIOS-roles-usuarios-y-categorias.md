@@ -177,3 +177,60 @@ documentado.
 | Lint / typecheck | **No existen en este repositorio**: no se pueden ejecutar y no se dan por pasados |
 | Migraciones aplicadas | **Todavía no.** Pendiente de decidir contra qué base se prueba |
 | Pruebas manuales en navegador | **Pendientes** |
+
+---
+
+## 4. Segunda fase: cambiar el rol se muda a Clientes y Barberos
+
+### Por qué
+
+El requisito original de "todos los usuarios en un solo lugar" chocaba con
+cómo se había construido Usuarios: Clientes y Barberos ya cubren el 100% de
+la gestión de esas personas (alta, edición, activar/inactivar, borrado).
+Construir eso de nuevo dentro de Usuarios habría sido mantener dos caminos
+para lo mismo — lo único que Usuarios aportaría de más es el cambio de rol.
+
+La solución no fue fusionar los tres módulos: fue mover la **acción** de
+cambiar de rol a la ficha de cada quien. Es posible sin tocar el modelo de
+datos porque `Client` y `Barber` son fichas ligadas a `User` por `userId`,
+independientes de `User.roleId` — alguien puede conservar su ficha (y su
+historial) mientras su cuenta pasa a tener otro rol.
+
+### Qué cambió
+
+- `user.service.js` expone ahora `promoteAccount(userId, roleId, actorId)` y
+  `resetAccountPassword(userId, password)`: el núcleo de cambiar rol y
+  restablecer contraseña, sin el candado de "tiene ficha propia", que sí
+  llevan `changeRole`/`resetPassword` (las que usa Usuarios). Los usa
+  `client.controller.js` y `barber.controller.js` tras resolver el `userId`
+  de la ficha correspondiente.
+- **Nuevo:** `PATCH /api/clients/:id/role` — exige `users.manage` además de
+  `clients.manage`. Si el cliente no tiene cuenta de acceso (`user_id` nulo,
+  caso de quien se dio de alta desde el panel sin registro público) responde
+  **409**: no se le puede asignar un rol sin una cuenta. Dar de alta una
+  cuenta para ese caso queda fuera de este cambio.
+- **Nuevo:** `PATCH /api/barbers/:id/role` y `PATCH /api/barbers/:id/password`
+  — exigen `barbers.manage` **y** `users.manage`. Un barbero siempre tiene
+  cuenta (`Barber.userId` es obligatorio), así que no hay caso "sin cuenta".
+- **Usuarios ahora excluye también a los barberos**, igual que ya excluía a
+  los clientes: `getAll`/`getById`/`changeRole`/`setActive`/`resetPassword`
+  rechazan a quien tenga ficha de `Barber`. El módulo queda reservado a
+  personal sin ficha propia (admin, roles personalizados).
+- **Bug de arrastre corregido de paso:** `barber.service.js:update()` solo
+  tocaba `Barber.isActive` al inactivar un barbero desde Barberos, nunca
+  `User.isActive` — un barbero "inactivado" ahí seguía pudiendo iniciar
+  sesión. Era una limitación conocida desde antes de que existiera Usuarios
+  (documentada en `ESTADO-ANTES-roles-usuarios-servicios.md`), que hasta
+  ahora tapaba el `setActive` de Usuarios. Al retirar a los barberos de
+  Usuarios había que cerrar ese hueco ahí mismo: ahora `update()` sincroniza
+  ambas banderas en una transacción.
+
+### Verificación de esta fase
+
+`backend/npm test`: 291/291 (287 + 4 nuevos, rutas de Clientes y Barberos).
+`frontend/npm test`: 92/93 (mismo fallo preexistente). `frontend/npm run
+build`: correcto. Además de los tests, se verificó a mano contra la base de
+datos real (con reversión inmediata de cualquier dato tocado): `promoteAccount`
+sobre un cliente y un barbero reales, los candados `CLIENT_ROLE_LOCKED` /
+`BARBER_ROLE_LOCKED` de Usuarios, el rechazo 409 para un cliente sin cuenta,
+y la sincronización `Barber.isActive` ↔ `User.isActive`.

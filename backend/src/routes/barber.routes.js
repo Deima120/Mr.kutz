@@ -61,6 +61,8 @@ const updateValidation = [
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de barbero no válido.');
 
+const roleIdField = body('roleId').isInt({ min: 1 }).withMessage('Indica un rol válido.');
+
 const schedulesValidation = [
   body('schedules')
     .isArray()
@@ -104,6 +106,29 @@ router.get('/:id', requirePermission('barbers.view'), idParam, validate, barberC
 router.post('/', requirePermission('barbers.manage'), createValidation, validate, barberController.create);
 router.put('/:id', requirePermission('barbers.manage'), [idParam, ...updateValidation], validate, barberController.update);
 router.put('/:id/schedules', requirePermission('barbers.schedules.manage'), [idParam, ...schedulesValidation], validate, barberController.updateSchedules);
+
+/**
+ * Cambiar el rol y restablecer la contraseña tocan la cuenta (`User`), no la
+ * ficha: exigen `users.manage` además de `barbers.manage`. Quien administra
+ * barberos pero no cuentas de usuario no puede ascenderlos ni tocar su
+ * contraseña.
+ */
+router.patch(
+  '/:id/role',
+  requirePermission('barbers.manage'),
+  requirePermission('users.manage'),
+  [idParam, roleIdField],
+  validate,
+  barberController.changeRole,
+);
+router.patch(
+  '/:id/password',
+  requirePermission('barbers.manage'),
+  requirePermission('users.manage'),
+  [idParam, ...strongPassword('password')],
+  validate,
+  barberController.resetPassword,
+);
 
 // Solo se permite borrar barberos sin historial; el service responde 409 si tiene
 // citas o comisiones. Para dar de baja a uno con historial se usa isActive: false.
