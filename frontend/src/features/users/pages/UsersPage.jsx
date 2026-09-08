@@ -64,7 +64,11 @@ export default function UsersPage() {
         roleService.getRoles(),
       ]);
       setUsers(Array.isArray(filas) ? filas : []);
-      // El rol de cliente no se ofrece: no se asigna desde este módulo.
+      // El rol de cliente no se ofrece: no se asigna desde este módulo. El de
+      // barbero se conserva en la lista para poder mostrarlo como rol actual
+      // de quien ya es barbero, pero se excluye como destino más abajo: no se
+      // asigna desde aquí (los barberos nacen con su ficha y horarios desde
+      // /barberos).
       setRoles((Array.isArray(listaRoles) ? listaRoles : []).filter((r) => r.name !== 'client'));
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'No se pudieron cargar los usuarios.'));
@@ -79,6 +83,10 @@ export default function UsersPage() {
   }, [load]);
 
   const rolesActivos = roles.filter((r) => r.is_active);
+  // Nadie se asigna el rol de barbero desde aquí (ver comentario de `load`).
+  // Solo se ofrece como destino a quien no lo tiene ya, para no romper el
+  // selector de quien ya es barbero.
+  const rolesAsignables = (excluirId) => rolesActivos.filter((r) => r.name !== 'barber' || r.id === excluirId);
 
   const crear = async (e) => {
     e.preventDefault();
@@ -232,7 +240,7 @@ export default function UsersPage() {
                           onChange={(e) => cambiarRol(u, e?.target?.value ?? e)}
                           variant="filter"
                           disabled={busy === u.id}
-                          options={rolesActivos.map((r) => ({ id: String(r.id), label: r.name }))}
+                          options={rolesAsignables(u.role_id).map((r) => ({ id: String(r.id), label: r.name }))}
                         />
                       ) : (
                         <span className="text-xs text-stone-700">{u.role_name}</span>
@@ -348,7 +356,7 @@ export default function UsersPage() {
               }}
               variant="form"
               placeholder="Elige un rol"
-              options={rolesActivos.map((r) => ({ id: String(r.id), label: r.name }))}
+              options={rolesAsignables().map((r) => ({ id: String(r.id), label: r.name }))}
             />
             <FieldErrorMessage message={errors.roleId} />
           </div>

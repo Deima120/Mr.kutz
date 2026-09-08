@@ -106,7 +106,17 @@ export const getById = async (id) => {
   return toDto(user);
 };
 
-/** Rol de personal válido: existe, está activo y no es el de cliente. */
+/**
+ * Rol de personal válido: existe, está activo y no es el de cliente ni el de
+ * barbero.
+ *
+ * El rol `barber` se excluye igual que `client`: asignarlo desde aquí solo
+ * cambiaría `User.roleId`, sin crear la ficha `Barber` (nombre, teléfono,
+ * horarios) que `POST /api/barbers` crea de forma transaccional. El resultado
+ * sería una cuenta con rol de barbero pero sin ficha — no aparece en el
+ * módulo de Barberos y no puede recibir citas ni horarios. Un barbero se da
+ * de alta y se asciende únicamente desde su propio módulo.
+ */
 async function assertAssignableRole(roleId) {
   const id = parseInt(roleId, 10);
   if (!Number.isInteger(id)) throw httpError('Indica un rol válido.');
@@ -119,6 +129,13 @@ async function assertAssignableRole(roleId) {
       'El rol de cliente no se asigna desde aquí: los clientes se gestionan en su propio módulo.',
       409,
       'CLIENT_ROLE_NOT_ASSIGNABLE',
+    );
+  }
+  if (role.name === ROLES.BARBER) {
+    throw httpError(
+      'El rol de barbero no se asigna desde aquí: da de alta al barbero desde su propio módulo, que crea también su ficha y horarios.',
+      409,
+      'BARBER_ROLE_NOT_ASSIGNABLE',
     );
   }
   if (!role.isActive) {

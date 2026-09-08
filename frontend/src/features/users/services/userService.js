@@ -15,11 +15,13 @@ const extract = (r) => {
 };
 
 export const getUsers = async (params = {}) => {
+  // El interceptor de `api` ya resuelve la petición al body de la respuesta
+  // (`{ success, data, total }`), no al objeto Axios completo: `response.data`
+  // es directamente el array de usuarios, y `response.total` el total.
   const response = await api.get(BASE, { params });
-  // La lista viene en `data` y el total fuera, junto a él.
   return {
-    users: response?.data?.data ?? [],
-    total: response?.data?.total ?? 0,
+    users: response?.data ?? [],
+    total: response?.total ?? 0,
   };
 };
 
