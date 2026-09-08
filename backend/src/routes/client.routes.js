@@ -62,6 +62,8 @@ const clientUpdateValidation = [
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');
 
+const roleIdField = body('roleId').isInt({ min: 1 }).withMessage('Indica un rol válido.');
+
 const listValidation = [
   query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
   query('document').optional({ checkFalsy: true }).trim().isLength({ max: 30 }),
@@ -110,6 +112,19 @@ router.patch(
   [idParam, body('isActive').isBoolean().withMessage('Estado no válido.').toBoolean()],
   validate,
   clientController.setStatus,
+);
+/**
+ * Cambiar el rol de un cliente toca `User.roleId`, no solo su ficha: exige
+ * `users.manage` además del `clients.manage` que ya impone el guardia de
+ * escritura de arriba. Quien administra clientes pero no cuentas de usuario
+ * no puede ascender a nadie a un rol de personal.
+ */
+router.patch(
+  '/:id/role',
+  requirePermission('users.manage'),
+  [idParam, roleIdField],
+  validate,
+  clientController.changeRole,
 );
 router.delete('/:id', idParam, validate, clientController.remove);
 

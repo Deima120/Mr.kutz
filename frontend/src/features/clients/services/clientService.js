@@ -74,3 +74,15 @@ export const setClientStatus = async (id, isActive) => {
   const res = response?.data ?? response;
   return res?.data ?? res;
 };
+
+/**
+ * Cambia el rol de la cuenta de un cliente (p. ej. lo asciende a un rol de
+ * personal). Requiere el permiso `users.manage` además de `clients.manage`
+ * (lo impone la ruta). El backend responde 409 si el cliente no tiene cuenta
+ * de acceso: no se le puede asignar un rol sin una.
+ */
+export const changeClientRole = async (id, roleId) => {
+  const response = await api.patch(`${CLIENTS_BASE}/${id}/role`, { roleId });
+  const res = response?.data ?? response;
+  return res?.data ?? res;
+};
