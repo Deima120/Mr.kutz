@@ -320,7 +320,7 @@ export default function ProductDetailPage() {
                     to={`/purchases?tab=suppliers&supplierId=${s.supplierId}`}
                     className="btn-admin-outline text-[11px] py-1 px-2"
                   >
-                    Ver en Compras
+                    Ver en Gastos
                   </Link>
                 </div>
               </li>
@@ -479,7 +479,7 @@ export default function ProductDetailPage() {
         description={
           product ? (
             <>
-              «<strong className="text-stone-800">{product.name}</strong>» dejará de aparecer en compras
+              «<strong className="text-stone-800">{product.name}</strong>» dejará de aparecer en gastos
               y ventas. Podrás reactivarlo más adelante.
             </>
           ) : null

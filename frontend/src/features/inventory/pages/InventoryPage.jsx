@@ -117,7 +117,7 @@ export default function InventoryPage() {
                 pdfDisabled={exportRows.length === 0}
               />
               <Link to="/purchases" className="btn-admin-outline w-full sm:w-auto text-sm">
-                Compras
+                Gastos
               </Link>
               <Link to="/inventory/categories" className="btn-admin-outline w-full sm:w-auto text-sm">
                 Categorías
@@ -314,7 +314,7 @@ export default function InventoryPage() {
           archiveTarget ? (
             <>
               «<strong className="text-stone-800">{archiveTarget.name}</strong>» dejará de aparecer en
-              compras y ventas. Podrás reactivarlo más adelante.
+              gastos y ventas. Podrás reactivarlo más adelante.
             </>
           ) : null
         }

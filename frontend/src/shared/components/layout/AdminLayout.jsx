@@ -55,12 +55,31 @@ const adminNavSections = [
     ],
   },
   {
-    id: 'business',
-    label: 'Negocio',
+    // Antes era una sola sección "Negocio" que mezclaba venta, abastecimiento e
+    // inventario. Se parte en dos para que el menú siga los procesos de la ficha
+    // del proyecto: lo que genera ingresos y lo que abastece al negocio.
+    id: 'commercial',
+    label: 'Comercial',
     items: [
-      { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
+      // Ventas va primero porque la valoración del cliente es posterior al cobro.
       { path: '/payments', label: 'Ventas', description: 'Registro de ventas', Icon: CreditCard },
-      { path: '/purchases', label: 'Compras', description: 'Órdenes y proveedores', Icon: ShoppingCart },
+      { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
+      // [PENDIENTE-FIDELIZACION] Hueco reservado para el módulo de Fidelización de
+      // clientes, que pertenece a este proceso. Hoy la lógica existe solo en backend
+      // (services/clientLoyaltyRules.js y clientLoyaltyRewards.service.js) y se ve
+      // dentro de la ficha del cliente, sin pantalla propia. Al implementarla, añadir
+      // aquí su entrada con la ruta definitiva.
+      // { path: '/loyalty', label: 'Fidelizacion', description: 'Beneficios por recurrencia', Icon: Gift },
+    ],
+  },
+  {
+    id: 'supply',
+    label: 'Abastecimiento',
+    items: [
+      // "Gastos" es el nombre que usa la clienta para este proceso: son los gastos
+      // que hace para llenar el inventario de insumos. Internamente el módulo sigue
+      // siendo `purchases` (ruta /purchases), solo cambia la etiqueta visible.
+      { path: '/purchases', label: 'Gastos', description: 'Insumos y proveedores', Icon: ShoppingCart },
       { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
     ],
   },
@@ -191,9 +210,12 @@ export default function AdminLayout({ children }) {
   const dashboardItem = isAdmin ? adminDashboardItem : barberDashboardItem;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Un id que falte aquí quedaría como `undefined` y la sección arrancaría plegada,
+  // así que esta lista debe cubrir todos los ids de adminNavSections/barberNavSections.
   const [openSections, setOpenSections] = useState(() => ({
     operation: true,
-    business: true,
+    commercial: true,
+    supply: true,
     access: true,
     system: true,
   }));
