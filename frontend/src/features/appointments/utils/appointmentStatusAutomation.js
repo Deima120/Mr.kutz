@@ -78,13 +78,15 @@ export { extractAppointmentDateYmd, parseTimeParts, buildColombiaDateTimeMs, get
  * Espejo de `backend/src/services/appointmentNoShowRules.js`; el backend es la
  * regla real y esta copia solo decide si el botón se muestra.
  *
- * Se admite desde `in_progress` y `completed` a propósito: la automatización
- * promueve sola las citas confirmadas (a `in_progress` a su hora y a `completed`
- * diez minutos después de terminar), así que cuando el personal se sienta a
- * registrar la inasistencia la cita ya suele haber avanzado. Si no se admitieran,
- * el botón desaparecería justo en el caso más común.
+ * Decisión explícita del propietario (2026-09-07): solo `scheduled` y
+ * `confirmed`. Se le advirtió que, como la automatización pasa una cita
+ * confirmada a `in_progress` en el mismo instante en que se cumple su hora de
+ * inicio (es un cálculo de tiempo, no si el cliente llegó de verdad), esto deja
+ * el botón utilizable en la práctica solo para citas que nunca se confirmaron
+ * — y aun así lo pidió así. Debe reflejar exactamente
+ * `NO_SHOW_SOURCE_STATUSES` de `appointmentNoShowRules.js` (backend).
  */
-const NO_SHOW_SOURCE = new Set(['scheduled', 'confirmed', 'in_progress', 'completed']);
+const NO_SHOW_SOURCE = new Set(['scheduled', 'confirmed']);
 
 export function canMarkNoShow(appointment, now = new Date()) {
   if (!appointment) return false;
