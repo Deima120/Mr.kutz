@@ -3,6 +3,7 @@
  */
 
 import * as clientService from '../services/client.service.js';
+import { getPendingLoyaltyRewards } from '../services/clientLoyaltyRewards.service.js';
 
 /**
  * GET /api/clients
@@ -142,6 +143,22 @@ export const getHistory = async (req, res, next) => {
       success: true,
       data: history,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/clients/:id/loyalty-rewards
+ * Recompensas de fidelización ganadas y sin canjear (se aplican solas en el
+ * siguiente cobro; esto es solo para que el mostrador sepa por qué el recibo
+ * trae una línea gratis).
+ */
+export const getLoyaltyRewards = async (req, res, next) => {
+  try {
+    const clientId = parseInt(req.params.id, 10);
+    const pending = await getPendingLoyaltyRewards(clientId);
+    res.json({ success: true, data: pending });
   } catch (error) {
     next(error);
   }

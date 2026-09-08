@@ -127,6 +127,10 @@ function createMixedPaymentHarness({
     businessSetting: {
       findFirst: async () => ({ defaultCommissionPercent: money(40) }),
     },
+    clientLoyaltyReward: {
+      findMany: async () => [],
+      updateMany: async () => ({ count: 0 }),
+    },
     commissionEntry: {
       create: async ({ data }) => ({ id: 1, voidedAt: null, ...data }),
       updateMany: async () => ({ count: 1 }),

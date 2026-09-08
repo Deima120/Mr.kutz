@@ -24,19 +24,18 @@ export const NO_SHOW_LOCKED_MESSAGE =
 /**
  * Estados desde los que SÍ se admite pasar a `no_show`.
  *
- * Incluye `in_progress` y `completed` a propósito. La automatización promueve
- * sola las citas confirmadas (`confirmed` → `in_progress` → `completed` a los 10
- * minutos del final), así que el caso más común de inasistencia —el barbero
- * confirmó y el cliente no apareció— ya habría saltado a un estado automático
- * cuando el personal se sienta a registrarlo. Si no se admitieran, la función
- * fallaría justo cuando más se necesita. Lo que nunca se admite es reescribir un
- * desenlace ya cerrado: `cancelled` y `no_show`.
+ * Decisión explícita del propietario (2026-09-07): solo `scheduled` y
+ * `confirmed`. Se le advirtió que, como la automatización pasa una cita
+ * confirmada a `in_progress` en el mismo instante en que se cumple su hora de
+ * inicio (es un cálculo de tiempo, no si el cliente llegó de verdad), en la
+ * práctica esto deja "no asistió" utilizable solo para citas que nunca se
+ * confirmaron (se quedan en `scheduled` para siempre) — y aun así lo pidió así.
+ * `in_progress`/`completed` quedan fuera a propósito, junto con los desenlaces
+ * ya cerrados (`cancelled`, `no_show`).
  */
 export const NO_SHOW_SOURCE_STATUSES = new Set([
   'scheduled',
   'confirmed',
-  'in_progress',
-  'completed',
 ]);
 
 /**

@@ -70,3 +70,27 @@ export function countPendingAppointments(appointments, now = new Date()) {
   if (!Array.isArray(appointments)) return 0;
   return appointments.filter((a) => isPendingAppointment(a, now)).length;
 }
+
+/**
+ * Tope de citas por cliente el mismo día calendario. Espejo de
+ * `MAX_APPOINTMENTS_PER_CLIENT_PER_DAY` en `appointmentLimitRules.js` (backend).
+ *
+ * A diferencia del cupo de pendientes de arriba, aquí `completed` sí cuenta —
+ * es un tope de "cuántas veces se agenda ese día", no de cupo vivo.
+ */
+export const MAX_APPOINTMENTS_PER_CLIENT_PER_DAY = 3;
+
+export function dailyLimitMessage(limit = MAX_APPOINTMENTS_PER_CLIENT_PER_DAY) {
+  return `Ya tienes ${limit} citas agendadas para ese día, que es el máximo permitido. Elige otra fecha.`;
+}
+
+const DAILY_LIMIT_EXCLUDED_STATUSES = new Set(['cancelled', 'no_show']);
+
+/**
+ * @param {Array<{ status?: string }>} appointmentsOnDate
+ * @returns {number}
+ */
+export function countAppointmentsForDay(appointmentsOnDate) {
+  if (!Array.isArray(appointmentsOnDate)) return 0;
+  return appointmentsOnDate.filter((a) => !DAILY_LIMIT_EXCLUDED_STATUSES.has(a?.status)).length;
+}

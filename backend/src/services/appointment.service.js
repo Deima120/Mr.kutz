@@ -25,8 +25,10 @@ import {
   resolveAutomaticStatus,
   APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
-import { assertUnderPendingLimit } from './appointmentLimitRules.js';
+import { assertUnderPendingLimit, assertUnderDailyLimit } from './appointmentLimitRules.js';
+import { grantLoyaltyRewardsIfEligible } from './clientLoyaltyRewards.service.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
+import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { resolveDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
@@ -169,7 +171,11 @@ async function applyAutomaticStatusUpdates(records) {
     updated += 1;
     if (next === 'completed') {
       const full = await getById(rec.id);
-      if (full) notifyAppointmentCompleted(full);
+      if (full) {
+        notifyAppointmentCompleted(full);
+        const completedClientId = full.client_id ?? full.clientId;
+        if (completedClientId) await grantLoyaltyRewardsIfEligible(completedClientId);
+      }
     }
   }
   return { updated };
@@ -267,6 +273,21 @@ function buildMultiServiceNotes(orderedServices, userNotes) {
 function endTimeFromStartAndDuration(startTimeValue, durationMinutes) {
   const parsedStart = parseClockTime(toTimeStr(startTimeValue) || startTimeValue, { required: true });
   const endMinutes = parsedStart.totalMinutes + Number(durationMinutes);
+  // Sin este guard, una hora de fin que cruza medianoche (23:xx + un servicio
+  // largo) generaba "24:xx" o más, y `new Date("1970-01-01T24:xx:00Z")` es un
+  // Invalid Date que NO lanza aquí: se propagaba como NaN a las validaciones de
+  // horario (que lo dejaban pasar, porque NaN > cualquier cosa es false) y
+  // reventaba más abajo, en el `prisma.appointment.update`, con un error sin
+  // `statusCode` que el manejador global convertía en un 500 genérico. Ningún
+  // barbero atiende después de medianoche, así que esto siempre fue un dato
+  // inválido, nunca un caso real a soportar.
+  if (endMinutes >= 24 * 60) {
+    const err = new Error(
+      'La cita terminaría después de medianoche. Elige una hora de inicio más temprana o quita algún servicio.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
   const endH = Math.floor(endMinutes / 60);
   const endM = endMinutes % 60;
   const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
@@ -651,6 +672,22 @@ export const getPendingAppointmentsForClient = async (clientId) =>
   });
 
 /**
+ * Citas del cliente para un día calendario concreto, para el tope diario
+ * (`assertUnderDailyLimit`). A diferencia de `getPendingAppointmentsForClient`,
+ * aquí no se filtra por estado en la consulta: el filtro de qué cuenta
+ * (`completed` sí, `cancelled`/`no_show` no) lo aplica la regla, no la query.
+ *
+ * @param {number} clientId
+ * @param {string} appointmentDateYmd 'YYYY-MM-DD'
+ * @returns {Promise<Array<{ status: string }>>}
+ */
+export const getClientAppointmentsForDate = async (clientId, appointmentDateYmd) =>
+  prisma.appointment.findMany({
+    where: { clientId, appointmentDate: ymdToUtcDate(appointmentDateYmd) },
+    select: { status: true },
+  });
+
+/**
  * @param {object} data
  * @param {{ enforceClientLimit?: boolean }} [options] `enforceClientLimit` viene
  *   activado por defecto para que cualquier llamador nuevo quede protegido salvo
@@ -692,6 +729,7 @@ export const create = async (data, { enforceClientLimit = true } = {}) => {
   // motivo real y no un error de servicio o de horario que no viene al caso.
   if (enforceClientLimit) {
     assertUnderPendingLimit(await getPendingAppointmentsForClient(parsedClientId));
+    assertUnderDailyLimit(await getClientAppointmentsForDate(parsedClientId, appointmentDate));
   }
 
   const ids = Array.isArray(serviceIds) && serviceIds.length
@@ -802,13 +840,20 @@ export const update = async (id, data, existingAppointment = null) => {
     orderedServices = await resolveOrderedServicesForAppointment(existing);
   }
 
-  if (!orderedServices.length) {
+  // Solo se exige un servicio resoluble cuando el payload de verdad cambia el
+  // servicio (rama de arriba, que ya valida cada id por su cuenta). Cuando el
+  // servicio no cambia (confirmar, cancelar, marcar no-asistió, editar notas),
+  // `orderedServices` no se usa para nada más abajo — bloquear aquí impedía
+  // por completo actualizar el estado de cualquier cita cuyo servicio original
+  // hubiera quedado huérfano (borrado o con referencia rota), sin importar el
+  // estado al que se quisiera pasar.
+  if (!orderedServices.length && (hasServiceIds || hasServiceId)) {
     const err = new Error('Servicio no encontrado.');
     err.statusCode = 400;
     throw err;
   }
 
-  const primaryService = orderedServices[0];
+  const primaryService = orderedServices[0] || null;
   const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
 
   const nextAppointmentDate =
@@ -828,6 +873,15 @@ export const update = async (id, data, existingAppointment = null) => {
 
   let nextEndTime = existing.endTime;
   if (timingChanged) {
+    // Reprogramar fecha/hora sí necesita la duración real del servicio. Si el
+    // servicio no cambió pero el original quedó huérfano, no hay duración
+    // fiable que usar — a diferencia de confirmar/cancelar/no-asistir, aquí sí
+    // hace falta avisar en vez de calcular un fin de cita con duración 0.
+    if (!orderedServices.length) {
+      const err = new Error('Servicio no encontrado.');
+      err.statusCode = 400;
+      throw err;
+    }
     const timing = endTimeFromStartAndDuration(nextStartTime, duration);
     nextEndTime = timing.endDate;
   }
@@ -972,6 +1026,8 @@ export const update = async (id, data, existingAppointment = null) => {
     notifyAppointmentCancelled(full);
   } else if (transition === 'completed' && full) {
     notifyAppointmentCompleted(full);
+    const completedClientId = full.client_id ?? full.clientId;
+    if (completedClientId) await grantLoyaltyRewardsIfEligible(completedClientId);
   }
   return full;
 };

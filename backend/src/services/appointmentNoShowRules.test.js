@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   NO_SHOW_TOO_EARLY_MESSAGE,
   NO_SHOW_PAID_MESSAGE,
+  NO_SHOW_LOCKED_MESSAGE,
   canMarkNoShow,
   assertCanMarkNoShow,
 } from './appointmentNoShowRules.js';
@@ -39,11 +40,23 @@ describe('canMarkNoShow', () => {
 describe('assertCanMarkNoShow', () => {
   const despues = nowAt('2030-06-15T12:30:00');
 
-  it('permite desde los estados que la automatización produce sola', () => {
-    // Una cita confirmada ya habrá saltado a in_progress/completed cuando el
-    // personal se siente a registrar la inasistencia.
-    for (const status of ['scheduled', 'confirmed', 'in_progress', 'completed']) {
+  it('permite desde scheduled y confirmed', () => {
+    for (const status of ['scheduled', 'confirmed']) {
       assert.doesNotThrow(() => assertCanMarkNoShow(cita(status), despues), `falló con ${status}`);
+    }
+  });
+
+  it('rechaza in_progress y completed (decisión del propietario, 2026-09-07)', () => {
+    // Ver el comentario en NO_SHOW_SOURCE_STATUSES: esto deja "no asistió"
+    // utilizable en la práctica solo para citas que nunca se confirmaron, ya que
+    // la automatización pasa una confirmada a in_progress en el mismo instante
+    // en que se cumple su hora de inicio.
+    for (const status of ['in_progress', 'completed']) {
+      assert.throws(
+        () => assertCanMarkNoShow(cita(status), despues),
+        { statusCode: 400, message: NO_SHOW_LOCKED_MESSAGE },
+        `falló con ${status}`
+      );
     }
   });
 
@@ -63,7 +76,7 @@ describe('assertCanMarkNoShow', () => {
   it('rechaza si la cita tiene un cobro activo', () => {
     // Una cita cobrada es, por definición, una a la que el cliente asistió.
     assert.throws(
-      () => assertCanMarkNoShow(cita('completed'), despues, { hasActivePayment: true }),
+      () => assertCanMarkNoShow(cita('confirmed'), despues, { hasActivePayment: true }),
       { statusCode: 409, message: NO_SHOW_PAID_MESSAGE },
     );
   });

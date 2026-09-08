@@ -8,10 +8,10 @@ import {
   resolveTimeStrings,
 } from '../utils/colombiaTime.js';
 
-export const CLIENT_CANCEL_LEAD_MINUTES = 30;
+export const CLIENT_CANCEL_LEAD_MINUTES = 60;
 
 export const CLIENT_CANCEL_LEAD_MESSAGE =
-  'Solo puedes cancelar la cita hasta 30 minutos antes de la hora de inicio.';
+  'Solo puedes cancelar la cita hasta 60 minutos antes de la hora de inicio.';
 
 /**
  * ¿El cliente aún está dentro de la ventana para cancelar?

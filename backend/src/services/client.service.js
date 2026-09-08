@@ -343,7 +343,7 @@ export const remove = async (id) => {
  */
 export const getServiceHistory = async (clientId, { limit = 10, offset = 0 } = {}) => {
   const where = { clientId: parseInt(clientId, 10) };
-  const [appointments, total, completedTotal] = await Promise.all([
+  const [appointments, total, completedTotal, noShowTotal] = await Promise.all([
     prisma.appointment.findMany({
       where,
       include: {
@@ -356,8 +356,13 @@ export const getServiceHistory = async (clientId, { limit = 10, offset = 0 } = {
     }),
     prisma.appointment.count({ where }),
     prisma.appointment.count({ where: { ...where, status: 'completed' } }),
+    prisma.appointment.count({ where: { ...where, status: 'no_show' } }),
   ]);
   return {
+    // `service`/`barber` son relaciones requeridas en el schema, pero eso solo lo
+    // garantiza la foreign key al escribir: si alguna cita quedó con una
+    // referencia huérfana, Prisma devuelve null aquí y el acceso directo (como
+    // estaba antes) lanzaba un 500 al abrir la ficha del cliente.
     appointments: appointments.map((a) => ({
       id: a.id,
       appointment_date: a.appointmentDate,
@@ -365,14 +370,15 @@ export const getServiceHistory = async (clientId, { limit = 10, offset = 0 } = {
       end_time: a.endTime,
       status: a.status,
       notes: a.notes,
-      service_name: a.service.name,
-      price: a.service.price,
-      duration_minutes: a.service.durationMinutes,
-      barber_first_name: a.barber.firstName,
-      barber_last_name: a.barber.lastName,
+      service_name: a.service?.name ?? null,
+      price: a.service?.price ?? null,
+      duration_minutes: a.service?.durationMinutes ?? null,
+      barber_first_name: a.barber?.firstName ?? null,
+      barber_last_name: a.barber?.lastName ?? null,
     })),
     total,
     completedTotal,
+    noShowTotal,
     limit,
     offset,
   };

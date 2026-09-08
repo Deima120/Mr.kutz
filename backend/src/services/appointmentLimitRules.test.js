@@ -6,6 +6,10 @@ import {
   isPendingAppointment,
   countPendingAppointments,
   assertUnderPendingLimit,
+  MAX_APPOINTMENTS_PER_CLIENT_PER_DAY,
+  APPOINTMENT_DAILY_LIMIT_REASON,
+  countAppointmentsForDay,
+  assertUnderDailyLimit,
 } from './appointmentLimitRules.js';
 
 function nowAt(isoColombiaLocal) {
@@ -96,5 +100,49 @@ describe('assertUnderPendingLimit', () => {
 
   it('respeta un tope personalizado', () => {
     assert.throws(() => assertUnderPendingLimit([futura()], NOW, { limit: 1 }));
+  });
+});
+
+describe('countAppointmentsForDay', () => {
+  it('cuenta completadas, agendadas y confirmadas por igual', () => {
+    const rows = [{ status: 'scheduled' }, { status: 'confirmed' }, { status: 'completed' }];
+    assert.equal(countAppointmentsForDay(rows), 3);
+  });
+
+  it('no cuenta canceladas ni no-show', () => {
+    const rows = [{ status: 'scheduled' }, { status: 'cancelled' }, { status: 'no_show' }];
+    assert.equal(countAppointmentsForDay(rows), 1);
+  });
+
+  it('devuelve 0 con entrada vacía o inválida', () => {
+    assert.equal(countAppointmentsForDay([]), 0);
+    assert.equal(countAppointmentsForDay(null), 0);
+  });
+});
+
+describe('assertUnderDailyLimit', () => {
+  it('deja pasar por debajo del tope', () => {
+    const rows = [{ status: 'scheduled' }, { status: 'confirmed' }];
+    assert.doesNotThrow(() => assertUnderDailyLimit(rows));
+  });
+
+  it('bloquea al alcanzar el tope, incluyendo completadas', () => {
+    const rows = [{ status: 'completed' }, { status: 'scheduled' }, { status: 'confirmed' }];
+    assert.throws(() => assertUnderDailyLimit(rows), (err) => {
+      assert.equal(err.statusCode, 409);
+      assert.equal(err.reason, APPOINTMENT_DAILY_LIMIT_REASON);
+      assert.equal(err.details.limit, MAX_APPOINTMENTS_PER_CLIENT_PER_DAY);
+      assert.equal(err.details.count, 3);
+      return true;
+    });
+  });
+
+  it('una cancelada no cuenta para el tope', () => {
+    const rows = [{ status: 'cancelled' }, { status: 'scheduled' }, { status: 'confirmed' }];
+    assert.doesNotThrow(() => assertUnderDailyLimit(rows));
+  });
+
+  it('respeta un tope personalizado', () => {
+    assert.throws(() => assertUnderDailyLimit([{ status: 'scheduled' }], { limit: 1 }));
   });
 });

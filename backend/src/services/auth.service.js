@@ -234,6 +234,27 @@ export const login = async (email, password) => {
     throw error;
   }
 
+  // El registro normal crea User y Client juntos en una sola transacción (más
+  // abajo, en `register`), así que un usuario con rol «client» sin ficha de
+  // Client vinculada solo puede venir de una cuenta creada por fuera de ese
+  // flujo (script, edición manual). Sin esa ficha, cualquier acción de cliente
+  // (agendar, ver su historial) queda rota a medias — se corta en el login con
+  // un mensaje claro en vez de dejar que falle más adelante de forma confusa.
+  if (dbUser.role?.name === 'client') {
+    const linkedClient = await prisma.client.findUnique({
+      where: { userId: dbUser.id },
+      select: { id: true },
+    });
+    if (!linkedClient) {
+      const error = new Error(
+        'Tu cuenta no tiene un perfil de cliente vinculado. Contacta al administrador para completar tu registro.'
+      );
+      error.statusCode = 403;
+      error.reason = 'CLIENT_PROFILE_MISSING';
+      throw error;
+    }
+  }
+
   const token = generateToken(dbUser.id);
   const user = await getProfile(dbUser.id);
   return { user: user || formatUserResponse(dbUser), token };
