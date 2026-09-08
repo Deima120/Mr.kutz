@@ -34,6 +34,7 @@ const HistoryPage = lazy(() => import('@/features/history/pages/HistoryPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
+const LoyaltyPage = lazy(() => import('@/features/loyalty/pages/LoyaltyPage'));
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage'));
 const RolesPage = lazy(() => import('@/features/users/pages/RolesPage'));
 const NotFoundPage = lazy(() => import('@/features/not-found/pages/NotFoundPage'));
@@ -114,6 +115,7 @@ export default function AppRoutes() {
         { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin']) },
         { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin']) },
         { path: 'profile', element: protectedPage(ProfilePage, ['client']) },
+        { path: 'loyalty', element: permissionPage(LoyaltyPage, 'loyalty.view') },
         { path: 'users', element: permissionPage(UsersPage, 'users.view') },
         { path: 'roles', element: permissionPage(RolesPage, 'roles.view') },
         { path: 'dashboard', element: protectedPage(DashboardPage, ['admin', 'barber']) },

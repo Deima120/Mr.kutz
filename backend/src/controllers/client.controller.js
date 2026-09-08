@@ -3,7 +3,7 @@
  */
 
 import * as clientService from '../services/client.service.js';
-import { getPendingLoyaltyRewards } from '../services/clientLoyaltyRewards.service.js';
+import { getPendingLoyaltyRewards, getClientLoyaltyProgress } from '../services/clientLoyaltyRewards.service.js';
 
 /**
  * GET /api/clients
@@ -159,6 +159,21 @@ export const getLoyaltyRewards = async (req, res, next) => {
     const clientId = parseInt(req.params.id, 10);
     const pending = await getPendingLoyaltyRewards(clientId);
     res.json({ success: true, data: pending });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/clients/:id/loyalty-progress
+ * Cuántas citas agendadas/completadas/pagadas tiene el cliente y cuánto le
+ * falta para su próximo hito de fidelización.
+ */
+export const getLoyaltyProgress = async (req, res, next) => {
+  try {
+    const clientId = parseInt(req.params.id, 10);
+    const progress = await getClientLoyaltyProgress(clientId);
+    res.json({ success: true, data: progress });
   } catch (error) {
     next(error);
   }

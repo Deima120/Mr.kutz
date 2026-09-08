@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 /**
- * `clientLoyaltyRewards.service.js` recibe su cliente Prisma vía el parámetro
- * `{ prisma: db }` en `getPendingLoyaltyRewards`/`markLoyaltyRewardsRedeemed`
- * (para poder pasar el `tx` de una transacción), así que se puede probar con un
- * mock simple sin tocar `grantLoyaltyRewardsIfEligible` (que sí importa el
- * cliente real por defecto y necesita `prisma.appointment.count`, cubierto por
- * separado en los tests de integración de citas/pagos).
+ * `getPendingLoyaltyRewards`/`markLoyaltyRewardsRedeemed` reciben su cliente
+ * Prisma vía el parámetro `{ prisma: db }` (para poder pasar el `tx` de una
+ * transacción), así que se pueden probar con un mock simple. Las funciones de
+ * configuración (`createMilestoneRule`/`updateMilestoneRule`) usan el cliente
+ * real por defecto — aquí solo se cubre su validación de entrada, que corre
+ * ANTES de tocar la base de datos, sin necesidad de mockear Prisma.
+ * `grantLoyaltyRewardsIfEligible`, `listLoyaltyRewardsHistory` y
+ * `getClientLoyaltyProgress` no tienen test dedicado por la misma razón que el
+ * resto de `appointment.service.js`/`payment.service.js`: dependen fuertemente
+ * de Prisma real y no hay infraestructura de tests de integración en este
+ * repo (ver `private/backend/CLAUDE.md`).
  */
 
 function buildFakeDb({ rewards = [] } = {}) {
@@ -25,45 +30,29 @@ function buildFakeDb({ rewards = [] } = {}) {
   };
 }
 
-const { getPendingLoyaltyRewards, markLoyaltyRewardsRedeemed } = await import(
+const { getPendingLoyaltyRewards, markLoyaltyRewardsRedeemed, createMilestoneRule } = await import(
   './clientLoyaltyRewards.service.js'
 );
 
 describe('getPendingLoyaltyRewards', () => {
-  it('devuelve las líneas de regalo de una recompensa sin canjear', async () => {
-    const db = buildFakeDb({
-      rewards: [{ id: 1, clientId: 100, milestoneKey: 'every_5_mascarilla', redeemedAt: null }],
-    });
-    const pending = await getPendingLoyaltyRewards(100, { prisma: db });
-    assert.equal(pending.length, 1);
-    assert.equal(pending[0].id, 1);
-    assert.equal(pending[0].rewardLines.length, 1);
-    assert.match(pending[0].rewardLines[0].description, /Mascarilla/);
-  });
-
-  it('devuelve ambos hitos si hay dos pendientes (5 y 10)', async () => {
+  it('devuelve una recompensa sin canjear con sus items', async () => {
     const db = buildFakeDb({
       rewards: [
-        { id: 1, clientId: 100, milestoneKey: 'every_5_mascarilla', redeemedAt: null },
-        { id: 2, clientId: 100, milestoneKey: 'every_10_cerveza_depilacion', redeemedAt: null },
+        {
+          id: 1,
+          clientId: 100,
+          redeemedAt: null,
+          items: [{ id: 9, itemType: 'service', description: 'Mascarilla facial' }],
+        },
       ],
     });
     const pending = await getPendingLoyaltyRewards(100, { prisma: db });
-    assert.equal(pending.length, 2);
-    const cerveza = pending.find((p) => p.milestoneKey === 'every_10_cerveza_depilacion');
-    assert.equal(cerveza.rewardLines.length, 2);
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].items[0].description, 'Mascarilla facial');
   });
 
   it('no devuelve nada si no hay recompensas pendientes', async () => {
     const db = buildFakeDb({ rewards: [] });
-    const pending = await getPendingLoyaltyRewards(100, { prisma: db });
-    assert.equal(pending.length, 0);
-  });
-
-  it('ignora una fila cuya milestoneKey ya no existe en el código', async () => {
-    const db = buildFakeDb({
-      rewards: [{ id: 9, clientId: 100, milestoneKey: 'hito_retirado', redeemedAt: null }],
-    });
     const pending = await getPendingLoyaltyRewards(100, { prisma: db });
     assert.equal(pending.length, 0);
   });
@@ -83,5 +72,42 @@ describe('markLoyaltyRewardsRedeemed', () => {
     const db = buildFakeDb();
     await markLoyaltyRewardsRedeemed([], 55, { prisma: db });
     assert.equal(db._updated.length, 0);
+  });
+});
+
+describe('createMilestoneRule — validación (no toca la base de datos)', () => {
+  it('rechaza sin everyCount válido', async () => {
+    await assert.rejects(
+      () => createMilestoneRule({ label: 'x', rewardItems: [{ itemType: 'service', serviceId: 1 }] }),
+      { statusCode: 400 }
+    );
+  });
+
+  it('rechaza sin label', async () => {
+    await assert.rejects(
+      () => createMilestoneRule({ everyCount: 5, rewardItems: [{ itemType: 'service', serviceId: 1 }] }),
+      { statusCode: 400 }
+    );
+  });
+
+  it('rechaza sin ítems de premio', async () => {
+    await assert.rejects(
+      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', rewardItems: [] }),
+      { statusCode: 400 }
+    );
+  });
+
+  it('rechaza un ítem de servicio sin serviceId', async () => {
+    await assert.rejects(
+      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', rewardItems: [{ itemType: 'service' }] }),
+      { statusCode: 400 }
+    );
+  });
+
+  it('rechaza un ítem de producto sin productId', async () => {
+    await assert.rejects(
+      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', rewardItems: [{ itemType: 'product' }] }),
+      { statusCode: 400 }
+    );
   });
 });

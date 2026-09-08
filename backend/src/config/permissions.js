@@ -45,6 +45,7 @@ export const MODULE_LABELS = {
   expenses: 'Gastos',
   other_incomes: 'Otros ingresos',
   commissions: 'Comisiones',
+  loyalty: 'Fidelización',
   dashboard: 'Panel',
   testimonials: 'Satisfacción',
   portfolio: 'Portafolio',
@@ -100,6 +101,10 @@ export const PERMISSIONS = [
   { code: 'inventory.view', module: 'inventory', description: 'Consultar productos y existencias' },
   { code: 'inventory.manage', module: 'inventory', description: 'Crear productos y ajustar existencias' },
   { code: 'product_categories.manage', module: 'product_categories', description: 'Gestionar las categorías de producto' },
+
+  // --- Fidelización --------------------------------------------------------
+  { code: 'loyalty.view', module: 'loyalty', description: 'Ver el historial y avance de fidelización de clientes' },
+  { code: 'loyalty.manage', module: 'loyalty', description: 'Configurar los hitos y premios de fidelización' },
 
   // --- Panel y contenido -------------------------------------------------
   { code: 'dashboard.view.all', module: 'dashboard', description: 'Ver el panel general del negocio' },

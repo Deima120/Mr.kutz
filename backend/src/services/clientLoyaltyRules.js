@@ -1,57 +1,53 @@
 /**
- * Reglas de fidelización: qué hitos existen y cuáles se cumplen a un conteo dado.
+ * Reglas puras de fidelización: qué hitos se cumplen a un conteo dado.
  *
- * Módulo puro (no toca Prisma ni red) para que se pueda probar entero, igual que
- * `appointmentLimitRules.js`. Agregar un hito nuevo en el futuro es añadir un
- * objeto a `LOYALTY_MILESTONES`, sin tocar quien lo consume.
- *
- * Cada hito se repite cíclicamente: `every: 5` se cumple en 5, 10, 15, 20...
- * (así que en un múltiplo de 10 se cumplen a la vez el de 5 y el de 10).
- * `rewardLines` es una lista (no un solo premio) porque un hito puede entregar
- * más de un regalo a la vez; cada línea se vuelve una línea `manual` de $0
- * independiente en el cobro, trazable por separado en el recibo.
+ * Módulo puro (no toca Prisma ni red) para que se pueda probar entero, igual
+ * que `appointmentLimitRules.js`. A diferencia de la primera versión, las
+ * reglas ya NO están hardcodeadas aquí — las trae quien llame a
+ * `milestonesReachedAt`, leídas de `LoyaltyMilestoneRule` (ver
+ * `clientLoyaltyRewards.service.js`). Este archivo solo sabe hacer la cuenta:
+ * "¿qué reglas se cumplen exactamente en este conteo?".
  */
 
-export const LOYALTY_MILESTONES = [
-  {
-    key: 'every_5_mascarilla',
-    every: 5,
-    rewardLines: [{ description: 'Mascarilla gratis — fidelización (cada 5 servicios)' }],
-  },
-  {
-    key: 'every_10_cerveza_depilacion',
-    every: 10,
-    rewardLines: [
-      { description: 'Cerveza gratis — fidelización (cada 10 servicios)' },
-      { description: 'Depilación gratis — fidelización (cada 10 servicios)' },
-    ],
-  },
-];
-
-const MILESTONES_BY_KEY = new Map(LOYALTY_MILESTONES.map((m) => [m.key, m]));
-
 /**
- * @param {string} key
- * @returns {{key: string, every: number, rewardLines: Array<{description: string}>} | undefined}
- */
-export function getMilestoneByKey(key) {
-  return MILESTONES_BY_KEY.get(key);
-}
-
-/**
- * ¿Qué hitos se cumplen EXACTAMENTE en este conteo de servicios completados?
+ * ¿Qué reglas se cumplen EXACTAMENTE en este conteo de servicios completados?
  *
  * Solo el múltiplo exacto dispara el hito (no "cada 5 o más"): quien llama a
  * esta función lo hace una vez por cada cita que se completa, así que el
- * conteo solo puede subir de a uno y nunca se salta un múltiplo.
+ * conteo solo puede subir de a uno y nunca se salta un múltiplo. Un mismo
+ * conteo puede cumplir varias reglas a la vez (ej. 10 cumple "cada 5" y
+ * "cada 10").
  *
  * @param {number} completedCount
- * @returns {Array<{key: string, every: number, occurrence: number, rewardLines: Array<{description: string}>}>}
+ * @param {Array<{ id: number, everyCount: number }>} rules Reglas activas.
+ * @returns {Array<{ id: number, everyCount: number, occurrence: number }>}
  */
-export function milestonesReachedAt(completedCount) {
+export function milestonesReachedAt(completedCount, rules) {
   if (!Number.isFinite(completedCount) || completedCount <= 0) return [];
-  return LOYALTY_MILESTONES.filter((m) => completedCount % m.every === 0).map((m) => ({
-    ...m,
-    occurrence: completedCount / m.every,
-  }));
+  if (!Array.isArray(rules) || !rules.length) return [];
+  return rules
+    .filter((rule) => rule.everyCount > 0 && completedCount % rule.everyCount === 0)
+    .map((rule) => ({ ...rule, occurrence: completedCount / rule.everyCount }));
+}
+
+/**
+ * La próxima regla que el cliente alcanzará y cuántos servicios le faltan.
+ *
+ * @param {number} completedCount
+ * @param {Array<{ id: number, everyCount: number }>} rules Reglas activas.
+ * @returns {{ rule: { id: number, everyCount: number }, remaining: number } | null}
+ */
+export function nextMilestone(completedCount, rules) {
+  if (!Array.isArray(rules) || !rules.length) return null;
+  const count = Number.isFinite(completedCount) && completedCount > 0 ? completedCount : 0;
+  let best = null;
+  for (const rule of rules) {
+    if (!(rule.everyCount > 0)) continue;
+    const remainder = count % rule.everyCount;
+    const remaining = remainder === 0 ? rule.everyCount : rule.everyCount - remainder;
+    if (!best || remaining < best.remaining) {
+      best = { rule, remaining };
+    }
+  }
+  return best;
 }

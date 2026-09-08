@@ -37,6 +37,12 @@ export const getClientLoyaltyRewards = async (id) => {
   return Array.isArray(data) ? data : [];
 };
 
+export const getClientLoyaltyProgress = async (id) => {
+  const response = await api.get(`${CLIENTS_BASE}/${id}/loyalty-progress`);
+  const res = response?.data ?? response;
+  return res?.data ?? res;
+};
+
 export const createClient = async (data) => {
   const response = await api.post(CLIENTS_BASE, data);
   const res = response?.data ?? response;

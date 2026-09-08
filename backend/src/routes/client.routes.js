@@ -90,6 +90,12 @@ router.get(
   validate,
   clientController.getLoyaltyRewards
 );
+router.get(
+  '/:id/loyalty-progress',
+  idParam,
+  validate,
+  clientController.getLoyaltyProgress
+);
 router.get('/:id', idParam, validate, clientController.getById);
 router.post('/', clientValidation, validate, clientController.create);
 router.put('/:id', [idParam, ...clientUpdateValidation], validate, clientController.update);

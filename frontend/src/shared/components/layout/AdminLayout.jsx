@@ -31,6 +31,7 @@ import {
   CreditCard,
   ShoppingCart,
   Package,
+  Gift,
   // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Icono usado solo por el item de Reportes.
   // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
   // FileBarChart,
@@ -62,6 +63,13 @@ const adminNavSections = [
       { path: '/payments', label: 'Ventas', description: 'Registro de ventas', Icon: CreditCard },
       { path: '/purchases', label: 'Compras', description: 'Órdenes y proveedores', Icon: ShoppingCart },
       { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
+      {
+        path: '/loyalty',
+        label: 'Fidelización',
+        description: 'Hitos y recompensas',
+        Icon: Gift,
+        permission: 'loyalty.view',
+      },
     ],
   },
   {
