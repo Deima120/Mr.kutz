@@ -28,6 +28,7 @@ import {
 import { assertUnderPendingLimit, assertUnderDailyLimit } from './appointmentLimitRules.js';
 import { grantLoyaltyRewardsIfEligible } from './clientLoyaltyRewards.service.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
+import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { resolveDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
 import { clockTimeToDate, parseClockTime } from './appointment.time.helpers.js';
 
