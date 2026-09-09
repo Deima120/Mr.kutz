@@ -270,7 +270,11 @@ export default function AdminLayout({ children }) {
     // Se depende de `permissions` y no del helper `can`, que se recrea en cada
     // render y haria inutil el memo.
   }, [isAdmin, isBarber, permissions]);
-  const dashboardItem = isAdmin ? adminDashboardItem : barberDashboardItem;
+  // Dashboard (como Citas) todavía no migró a permisos: su ruta sigue
+  // reservada a admin/barber literal. Un rol personalizado no recibe este
+  // item — antes ni siquiera llegaba a este componente, así que no hacía
+  // falta el `null`; ahora que sí llega, mostrarlo sería un enlace muerto.
+  const dashboardItem = isAdmin ? adminDashboardItem : isBarber ? barberDashboardItem : null;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // Un id que falte aquí quedaría como `undefined` y la sección arrancaría plegada,
@@ -284,7 +288,7 @@ export default function AdminLayout({ children }) {
   }));
 
   const activeItem =
-    (isActiveRoute(location.pathname, dashboardItem.path) ? dashboardItem : null) ||
+    (dashboardItem && isActiveRoute(location.pathname, dashboardItem.path) ? dashboardItem : null) ||
     navSections.flatMap((section) => section.items).find((item) => isActiveRoute(location.pathname, item.path));
 
   useEffect(() => {
@@ -361,7 +365,7 @@ export default function AdminLayout({ children }) {
                   {businessName}
                 </span>
                 <span className="mt-1 block text-xs text-stone-500">
-                  {isAdmin ? 'Panel de administracion' : 'Panel del barbero'}
+                  {isAdmin ? 'Panel de administracion' : isBarber ? 'Panel del barbero' : 'Panel de personal'}
                 </span>
               </span>
             </button>
@@ -380,13 +384,15 @@ export default function AdminLayout({ children }) {
         <nav className="admin-sidebar-scroll relative flex-1 overflow-y-auto px-3 py-4">
           <div className="pointer-events-none sticky top-0 z-10 -mb-2 h-2 bg-gradient-to-b from-[#080706]/25 to-transparent" />
 
-          <div className="mb-4">
-            <NavItem
-              item={dashboardItem}
-              pathname={location.pathname}
-              sidebarCollapsed={sidebarCollapsed}
-            />
-          </div>
+          {dashboardItem ? (
+            <div className="mb-4">
+              <NavItem
+                item={dashboardItem}
+                pathname={location.pathname}
+                sidebarCollapsed={sidebarCollapsed}
+              />
+            </div>
+          ) : null}
 
           {navSections.map((section) => {
             const sectionActive = section.items.some((item) => isActiveRoute(location.pathname, item.path));
@@ -443,7 +449,9 @@ export default function AdminLayout({ children }) {
                 <p className="truncate text-sm font-semibold text-white" title={user?.email}>
                   {user?.firstName || user?.email}
                 </p>
-                <p className="truncate text-xs text-stone-500">{isAdmin ? 'Administrador' : 'Barbero'}</p>
+                <p className="truncate text-xs text-stone-500">
+                  {isAdmin ? 'Administrador' : isBarber ? 'Barbero' : user?.role}
+                </p>
               </div>
             </div>
           </div>
@@ -489,7 +497,7 @@ export default function AdminLayout({ children }) {
             </button>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-dark">
-                {isAdmin ? 'Administracion' : 'Operacion'}
+                {isBarber ? 'Operacion' : 'Administracion'}
               </p>
               <h2 className="truncate font-serif text-lg font-medium leading-tight text-stone-900">
                 {activeItem?.label || businessName}

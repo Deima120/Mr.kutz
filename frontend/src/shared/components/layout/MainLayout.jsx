@@ -29,7 +29,12 @@ export default function MainLayout() {
     setProfileMenuOpen(false);
   };
 
-  const isAdminOrBarber = isAuthenticated && (user?.role === 'admin' || user?.role === 'barber');
+  // Cualquier rol que no sea literalmente `client` recibe el layout de panel
+  // (sidebar + AdminLayout), no solo admin/barber: es lo que deja que un rol
+  // personalizado con permisos otorgados desde /roles vea de verdad el menú
+  // filtrado por permiso que arma AdminLayout — antes se quedaba aquí mismo,
+  // en el layout público, sin llegar nunca a esa pantalla.
+  const isStaff = isAuthenticated && user?.role !== 'client';
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
   /** Formularios públicos transaccionales: mismo pie mínimo que auth (no footer de landing). */
   const isPublicFormPage = isAuthPage || location.pathname === '/reservar';
@@ -127,7 +132,7 @@ export default function MainLayout() {
     };
   }, [profileMenuOpen]);
 
-  if (isAdminOrBarber) {
+  if (isStaff) {
     return <AdminLayout><Outlet /></AdminLayout>;
   }
 
