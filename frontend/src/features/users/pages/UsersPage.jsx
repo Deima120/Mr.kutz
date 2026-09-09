@@ -42,6 +42,7 @@ import {
   validateBarberForm,
   DOCUMENT_TYPE_OPTIONS,
 } from '@/shared/utils/formValidation';
+import { formatRoleLabel } from '@/shared/utils/roleLabels';
 import * as userService from '@/features/users/services/userService';
 import * as roleService from '@/features/users/services/roleService';
 
@@ -205,8 +206,10 @@ export default function UsersPage() {
    * actual aunque esté desactivado (para no dejar el control sin opción
    * válida si el rol de esa cuenta ya no se puede asignar de nuevo). */
   const opcionesDeRol = (u) => [
-    { id: String(u.role_id), label: u.role_name },
-    ...rolesActivos.filter((r) => r.id !== u.role_id).map((r) => ({ id: String(r.id), label: r.name })),
+    { id: String(u.role_id), label: formatRoleLabel(u.role_name) },
+    ...rolesActivos
+      .filter((r) => r.id !== u.role_id)
+      .map((r) => ({ id: String(r.id), label: formatRoleLabel(r.name) })),
   ];
 
   const crear = async (e) => {
@@ -441,7 +444,7 @@ export default function UsersPage() {
                           options={opcionesDeRol(u)}
                         />
                       ) : (
-                        <span className="text-xs text-stone-700">{u.role_name}</span>
+                        <span className="text-xs text-stone-700">{formatRoleLabel(u.role_name)}</span>
                       )}
                     </TableCell>
 
@@ -572,7 +575,7 @@ export default function UsersPage() {
               }}
               variant="form"
               placeholder="Elige un rol"
-              options={rolesActivos.map((r) => ({ id: String(r.id), label: r.name }))}
+              options={rolesActivos.map((r) => ({ id: String(r.id), label: formatRoleLabel(r.name) }))}
             />
             <FieldErrorMessage message={errors.roleId} />
           </div>
@@ -655,7 +658,7 @@ export default function UsersPage() {
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-stone-500">Rol</span>
-              <span className="font-medium text-stone-800">{detailData.role_name}</span>
+              <span className="font-medium text-stone-800">{formatRoleLabel(detailData.role_name)}</span>
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-stone-500">Estado de la cuenta</span>
