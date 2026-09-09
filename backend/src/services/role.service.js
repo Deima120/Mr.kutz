@@ -13,7 +13,9 @@
  */
 
 import prisma from '../lib/prisma.js';
-import { PERMISSIONS, MODULE_LABELS, ROLES } from '../config/permissions.js';
+import { PERMISSIONS, MODULE_LABELS, ROLES, INACTIVE_PERMISSION_CODES } from '../config/permissions.js';
+
+const INACTIVE_CODES = new Set(INACTIVE_PERMISSION_CODES);
 
 const httpError = (message, statusCode = 400, reason) => {
   const err = new Error(message);
@@ -53,9 +55,17 @@ export const getById = async (id) => {
   return role ? toDto(role) : null;
 };
 
-/** Catálogo completo, agrupado por módulo para pintarlo en la pantalla de roles. */
+/**
+ * Catálogo completo, agrupado por módulo para pintarlo en la pantalla de
+ * roles — sin los permisos de `INACTIVE_PERMISSION_CODES`: otorgarlos hoy no
+ * habilitaría nada, porque su pantalla está desactivada. Un módulo que se
+ * queda sin ningún permiso visible (Caja, Comisiones, Otros ingresos, Gastos
+ * operativos, Portafolio) directamente no aparece.
+ */
 export const getPermissionCatalog = async () => {
-  const filas = await prisma.permission.findMany({ orderBy: [{ module: 'asc' }, { code: 'asc' }] });
+  const filas = (
+    await prisma.permission.findMany({ orderBy: [{ module: 'asc' }, { code: 'asc' }] })
+  ).filter((p) => !INACTIVE_CODES.has(p.code));
   const porModulo = new Map();
 
   for (const p of filas) {
