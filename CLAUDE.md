@@ -1,3 +1,5 @@
+npm
+
 # SENIOR SOFTWARE ENGINEER — PROJECT OPERATING SYSTEM
 
 > **Alcance:** este archivo vive en la raíz del repositorio Mr.Kutz y define el comportamiento
@@ -1084,13 +1086,13 @@ Sistema de gestión para una barbería (citas, ventas, inventario, compras, comi
 **sin workspaces**: cada paquete se instala y se ejecuta por separado. No hay `package.json` en la
 raíz (solo un `package-lock.json` residual).
 
-| Ruta             | Qué es                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| `backend/`     | API REST Node.js + Express + Prisma. Desplegada en Render.                               |
-| `frontend/`    | SPA React 18 + Vite + Tailwind. Desplegada en Vercel.                                    |
+| Ruta                  | Qué es                                                                                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/`          | API REST Node.js + Express + Prisma. Desplegada en Render.                                                                                                                                                                                                                                                                  |
+| `frontend/`         | SPA React 18 + Vite + Tailwind. Desplegada en Vercel.                                                                                                                                                                                                                                                                       |
 | ~~`mobile_kutz/`~~ | **Ya no está en este repositorio.** La app móvil Flutter se mantiene en un repo aparte. Aquí solo vive la API que consume: `/api/mobile` (`src/routes/mobile.routes.js`) y su contrato en `backend/docs/API_MOBILE.md`. La entrada `mobile_kutz/` del `.gitignore` es un residuo de cuando estuvo aquí. |
-| `docs/`        | Documentación funcional y evidencias de pruebas.                                        |
-| `private/`     | **En `.gitignore`.** Contexto local extendido. Ver §39.4.                |
+| `docs/`             | Documentación funcional y evidencias de pruebas.                                                                                                                                                                                                                                                                           |
+| `private/`          | **En `.gitignore`.** Contexto local extendido. Ver §39.4.                                                                                                                                                                                                                                                          |
 
 ## 39.2 Comandos que existen de verdad
 
@@ -1146,8 +1148,8 @@ Consecuencia de diseño: los `utils/` que quieran ser testeables **no deben impo
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `private/frontend/CLAUDE.md`                          | Arquitectura del frontend: rutas, estado, feedback/toasts, estilos, convenciones, formulario de ventas, responsive del panel. |
 | `private/backend/CLAUDE.md`                           | Arquitectura del backend: modelo de datos Prisma, auth, capas, endurecimiento de producción, migraciones.                    |
-| `private/adr/0001-desactivacion-reportes-y-caja.md`   | Reportes y Caja diaria desactivados. **⚠️ El archivo no está presente** (ver aviso debajo).                                   |
-| `private/adr/0002-desactivacion-linea-caja-manual.md` | Fila «Caja (manual)» del formulario de ventas desactivada. **⚠️ El archivo no está presente** (ver aviso debajo).            |
+| `private/adr/0001-desactivacion-reportes-y-caja.md`   | Reportes y Caja diaria desactivados.**⚠️ El archivo no está presente** (ver aviso debajo).                           |
+| `private/adr/0002-desactivacion-linea-caja-manual.md` | Fila «Caja (manual)» del formulario de ventas desactivada.**⚠️ El archivo no está presente** (ver aviso debajo).   |
 
 > ⚠️ **La carpeta `private/adr/` no existe ahora mismo en el equipo de trabajo** (verificado el
 > 2026-09-03). Los dos ADR siguen citados por su ruta en comentarios de código vivo
@@ -1189,6 +1191,8 @@ Instrucciones previas del propietario del proyecto. Siguen en vigor y **anulan e
 por defecto** en los puntos que tocan.
 
 ## 40.1 Una rama y un commit por cada cambio
+
+Al iniciar un nuevo cambio siempre colocarte en la rama actualiza o en el main para saber como esta actualmente el software, para no tener que estar buscando la rama actualizada.
 
 Al terminar cualquier cambio hay que **crear una rama** que describa el trabajo y **hacer el
 commit**, sin esperar a que se pida. Es parte de dar por terminada la tarea, no un paso opcional.
