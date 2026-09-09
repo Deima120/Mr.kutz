@@ -40,11 +40,37 @@ const RolesPage = lazy(() => import('@/features/users/pages/RolesPage'));
 const NotFoundPage = lazy(() => import('@/features/not-found/pages/NotFoundPage'));
 const BookingPage = lazy(() => import('@/features/booking/pages/BookingPage'));
 
+/**
+ * A dónde manda `HomeOrRedirect` a un rol personalizado (no admin/barber/
+ * client) que entra a "/": el primer módulo migrado a permisos (ver tabla de
+ * rutas más abajo) para el que tenga alguno de estos códigos. Sin esto caía
+ * en `HomePage` — la landing pública — mostrada dentro del sidebar del panel
+ * (`MainLayout` ya lo mete en `AdminLayout` por no ser `client`), que se ve
+ * rota. Mantener en el mismo orden que `adminNavSections` en `AdminLayout.jsx`.
+ */
+const STAFF_LANDING_ROUTES = [
+  { permissions: ['clients.view', 'clients.manage'], path: '/clients' },
+  { permissions: ['services.manage'], path: '/services' },
+  { permissions: ['barbers.view', 'barbers.manage'], path: '/barbers' },
+  { permissions: ['payments.view', 'payments.manage'], path: '/payments' },
+  { permissions: ['testimonials.manage'], path: '/testimonials' },
+  { permissions: ['purchases.view', 'purchases.manage'], path: '/purchases' },
+  { permissions: ['inventory.view', 'inventory.manage'], path: '/inventory' },
+  { permissions: ['loyalty.view'], path: '/loyalty' },
+  { permissions: ['users.view'], path: '/users' },
+  { permissions: ['roles.view'], path: '/roles' },
+];
+
 function HomeOrRedirect() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, can } = useAuth();
 
   if (isAuthenticated && (user?.role === 'admin' || user?.role === 'barber')) {
     return createElement(Navigate, { to: '/dashboard', replace: true });
+  }
+
+  if (isAuthenticated && user?.role !== 'client') {
+    const destino = STAFF_LANDING_ROUTES.find((r) => r.permissions.some((p) => can(p)));
+    if (destino) return createElement(Navigate, { to: destino.path, replace: true });
   }
 
   return createElement(HomePage);
