@@ -785,6 +785,12 @@ export function validateUserForm(data = {}, { soloPassword = false } = {}) {
   else if (!/[a-z]/.test(password)) errors.password = 'Debe incluir al menos una minúscula.';
   else if (!/\d/.test(password)) errors.password = 'Debe incluir al menos un número.';
 
+  // Opcional a propósito: solo se activa si el llamador manda `confirmPassword`,
+  // así que no afecta a nadie que no lo use.
+  if (data.confirmPassword !== undefined && password !== String(data.confirmPassword)) {
+    errors.confirmPassword = 'Las contraseñas no coinciden.';
+  }
+
   return validationResult(errors);
 }
 
