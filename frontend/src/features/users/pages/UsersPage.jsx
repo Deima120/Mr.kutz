@@ -30,6 +30,7 @@ import Table, {
 } from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import AdminStatusToggle from '@/shared/components/admin/AdminStatusToggle';
+import { AdminPagination, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 import CustomSelect from '@/shared/components/CustomSelect';
@@ -46,8 +47,17 @@ import { formatRoleLabel } from '@/shared/utils/roleLabels';
 import * as userService from '@/features/users/services/userService';
 import * as roleService from '@/features/users/services/roleService';
 
-const FORM_VACIO = { email: '', password: '', roleId: '' };
+const FORM_VACIO = { email: '', password: '', confirmPassword: '', roleId: '' };
 const PERFIL_VACIO = { firstName: '', lastName: '', phone: '', documentType: '', documentNumber: '' };
+
+const SEARCH_DEBOUNCE_MS = 350;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+const ACTIVE_FILTER_OPTIONS = [
+  { id: '', label: 'Todos' },
+  { id: 'true', label: 'Activos' },
+  { id: 'false', label: 'Inactivos' },
+];
 
 /** Etiqueta legible del tipo de perfil, para el modal de detalle. */
 const PROFILE_LABELS = { client: 'Cliente', barber: 'Barbero' };
@@ -149,9 +159,17 @@ export default function UsersPage() {
   const puedeGestionar = can('users.manage');
 
   const [users, setUsers] = useState([]);
+  const [total, setTotal] = useState(0);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [activeFilter, setActiveFilter] = useState('');
 
   const [crearAbierto, setCrearAbierto] = useState(false);
   const [form, setForm] = useState(FORM_VACIO);
@@ -161,7 +179,9 @@ export default function UsersPage() {
 
   const [passTarget, setPassTarget] = useState(null);
   const [nuevaPass, setNuevaPass] = useState('');
+  const [confirmNuevaPass, setConfirmNuevaPass] = useState('');
   const [passError, setPassError] = useState('');
+  const [confirmPassError, setConfirmPassError] = useState('');
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [eliminando, setEliminando] = useState(false);
@@ -178,26 +198,56 @@ export default function UsersPage() {
   const [promoteErrors, setPromoteErrors] = useState({});
   const [promoteBusy, setPromoteBusy] = useState(false);
 
+  // Los roles se cargan una sola vez: son pocos, no hace falta paginarlos ni
+  // recargarlos cada vez que cambia un usuario.
+  useEffect(() => {
+    roleService
+      .getRoles()
+      .then((listaRoles) => setRoles(Array.isArray(listaRoles) ? listaRoles : []))
+      .catch((err) => toast.error(getApiErrorMessage(err, 'No se pudieron cargar los roles.')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ users: filas }, listaRoles] = await Promise.all([
-        userService.getUsers({ active: '' }),
-        roleService.getRoles(),
-      ]);
+      const { users: filas, total: totalFilas } = await userService.getUsers({
+        search: debouncedSearch || undefined,
+        roleId: roleFilter || undefined,
+        active: activeFilter || undefined,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      });
       setUsers(Array.isArray(filas) ? filas : []);
-      setRoles(Array.isArray(listaRoles) ? listaRoles : []);
+      setTotal(totalFilas ?? 0);
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'No se pudieron cargar los usuarios.'));
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [debouncedSearch, roleFilter, activeFilter, page, pageSize, toast]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Cualquier cambio de filtro vuelve a la página 1: si no, se puede quedar
+  // viendo una página que ya no existe para el nuevo filtro.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, roleFilter, activeFilter, pageSize]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Si una eliminación/desactivación deja la página actual vacía (era la
+  // última de la lista), retrocede en vez de mostrar una página en blanco.
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const rolesActivos = roles.filter((r) => r.is_active);
   const rolNombrePorId = (roleId) => roles.find((r) => Number(r.id) === Number(roleId))?.name;
@@ -324,9 +374,13 @@ export default function UsersPage() {
 
   const restablecer = async (e) => {
     e.preventDefault();
-    const validacion = validateUserForm({ password: nuevaPass }, { soloPassword: true });
+    const validacion = validateUserForm(
+      { password: nuevaPass, confirmPassword: confirmNuevaPass },
+      { soloPassword: true },
+    );
     if (!validacion.valid) {
-      setPassError(validacion.errors.password);
+      setPassError(validacion.errors.password || '');
+      setConfirmPassError(validacion.errors.confirmPassword || '');
       return;
     }
     setBusy(passTarget.id);
@@ -335,7 +389,9 @@ export default function UsersPage() {
       toast.success('Contraseña restablecida.');
       setPassTarget(null);
       setNuevaPass('');
+      setConfirmNuevaPass('');
       setPassError('');
+      setConfirmPassError('');
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'No se pudo restablecer la contraseña.'));
     } finally {
@@ -391,11 +447,55 @@ export default function UsersPage() {
         }
       />
 
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="min-w-[14rem] flex-1">
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+            Buscar
+          </span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por correo…"
+            className="input-premium w-full py-2 text-sm"
+            autoComplete="off"
+            aria-label="Buscar usuarios por correo"
+          />
+        </div>
+        <FilterSelect
+          label="Rol"
+          value={roleFilter}
+          onChange={setRoleFilter}
+          options={[{ id: '', label: 'Todos' }, ...roles.map((r) => ({ id: String(r.id), label: formatRoleLabel(r.name) }))]}
+          ariaLabel="Filtrar por rol"
+        />
+        <FilterSelect
+          label="Estado"
+          value={activeFilter}
+          onChange={setActiveFilter}
+          options={ACTIVE_FILTER_OPTIONS}
+          ariaLabel="Filtrar por estado"
+        />
+      </div>
+
       <DataCard compact>
+        <AdminPagination
+          idPrefix="users-admin"
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          itemLabel="usuarios"
+          showSummary
+          layout="bar"
+          className="mb-3"
+        />
         {loading ? (
           <div className="py-10 text-center text-sm text-stone-500">Cargando…</div>
         ) : users.length === 0 ? (
-          <div className="py-10 text-center text-sm text-stone-500">No hay usuarios.</div>
+          <div className="py-10 text-center text-sm text-stone-500">No hay usuarios que coincidan.</div>
         ) : (
           <Table>
             <TableHead>
@@ -484,7 +584,9 @@ export default function UsersPage() {
                               onClick={() => {
                                 setPassTarget(u);
                                 setNuevaPass('');
+                                setConfirmNuevaPass('');
                                 setPassError('');
+                                setConfirmPassError('');
                               }}
                             />
                             {/* Un cliente o un barbero se elimina desde su
@@ -562,6 +664,24 @@ export default function UsersPage() {
           </div>
 
           <div>
+            <label htmlFor="u-pass-confirm" className="mb-1 block text-[11px] text-stone-500">
+              Confirmar contraseña
+            </label>
+            <input
+              id="u-pass-confirm"
+              type="text"
+              value={form.confirmPassword}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, confirmPassword: e.target.value }));
+                setErrors((x) => ({ ...x, confirmPassword: '' }));
+              }}
+              className={`input-premium w-full py-2 text-sm ${errors.confirmPassword ? '!border-red-400' : ''}`}
+              autoComplete="new-password"
+            />
+            <FieldErrorMessage message={errors.confirmPassword} />
+          </div>
+
+          <div>
             <label htmlFor="u-rol" className="mb-1 block text-[11px] text-stone-500">
               Rol
             </label>
@@ -631,6 +751,23 @@ export default function UsersPage() {
               autoComplete="new-password"
             />
             <FieldErrorMessage message={passError} />
+          </div>
+          <div>
+            <label htmlFor="u-reset-confirm" className="mb-1 block text-[11px] text-stone-500">
+              Confirmar contraseña
+            </label>
+            <input
+              id="u-reset-confirm"
+              type="text"
+              value={confirmNuevaPass}
+              onChange={(e) => {
+                setConfirmNuevaPass(e.target.value);
+                setConfirmPassError('');
+              }}
+              className={`input-premium w-full py-2 text-sm ${confirmPassError ? '!border-red-400' : ''}`}
+              autoComplete="new-password"
+            />
+            <FieldErrorMessage message={confirmPassError} />
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" className="btn-admin-outline text-sm py-2" onClick={() => setPassTarget(null)}>

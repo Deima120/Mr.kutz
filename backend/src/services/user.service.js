@@ -190,7 +190,7 @@ async function assertAssignableRole(roleId) {
  * cuenta por permiso y no por el nombre del rol, porque tras crear roles
  * personalizados el administrador podría no llamarse «admin».
  */
-async function countOtherActiveAdmins(excludeUserId, tx = prisma) {
+export async function countOtherActiveAdmins(excludeUserId, tx = prisma) {
   return tx.user.count({
     where: {
       id: { not: excludeUserId },
@@ -204,7 +204,7 @@ async function countOtherActiveAdmins(excludeUserId, tx = prisma) {
 }
 
 /** Lanza si el cambio dejaría al sistema sin ningún usuario capaz de gestionar usuarios. */
-async function assertNotLastAdmin(userId, tx = prisma) {
+export async function assertNotLastAdmin(userId, tx = prisma) {
   const restantes = await countOtherActiveAdmins(userId, tx);
   if (restantes === 0) {
     throw httpError(

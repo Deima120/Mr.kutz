@@ -98,7 +98,7 @@ const nombreLibre = async (name, excludeId = null) => {
  * permisos, asignárselo y convertirse en administrador: la propia capacidad de
  * gestionar roles sería una escalada de privilegios completa.
  */
-function assertNoPrivilegeEscalation(actorPermissions, codigosPedidos) {
+export function assertNoPrivilegeEscalation(actorPermissions, codigosPedidos) {
   const propios = actorPermissions ?? new Set();
   const excede = codigosPedidos.filter((c) => !propios.has(c));
   if (excede.length > 0) {
@@ -106,6 +106,55 @@ function assertNoPrivilegeEscalation(actorPermissions, codigosPedidos) {
       `No puedes conceder permisos que tú no tienes: ${excede.slice(0, 5).join(', ')}${excede.length > 5 ? '…' : ''}`,
       403,
       'PRIVILEGE_ESCALATION',
+    );
+  }
+}
+
+/**
+ * Cuántos administradores activos quedan FUERA de este rol.
+ *
+ * Mismo criterio que `user.service.js` (por el permiso `users.manage`, no por
+ * nombre de rol), pero mirando el rol completo en vez de una sola cuenta: hace
+ * falta al editar/desactivar un ROL, donde el cambio puede afectar a varias
+ * cuentas a la vez.
+ */
+export async function countActiveAdminsOutsideRole(roleId, tx = prisma) {
+  return tx.user.count({
+    where: {
+      isActive: true,
+      roleId: { not: roleId },
+      role: { isActive: true, permissions: { some: { permission: { code: 'users.manage' } } } },
+    },
+  });
+}
+
+/**
+ * Si este cambio le quita a la regla la capacidad de otorgar `users.manage`
+ * (por quitarle el permiso o por desactivarla) y hay personal activo con este
+ * rol ahora mismo, exige que quede al menos un administrador fuera de él.
+ *
+ * Sin esto, editar un rol PERSONALIZADO (no el `admin` literal, que ya está
+ * bloqueado aparte más arriba) podía dejar el sistema sin nadie capaz de
+ * gestionar usuarios — el mismo riesgo que ya cubre `assertNotLastAdmin` en
+ * `user.service.js`, pero por el lado del rol en vez del lado de la cuenta.
+ */
+export async function assertRoleChangeKeepsAnAdmin(role, { nextIsActive, nextPermissionCodes }, tx = prisma) {
+  const hadPermission = (role.permissions ?? []).some((rp) => rp.permission.code === 'users.manage');
+  if (!(role.isActive && hadPermission)) return; // esta regla no otorgaba users.manage
+
+  const willBeActive = nextIsActive !== undefined ? nextIsActive : role.isActive;
+  const willHavePermission =
+    nextPermissionCodes !== undefined ? nextPermissionCodes.includes('users.manage') : hadPermission;
+  if (willBeActive && willHavePermission) return; // sigue otorgándolo, nada que proteger
+
+  if ((role._count?.users ?? 0) === 0) return; // nadie lo tiene asignado todavía
+
+  const otros = await countActiveAdminsOutsideRole(role.id, tx);
+  if (otros === 0) {
+    throw httpError(
+      'Este rol es la única fuente de "gestionar usuarios" para el personal que lo tiene asignado. Da acceso a otra persona antes de hacer este cambio.',
+      409,
+      'LAST_ADMIN',
     );
   }
 }
@@ -188,6 +237,10 @@ export const update = async (id, { name, description, isActive, permissions }, a
       );
     }
     assertNoPrivilegeEscalation(actorPermissions, permissions);
+  }
+
+  if (isActive !== undefined || permissions !== undefined) {
+    await assertRoleChangeKeepsAnAdmin(role, { nextIsActive: isActive, nextPermissionCodes: permissions });
   }
 
   const permissionIds = permissions !== undefined ? await resolvePermissionIds(permissions) : null;
