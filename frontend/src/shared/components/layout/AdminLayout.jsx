@@ -49,10 +49,33 @@ const adminNavSections = [
     id: 'operation',
     label: 'Operacion',
     items: [
-      { path: '/appointments', label: 'Citas', description: 'Gestionar citas', Icon: Calendar },
-      { path: '/clients', label: 'Clientes', description: 'Base de datos', Icon: UsersRound },
-      { path: '/services', label: 'Servicios', description: 'Servicios y precios', Icon: Scissors },
-      { path: '/barbers', label: 'Barberos', description: 'Equipo de trabajo', Icon: UserCog },
+      // Citas no tiene permiso propio todavía: su lógica interna sigue ramificada
+      // por `user.role` (isAdmin/isBarber/isClient), no solo por permisos, así que
+      // migrarla de verdad implica reescribir esa pantalla. Mientras tanto se marca
+      // `adminOnly` para que solo la vea `admin` literal, igual que hoy — así no
+      // aparece un enlace de menú que apunte a una ruta que todavía lo rebotaría.
+      { path: '/appointments', label: 'Citas', description: 'Gestionar citas', Icon: Calendar, adminOnly: true },
+      {
+        path: '/clients',
+        label: 'Clientes',
+        description: 'Base de datos',
+        Icon: UsersRound,
+        permission: 'clients.view',
+      },
+      {
+        path: '/services',
+        label: 'Servicios',
+        description: 'Servicios y precios',
+        Icon: Scissors,
+        permission: 'services.manage',
+      },
+      {
+        path: '/barbers',
+        label: 'Barberos',
+        description: 'Equipo de trabajo',
+        Icon: UserCog,
+        permission: 'barbers.view',
+      },
     ],
   },
   {
@@ -63,8 +86,20 @@ const adminNavSections = [
     label: 'Comercial',
     items: [
       // Ventas va primero porque la valoración del cliente es posterior al cobro.
-      { path: '/payments', label: 'Ventas', description: 'Registro de ventas', Icon: CreditCard },
-      { path: '/testimonials', label: 'Satisfaccion', description: 'Valoraciones', Icon: Star },
+      {
+        path: '/payments',
+        label: 'Ventas',
+        description: 'Registro de ventas',
+        Icon: CreditCard,
+        permission: 'payments.view',
+      },
+      {
+        path: '/testimonials',
+        label: 'Satisfaccion',
+        description: 'Valoraciones',
+        Icon: Star,
+        permission: 'testimonials.manage',
+      },
       // [PENDIENTE-FIDELIZACION] Hueco reservado para el módulo de Fidelización de
       // clientes, que pertenece a este proceso. Hoy la lógica existe solo en backend
       // (services/clientLoyaltyRules.js y clientLoyaltyRewards.service.js) y se ve
@@ -80,8 +115,20 @@ const adminNavSections = [
       // "Gastos" es el nombre que usa la clienta para este proceso: son los gastos
       // que hace para llenar el inventario de insumos. Internamente el módulo sigue
       // siendo `purchases` (ruta /purchases), solo cambia la etiqueta visible.
-      { path: '/purchases', label: 'Gastos', description: 'Insumos y proveedores', Icon: ShoppingCart },
-      { path: '/inventory', label: 'Inventario', description: 'Stock y productos', Icon: Package },
+      {
+        path: '/purchases',
+        label: 'Gastos',
+        description: 'Insumos y proveedores',
+        Icon: ShoppingCart,
+        permission: 'purchases.view',
+      },
+      {
+        path: '/inventory',
+        label: 'Inventario',
+        description: 'Stock y productos',
+        Icon: Package,
+        permission: 'inventory.view',
+      },
       {
         path: '/loyalty',
         label: 'Fidelización',
@@ -198,23 +245,31 @@ export default function AdminLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = user?.role === 'admin';
+  const isBarber = user?.role === 'barber';
+  // La lista de barbero (Mis citas/Agenda/Historial) es fija y atada a ser barbero
+  // de verdad (usa `user.barberId`); todo lo demás — incluido un rol personalizado
+  // sin nombre "admin" — recibe la lista "admin", que luego se filtra por permiso.
   // Se ocultan los items que exigen un permiso que el usuario no tiene, y las
   // secciones que se quedan sin ningún item, para no dejar un encabezado huérfano.
   // Es solo cosmético: quien fuerce la URL se topa igualmente con ProtectedRoute y
   // con el backend.
   const navSections = useMemo(() => {
-    const base = isAdmin ? adminNavSections : barberNavSections;
+    const base = isBarber ? barberNavSections : adminNavSections;
     return base
       .map((section) => ({
         ...section,
-        items: section.items.filter(
-          (item) => !item.permission || (permissions ?? []).includes(item.permission)
-        ),
+        items: section.items.filter((item) => {
+          // `adminOnly` es para items cuya ruta todavía no migró a permisos
+          // (Citas: su lógica interna sigue atada a isAdmin/isBarber/isClient).
+          // Se mantienen visibles solo para `admin` literal, igual que antes.
+          if (item.adminOnly) return isAdmin;
+          return !item.permission || (permissions ?? []).includes(item.permission);
+        }),
       }))
       .filter((section) => section.items.length > 0);
     // Se depende de `permissions` y no del helper `can`, que se recrea en cada
     // render y haria inutil el memo.
-  }, [isAdmin, permissions]);
+  }, [isAdmin, isBarber, permissions]);
   const dashboardItem = isAdmin ? adminDashboardItem : barberDashboardItem;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);

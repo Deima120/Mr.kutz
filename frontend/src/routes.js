@@ -54,10 +54,10 @@ function page(Component) {
   return createElement(Component);
 }
 
-function protectedPage(Component, allowedRoles) {
+function protectedPage(Component, allowedRoles, anyPermission) {
   return createElement(
     ProtectedRoute,
-    { allowedRoles },
+    { allowedRoles, anyPermission },
     createElement(Component)
   );
 }
@@ -85,35 +85,45 @@ export default function AppRoutes() {
         { path: 'register', element: page(RegisterPage) },
         { path: 'forgot-password', element: page(ForgotPasswordPage) },
         { path: 'reservar', element: page(BookingPage) },
-        { path: 'clients', element: protectedPage(ClientsPage, ['admin']) },
-        { path: 'clients/new', element: protectedPage(ClientsPage, ['admin']) },
-        { path: 'clients/:id', element: protectedPage(ClientDetailPage, ['admin']) },
-        { path: 'clients/:id/edit', element: protectedPage(ClientsPage, ['admin']) },
-        { path: 'services', element: protectedPage(ServicesPage, ['admin']) },
-        { path: 'services/new', element: protectedPage(ServicesPage, ['admin']) },
+        // A partir de aquí, muchas rutas admiten un tercer argumento `anyPermission`:
+        // deja pasar a un rol personalizado que tenga ese permiso, aunque `user.role`
+        // no sea literalmente uno de los `allowedRoles`. No cambia nada para
+        // admin/barber/client, que siguen entrando por rol como siempre.
+        { path: 'clients', element: protectedPage(ClientsPage, ['admin'], ['clients.view', 'clients.manage']) },
+        { path: 'clients/new', element: protectedPage(ClientsPage, ['admin'], ['clients.view', 'clients.manage']) },
+        { path: 'clients/:id', element: protectedPage(ClientDetailPage, ['admin'], ['clients.view', 'clients.manage']) },
+        { path: 'clients/:id/edit', element: protectedPage(ClientsPage, ['admin'], ['clients.view', 'clients.manage']) },
+        { path: 'services', element: protectedPage(ServicesPage, ['admin'], ['services.manage']) },
+        { path: 'services/new', element: protectedPage(ServicesPage, ['admin'], ['services.manage']) },
         {
           path: 'services/categories',
           element: permissionPage(ServiceCategoriesPage, 'service_categories.manage'),
         },
-        { path: 'services/:id/edit', element: protectedPage(ServicesPage, ['admin']) },
-        { path: 'barbers', element: protectedPage(BarbersPage, ['admin']) },
-        { path: 'barbers/new', element: protectedPage(BarbersPage, ['admin']) },
-        { path: 'barbers/:id/schedules', element: protectedPage(BarberSchedulesPage, ['admin']) },
-        { path: 'barbers/:id/edit', element: protectedPage(BarbersPage, ['admin']) },
+        { path: 'services/:id/edit', element: protectedPage(ServicesPage, ['admin'], ['services.manage']) },
+        { path: 'barbers', element: protectedPage(BarbersPage, ['admin'], ['barbers.view', 'barbers.manage']) },
+        { path: 'barbers/new', element: protectedPage(BarbersPage, ['admin'], ['barbers.view', 'barbers.manage']) },
+        {
+          path: 'barbers/:id/schedules',
+          element: protectedPage(BarberSchedulesPage, ['admin'], ['barbers.schedules.manage', 'barbers.manage']),
+        },
+        { path: 'barbers/:id/edit', element: protectedPage(BarbersPage, ['admin'], ['barbers.view', 'barbers.manage']) },
         { path: 'appointments', element: protectedPage(AppointmentsPage, ['admin', 'barber', 'client']) },
         { path: 'appointments/new', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         { path: 'appointments/:id/edit', element: protectedPage(AppointmentsPage, ['admin', 'client']) },
         // Destino del botón "Dejar mi valoración" del correo de cita completada.
         { path: 'appointments/:id/valorar', element: protectedPage(AppointmentsPage, ['client']) },
-        { path: 'payments', element: protectedPage(PaymentsPage, ['admin']) },
-        { path: 'purchases', element: protectedPage(PurchasesPage, ['admin']) },
+        { path: 'payments', element: protectedPage(PaymentsPage, ['admin'], ['payments.view', 'payments.manage']) },
+        { path: 'purchases', element: protectedPage(PurchasesPage, ['admin'], ['purchases.view', 'purchases.manage']) },
         { path: 'suppliers', element: createElement(Navigate, { to: '/purchases?tab=suppliers', replace: true }) },
-        { path: 'payments/new', element: protectedPage(PaymentsPage, ['admin']) },
-        { path: 'inventory', element: protectedPage(InventoryPage, ['admin']) },
-        { path: 'inventory/new', element: protectedPage(InventoryPage, ['admin']) },
-        { path: 'inventory/categories', element: protectedPage(ProductCategoriesPage, ['admin']) },
-        { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin']) },
-        { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin']) },
+        { path: 'payments/new', element: protectedPage(PaymentsPage, ['admin'], ['payments.view', 'payments.manage']) },
+        { path: 'inventory', element: protectedPage(InventoryPage, ['admin'], ['inventory.view', 'inventory.manage']) },
+        { path: 'inventory/new', element: protectedPage(InventoryPage, ['admin'], ['inventory.view', 'inventory.manage']) },
+        {
+          path: 'inventory/categories',
+          element: protectedPage(ProductCategoriesPage, ['admin'], ['product_categories.manage']),
+        },
+        { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin'], ['inventory.view', 'inventory.manage']) },
+        { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin'], ['inventory.view', 'inventory.manage']) },
         { path: 'profile', element: protectedPage(ProfilePage, ['client']) },
         { path: 'loyalty', element: permissionPage(LoyaltyPage, 'loyalty.view') },
         { path: 'users', element: permissionPage(UsersPage, 'users.view') },
@@ -124,7 +134,7 @@ export default function AppRoutes() {
         // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Reportes/Caja oculto de la vista del usuario.
         // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
         // { path: 'reports', element: protectedPage(ReportsPage, ['admin']) },
-        { path: 'testimonials', element: protectedPage(TestimonialsPage, ['admin']) },
+        { path: 'testimonials', element: protectedPage(TestimonialsPage, ['admin'], ['testimonials.manage']) },
         { path: '*', element: page(NotFoundPage) },
       ],
     },
