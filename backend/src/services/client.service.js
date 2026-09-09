@@ -51,10 +51,6 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
         notes: true,
         isActive: true,
         createdAt: true,
-        // Rol de la cuenta vinculada, si tiene una: lo necesita la pantalla
-        // para mostrar el selector de "Cambiar rol" o, si no hay cuenta,
-        // explicar por qué no se puede.
-        user: { select: { roleId: true, role: { select: { name: true } } } },
       },
     }),
     prisma.client.count({ where }),
@@ -88,8 +84,6 @@ export const getAll = async ({ search, document, limit = 50, offset = 0 }) => {
     is_active: c.isActive,
     no_show_count: noShowByClient.get(c.id) ?? 0,
     created_at: c.createdAt,
-    role_id: c.user?.roleId ?? null,
-    role_name: c.user?.role?.name ?? null,
   }));
   return { clients: mapped, total, limit, offset };
 };

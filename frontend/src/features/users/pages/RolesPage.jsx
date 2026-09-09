@@ -22,6 +22,7 @@ import { FieldErrorMessage } from '@/shared/components/FormValidationFields';
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { getApiErrorMessage, validateRoleForm } from '@/shared/utils/formValidation';
+import { formatRoleLabel } from '@/shared/utils/roleLabels';
 import * as roleService from '@/features/users/services/roleService';
 
 const FORM_VACIO = { name: '', description: '', permissions: [] };
@@ -169,7 +170,7 @@ export default function RolesPage() {
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 font-medium text-stone-900">
-                    <span className="truncate">{rol.name}</span>
+                    <span className="truncate">{formatRoleLabel(rol.name)}</span>
                     {rol.is_system ? (
                       <Lock className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-label="Rol del sistema" />
                     ) : null}
@@ -209,7 +210,7 @@ export default function RolesPage() {
       <AdminModalShell
         open={editando !== null}
         size="lg"
-        title={editando?.id ? `Editar rol: ${editando.name}` : 'Nuevo rol'}
+        title={editando?.id ? `Editar rol: ${formatRoleLabel(editando.name)}` : 'Nuevo rol'}
         subtitle="Marca únicamente lo que este rol necesita. Se puede ajustar después."
         onClose={() => {
           if (!guardando) setEditando(null);
@@ -326,7 +327,7 @@ export default function RolesPage() {
         description={
           deleteTarget ? (
             <>
-              Se eliminará el rol <strong className="text-stone-800">{deleteTarget.name}</strong>. Si
+              Se eliminará el rol <strong className="text-stone-800">{formatRoleLabel(deleteTarget.name)}</strong>. Si
               todavía hay usuarios con él, habrá que cambiarles el rol primero.
             </>
           ) : null
