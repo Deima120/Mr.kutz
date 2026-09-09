@@ -479,6 +479,19 @@ export default function UsersPage() {
       </div>
 
       <DataCard compact>
+        <AdminPagination
+          idPrefix="users-admin"
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          itemLabel="usuarios"
+          showSummary
+          layout="bar"
+          className="mb-3"
+        />
         {loading ? (
           <div className="py-10 text-center text-sm text-stone-500">Cargando…</div>
         ) : users.length === 0 ? (
@@ -597,18 +610,6 @@ export default function UsersPage() {
             </TableBody>
           </Table>
         )}
-        <AdminPagination
-          idPrefix="users-admin"
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          pageSizeOptions={PAGE_SIZE_OPTIONS}
-          itemLabel="usuarios"
-          showSummary
-          layout="bar"
-        />
       </DataCard>
 
       <AdminModalShell
