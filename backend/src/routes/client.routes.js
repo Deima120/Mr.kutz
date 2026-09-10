@@ -69,6 +69,13 @@ const listValidation = [
 ];
 
 router.use(auth);
+
+// Autoservicio: el propio cliente consulta SUS recompensas, resueltas por
+// `req.user.client_id` (nunca por un id que venga del cliente) — por eso vive
+// antes de la puerta `clients.view`/`clients.manage` de abajo, que un cliente
+// no tiene. Mismo patrón que `appointments.view.own` en appointment.routes.js.
+router.get('/me/loyalty', requirePermission('loyalty.view.own'), clientController.getMyLoyalty);
+
 // Entrar exige poder consultar el modulo; escribir exige poder gestionarlo.
 // Sustituye al antiguo authorize('admin'): ahora un rol nuevo de solo lectura
 // (p. ej. Contador) puede consultar sin poder modificar nada.

@@ -178,3 +178,23 @@ export const getLoyaltyProgress = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/clients/me/loyalty
+ * Autoservicio: las recompensas SIN CANJEAR del cliente autenticado — para
+ * avisarle en el panel que ya ganó un premio, algo que hasta ahora solo veía
+ * el mostrador. El id sale de `req.user.client_id` (nunca de un parámetro),
+ * así que un cliente jamás puede pedir las recompensas de otro.
+ */
+export const getMyLoyalty = async (req, res, next) => {
+  try {
+    const clientId = req.user?.client_id;
+    if (!clientId) {
+      return res.status(403).json({ success: false, message: 'Esta cuenta no tiene ficha de cliente.' });
+    }
+    const pending = await getPendingLoyaltyRewards(clientId);
+    res.json({ success: true, data: pending });
+  } catch (error) {
+    next(error);
+  }
+};

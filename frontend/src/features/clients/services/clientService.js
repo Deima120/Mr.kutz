@@ -43,6 +43,14 @@ export const getClientLoyaltyProgress = async (id) => {
   return res?.data ?? res;
 };
 
+/** Autoservicio: recompensas sin canjear del cliente autenticado (no admin). */
+export const getMyLoyalty = async () => {
+  const response = await api.get(`${CLIENTS_BASE}/me/loyalty`);
+  const res = response?.data ?? response;
+  const data = res?.data ?? res;
+  return Array.isArray(data) ? data : [];
+};
+
 export const createClient = async (data) => {
   const response = await api.post(CLIENTS_BASE, data);
   const res = response?.data ?? response;

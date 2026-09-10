@@ -28,6 +28,7 @@ import { AppointmentNoteBlock, AppointmentNoteEllipsis } from '@/shared/componen
 import AppointmentForm from '@/features/appointments/components/AppointmentForm';
 import AppointmentActionToggles from '@/features/appointments/components/AppointmentActionToggles';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
+import ClientLoyaltyBanner from '@/features/loyalty/components/ClientLoyaltyBanner';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
 import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 import { useAppToast } from '@/shared/feedback/ToastContext';
@@ -840,6 +841,8 @@ export default function AppointmentsPage() {
               Agendar nueva cita
             </button>
           </header>
+
+          <ClientLoyaltyBanner />
 
           {atPendingLimit && (
             <div
