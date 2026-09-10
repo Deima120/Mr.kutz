@@ -455,9 +455,12 @@ function AdminDashboard() {
                   formatValue={formatMoney}
                   emptyText="Sin ventas en el periodo"
                   extraNote={
+                    // Siempre se muestra el total: además de informar, ancla la
+                    // tarjeta al fondo cuando el grid la agranda para igualar
+                    // la altura de una vecina más alta.
                     Number(stats.revenueMix?.manual ?? 0) > 0
-                      ? `Incluye ${formatMoney(stats.revenueMix.manual)} en cobros manuales`
-                      : null
+                      ? `Total: ${formatMoney(stats.revenueMix?.total)} (incluye ${formatMoney(stats.revenueMix.manual)} en cobros manuales)`
+                      : `Total facturado en el periodo: ${formatMoney(stats.revenueMix?.total)}`
                   }
                 />
               </DashboardChartPanel>

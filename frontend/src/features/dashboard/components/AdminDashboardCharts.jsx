@@ -159,7 +159,11 @@ function KpiFigure({ label, value, tone = 'stone', hint }) {
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-medium text-stone-500">{label}</p>
-      <p className={`truncate font-serif text-xl font-medium tabular-nums ${TONES[tone] || TONES.stone}`}>
+      {/* Nunca truncar dinero: un "$1.996...." con puntos suspensivos oculta el
+          monto real. Se permite partir la línea (break-words) en vez de eso. */}
+      <p
+        className={`break-words font-serif text-lg font-medium leading-tight tabular-nums sm:text-xl ${TONES[tone] || TONES.stone}`}
+      >
         {value}
       </p>
       {hint ? <p className="mt-0.5 text-[11px] text-stone-500">{hint}</p> : null}
@@ -168,35 +172,45 @@ function KpiFigure({ label, value, tone = 'stone', hint }) {
 }
 
 /**
+ * Altura reservada para el área de barras verticales de BalanceChart, en
+ * píxeles. Se calcula en JS (no en %) a propósito: las barras viven dentro de
+ * una fila `items-end` cuyos hijos no se estiran a una altura definida, así
+ * que una altura en `%` no tiene contra qué resolverse y termina en 0 (barras
+ * invisibles). Con píxeles no hay ambigüedad.
+ */
+const BALANCE_BAR_AREA_PX = 84;
+
+/**
  * Balance del periodo: lo que entró por ventas frente a lo que se comprometió
  * en gastos, y la diferencia entre ambos.
  */
 export function BalanceChart({ income, expenses, difference, formatMoney, expensesCount }) {
   const max = Math.max(Number(income || 0), Number(expenses || 0), 1);
-  const incomeH = Math.max(6, Math.round((Number(income || 0) / max) * 100));
-  const expensesH = Math.max(6, Math.round((Number(expenses || 0) / max) * 100));
+  const incomeH = Math.max(6, Math.round((Number(income || 0) / max) * BALANCE_BAR_AREA_PX));
+  const expensesH = Math.max(6, Math.round((Number(expenses || 0) / max) * BALANCE_BAR_AREA_PX));
   const positive = Number(difference || 0) >= 0;
 
   return (
-    <div className="flex h-full flex-col justify-between gap-4">
-      <div className="flex items-end gap-4">
-        <div className="flex h-28 flex-1 items-end gap-4">
-          <div className="flex flex-1 flex-col items-center gap-2">
-            <div
-              className="w-full max-w-[3rem] rounded-t-lg bg-gradient-to-t from-emerald-700 via-emerald-600 to-emerald-400 shadow-sm"
-              style={{ height: `${incomeH}%` }}
-              aria-hidden
-            />
-            <span className="text-[11px] font-medium text-stone-600">Ingresos</span>
-          </div>
-          <div className="flex flex-1 flex-col items-center gap-2">
-            <div
-              className="w-full max-w-[3rem] rounded-t-lg bg-gradient-to-t from-rose-700 via-rose-600 to-rose-400 shadow-sm"
-              style={{ height: `${expensesH}%` }}
-              aria-hidden
-            />
-            <span className="text-[11px] font-medium text-stone-600">Gastos</span>
-          </div>
+    <div className="flex h-full flex-col gap-4">
+      <div
+        className="flex items-end justify-center gap-6"
+        style={{ height: `${BALANCE_BAR_AREA_PX}px` }}
+      >
+        <div className="flex w-16 flex-col items-center">
+          <div
+            className="w-full max-w-[3rem] rounded-t-lg bg-gradient-to-t from-emerald-700 via-emerald-600 to-emerald-400 shadow-sm transition-all duration-500"
+            style={{ height: `${incomeH}px` }}
+            title={`Ingresos: ${formatMoney(income)}`}
+            aria-label={`Ingresos: ${formatMoney(income)}`}
+          />
+        </div>
+        <div className="flex w-16 flex-col items-center">
+          <div
+            className="w-full max-w-[3rem] rounded-t-lg bg-gradient-to-t from-rose-700 via-rose-600 to-rose-400 shadow-sm transition-all duration-500"
+            style={{ height: `${expensesH}px` }}
+            title={`Gastos: ${formatMoney(expenses)}`}
+            aria-label={`Gastos: ${formatMoney(expenses)}`}
+          />
         </div>
       </div>
 
@@ -210,8 +224,13 @@ export function BalanceChart({ income, expenses, difference, formatMoney, expens
         />
       </div>
 
+      {/* Ancorada al fondo con mt-auto: si el grid estira esta tarjeta para
+          igualar la altura de una vecina más alta, todo el espacio sobrante
+          se concentra aquí en un único hueco, en vez de repartirse en varios
+          huecos sueltos entre bloques (que es lo que se veía como "espacio
+          vacío" sin usar). */}
       <div
-        className={`rounded-xl border px-3 py-2.5 ${
+        className={`mt-auto rounded-xl border px-3 py-2.5 ${
           positive
             ? 'border-emerald-200 bg-emerald-50/70'
             : 'border-rose-200 bg-rose-50/70'
@@ -219,7 +238,7 @@ export function BalanceChart({ income, expenses, difference, formatMoney, expens
       >
         <p className="text-[11px] font-medium text-stone-600">Diferencia</p>
         <p
-          className={`font-serif text-2xl font-medium tabular-nums ${
+          className={`break-words font-serif text-xl font-medium tabular-nums sm:text-2xl ${
             positive ? 'text-emerald-700' : 'text-rose-700'
           }`}
         >
@@ -250,7 +269,7 @@ export function SplitCompositionChart({
   }
 
   return (
-    <div className="flex h-full flex-col justify-between gap-4">
+    <div className="flex h-full flex-col gap-4">
       <div className="flex h-4 w-full overflow-hidden rounded-full bg-stone-100">
         <div
           className="h-full bg-gradient-to-r from-gold-dark via-gold to-gold-light transition-all duration-500"
@@ -264,37 +283,52 @@ export function SplitCompositionChart({
         />
       </div>
 
+      {/* min-w-0 + break-words: en la tarjeta más angosta (4 columnas en
+          escritorio) un monto largo como "$1.682.000" es una sola cadena sin
+          espacios que no puede ajustarse por sí sola y se desborda sobre la
+          columna vecina. Con break-words parte de línea en vez de invadirla. */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
-            <span className="inline-block h-2 w-2 rounded-full bg-gold" aria-hidden />
-            {primaryLabel}
+            <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-gold" aria-hidden />
+            <span className="truncate">{primaryLabel}</span>
           </p>
-          <p className="font-serif text-xl font-medium tabular-nums text-stone-900">
+          <p className="break-words font-serif text-lg font-medium leading-tight tabular-nums text-stone-900 sm:text-xl">
             {formatValue(primaryValue)}
           </p>
           <p className="text-[11px] text-stone-500">{primaryPct}% del total</p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
-            <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" aria-hidden />
-            {secondaryLabel}
+            <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-hidden />
+            <span className="truncate">{secondaryLabel}</span>
           </p>
-          <p className="font-serif text-xl font-medium tabular-nums text-stone-900">
+          <p className="break-words font-serif text-lg font-medium leading-tight tabular-nums text-stone-900 sm:text-xl">
             {formatValue(secondaryValue)}
           </p>
           <p className="text-[11px] text-stone-500">{secondaryPct}% del total</p>
         </div>
       </div>
 
+      {/* Ancorada al fondo: concentra en un único hueco el espacio que el
+          grid añade para igualar la altura de la tarjeta más alta de la fila. */}
       {extraNote ? (
-        <p className="border-t border-dashed border-stone-200 pt-2 text-[11px] text-stone-500">
+        <p className="mt-auto border-t border-dashed border-stone-200 pt-2 text-[11px] text-stone-500">
           {extraNote}
         </p>
       ) : null}
     </div>
   );
 }
+
+/**
+ * Alto del área de barras de RevenueTrendChart, en píxeles. Igual que en
+ * BalanceChart: las columnas viven en una fila `items-end` que no las
+ * estira a una altura definida, así que la altura de cada barra se calcula
+ * en JS (px) en vez de en `%` — un `%` ahí no resuelve contra nada y la
+ * barra queda invisible.
+ */
+const REVENUE_BAR_AREA_PX = 168;
 
 /** Serie de barras verticales con el ingreso de cada día del periodo. */
 export function RevenueTrendChart({ data, formatMoney, emptyText = 'Sin ventas en el periodo' }) {
@@ -315,35 +349,44 @@ export function RevenueTrendChart({ data, formatMoney, emptyText = 'Sin ventas e
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative h-48 sm:h-56">
+      <div className="relative" style={{ height: `${REVENUE_BAR_AREA_PX}px` }}>
         <ChartGridLines />
         <div className="absolute inset-0 flex items-end gap-1 px-0.5 pb-0">
           {rows.map((d, idx) => {
-            const height = Math.max(2, Math.round((Number(d.total || 0) / max) * 100));
+            const height = Math.max(2, Math.round((Number(d.total || 0) / max) * REVENUE_BAR_AREA_PX));
             const isBest = best && d.date === best.date && Number(d.total) > 0;
             return (
-              <div key={d.date} className="flex min-w-0 flex-1 flex-col items-center justify-end">
+              <div key={d.date} className="flex min-w-0 flex-1 flex-col items-end">
                 <div
                   className={`w-full rounded-t-md transition-all duration-500 ${
                     isBest
                       ? 'bg-gradient-to-t from-gold-dark via-gold to-gold-light shadow-sm'
                       : 'bg-gradient-to-t from-stone-400/90 to-stone-300/80 hover:from-gold-dark hover:to-gold-light'
                   }`}
-                  style={{ height: `${height}%` }}
+                  style={{ height: `${height}px` }}
                   title={`${d.label}: ${formatMoney(d.total)}`}
                   aria-label={`${d.label}: ${formatMoney(d.total)}`}
                 />
-                <span
-                  className={`mt-1.5 w-full truncate text-center text-[10px] text-stone-500 ${
-                    idx % labelStep === 0 ? '' : 'invisible'
-                  }`}
-                >
-                  {d.label}
-                </span>
               </div>
             );
           })}
         </div>
+      </div>
+
+      {/* Las etiquetas de día se sacaron del contenedor de altura fija de las
+          barras: iban dentro de la columna `justify-end`, que tampoco se
+          estira, y quedaban recortadas contra el borde inferior. */}
+      <div className="mt-1.5 flex gap-1 px-0.5">
+        {rows.map((d, idx) => (
+          <span
+            key={d.date}
+            className={`w-full min-w-0 truncate text-center text-[10px] text-stone-500 ${
+              idx % labelStep === 0 ? '' : 'invisible'
+            }`}
+          >
+            {d.label}
+          </span>
+        ))}
       </div>
 
       {best ? (
