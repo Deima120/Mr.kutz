@@ -17,8 +17,13 @@ import LoyaltyRecentGrantsCard from '@/features/loyalty/components/LoyaltyRecent
 import AppointmentRatingsPanel from '@/shared/components/admin/AppointmentRatingsPanel';
 import { AdminFilterRow, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import {
-  DualBarKpiChart,
+  AgendaHealthChart,
+  BalanceChart,
+  BarberRatingRanking,
   HorizontalBarsChart,
+  RatingsSummaryChart,
+  RevenueTrendChart,
+  SplitCompositionChart,
   TodayAppointmentsRing,
 } from '@/features/dashboard/components/AdminDashboardCharts';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
@@ -412,114 +417,106 @@ function AdminDashboard() {
 
       {!statsLoading && stats && (
         <>
+          {/* Fila 1 — Los cuatro indicadores de negocio del periodo. */}
           <div className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {(() => {
-              const kpiRevenue = Number(stats.sales?.total ?? 0);
-              const kpiCompleted = Number(stats.appointments?.completed ?? 0);
-              const kpiPending = Number(stats.appointments?.pending ?? 0);
-              const kpiClients = Number(stats.totalClients ?? 0);
-              const kpiApptTotal = Number(stats.appointments?.total ?? 0);
-              const kpiLowStock = Number(stats.lowStockCount ?? 0);
-              const kpiTrans = Number(stats.sales?.count ?? 0);
+            <DashboardCard
+              eyebrow="Resultado"
+              eyebrowTone="gold"
+              title="Balance del periodo"
+              subtitle={`${Number(stats.sales?.count ?? 0)} ventas registradas`}
+              variant="soft"
+            >
+              <DashboardChartPanel className="h-full">
+                <BalanceChart
+                  income={stats.balance?.income}
+                  expenses={stats.balance?.expenses}
+                  difference={stats.balance?.difference}
+                  expensesCount={stats.balance?.expensesCount}
+                  formatMoney={formatMoney}
+                />
+              </DashboardChartPanel>
+            </DashboardCard>
 
-              return (
-                <>
-                  <DashboardCard
-                    eyebrow="Ingresos"
-                    eyebrowTone="gold"
-                    title="Ventas totales"
-                    subtitle={`${kpiTrans} transacciones`}
-                    variant="soft"
-                  >
-                    <DashboardChartPanel>
-                      <DualBarKpiChart
-                        leftLabel="Ingresos"
-                        leftValue={kpiRevenue}
-                        leftValueText={formatMoney(kpiRevenue)}
-                        rightLabel="Transacciones"
-                        rightValue={kpiTrans}
-                        rightValueText={String(kpiTrans)}
-                        leftTone="gold"
-                        rightTone="indigo"
-                      />
-                    </DashboardChartPanel>
-                  </DashboardCard>
+            <DashboardCard
+              eyebrow="Ingresos"
+              eyebrowTone="indigo"
+              title="Origen del ingreso"
+              subtitle="Servicios frente a productos"
+              variant="soft"
+            >
+              <DashboardChartPanel className="h-full">
+                <SplitCompositionChart
+                  primaryLabel="Servicios"
+                  primaryValue={stats.revenueMix?.services}
+                  primaryPct={stats.revenueMix?.servicesPct}
+                  secondaryLabel="Productos"
+                  secondaryValue={stats.revenueMix?.products}
+                  secondaryPct={stats.revenueMix?.productsPct}
+                  formatValue={formatMoney}
+                  emptyText="Sin ventas en el periodo"
+                  extraNote={
+                    Number(stats.revenueMix?.manual ?? 0) > 0
+                      ? `Incluye ${formatMoney(stats.revenueMix.manual)} en cobros manuales`
+                      : null
+                  }
+                />
+              </DashboardChartPanel>
+            </DashboardCard>
 
-                  <DashboardCard
-                    eyebrow="Agenda"
-                    eyebrowTone="emerald"
-                    title="Citas"
-                    subtitle={`${kpiPending} pendientes`}
-                    variant="soft"
-                  >
-                    <DashboardChartPanel>
-                      <DualBarKpiChart
-                        leftLabel="Completadas"
-                        leftValue={kpiCompleted}
-                        leftValueText={String(kpiCompleted)}
-                        rightLabel="Pendientes"
-                        rightValue={kpiPending}
-                        rightValueText={String(kpiPending)}
-                        leftTone="emerald"
-                        rightTone="amber"
-                      />
-                    </DashboardChartPanel>
-                  </DashboardCard>
+            <DashboardCard
+              eyebrow="Clientes"
+              eyebrowTone="violet"
+              title="Nuevos y recurrentes"
+              subtitle="Atendidos en el periodo"
+              variant="soft"
+            >
+              <DashboardChartPanel className="h-full">
+                <SplitCompositionChart
+                  primaryLabel="Nuevos"
+                  primaryValue={stats.clientsMix?.new}
+                  primaryPct={stats.clientsMix?.newPct}
+                  secondaryLabel="Recurrentes"
+                  secondaryValue={stats.clientsMix?.returning}
+                  secondaryPct={Math.max(0, 100 - Number(stats.clientsMix?.newPct ?? 0))}
+                  formatValue={(v) => String(Number(v ?? 0))}
+                  emptyText="Sin clientes atendidos en el periodo"
+                  extraNote={`${Number(stats.clientsMix?.attended ?? 0)} clientes distintos atendidos`}
+                />
+              </DashboardChartPanel>
+            </DashboardCard>
 
-                  <DashboardCard
-                    eyebrow="Base"
-                    eyebrowTone="violet"
-                    title="Clientes"
-                    subtitle="Totales del periodo"
-                    variant="soft"
-                  >
-                    <DashboardChartPanel>
-                      <DualBarKpiChart
-                        leftLabel="Clientes"
-                        leftValue={kpiClients}
-                        leftValueText={String(kpiClients)}
-                        rightLabel="Citas"
-                        rightValue={kpiApptTotal}
-                        rightValueText={String(kpiApptTotal)}
-                        leftTone="violet"
-                        rightTone="sky"
-                      />
-                    </DashboardChartPanel>
-                  </DashboardCard>
-
-                  <DashboardCard
-                    eyebrow="Inventario"
-                    eyebrowTone="rose"
-                    title="Stock"
-                    subtitle="Productos en riesgo"
-                    variant="soft"
-                    footer={
-                      kpiLowStock > 0 ? (
-                        <Link to="/inventory?lowStock=true" className="text-xs font-semibold text-rose-600 hover:text-rose-700">
-                          Ver inventario con stock bajo
-                        </Link>
-                      ) : null
-                    }
-                  >
-                    <DashboardChartPanel>
-                      <DualBarKpiChart
-                        leftLabel="Stock bajo"
-                        leftValue={kpiLowStock}
-                        leftValueText={String(kpiLowStock)}
-                        rightLabel="Alerta"
-                        rightValue={kpiLowStock > 0 ? 1 : 0}
-                        rightValueText={kpiLowStock > 0 ? 'Sí' : 'No'}
-                        leftTone="rose"
-                        rightTone="cyan"
-                      />
-                    </DashboardChartPanel>
-                  </DashboardCard>
-                </>
-              );
-            })()}
+            <DashboardCard
+              eyebrow="Agenda"
+              eyebrowTone="emerald"
+              title="Cumplimiento"
+              subtitle={`${Number(stats.agenda?.completionRate ?? 0)}% de citas completadas`}
+              variant="soft"
+            >
+              <DashboardChartPanel className="h-full">
+                <AgendaHealthChart
+                  completed={stats.agenda?.completed}
+                  pending={stats.agenda?.pending}
+                  cancelled={stats.agenda?.cancelled}
+                  noShow={stats.agenda?.noShow}
+                  total={stats.agenda?.total}
+                />
+              </DashboardChartPanel>
+            </DashboardCard>
           </div>
 
+          {/* Fila 2 — Evolución de las ventas y foto del día. */}
           <div className="grid gap-5 lg:grid-cols-12">
+            <DashboardCard
+              className="lg:col-span-8"
+              title="Evolución de los ingresos"
+              subtitle="Ventas de cada día del periodo"
+              variant="chart"
+            >
+              <DashboardChartPanel className="min-h-[18rem]">
+                <RevenueTrendChart data={stats.revenueByDay} formatMoney={formatMoney} />
+              </DashboardChartPanel>
+            </DashboardCard>
+
             <DashboardCard
               className="lg:col-span-4"
               title="Citas de hoy"
@@ -539,40 +536,111 @@ function AdminDashboard() {
                 </DashboardChartPanel>
               )}
             </DashboardCard>
+          </div>
+
+          {/* Fila 3 — Qué deja más plata. */}
+          <DashboardCard
+            title="Rendimiento del periodo"
+            subtitle="Lo que más ingreso genera, no solo lo que más se pide"
+            variant="chart"
+          >
+            <div className="grid gap-5 lg:grid-cols-2">
+              <DashboardChartPanel className="min-h-[18rem]">
+                <HorizontalBarsChart
+                  title="Servicios más rentables"
+                  subtitle="Top por ingreso generado"
+                  emptyText="Sin servicios cobrados en el periodo"
+                  items={(stats.topServicesByRevenue || []).map((s) => ({
+                    label: s.name,
+                    count: s.revenue,
+                    note: `${s.count} ${s.count === 1 ? 'servicio cobrado' : 'servicios cobrados'}`,
+                  }))}
+                  formatValue={(it) => formatMoney(it.count)}
+                />
+              </DashboardChartPanel>
+
+              <DashboardChartPanel className="min-h-[18rem]">
+                <HorizontalBarsChart
+                  title="Productos más vendidos"
+                  subtitle="Top por unidades vendidas"
+                  emptyText="Sin productos vendidos en el periodo"
+                  items={(stats.topProducts || []).map((p) => ({
+                    label: p.name,
+                    count: p.quantity,
+                    note: `${formatMoney(p.revenue)} en ventas`,
+                  }))}
+                  valueSuffix="uds."
+                />
+              </DashboardChartPanel>
+            </div>
+          </DashboardCard>
+
+          {/* Fila 4 — Satisfacción del cliente y desempeño del equipo. */}
+          <div className="grid gap-5 lg:grid-cols-12">
+            <DashboardCard
+              className="lg:col-span-5"
+              eyebrow="Satisfacción"
+              eyebrowTone="gold"
+              title="Valoración de los clientes"
+              subtitle="Citas completadas y valoradas en el periodo"
+              variant="soft"
+            >
+              <DashboardChartPanel className="h-full">
+                <RatingsSummaryChart
+                  average={stats.ratings?.average}
+                  count={stats.ratings?.count}
+                  distribution={stats.ratings?.distribution}
+                />
+              </DashboardChartPanel>
+            </DashboardCard>
 
             <DashboardCard
-              className="lg:col-span-8"
-              title="Destacados del periodo"
-              subtitle="Servicios y barberos con más citas"
-              variant="chart"
+              className="lg:col-span-7"
+              eyebrow="Equipo"
+              eyebrowTone="emerald"
+              title="Desempeño de los barberos"
+              subtitle="Calificación promedio recibida en el periodo"
+              variant="soft"
             >
-              <div className="grid gap-5 lg:grid-cols-2">
-                <DashboardChartPanel className="min-h-[18rem]">
-                  <HorizontalBarsChart
-                    title="Servicios más solicitados"
-                    subtitle="Top por cantidad de citas"
-                    emptyText="Sin datos en el periodo"
-                    items={(stats.topServices || []).map((s) => ({
-                      label: s.name,
-                      count: s.count,
-                    }))}
-                  />
-                </DashboardChartPanel>
-
-                <DashboardChartPanel className="min-h-[18rem]">
-                  <HorizontalBarsChart
-                    title="Barberos más activos"
-                    subtitle="Top por cantidad de citas"
-                    emptyText="Sin datos en el periodo"
-                    items={(stats.topBarbers || []).map((b) => ({
-                      label: `${b.first_name} ${b.last_name}`.trim(),
-                      count: b.count,
-                    }))}
-                  />
-                </DashboardChartPanel>
-              </div>
+              <DashboardChartPanel className="h-full">
+                <BarberRatingRanking items={stats.barberRatings} />
+              </DashboardChartPanel>
             </DashboardCard>
           </div>
+
+          {/* Stock bajo: antes era un gráfico de dos barras que comparaba el
+              conteo contra un "Sí/No". Ahora es la lista de lo que falta, que es
+              lo accionable. */}
+          {Number(stats.lowStockCount ?? 0) > 0 && (
+            <DashboardCard
+              eyebrow="Inventario"
+              eyebrowTone="rose"
+              title="Productos en riesgo de agotarse"
+              subtitle={`${stats.lowStockCount} ${Number(stats.lowStockCount) === 1 ? 'producto está' : 'productos están'} en su mínimo o por debajo`}
+              variant="soft"
+              footer={
+                <Link
+                  to="/inventory?lowStock=true"
+                  className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                >
+                  Ver inventario con stock bajo
+                </Link>
+              }
+            >
+              <ul className="divide-y divide-stone-100">
+                {(stats.lowStockAlerts || []).slice(0, 5).map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="truncate text-sm text-stone-700">{p.name}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-stone-500">
+                      <span className="font-semibold text-rose-600">{Number(p.quantity ?? 0)}</span>
+                      {' / '}
+                      {Number(p.min_stock ?? 0)} mín.
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </DashboardCard>
+          )}
         </>
       )}
 
