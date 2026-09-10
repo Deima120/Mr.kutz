@@ -372,15 +372,18 @@ export default function ClientsPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHead>
-                  <TableHeader>Nombre</TableHeader>
                   <TableHeader>Documento</TableHeader>
-                  <TableHeader>Correo</TableHeader>
+                  <TableHeader>Nombre</TableHeader>
                   <TableHeader>Teléfono</TableHeader>
-                  <TableHeader>Acciones</TableHeader>
+                  <TableHeader>Correo</TableHeader>
+                  <TableHeader className="text-right">Acciones</TableHeader>
                 </TableHead>
                 <TableBody>
                   {clients.map((client) => (
                     <TableRow key={client.id}>
+                      <TableCell className="text-xs text-stone-600 font-medium whitespace-nowrap">
+                        {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <Link
@@ -409,12 +412,9 @@ export default function ClientsPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-stone-600 font-medium whitespace-nowrap">
-                        {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
-                      </TableCell>
-                      <TableCell className="text-xs font-semibold text-stone-700">{client.email || '-'}</TableCell>
                       <TableCell className="text-xs font-semibold text-stone-700">{client.phone || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-xs font-semibold text-stone-700">{client.email || '-'}</TableCell>
+                      <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1.5">
                           <AdminIconButton
                             icon={Eye}
