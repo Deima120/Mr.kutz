@@ -154,18 +154,23 @@ export const getStats = async (dateFrom, dateTo) => {
   const revenueMix = buildRevenueMix(revenueMixRows);
 
   // --- Ingresos por día ----------------------------------------------------
+  // Se lleva también el número de ventas de cada día: el panel deja seleccionar
+  // un día del gráfico y necesita algo más que el monto para dar contexto.
   const rangeDays = daysOfRange(from, to);
   const dayTotals = Object.fromEntries(rangeDays.map((d) => [d, 0]));
+  const dayCounts = Object.fromEntries(rangeDays.map((d) => [d, 0]));
   paymentsForSeries.forEach((p) => {
     const key = formatInstantYmdInColombia(p.createdAt);
     if (Object.prototype.hasOwnProperty.call(dayTotals, key)) {
       dayTotals[key] += Number(p.amount);
+      dayCounts[key] += 1;
     }
   });
   const revenueByDay = rangeDays.map((date) => ({
     date,
     label: dayLabel(date),
     total: round2(dayTotals[date]),
+    count: dayCounts[date],
   }));
 
   // --- Cumplimiento de la agenda ------------------------------------------

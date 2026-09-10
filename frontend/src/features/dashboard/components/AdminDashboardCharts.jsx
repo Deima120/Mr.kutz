@@ -2,6 +2,7 @@
  * Gráficos del panel de administración (sin librerías externas).
  */
 
+import { useState } from 'react';
 import { Star } from 'lucide-react';
 import { TodayAppointmentsRing } from './BarberDashboardCharts';
 
@@ -148,97 +149,133 @@ export function HorizontalBarsChart({
 /* Indicadores de negocio del panel del administrador                        */
 /* ------------------------------------------------------------------------ */
 
-/** Cifra grande con su etiqueta, usada dentro de las tarjetas KPI. */
-function KpiFigure({ label, value, tone = 'stone', hint }) {
-  const TONES = {
-    stone: 'text-stone-900',
-    emerald: 'text-emerald-700',
-    rose: 'text-rose-700',
-    gold: 'text-gold-dark',
-  };
+const FIGURE_TONES = {
+  stone: 'text-stone-900',
+  emerald: 'text-emerald-700',
+  rose: 'text-rose-700',
+  gold: 'text-gold-dark',
+  indigo: 'text-indigo-700',
+};
+
+const FIGURE_DOTS = {
+  stone: 'bg-stone-400',
+  emerald: 'bg-emerald-500',
+  rose: 'bg-rose-500',
+  gold: 'bg-gold',
+  indigo: 'bg-indigo-500',
+};
+
+const FIGURE_BARS = {
+  stone: 'from-stone-500 to-stone-400',
+  emerald: 'from-emerald-600 to-emerald-400',
+  rose: 'from-rose-600 to-rose-400',
+  gold: 'from-gold-dark via-gold to-gold-light',
+  indigo: 'from-indigo-700 via-indigo-500 to-indigo-400',
+};
+
+/**
+ * Renglón de una cifra dentro de una tarjeta KPI.
+ *
+ * Va en **una sola columna a lo ancho de la tarjeta**, no en una rejilla de dos.
+ * Con dos columnas, cada una queda en ~115px y un monto como "$1.317.000" no
+ * cabe: al ser una cadena sin espacios no puede ajustarse sola, así que o se
+ * desbordaba sobre la columna vecina o (con `break-words`) se partía en dos
+ * renglones dejando el último cero suelto debajo. A lo ancho entero sí cabe
+ * entero, sin recortes ni cortes de línea.
+ */
+function KpiRow({ label, value, pct, tone = 'stone', hint, share }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium text-stone-500">{label}</p>
-      {/* Nunca truncar dinero: un "$1.996...." con puntos suspensivos oculta el
-          monto real. Se permite partir la línea (break-words) en vez de eso. */}
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-stone-600">
+          <span
+            className={`inline-block h-2 w-2 shrink-0 rounded-full ${FIGURE_DOTS[tone] || FIGURE_DOTS.stone}`}
+            aria-hidden
+          />
+          <span className="truncate">{label}</span>
+        </p>
+        {pct != null && (
+          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-stone-500">
+            {pct}%
+          </span>
+        )}
+      </div>
+
       <p
-        className={`break-words font-serif text-lg font-medium leading-tight tabular-nums sm:text-xl ${TONES[tone] || TONES.stone}`}
+        className={`mt-0.5 whitespace-nowrap font-serif text-xl font-medium leading-tight tabular-nums ${FIGURE_TONES[tone] || FIGURE_TONES.stone}`}
+        title={typeof value === 'string' ? value : undefined}
       >
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-[11px] text-stone-500">{hint}</p> : null}
+
+      {share != null && (
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100">
+          <div
+            className={`h-full rounded-full bg-gradient-to-r ${FIGURE_BARS[tone] || FIGURE_BARS.stone} transition-all duration-500`}
+            style={{ width: `${Math.max(0, Math.min(100, Number(share)))}%` }}
+            aria-hidden
+          />
+        </div>
+      )}
+
+      {hint ? <p className="mt-1 text-[11px] text-stone-500">{hint}</p> : null}
     </div>
   );
 }
 
 /**
- * Altura reservada para el área de barras verticales de BalanceChart, en
- * píxeles. Se calcula en JS (no en %) a propósito: las barras viven dentro de
- * una fila `items-end` cuyos hijos no se estiran a una altura definida, así
- * que una altura en `%` no tiene contra qué resolverse y termina en 0 (barras
- * invisibles). Con píxeles no hay ambigüedad.
- */
-const BALANCE_BAR_AREA_PX = 84;
-
-/**
  * Balance del periodo: lo que entró por ventas frente a lo que se comprometió
  * en gastos, y la diferencia entre ambos.
+ *
+ * Las dos barras verticales que tenía antes se cambiaron por renglones con
+ * barra horizontal: en una tarjeta de ~285px, dos barras verticales aportaban
+ * poca información y obligaban a apretar los montos en dos columnas donde no
+ * cabían. A lo ancho, la proporción se lee igual de bien y el monto cabe entero.
  */
 export function BalanceChart({ income, expenses, difference, formatMoney, expensesCount }) {
-  const max = Math.max(Number(income || 0), Number(expenses || 0), 1);
-  const incomeH = Math.max(6, Math.round((Number(income || 0) / max) * BALANCE_BAR_AREA_PX));
-  const expensesH = Math.max(6, Math.round((Number(expenses || 0) / max) * BALANCE_BAR_AREA_PX));
+  const incomeNum = Number(income || 0);
+  const expensesNum = Number(expenses || 0);
+  const max = Math.max(incomeNum, expensesNum, 1);
   const positive = Number(difference || 0) >= 0;
+  // Porcentaje que representa el gasto sobre el ingreso: el dato que de verdad
+  // dice si el margen es sano, y que antes no se mostraba en ninguna parte.
+  const expenseShare = incomeNum > 0 ? Math.round((expensesNum / incomeNum) * 100) : null;
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div
-        className="flex items-end justify-center gap-6"
-        style={{ height: `${BALANCE_BAR_AREA_PX}px` }}
-      >
-        <div className="flex w-16 flex-col items-center">
-          <div
-            className="w-full max-w-[3rem] rounded-t-lg bg-gradient-to-t from-emerald-700 via-emerald-600 to-emerald-400 shadow-sm transition-all duration-500"
-            style={{ height: `${incomeH}px` }}
-            title={`Ingresos: ${formatMoney(income)}`}
-            aria-label={`Ingresos: ${formatMoney(income)}`}
-          />
-        </div>
-        <div className="flex w-16 flex-col items-center">
-          <div
-            className="w-full max-w-[3rem] rounded-t-lg bg-gradient-to-t from-rose-700 via-rose-600 to-rose-400 shadow-sm transition-all duration-500"
-            style={{ height: `${expensesH}px` }}
-            title={`Gastos: ${formatMoney(expenses)}`}
-            aria-label={`Gastos: ${formatMoney(expenses)}`}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 border-t border-stone-200/80 pt-3">
-        <KpiFigure label="Ingresos" value={formatMoney(income)} tone="emerald" />
-        <KpiFigure
+    <div className="flex h-full flex-col">
+      {/* Los dos renglones se reparten el alto disponible: si el grid estira
+          esta tarjeta para igualar a su vecina más alta, el aire sobrante se
+          distribuye entre ellos en vez de acumularse en un hueco muerto. */}
+      <div className="flex flex-1 flex-col justify-evenly gap-3">
+        <KpiRow
+          label="Ingresos"
+          value={formatMoney(income)}
+          tone="emerald"
+          share={Math.round((incomeNum / max) * 100)}
+        />
+        <KpiRow
           label="Gastos"
           value={formatMoney(expenses)}
           tone="rose"
-          hint={expensesCount ? `${expensesCount} registrados` : null}
+          share={Math.round((expensesNum / max) * 100)}
+          hint={
+            expensesCount
+              ? `${expensesCount} ${expensesCount === 1 ? 'gasto registrado' : 'gastos registrados'}${
+                  expenseShare != null ? ` · ${expenseShare}% del ingreso` : ''
+                }`
+              : 'Sin gastos registrados'
+          }
         />
       </div>
 
-      {/* Ancorada al fondo con mt-auto: si el grid estira esta tarjeta para
-          igualar la altura de una vecina más alta, todo el espacio sobrante
-          se concentra aquí en un único hueco, en vez de repartirse en varios
-          huecos sueltos entre bloques (que es lo que se veía como "espacio
-          vacío" sin usar). */}
       <div
-        className={`mt-auto rounded-xl border px-3 py-2.5 ${
-          positive
-            ? 'border-emerald-200 bg-emerald-50/70'
-            : 'border-rose-200 bg-rose-50/70'
+        className={`mt-3 rounded-xl border px-3 py-2.5 ${
+          positive ? 'border-emerald-200 bg-emerald-50/70' : 'border-rose-200 bg-rose-50/70'
         }`}
       >
         <p className="text-[11px] font-medium text-stone-600">Diferencia</p>
         <p
-          className={`break-words font-serif text-xl font-medium tabular-nums sm:text-2xl ${
+          className={`whitespace-nowrap font-serif text-2xl font-medium leading-tight tabular-nums ${
             positive ? 'text-emerald-700' : 'text-rose-700'
           }`}
         >
@@ -268,9 +305,11 @@ export function SplitCompositionChart({
     return <p className="flex h-full min-h-[8rem] items-center text-sm text-stone-500">{emptyText}</p>;
   }
 
+  const secondaryPctSafe = Math.max(0, 100 - Number(primaryPct || 0));
+
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex h-4 w-full overflow-hidden rounded-full bg-stone-100">
+    <div className="flex h-full flex-col">
+      <div className="flex h-4 w-full shrink-0 overflow-hidden rounded-full bg-stone-100">
         <div
           className="h-full bg-gradient-to-r from-gold-dark via-gold to-gold-light transition-all duration-500"
           style={{ width: `${primaryPct}%` }}
@@ -278,42 +317,35 @@ export function SplitCompositionChart({
         />
         <div
           className="h-full bg-gradient-to-r from-indigo-700 via-indigo-500 to-indigo-400 transition-all duration-500"
-          style={{ width: `${Math.max(0, 100 - Number(primaryPct || 0))}%` }}
+          style={{ width: `${secondaryPctSafe}%` }}
           aria-hidden
         />
       </div>
 
-      {/* min-w-0 + break-words: en la tarjeta más angosta (4 columnas en
-          escritorio) un monto largo como "$1.682.000" es una sola cadena sin
-          espacios que no puede ajustarse por sí sola y se desborda sobre la
-          columna vecina. Con break-words parte de línea en vez de invadirla. */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
-            <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-gold" aria-hidden />
-            <span className="truncate">{primaryLabel}</span>
-          </p>
-          <p className="break-words font-serif text-lg font-medium leading-tight tabular-nums text-stone-900 sm:text-xl">
-            {formatValue(primaryValue)}
-          </p>
-          <p className="text-[11px] text-stone-500">{primaryPct}% del total</p>
-        </div>
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
-            <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-hidden />
-            <span className="truncate">{secondaryLabel}</span>
-          </p>
-          <p className="break-words font-serif text-lg font-medium leading-tight tabular-nums text-stone-900 sm:text-xl">
-            {formatValue(secondaryValue)}
-          </p>
-          <p className="text-[11px] text-stone-500">{secondaryPct}% del total</p>
-        </div>
+      {/* Un renglón por categoría, a lo ancho de la tarjeta. Antes eran dos
+          columnas de ~115px, donde un monto largo no cabía y terminaba
+          desbordado sobre el vecino o partido en dos líneas. Además reparten
+          el alto sobrante entre ellos (justify-evenly) en vez de dejar el
+          hueco muerto que quedaba al fondo. */}
+      <div className="flex flex-1 flex-col justify-evenly gap-3 py-3">
+        <KpiRow
+          label={primaryLabel}
+          value={formatValue(primaryValue)}
+          pct={primaryPct}
+          tone="gold"
+          share={primaryPct}
+        />
+        <KpiRow
+          label={secondaryLabel}
+          value={formatValue(secondaryValue)}
+          pct={secondaryPct}
+          tone="indigo"
+          share={secondaryPctSafe}
+        />
       </div>
 
-      {/* Ancorada al fondo: concentra en un único hueco el espacio que el
-          grid añade para igualar la altura de la tarjeta más alta de la fila. */}
       {extraNote ? (
-        <p className="mt-auto border-t border-dashed border-stone-200 pt-2 text-[11px] text-stone-500">
+        <p className="shrink-0 border-t border-dashed border-stone-200 pt-2 text-[11px] text-stone-500">
           {extraNote}
         </p>
       ) : null}
@@ -322,16 +354,34 @@ export function SplitCompositionChart({
 }
 
 /**
- * Alto del área de barras de RevenueTrendChart, en píxeles. Igual que en
- * BalanceChart: las columnas viven en una fila `items-end` que no las
- * estira a una altura definida, así que la altura de cada barra se calcula
- * en JS (px) en vez de en `%` — un `%` ahí no resuelve contra nada y la
- * barra queda invisible.
+ * Alto del área de barras de RevenueTrendChart, en píxeles. La altura de cada
+ * barra se calcula en JS (px) en vez de en `%`: las columnas viven en una fila
+ * `items-end` que no las estira a una altura definida, y un `%` ahí no tiene
+ * contra qué resolverse — la barra quedaría invisible.
  */
-const REVENUE_BAR_AREA_PX = 168;
+const REVENUE_BAR_AREA_PX = 176;
 
-/** Serie de barras verticales con el ingreso de cada día del periodo. */
+/** Fecha larga ("miércoles, 2 de septiembre") a partir de un 'YYYY-MM-DD'. */
+function longDayLabel(ymd) {
+  // El mediodía evita que el cambio de huso mueva la fecha un día atrás.
+  return new Date(`${ymd}T12:00:00`).toLocaleDateString('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+/**
+ * Serie de ingresos por día, seleccionable.
+ *
+ * Al pasar el ratón, la barra se resalta y muestra su monto encima; al hacer
+ * clic queda fija y el panel de arriba muestra el detalle de ese día. Sin
+ * selección, el panel muestra el mejor día del periodo. La selección importa
+ * sobre todo en móvil, donde no existe el `hover`.
+ */
 export function RevenueTrendChart({ data, formatMoney, emptyText = 'Sin ventas en el periodo' }) {
+  const [selectedDate, setSelectedDate] = useState(null);
+
   const rows = data || [];
   const max = Math.max(...rows.map((d) => Number(d.total || 0)), 1);
   const totalPeriod = rows.reduce((sum, d) => sum + Number(d.total || 0), 0);
@@ -344,57 +394,148 @@ export function RevenueTrendChart({ data, formatMoney, emptyText = 'Sin ventas e
     return <p className="flex h-full min-h-[12rem] items-center text-sm text-stone-500">{emptyText}</p>;
   }
 
+  // Si cambia el rango de fechas, un día seleccionado antes puede ya no estar
+  // en la serie: se resuelve contra los datos actuales en vez de guardarse en
+  // otro estado que habría que sincronizar.
+  const selected = rows.find((r) => r.date === selectedDate) || null;
+  const featured = selected || best;
+  const isShowingBest = !selected;
+
+  const average = totalPeriod / rows.length;
+  const featuredTotal = Number(featured?.total || 0);
+  const vsAverage = average > 0 ? Math.round(((featuredTotal - average) / average) * 100) : 0;
+
   // Con muchos días las etiquetas se pisan: se muestra una de cada N.
   const labelStep = Math.ceil(rows.length / 12);
 
   return (
     <div className="flex h-full flex-col">
+      {/* Detalle del día destacado o seleccionado. */}
+      <div className="mb-4 rounded-xl border border-gold/25 bg-gold/[0.05] px-4 py-3">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-dark">
+              {isShowingBest ? 'Mejor día del periodo' : 'Día seleccionado'}
+            </p>
+            <p className="mt-0.5 truncate font-serif text-lg font-medium capitalize text-stone-900">
+              {longDayLabel(featured.date)}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="whitespace-nowrap font-serif text-2xl font-medium leading-tight tabular-nums text-stone-900">
+              {formatMoney(featuredTotal)}
+            </p>
+            <p className="text-[11px] text-stone-500">
+              {Number(featured.count ?? 0)}{' '}
+              {Number(featured.count ?? 0) === 1 ? 'venta' : 'ventas'}
+              {featuredTotal > 0 && (
+                <>
+                  {' · '}
+                  <span className={vsAverage >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+                    {vsAverage >= 0 ? '+' : ''}
+                    {vsAverage}% vs. promedio
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {selected && (
+          <button
+            type="button"
+            onClick={() => setSelectedDate(null)}
+            className="mt-1.5 text-[11px] font-semibold text-gold-dark underline-offset-2 hover:underline"
+          >
+            Volver al mejor día
+          </button>
+        )}
+      </div>
+
       <div className="relative" style={{ height: `${REVENUE_BAR_AREA_PX}px` }}>
         <ChartGridLines />
-        <div className="absolute inset-0 flex items-end gap-1 px-0.5 pb-0">
-          {rows.map((d, idx) => {
-            const height = Math.max(2, Math.round((Number(d.total || 0) / max) * REVENUE_BAR_AREA_PX));
-            const isBest = best && d.date === best.date && Number(d.total) > 0;
+        <div className="absolute inset-0 flex items-end gap-1 px-0.5">
+          {rows.map((d) => {
+            const value = Number(d.total || 0);
+            const height = Math.max(2, Math.round((value / max) * REVENUE_BAR_AREA_PX));
+            const isSelected = selected?.date === d.date;
+            const isBest = !selected && best?.date === d.date && value > 0;
+            const highlighted = isSelected || isBest;
+
             return (
-              <div key={d.date} className="flex min-w-0 flex-1 flex-col items-end">
-                <div
-                  className={`w-full rounded-t-md transition-all duration-500 ${
-                    isBest
+              <button
+                key={d.date}
+                type="button"
+                onClick={() => setSelectedDate(isSelected ? null : d.date)}
+                aria-pressed={isSelected}
+                title={`${d.label}: ${formatMoney(value)}`}
+                className="group relative flex min-w-0 flex-1 cursor-pointer flex-col justify-end rounded-t-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+              >
+                {/* Monto flotante: siempre visible en la barra destacada, y al
+                    pasar el ratón en cualquier otra. */}
+                <span
+                  className={`pointer-events-none absolute inset-x-0 -top-0.5 z-10 truncate text-center text-[10px] font-semibold tabular-nums text-stone-700 transition-opacity ${
+                    highlighted ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                >
+                  {formatMoney(value)}
+                </span>
+
+                <span
+                  className={`w-full rounded-t-md transition-all duration-300 ${
+                    highlighted
                       ? 'bg-gradient-to-t from-gold-dark via-gold to-gold-light shadow-sm'
-                      : 'bg-gradient-to-t from-stone-400/90 to-stone-300/80 hover:from-gold-dark hover:to-gold-light'
+                      : 'bg-gradient-to-t from-stone-400/90 to-stone-300/80 group-hover:from-gold-dark/80 group-hover:to-gold-light/80'
                   }`}
                   style={{ height: `${height}px` }}
-                  title={`${d.label}: ${formatMoney(d.total)}`}
-                  aria-label={`${d.label}: ${formatMoney(d.total)}`}
+                  aria-hidden
                 />
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* Las etiquetas de día se sacaron del contenedor de altura fija de las
-          barras: iban dentro de la columna `justify-end`, que tampoco se
-          estira, y quedaban recortadas contra el borde inferior. */}
+      {/* Las etiquetas van fuera del contenedor de altura fija: dentro quedaban
+          recortadas contra el borde inferior. */}
       <div className="mt-1.5 flex gap-1 px-0.5">
         {rows.map((d, idx) => (
           <span
             key={d.date}
-            className={`w-full min-w-0 truncate text-center text-[10px] text-stone-500 ${
-              idx % labelStep === 0 ? '' : 'invisible'
-            }`}
+            className={`w-full min-w-0 truncate text-center text-[10px] transition-colors ${
+              selected?.date === d.date ? 'font-semibold text-gold-dark' : 'text-stone-500'
+            } ${idx % labelStep === 0 || selected?.date === d.date ? '' : 'invisible'}`}
           >
             {d.label}
           </span>
         ))}
       </div>
 
-      {best ? (
-        <p className="mt-3 border-t border-dashed border-stone-200 pt-3 text-[11px] text-stone-500">
-          Mejor día: <span className="font-semibold text-stone-700">{best.label}</span> con{' '}
-          <span className="font-semibold text-gold-dark">{formatMoney(best.total)}</span>
-        </p>
-      ) : null}
+      <div className="mt-auto grid grid-cols-3 gap-2 border-t border-dashed border-stone-200 pt-3 text-center">
+        <div>
+          <p className="text-[11px] text-stone-500">Total del periodo</p>
+          <p className="whitespace-nowrap font-semibold tabular-nums text-stone-800">
+            {formatMoney(totalPeriod)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] text-stone-500">Promedio diario</p>
+          <p className="whitespace-nowrap font-semibold tabular-nums text-stone-800">
+            {formatMoney(Math.round(average))}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] text-stone-500">Días con venta</p>
+          <p className="font-semibold tabular-nums text-stone-800">
+            {rows.filter((d) => Number(d.total || 0) > 0).length} de {rows.length}
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-2 text-center text-[11px] text-stone-400">
+        Toca una barra para ver el detalle de ese día
+      </p>
     </div>
   );
 }
@@ -418,29 +559,51 @@ export function AgendaHealthChart({ completed, cancelled, noShow, pending, total
   }
 
   return (
-    <div className="space-y-3">
-      {rows.map((row) => {
-        const value = Number(row.value || 0);
-        const pct = Math.round((value / safeTotal) * 100);
-        return (
-          <div key={row.label} className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-stone-700">{row.label}</span>
-              <span className={`shrink-0 font-semibold tabular-nums ${row.text}`}>
-                {value} <span className="text-xs font-normal text-stone-500">({pct}%)</span>
-              </span>
+    <div className="flex h-full flex-col">
+      {/* Barra de composición: misma lectura visual que las otras tarjetas de
+          la fila y, de paso, resume los cuatro estados de un vistazo. */}
+      <div className="flex h-4 w-full shrink-0 overflow-hidden rounded-full bg-stone-100">
+        {rows.map((row) => {
+          const pct = Math.round((Number(row.value || 0) / safeTotal) * 100);
+          if (pct <= 0) return null;
+          return (
+            <div
+              key={row.label}
+              className={`h-full bg-gradient-to-r ${row.bar} transition-all duration-500`}
+              style={{ width: `${pct}%` }}
+              title={`${row.label}: ${row.value} (${pct}%)`}
+              aria-hidden
+            />
+          );
+        })}
+      </div>
+
+      {/* Los cuatro renglones reparten el alto disponible entre sí. */}
+      <div className="flex flex-1 flex-col justify-evenly gap-2.5 py-3">
+        {rows.map((row) => {
+          const value = Number(row.value || 0);
+          const pct = Math.round((value / safeTotal) * 100);
+          return (
+            <div key={row.label} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate text-stone-700">{row.label}</span>
+                <span className={`shrink-0 font-semibold tabular-nums ${row.text}`}>
+                  {value} <span className="text-xs font-normal text-stone-500">({pct}%)</span>
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-stone-100">
+                <div
+                  className={`h-full rounded-full bg-gradient-to-r ${row.bar} transition-all duration-500`}
+                  style={{ width: `${pct}%` }}
+                  aria-hidden
+                />
+              </div>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-stone-100">
-              <div
-                className={`h-full rounded-full bg-gradient-to-r ${row.bar} transition-all duration-500`}
-                style={{ width: `${pct}%` }}
-                aria-hidden
-              />
-            </div>
-          </div>
-        );
-      })}
-      <p className="border-t border-dashed border-stone-200 pt-2.5 text-[11px] text-stone-500">
+          );
+        })}
+      </div>
+
+      <p className="shrink-0 border-t border-dashed border-stone-200 pt-2.5 text-[11px] text-stone-500">
         {safeTotal} citas agendadas en el periodo
       </p>
     </div>

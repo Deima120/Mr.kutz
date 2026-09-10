@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { useAppToast } from '@/shared/feedback/ToastContext';
@@ -264,7 +264,6 @@ function BarberDashboard() {
 
 function AdminDashboard() {
   const { user, can } = useAuth();
-  const navigate = useNavigate();
   const toast = useAppToast();
 
   const [stats, setStats] = useState(null);
@@ -316,15 +315,6 @@ function AdminDashboard() {
   useEffect(() => {
     refreshAppointments();
   }, [today]);
-
-  const handleMarkCompleted = async (id) => {
-    try {
-      await appointmentService.updateAppointment(id, { status: 'completed' });
-      navigate(`/payments/new?appointmentId=${id}`);
-    } catch (err) {
-      toast.error(err?.message || 'Error al actualizar');
-    }
-  };
 
   const formatTime = (t) => {
     if (!t) return '';
@@ -534,9 +524,58 @@ function AdminDashboard() {
               {appointmentsLoading ? (
                 <div className="py-12 text-center text-stone-500">Cargando…</div>
               ) : (
-                <DashboardChartPanel>
-                  <TodayAppointmentsRing {...totalsToday} />
-                </DashboardChartPanel>
+                <div className="flex h-full flex-col gap-3">
+                  <DashboardChartPanel>
+                    <TodayAppointmentsRing {...totalsToday} />
+                  </DashboardChartPanel>
+
+                  {/* La tarjeta quedaba a medio llenar con solo el anillo. Las
+                      próximas citas del día ya están cargadas en memoria, así
+                      que se listan aquí sin ninguna petición extra. */}
+                  <DashboardChartPanel className="flex flex-1 flex-col">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Próximas de hoy
+                    </p>
+
+                    {activeAppointments.length === 0 ? (
+                      <p className="flex flex-1 items-center text-sm text-stone-500">
+                        No quedan citas pendientes para hoy.
+                      </p>
+                    ) : (
+                      <ul className="flex-1 divide-y divide-stone-200/70">
+                        {activeAppointments.slice(0, 4).map((a) => (
+                          <li key={a.id}>
+                            <Link
+                              to={`/appointments/${a.id}/edit`}
+                              className="-mx-2 flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-white"
+                            >
+                              <span className="shrink-0 text-sm font-semibold tabular-nums text-gold-dark">
+                                {formatTime(a.start_time)}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm text-stone-800">
+                                  {a.client_first_name} {a.client_last_name}
+                                </span>
+                                <span className="block truncate text-[11px] text-stone-500">
+                                  {a.service_name}
+                                </span>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {activeAppointments.length > 4 && (
+                      <Link
+                        to="/appointments"
+                        className="mt-2 block text-[11px] font-semibold text-gold-dark hover:underline"
+                      >
+                        Ver las {activeAppointments.length} citas pendientes
+                      </Link>
+                    )}
+                  </DashboardChartPanel>
+                </div>
               )}
             </DashboardCard>
           </div>
@@ -630,17 +669,47 @@ function AdminDashboard() {
                 </Link>
               }
             >
+              {/* Cada fila lleva al detalle del producto (`/inventory/:id`), para
+                  no obligar a buscarlo a mano en el listado de inventario.
+                  Ojo con los nombres de campo: `getLowStock` devuelve `minStock`
+                  en camelCase — leer `min_stock` daba siempre 0. */}
               <ul className="divide-y divide-stone-100">
-                {(stats.lowStockAlerts || []).slice(0, 5).map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <span className="truncate text-sm text-stone-700">{p.name}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-stone-500">
-                      <span className="font-semibold text-rose-600">{Number(p.quantity ?? 0)}</span>
-                      {' / '}
-                      {Number(p.min_stock ?? 0)} mín.
-                    </span>
-                  </li>
-                ))}
+                {(stats.lowStockAlerts || []).slice(0, 5).map((p) => {
+                  const quantity = Number(p.quantity ?? 0);
+                  const minStock = Number(p.minStock ?? 0);
+                  const missing = Math.max(0, minStock - quantity);
+
+                  return (
+                    <li key={p.id}>
+                      <Link
+                        to={`/inventory/${p.id}`}
+                        className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-rose-50/60"
+                        title={`Ver ${p.name} en inventario`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-stone-800">
+                            {p.name}
+                          </span>
+                          <span className="block text-[11px] text-stone-500">
+                            {quantity === 0
+                              ? 'Agotado'
+                              : missing > 0
+                              ? `Faltan ${missing} para el mínimo`
+                              : 'Justo en el mínimo'}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right">
+                          <span className="block text-sm font-semibold tabular-nums text-rose-600">
+                            {quantity}
+                          </span>
+                          <span className="block text-[11px] text-stone-500">
+                            mínimo {minStock}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </DashboardCard>
           )}
@@ -665,9 +734,20 @@ function AdminDashboard() {
                 />
               ) : null}
             </div>
-            <button type="button" onClick={() => handleMarkCompleted(nextAppointment.id)} className="btn-dark">
-              Marcar completada
-            </button>
+            {/* Antes había aquí un botón "Marcar completada" que SIEMPRE fallaba:
+                el backend rechaza `completed` como cambio manual
+                (`isManualAdminStatus` solo admite confirmar, cancelar y
+                no-asistió), porque a completada la promueve sola la
+                automatización al terminar la hora de la cita. En su lugar se
+                lleva a la cita, que es lo que el administrador puede gestionar
+                de verdad. */}
+            <Link
+              to={`/appointments/${nextAppointment.id}/edit`}
+              className="btn-dark inline-flex items-center gap-2"
+            >
+              <span>Ver cita</span>
+              <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+            </Link>
           </div>
         </DashboardCard>
       )}
