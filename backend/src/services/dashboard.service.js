@@ -5,6 +5,15 @@
 import prisma from '../lib/prisma.js';
 import { getInventoryInsights } from './product.service.js';
 import {
+  COMMITTED_PURCHASE_STATUSES,
+  buildRevenueMix,
+  dayLabel,
+  daysOfRange,
+  ratio,
+  round2,
+  summarizeRatings,
+} from './dashboard.helpers.js';
+import {
   APP_TIMEZONE,
   addDaysToYmd,
   colombiaDayBounds,
@@ -23,6 +32,12 @@ export const getStats = async (dateFrom, dateTo) => {
   const { start: fromDate, end: toDate } = colombiaRangeBounds(from, to);
   const apptFrom = ymdToUtcDate(from);
   const apptTo = ymdToUtcDate(to);
+
+  /** Líneas vivas de cobros vivos: base de todo lo que se mide en dinero. */
+  const activeLineWhere = {
+    voidedAt: null,
+    payment: { is: { voidedAt: null, createdAt: { gte: fromDate, lte: toDate } } },
+  };
 
   const [sales, appointments, servicesTop, barbersTop, inventoryInsights, clientsCount] = await Promise.all([
     prisma.payment.aggregate({
@@ -55,6 +70,166 @@ export const getStats = async (dateFrom, dateTo) => {
     getInventoryInsights(),
     prisma.client.count(),
   ]);
+
+  // Segunda tanda: indicadores de negocio del panel del administrador.
+  // Van aparte del primer Promise.all solo por legibilidad; siguen siendo
+  // paralelas entre sí.
+  const [
+    purchasesAgg,
+    revenueMixRows,
+    paymentsForSeries,
+    serviceLines,
+    productLines,
+    newClientsCount,
+    attendedClients,
+    ratingRows,
+  ] = await Promise.all([
+    // Gasto comprometido con proveedores (ver COMMITTED_PURCHASE_STATUSES).
+    prisma.purchase.aggregate({
+      where: {
+        voidedAt: null,
+        status: { in: COMMITTED_PURCHASE_STATUSES },
+        createdAt: { gte: fromDate, lte: toDate },
+      },
+      _sum: { totalAmount: true },
+      _count: true,
+    }),
+    prisma.paymentLine.groupBy({
+      by: ['lineType'],
+      where: activeLineWhere,
+      _sum: { lineAmount: true },
+    }),
+    prisma.payment.findMany({
+      where: { voidedAt: null, createdAt: { gte: fromDate, lte: toDate } },
+      select: { createdAt: true, amount: true },
+    }),
+    prisma.paymentLine.findMany({
+      where: { ...activeLineWhere, lineType: 'service' },
+      select: {
+        lineAmount: true,
+        quantity: true,
+        appointment: { select: { service: { select: { name: true } } } },
+      },
+    }),
+    prisma.paymentLine.groupBy({
+      by: ['productId'],
+      where: { ...activeLineWhere, lineType: 'product', productId: { not: null } },
+      _sum: { lineAmount: true, quantity: true },
+    }),
+    prisma.client.count({ where: { createdAt: { gte: fromDate, lte: toDate } } }),
+    // Clientes distintos con cita completada dentro del periodo.
+    prisma.appointment.groupBy({
+      by: ['clientId'],
+      where: { status: 'completed', appointmentDate: { gte: apptFrom, lte: apptTo } },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        status: 'completed',
+        clientRating: { not: null },
+        clientRatedAt: { gte: fromDate, lte: toDate },
+      },
+      select: {
+        clientRating: true,
+        barberId: true,
+        barber: { select: { firstName: true, lastName: true } },
+      },
+    }),
+  ]);
+
+  // --- Balance del periodo -------------------------------------------------
+  // Ojo: NO es la utilidad del negocio. Es la diferencia entre lo que entró por
+  // ventas y lo que se comprometió en gastos de abastecimiento; no descuenta
+  // comisiones, arriendo ni servicios públicos. La UI lo dice explícitamente.
+  const incomeTotal = round2(sales._sum?.amount ?? 0);
+  const expensesTotal = round2(purchasesAgg._sum?.totalAmount ?? 0);
+
+  const balance = {
+    income: incomeTotal,
+    expenses: expensesTotal,
+    difference: round2(incomeTotal - expensesTotal),
+    expensesCount: purchasesAgg._count ?? 0,
+  };
+
+  // --- Composición del ingreso: servicios vs productos ---------------------
+  const revenueMix = buildRevenueMix(revenueMixRows);
+
+  // --- Ingresos por día ----------------------------------------------------
+  // Se lleva también el número de ventas de cada día: el panel deja seleccionar
+  // un día del gráfico y necesita algo más que el monto para dar contexto.
+  const rangeDays = daysOfRange(from, to);
+  const dayTotals = Object.fromEntries(rangeDays.map((d) => [d, 0]));
+  const dayCounts = Object.fromEntries(rangeDays.map((d) => [d, 0]));
+  paymentsForSeries.forEach((p) => {
+    const key = formatInstantYmdInColombia(p.createdAt);
+    if (Object.prototype.hasOwnProperty.call(dayTotals, key)) {
+      dayTotals[key] += Number(p.amount);
+      dayCounts[key] += 1;
+    }
+  });
+  const revenueByDay = rangeDays.map((date) => ({
+    date,
+    label: dayLabel(date),
+    total: round2(dayTotals[date]),
+    count: dayCounts[date],
+  }));
+
+  // --- Cumplimiento de la agenda ------------------------------------------
+  // Reutiliza el groupBy por estado que ya se hizo arriba: sin consulta extra.
+  const statusCount = (status) =>
+    appointments.find((g) => g.status === status)?._count?._all ?? 0;
+  const cancelledCount = statusCount('cancelled');
+  const noShowCount = statusCount('no_show');
+
+  // --- Servicios más rentables --------------------------------------------
+  const serviceRevenue = {};
+  serviceLines.forEach((line) => {
+    const name = line.appointment?.service?.name;
+    if (!name) return;
+    if (!serviceRevenue[name]) serviceRevenue[name] = { revenue: 0, count: 0 };
+    serviceRevenue[name].revenue += Number(line.lineAmount);
+    serviceRevenue[name].count += 1;
+  });
+  const topServicesByRevenue = Object.entries(serviceRevenue)
+    .map(([name, v]) => ({ name, revenue: round2(v.revenue), count: v.count }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  // --- Productos más vendidos ---------------------------------------------
+  const productIds = productLines.map((r) => r.productId).filter(Boolean);
+  const productNames = productIds.length
+    ? await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const nameById = new Map(productNames.map((p) => [p.id, p.name]));
+  const topProducts = productLines
+    .map((row) => ({
+      name: nameById.get(row.productId) || 'Producto',
+      quantity: Number(row._sum?.quantity ?? 0),
+      revenue: round2(row._sum?.lineAmount ?? 0),
+    }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5);
+
+  // --- Clientes nuevos vs recurrentes --------------------------------------
+  // "Nuevo" = su registro se creó dentro del periodo consultado.
+  const attendedIds = attendedClients.map((g) => g.clientId).filter(Boolean);
+  const newAttended = attendedIds.length
+    ? await prisma.client.count({
+        where: { id: { in: attendedIds }, createdAt: { gte: fromDate, lte: toDate } },
+      })
+    : 0;
+  const clientsMix = {
+    attended: attendedIds.length,
+    new: newAttended,
+    returning: Math.max(0, attendedIds.length - newAttended),
+    registered: newClientsCount,
+    newPct: ratio(newAttended, attendedIds.length),
+  };
+
+  // --- Satisfacción y desempeño por barbero --------------------------------
+  const { ratings, barberRatings } = summarizeRatings(ratingRows);
 
   const completed = appointments.find((g) => g.status === 'completed')?._count?._all ?? 0;
   const pending = appointments
@@ -101,6 +276,26 @@ export const getStats = async (dateFrom, dateTo) => {
     inventoryValue: inventoryInsights.inventoryValue ?? 0,
     lowStockAlerts: inventoryInsights.lowStockAlerts ?? [],
     totalClients: clientsCount,
+    // Indicadores del panel del administrador. Se añaden sin tocar las claves
+    // anteriores: getReport() y el panel del barbero siguen leyendo las suyas.
+    balance,
+    revenueMix,
+    revenueByDay,
+    agenda: {
+      completed,
+      cancelled: cancelledCount,
+      noShow: noShowCount,
+      pending,
+      total,
+      completionRate: ratio(completed, total),
+      cancellationRate: ratio(cancelledCount, total),
+      noShowRate: ratio(noShowCount, total),
+    },
+    topServicesByRevenue,
+    topProducts,
+    clientsMix,
+    ratings,
+    barberRatings,
     period: { from, to },
   };
 };
