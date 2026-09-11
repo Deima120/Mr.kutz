@@ -86,27 +86,32 @@ export default function InventoryProductsTable({
                   <button
                     type="button"
                     onClick={() => navigate(`/inventory/${p.id}`)}
-                    className="font-medium text-barber-dark hover:text-gold transition-colors text-left block w-full truncate"
+                    className="block w-full truncate text-left text-sm font-semibold text-stone-900 transition-colors hover:text-gold-dark"
                   >
                     {p.name}
                   </button>
-                  <p className="mt-0.5 text-[11px] text-stone-500 truncate">
+                  <p className="mt-1 truncate text-xs text-stone-500">
                     {[category, p.sku].filter(Boolean).join(' · ') || 'Sin categoría'}
                     {!active ? ' · Archivado' : ''}
                   </p>
                 </TableCell>
 
                 <TableCell compact className={low ? 'bg-amber-50/50' : ''}>
-                  <p className={`text-sm font-semibold tabular-nums ${low ? 'text-amber-700' : 'text-stone-900'}`}>
+                  <p
+                    className={`text-sm font-semibold tabular-nums ${low ? 'text-amber-700' : 'text-stone-900'}`}
+                  >
                     {qty}
                   </p>
-                  <p className="text-[10px] text-stone-500 truncate">
+                  <p className="mt-1 truncate text-xs text-stone-500">
                     {formatProductUnit(p.unit, qty)}
                     {minStock > 0 ? ` · mín. ${minStock}` : ''}
                   </p>
                 </TableCell>
 
-                <TableCell compact className={`tabular-nums ${low ? 'bg-amber-50/50' : ''}`}>
+                <TableCell
+                  compact
+                  className={`text-sm font-semibold tabular-nums text-stone-900 ${low ? 'bg-amber-50/50' : ''}`}
+                >
                   {formatProductRetailPrice(p)}
                 </TableCell>
 

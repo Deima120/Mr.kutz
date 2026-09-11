@@ -495,11 +495,14 @@ export default function AdminLayout({ children }) {
             >
               <Menu size={20} />
             </button>
+            {/* Único lugar donde se escribe el nombre del módulo. Las páginas NO
+                deben repetirlo en su PageHeader: hacerlo dejaba el título dos
+                veces seguidas (pasaba en Gastos, Inventario y Satisfacción). */}
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-dark">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-dark">
                 {isBarber ? 'Operacion' : 'Administracion'}
               </p>
-              <h2 className="truncate font-serif text-lg font-medium leading-tight text-stone-900">
+              <h2 className="truncate font-serif text-xl font-medium leading-tight tracking-tight text-stone-900 sm:text-2xl">
                 {activeItem?.label || businessName}
               </h2>
             </div>

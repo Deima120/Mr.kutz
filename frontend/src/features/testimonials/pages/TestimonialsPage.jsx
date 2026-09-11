@@ -62,10 +62,8 @@ export default function TestimonialsPage() {
       <div className="bg-white rounded-2xl border border-stone-200 shadow-card overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-gold/80 via-gold to-gold/80" aria-hidden />
         <div className="p-6 sm:p-8">
-          <p className="section-label text-gold mb-2">Satisfacción</p>
-          <h2 className="mb-1 font-serif text-2xl font-medium tracking-tight text-stone-900 sm:text-3xl">
-            Valoraciones
-          </h2>
+          {/* El nombre del módulo lo pone la barra superior del layout; aquí solo
+              va la descripción, para no escribir "Satisfacción" dos veces. */}
           <p className="mb-6 max-w-2xl text-sm text-stone-500">
             Estrellas 1–5 y comentarios opcionales tras cada cita completada. La misma información se muestra en
             la página de inicio para visitantes.

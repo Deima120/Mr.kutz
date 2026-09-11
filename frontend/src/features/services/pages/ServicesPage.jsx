@@ -322,10 +322,13 @@ export default function ServicesPage() {
                 const active = isServiceActive(s);
                 return (
                 <AdminEntityCard key={s.id} inactive={!active}>
-                  <div className="flex justify-between items-start gap-3 min-w-0">
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                        <span className="inline-flex max-w-full truncate px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gold/12 text-gold-dark border border-gold/25">
+                  {/* Etiquetas y acciones arriba; nombre y descripción en el
+                      cuerpo; precio y duración separados por una divisoria al
+                      pie, que es lo que se compara al recorrer el catálogo. */}
+                  <div className="flex h-full min-w-0 flex-col">
+                    <div className="mb-2.5 flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span className="inline-flex max-w-full truncate rounded-md border border-stone-200 bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-600">
                           {categoryLabel(s)}
                         </span>
                         <ServiceStatusToggle
@@ -334,29 +337,37 @@ export default function ServicesPage() {
                           onClick={() => handleToggleActive(s)}
                         />
                       </div>
-                      <h3 className="font-serif text-base font-medium text-stone-900 truncate" title={s.name}>
-                        {s.name}
-                      </h3>
-                      {s.description && (
-                        <p className="text-stone-500 text-xs mt-1 line-clamp-2">{s.description}</p>
-                      )}
-                      <p className="mt-1.5 text-black text-sm font-bold tabular-nums">
-                        {formatMoney(s.price)} · {s.duration_minutes} min
-                      </p>
+                      <div className="inline-flex shrink-0 items-center gap-1.5">
+                        <AdminIconButton
+                          icon={Pencil}
+                          label="Editar servicio"
+                          onClick={() => openEditForm(s.id)}
+                        />
+                        <AdminIconButton
+                          icon={Trash2}
+                          label="Eliminar servicio"
+                          variant="danger"
+                          onClick={() => handleDelete(s.id, s.name)}
+                        />
+                      </div>
                     </div>
-                    <div className="inline-flex items-center gap-1.5 shrink-0">
-                      <AdminIconButton
-                        icon={Pencil}
-                        label="Editar servicio"
-                        onClick={() => openEditForm(s.id)}
-                      />
-                      <AdminIconButton
-                        icon={Trash2}
-                        label="Eliminar servicio"
-                        variant="danger"
-                        onClick={() => handleDelete(s.id, s.name)}
-                      />
-                    </div>
+
+                    <h3
+                      className="truncate font-serif text-lg font-semibold text-stone-900"
+                      title={s.name}
+                    >
+                      {s.name}
+                    </h3>
+                    {s.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-stone-500">{s.description}</p>
+                    )}
+
+                    <p className="mt-3 flex flex-wrap items-baseline gap-x-2 border-t border-stone-100 pt-3 text-stone-900">
+                      <span className="font-serif text-xl font-semibold tabular-nums">
+                        {formatMoney(s.price)}
+                      </span>
+                      <span className="text-sm text-stone-500">· {s.duration_minutes} min</span>
+                    </p>
                   </div>
                 </AdminEntityCard>
               );

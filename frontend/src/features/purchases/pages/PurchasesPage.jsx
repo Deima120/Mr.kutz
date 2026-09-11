@@ -320,16 +320,26 @@ export default function PurchasesPage() {
 
   return (
     <div className="page-shell">
+        {/* Las pestañas van en el lado izquierdo (slot `filters`), pegadas al
+            inicio del contenido y por tanto alineadas con el título del módulo.
+            Son navegación dentro de Gastos, no una acción: colgarlas a la
+            derecha, junto a botones como "Nuevo gasto", las hacía parecer una
+            más de ellas. */}
       {!isFormOpen ? (
         <PageHeader
-          title="Gastos"
           subtitle="Gastos de insumos y directorio de proveedores"
-          actions={
-            <div className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5">
+          filters={
+            <div
+              className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5"
+              role="tablist"
+              aria-label="Secciones de Gastos"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === TAB_ORDERS}
                 onClick={() => setTab(TAB_ORDERS)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                   activeTab === TAB_ORDERS
                     ? 'bg-white text-barber-dark shadow-sm'
                     : 'text-stone-500 hover:text-stone-800'
@@ -339,8 +349,10 @@ export default function PurchasesPage() {
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === TAB_SUPPLIERS}
                 onClick={() => setTab(TAB_SUPPLIERS)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                   activeTab === TAB_SUPPLIERS
                     ? 'bg-white text-barber-dark shadow-sm'
                     : 'text-stone-500 hover:text-stone-800'
@@ -371,16 +383,16 @@ export default function PurchasesPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <form onSubmit={handleSearchSubmit} className="flex gap-2 min-w-0 flex-1 max-w-xl">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Buscar proveedor, factura, notas…"
-                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
+                  className="min-h-[2.5rem] w-full rounded-lg border border-stone-200 py-2 pl-10 pr-3 text-sm text-stone-900 placeholder-stone-400 outline-none focus:border-gold focus:ring-2 focus:ring-gold/40"
                 />
               </div>
-              <button type="submit" className="btn-admin shrink-0 px-3 text-xs">
+              <button type="submit" className="btn-admin shrink-0 px-4 py-2 text-sm">
                 Buscar
               </button>
             </form>

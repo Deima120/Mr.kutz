@@ -135,8 +135,7 @@ export default function LoyaltyPage() {
 
   return (
     <div className="page-shell">
-      <PageHeader
-        title="Fidelización"
+        <PageHeader
         subtitle="Hitos por servicios completados y recompensas otorgadas"
         actions={
           <div className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5">

@@ -430,8 +430,7 @@ export default function UsersPage() {
 
   return (
     <div className="page-shell">
-      <PageHeader
-        title="Usuarios"
+        <PageHeader
         subtitle="Todas las cuentas del sistema: cambia su rol, consulta su ficha y restablece su contraseña."
         actions={
           <div className="flex flex-wrap gap-1.5">
