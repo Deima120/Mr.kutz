@@ -41,6 +41,18 @@ enum PaymentLineType {
   manual
 }
 
+/// Mismos 6 valores que ya validaba `appointment.routes.js` como texto libre
+/// (`body('status').isIn([...])`) — ahora también los exige la base de datos,
+/// no solo el validador de Express.
+enum AppointmentStatus {
+  scheduled
+  confirmed
+  in_progress
+  completed
+  cancelled
+  no_show
+}
+
 model Role {
   id          Int              @id @default(autoincrement())
   name        String           @unique @db.VarChar(50)
@@ -126,7 +138,10 @@ model Client {
   firstName      String                @map("first_name") @db.VarChar(100)
   lastName       String                @map("last_name") @db.VarChar(100)
   phone          String?               @db.VarChar(20)
-  email          String?               @db.VarChar(255)
+  /// `client.service.js` ya exige que no se repita (normalizado a minúsculas
+  /// antes de guardar) — este `@unique` lo hace exigible también a nivel de
+  /// base de datos, no solo del servicio. NULL no cuenta como duplicado.
+  email          String?               @unique @db.VarChar(255)
   documentType   String?               @map("document_type") @db.VarChar(40)
   documentNumber String?               @map("document_number") @db.VarChar(80)
   notes          String?               @db.VarChar(500)
@@ -140,6 +155,14 @@ model Client {
   payments       Payment[]
   loyaltyRewards ClientLoyaltyReward[]
   user           User?                 @relation(fields: [userId], references: [id])
+
+  /// Mismo criterio de unicidad que ya exige `client.service.js` (el
+  /// documento se valida como el PAR tipo+número, no el número solo — dos
+  /// clientes pueden compartir número si el tipo de documento es distinto).
+  /// Una fila con cualquiera de las dos columnas en NULL no choca con otra:
+  /// comportamiento estándar de Postgres en UNIQUE, mismo que ya usa
+  /// `Purchase` con `[supplierId, invoiceNumber]`.
+  @@unique([documentType, documentNumber])
 }
 
 enum LoyaltyRewardItemType {
@@ -334,7 +357,7 @@ model Appointment {
   appointmentDate     DateTime          @map("appointment_date") @db.Date
   startTime           DateTime          @map("start_time") @db.Time(6)
   endTime             DateTime          @map("end_time") @db.Time(6)
-  status              String            @default("scheduled") @db.VarChar(20)
+  status              AppointmentStatus @default(scheduled)
   notes               String?
   /// Motivo obligatorio al cancelar (cliente o admin)
   cancelReason        String?           @map("cancel_reason") @db.VarChar(500)
