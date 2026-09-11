@@ -26,7 +26,8 @@ import {
   APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
 import { assertUnderPendingLimit, assertUnderDailyLimit } from './appointmentLimitRules.js';
-import { grantLoyaltyRewardsIfEligible } from './clientLoyaltyRewards.service.js';
+import { grantLoyaltyRewardsIfEligible, chooseLoyaltyRewardOption } from './clientLoyaltyRewards.service.js';
+import { findRedundantLoyaltyService, rewardServiceIdsFromOption } from './appointmentLoyaltyRules.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
 import { assertAppointmentIsEditable } from './appointmentEditRules.js';
 import { resolveDayWindow, weekdayOfYmd } from './barberScheduleRules.js';
@@ -749,6 +750,7 @@ export const create = async (data, { enforceClientLimit = true } = {}) => {
 
   const serviceRecords = await prisma.service.findMany({
     where: { id: { in: ids } },
+    include: { comboComponents: { select: { id: true } } },
   });
   if (serviceRecords.length !== ids.length) {
     const err = new Error('Uno o más servicios no existen.');
@@ -760,6 +762,51 @@ export const create = async (data, { enforceClientLimit = true } = {}) => {
   const orderedServices = ids.map((id) => serviceById.get(id));
   const primaryService = orderedServices[0];
   const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
+
+  // Si esta cita también trae la elección del premio de fidelización que el
+  // cliente ya se ganó, se valida ANTES de crear nada — incluido que ninguno
+  // de los servicios que está pagando en esta misma cita sea el mismo que va
+  // a recibir gratis (directo, o dentro de un combo que lo incluya de verdad,
+  // vía `comboComponents`). La elección en sí se persiste al final, solo si la
+  // cita se creó — un premio elegido para una cita que no llegó a crearse no
+  // debe consumirse.
+  let pendingLoyaltyChoice = null;
+  if (data.loyaltyChoice?.rewardId && data.loyaltyChoice?.optionId) {
+    const rewardId = parseInt(data.loyaltyChoice.rewardId, 10);
+    const optionId = parseInt(data.loyaltyChoice.optionId, 10);
+    const reward = await prisma.clientLoyaltyReward.findUnique({
+      where: { id: rewardId },
+      include: { rule: { include: { options: { include: { items: true } } } } },
+    });
+    if (!reward || reward.clientId !== parsedClientId) {
+      const err = new Error('Esa recompensa no pertenece a este cliente.');
+      err.statusCode = 403;
+      throw err;
+    }
+    if (reward.chosenOptionId != null) {
+      const err = new Error('Ya se eligió el premio de esa recompensa.');
+      err.statusCode = 409;
+      err.reason = 'ALREADY_CHOSEN';
+      throw err;
+    }
+    const option = reward.rule.options.find((o) => o.id === optionId);
+    if (!option) {
+      const err = new Error('Esa opción no pertenece a ese hito.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const redundant = findRedundantLoyaltyService(orderedServices, rewardServiceIdsFromOption(option.items));
+    if (redundant) {
+      const err = new Error(
+        `No puedes agendar «${redundant.name}» en esta cita: ya la vas a recibir gratis con tu recompensa. Quítala de los servicios o elige otro premio.`,
+      );
+      err.statusCode = 409;
+      err.reason = 'LOYALTY_REDUNDANT_SERVICE';
+      throw err;
+    }
+    pendingLoyaltyChoice = { rewardId, optionId };
+  }
 
   const userNotes = typeof notes === 'string' ? notes.trim() : '';
   const storedNotes = buildMultiServiceNotes(orderedServices, userNotes);
@@ -799,6 +846,11 @@ export const create = async (data, { enforceClientLimit = true } = {}) => {
       notes: storedNotes,
     },
   });
+
+  if (pendingLoyaltyChoice) {
+    await chooseLoyaltyRewardOption(pendingLoyaltyChoice.rewardId, pendingLoyaltyChoice.optionId, parsedClientId);
+  }
+
   const full = await getById(created.id);
   notifyAppointmentCreated(full);
   return full;

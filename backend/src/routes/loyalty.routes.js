@@ -13,21 +13,27 @@ import * as loyaltyController from '../controllers/loyalty.controller.js';
 const router = express.Router();
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de hito no válido.');
+const rewardIdParam = param('id').isInt({ min: 1 }).withMessage('ID de recompensa no válido.');
 
-const rewardItemValidation = body('rewardItems')
+const optionsValidation = body('options')
   .isArray({ min: 1 })
-  .withMessage('Indica al menos un premio (servicio o producto) para este hito.');
+  .withMessage('Indica al menos una opción de premio para este hito.');
 
 const milestoneCreateValidation = [
   body('everyCount').isInt({ min: 1 }).withMessage('Indica cada cuántos servicios se otorga el hito.'),
   body('label').trim().notEmpty().withMessage('Indica un nombre para el hito.'),
-  rewardItemValidation,
+  optionsValidation,
 ];
 
 const milestoneUpdateValidation = [
   body('everyCount').optional().isInt({ min: 1 }).withMessage('Indica cada cuántos servicios se otorga el hito.'),
   body('label').optional().trim().notEmpty().withMessage('Indica un nombre para el hito.'),
-  body('rewardItems').optional().isArray({ min: 1 }).withMessage('Indica al menos un premio para este hito.'),
+  body('options').optional().isArray({ min: 1 }).withMessage('Indica al menos una opción de premio para este hito.'),
+];
+
+const chooseOptionValidation = [
+  rewardIdParam,
+  body('optionId').isInt({ min: 1 }).withMessage('Indica una opción válida.'),
 ];
 
 const historyQueryValidation = [
@@ -48,5 +54,6 @@ router.put('/milestones/:id', [idParam, ...milestoneUpdateValidation], validate,
 router.patch('/milestones/:id/deactivate', idParam, validate, loyaltyController.deactivateMilestone);
 
 router.get('/rewards', historyQueryValidation, validate, loyaltyController.getRewardsHistory);
+router.patch('/rewards/:id/choose', chooseOptionValidation, validate, loyaltyController.chooseRewardOption);
 
 export default router;

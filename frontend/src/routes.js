@@ -151,7 +151,13 @@ export default function AppRoutes() {
         { path: 'inventory/:id/edit', element: protectedPage(InventoryPage, ['admin'], ['inventory.view', 'inventory.manage']) },
         { path: 'inventory/:id', element: protectedPage(ProductDetailPage, ['admin'], ['inventory.view', 'inventory.manage']) },
         { path: 'profile', element: protectedPage(ProfilePage, ['client']) },
-        { path: 'loyalty', element: permissionPage(LoyaltyPage, 'loyalty.view') },
+        {
+          path: 'loyalty',
+          // No es solo permissionPage('loyalty.view'): un cliente nunca tiene
+          // ese código (el suyo es 'loyalty.view.own', de solo lo propio) y
+          // aun así necesita entrar a ver su avance y elegir su premio.
+          element: protectedPage(LoyaltyPage, [], ['loyalty.view', 'loyalty.manage', 'loyalty.view.own']),
+        },
         { path: 'users', element: permissionPage(UsersPage, 'users.view') },
         { path: 'roles', element: permissionPage(RolesPage, 'roles.view') },
         { path: 'dashboard', element: protectedPage(DashboardPage, ['admin', 'barber']) },

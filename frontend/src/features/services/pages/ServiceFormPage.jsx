@@ -40,10 +40,12 @@ export function ServiceForm({
     price: '',
     durationMinutes: '',
     isActive: true,
+    comboComponentIds: [],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [categories, setCategories] = useState([]);
+  const [allServices, setAllServices] = useState([]);
   const { fieldError, applyValidation, clearFieldError, markTouched, buildLiveHint } =
     useFormValidation();
 
@@ -65,6 +67,13 @@ export function ServiceForm({
       .getServiceCategories()
       .then((rows) => setCategories(Array.isArray(rows) ? rows : []))
       .catch(() => setCategories([]));
+    // Para el selector "¿qué servicios incluye?" de un combo — todos los
+    // servicios activos, sin paginar (mismo catálogo pequeño que ya usa
+    // AppointmentForm.jsx).
+    serviceService
+      .getServices({ active: 'true' })
+      .then((rows) => setAllServices(Array.isArray(rows) ? rows : []))
+      .catch(() => setAllServices([]));
   }, []);
 
   useEffect(() => {
@@ -84,6 +93,7 @@ export function ServiceForm({
             price: s.price?.toString() || '',
             durationMinutes: s.duration_minutes?.toString() || '',
             isActive: s.is_active !== false,
+            comboComponentIds: (s.combo_components || []).map((c) => c.id),
           });
         })
         .catch(() => setError('Servicio no encontrado'));
@@ -108,6 +118,27 @@ export function ServiceForm({
     }
     return base;
   })();
+
+  const isComboCategory = formData.categoryName?.trim().toLowerCase() === 'combos';
+  // Solo servicios individuales (no otros combos, para no anidar combos) y
+  // nunca el propio servicio en edición.
+  const comboComponentOptions = allServices.filter(
+    (s) =>
+      s.id !== editId &&
+      String(s.category_name || '').trim().toLowerCase() !== 'combos'
+  );
+
+  const toggleComboComponent = (serviceId) => {
+    setFormData((prev) => {
+      const has = prev.comboComponentIds.includes(serviceId);
+      return {
+        ...prev,
+        comboComponentIds: has
+          ? prev.comboComponentIds.filter((id) => id !== serviceId)
+          : [...prev.comboComponentIds, serviceId],
+      };
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -139,6 +170,10 @@ export function ServiceForm({
         price: parseFloat(formData.price),
         durationMinutes: parseInt(formData.durationMinutes, 10),
         isActive: formData.isActive,
+        // Solo se manda (y solo tiene efecto en el backend) cuando la
+        // categoría es "Combos"; en cualquier otra categoría se manda vacío
+        // para no dejar una composición vieja colgando si cambia de categoría.
+        comboComponentIds: isComboCategory ? formData.comboComponentIds : [],
       };
 
       if (isEdit) {
@@ -306,6 +341,43 @@ export function ServiceForm({
               )}
             </AdminFormField>
           </div>
+
+          {isComboCategory && (
+            <div className="group shrink-0">
+              <label className={ADMIN_FORM_LABEL_CLASS}>¿Qué servicios incluye este combo?</label>
+              <p className="text-xs text-stone-500 mb-2">
+                Se usa para bloquear un servicio o este combo en una cita cuando el cliente ya lo
+                va a recibir gratis por un premio de fidelización.
+              </p>
+              {comboComponentOptions.length === 0 ? (
+                <p className="text-sm text-stone-500">No hay otros servicios disponibles.</p>
+              ) : (
+                <ul className="rounded-xl border border-stone-200/90 bg-white divide-y divide-stone-100 max-h-44 overflow-y-auto">
+                  {comboComponentOptions.map((s) => {
+                    const checked = formData.comboComponentIds.includes(s.id);
+                    return (
+                      <li key={s.id}>
+                        <label className="flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer hover:bg-stone-50 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleComboComponent(s.id)}
+                            className="h-4 w-4 rounded border-stone-300 text-gold-dark focus:ring-gold-dark"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="font-medium text-stone-900 block truncate">{s.name}</span>
+                            {s.category_name && (
+                              <span className="text-xs text-stone-400 truncate block">{s.category_name}</span>
+                            )}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/80 px-3.5 py-3">
             <div>

@@ -8,11 +8,15 @@ import { describe, it } from 'node:test';
  * configuración (`createMilestoneRule`/`updateMilestoneRule`) usan el cliente
  * real por defecto — aquí solo se cubre su validación de entrada, que corre
  * ANTES de tocar la base de datos, sin necesidad de mockear Prisma.
- * `grantLoyaltyRewardsIfEligible`, `listLoyaltyRewardsHistory` y
+ * `assertCanChooseRewardOption` es la validación pura de
+ * `chooseLoyaltyRewardOption` (misma idea que `assertNoPrivilegeEscalation` en
+ * `role.service.js`), así que sí se prueba a fondo con objetos simples.
+ * `grantLoyaltyRewardsIfEligible`, `chooseLoyaltyRewardOption` (la envoltura
+ * con Prisma real), `listLoyaltyRewardsHistory`, `getPendingRewardChoices` y
  * `getClientLoyaltyProgress` no tienen test dedicado por la misma razón que el
- * resto de `appointment.service.js`/`payment.service.js`: dependen fuertemente
- * de Prisma real y no hay infraestructura de tests de integración en este
- * repo (ver `private/backend/CLAUDE.md`).
+ * resto de `appointment.service.js`/`payment.service.js`: dependen
+ * fuertemente de Prisma real y no hay infraestructura de tests de integración
+ * en este repo (ver `private/backend/CLAUDE.md`).
  */
 
 function buildFakeDb({ rewards = [] } = {}) {
@@ -20,7 +24,12 @@ function buildFakeDb({ rewards = [] } = {}) {
   return {
     clientLoyaltyReward: {
       findMany: async ({ where }) =>
-        rewards.filter((r) => r.clientId === where.clientId && r.redeemedAt === where.redeemedAt),
+        rewards.filter(
+          (r) =>
+            r.clientId === where.clientId &&
+            r.redeemedAt === where.redeemedAt &&
+            (where.chosenOptionId?.not === undefined || r.chosenOptionId !== where.chosenOptionId.not),
+        ),
       updateMany: async ({ where, data }) => {
         updated.push({ ids: where.id.in, data });
         return { count: where.id.in.length };
@@ -30,18 +39,22 @@ function buildFakeDb({ rewards = [] } = {}) {
   };
 }
 
-const { getPendingLoyaltyRewards, markLoyaltyRewardsRedeemed, createMilestoneRule } = await import(
-  './clientLoyaltyRewards.service.js'
-);
+const {
+  getPendingLoyaltyRewards,
+  markLoyaltyRewardsRedeemed,
+  createMilestoneRule,
+  assertCanChooseRewardOption,
+} = await import('./clientLoyaltyRewards.service.js');
 
 describe('getPendingLoyaltyRewards', () => {
-  it('devuelve una recompensa sin canjear con sus items', async () => {
+  it('devuelve una recompensa YA ELEGIDA sin canjear, con sus items', async () => {
     const db = buildFakeDb({
       rewards: [
         {
           id: 1,
           clientId: 100,
           redeemedAt: null,
+          chosenOptionId: 5,
           items: [{ id: 9, itemType: 'service', description: 'Mascarilla facial' }],
         },
       ],
@@ -78,36 +91,92 @@ describe('markLoyaltyRewardsRedeemed', () => {
 describe('createMilestoneRule — validación (no toca la base de datos)', () => {
   it('rechaza sin everyCount válido', async () => {
     await assert.rejects(
-      () => createMilestoneRule({ label: 'x', rewardItems: [{ itemType: 'service', serviceId: 1 }] }),
+      () => createMilestoneRule({ label: 'x', options: [{ items: [{ itemType: 'service', serviceId: 1 }] }] }),
       { statusCode: 400 }
     );
   });
 
   it('rechaza sin label', async () => {
     await assert.rejects(
-      () => createMilestoneRule({ everyCount: 5, rewardItems: [{ itemType: 'service', serviceId: 1 }] }),
+      () => createMilestoneRule({ everyCount: 5, options: [{ items: [{ itemType: 'service', serviceId: 1 }] }] }),
       { statusCode: 400 }
     );
   });
 
-  it('rechaza sin ítems de premio', async () => {
+  it('rechaza sin ninguna opción', async () => {
     await assert.rejects(
-      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', rewardItems: [] }),
+      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', options: [] }),
+      { statusCode: 400 }
+    );
+  });
+
+  it('rechaza una opción sin ítems', async () => {
+    await assert.rejects(
+      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', options: [{ items: [] }] }),
       { statusCode: 400 }
     );
   });
 
   it('rechaza un ítem de servicio sin serviceId', async () => {
     await assert.rejects(
-      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', rewardItems: [{ itemType: 'service' }] }),
+      () =>
+        createMilestoneRule({
+          everyCount: 5,
+          label: 'Cada 5',
+          options: [{ items: [{ itemType: 'service' }] }],
+        }),
       { statusCode: 400 }
     );
   });
 
   it('rechaza un ítem de producto sin productId', async () => {
     await assert.rejects(
-      () => createMilestoneRule({ everyCount: 5, label: 'Cada 5', rewardItems: [{ itemType: 'product' }] }),
+      () =>
+        createMilestoneRule({
+          everyCount: 5,
+          label: 'Cada 5',
+          options: [{ items: [{ itemType: 'product' }] }],
+        }),
       { statusCode: 400 }
     );
+  });
+});
+
+describe('assertCanChooseRewardOption', () => {
+  const rewardWithOptions = (overrides = {}) => ({
+    id: 1,
+    clientId: 100,
+    chosenOptionId: null,
+    rule: {
+      options: [
+        { id: 11, items: [{ itemType: 'service', serviceId: 36 }] },
+        { id: 12, items: [{ itemType: 'product', productId: 7 }] },
+      ],
+    },
+    ...overrides,
+  });
+
+  it('lanza 404 si la recompensa no existe', () => {
+    assert.throws(() => assertCanChooseRewardOption(null, 11, 100), { statusCode: 404 });
+  });
+
+  it('lanza 403 si el premio no es de ese cliente', () => {
+    assert.throws(() => assertCanChooseRewardOption(rewardWithOptions(), 11, 999), { statusCode: 403 });
+  });
+
+  it('lanza 409 ALREADY_CHOSEN si ya se eligió antes', () => {
+    assert.throws(
+      () => assertCanChooseRewardOption(rewardWithOptions({ chosenOptionId: 11 }), 12, 100),
+      { statusCode: 409, reason: 'ALREADY_CHOSEN' }
+    );
+  });
+
+  it('lanza 400 si la opción no pertenece al hito de ese premio', () => {
+    assert.throws(() => assertCanChooseRewardOption(rewardWithOptions(), 999, 100), { statusCode: 400 });
+  });
+
+  it('devuelve la opción elegida cuando todo está en regla', () => {
+    const option = assertCanChooseRewardOption(rewardWithOptions(), 12, 100);
+    assert.equal(option.id, 12);
   });
 });

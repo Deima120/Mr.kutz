@@ -46,6 +46,7 @@ import {
   isAppointmentActionsLocked,
   getEffectiveAppointmentStatus,
 } from '@/features/appointments/utils/appointmentStatusAutomation';
+import LoyaltyRewardChoicePicker from '@/features/loyalty/components/LoyaltyRewardChoicePicker';
 
 /** True si HH:MM ya pasó en el día de hoy (hora Colombia). */
 function isClockTimePastToday(timeStr) {
@@ -167,6 +168,13 @@ export default function AppointmentForm({
   const [apptLoading, setApptLoading] = useState(isEdit);
   const [loadError, setLoadError] = useState('');
   const [serviceFilter, setServiceFilter] = useState('');
+  // Premios de fidelización que este cliente ya ganó y todavía no eligió — se
+  // ofrecen solo al AGENDAR (no al editar) una cita nueva. `loyaltyChoice` es
+  // como mucho una elección a la vez: aunque hubiera varios premios
+  // pendientes, se manda uno por cita (el backend valida que sea de este
+  // cliente y siga sin elegir).
+  const [pendingChoiceRewards, setPendingChoiceRewards] = useState([]);
+  const [loyaltyChoice, setLoyaltyChoice] = useState(null); // { rewardId, optionId } | null
 
   const selectedServices = useMemo(
     () =>
@@ -260,6 +268,63 @@ export default function AppointmentForm({
       setFormData((prev) => ({ ...prev, clientId: String(user.clientId) }));
     }
   }, [isClient, user?.clientId, isEdit]);
+
+  // Solo tiene sentido ofrecer elegir premio al AGENDAR (una cita ya
+  // completada/pagada no se puede "editar" para agregarle un premio).
+  useEffect(() => {
+    if (isEdit) return undefined;
+    if (!formData.clientId) {
+      setPendingChoiceRewards([]);
+      setLoyaltyChoice(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const request = isClient
+      ? clientService.getMyLoyalty().then((d) => d.pendingChoice)
+      : clientService.getClientLoyaltyRewards(formData.clientId).then((d) => d.pendingChoice);
+    request
+      .then((choices) => {
+        if (!cancelled) setPendingChoiceRewards(choices);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingChoiceRewards([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.clientId, isClient, isEdit]);
+
+  // Servicios que el premio elegido otorgaría gratis — para bloquearlos en el
+  // selector de abajo (directo, o dentro de un combo real que los incluya).
+  const rewardServiceIds = useMemo(() => {
+    if (!loyaltyChoice) return new Set();
+    const reward = pendingChoiceRewards.find((r) => r.id === loyaltyChoice.rewardId);
+    const option = reward?.options.find((o) => o.id === loyaltyChoice.optionId);
+    return new Set(
+      (option?.items ?? []).filter((it) => it.itemType === 'service' && it.serviceId).map((it) => it.serviceId)
+    );
+  }, [loyaltyChoice, pendingChoiceRewards]);
+
+  const isServiceBlockedByLoyalty = (service) =>
+    rewardServiceIds.size > 0 &&
+    (rewardServiceIds.has(service.id) ||
+      (service.combo_components ?? []).some((c) => rewardServiceIds.has(c.id)));
+
+  // Si el cliente elige un premio DESPUÉS de haber marcado el servicio
+  // redundante (o el mismo servicio dentro de un combo), se quita solo de la
+  // cita — no tendría sentido dejarlo seleccionado y bloqueado a la vez.
+  useEffect(() => {
+    if (!rewardServiceIds.size || !services.length) return;
+    setFormData((prev) => {
+      const kept = prev.serviceIds.filter((sid) => {
+        const svc = services.find((s) => String(s.id) === String(sid));
+        return !svc || !isServiceBlockedByLoyalty(svc);
+      });
+      if (kept.length === prev.serviceIds.length) return prev;
+      return { ...prev, serviceIds: kept };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rewardServiceIds, services]);
 
   useEffect(() => {
     if (!isEdit || !editId || !dataLoaded) return undefined;
@@ -424,6 +489,11 @@ export default function AppointmentForm({
       markTouched('serviceIds');
       return;
     }
+    const service = services.find((s) => String(s.id) === String(id));
+    if (service && isServiceBlockedByLoyalty(service)) {
+      setError(`«${service.name}» ya la vas a recibir gratis con tu premio — quítalo del premio o elige otro servicio.`);
+      return;
+    }
     const sid = String(id);
     setFormData((prev) => {
       if (prev.serviceIds.includes(sid)) return prev;
@@ -496,6 +566,7 @@ export default function AppointmentForm({
         };
         if (!isClient) payload.clientId = parseInt(formData.clientId, 10);
         else if (user?.clientId) payload.clientId = user.clientId;
+        if (loyaltyChoice) payload.loyaltyChoice = loyaltyChoice;
         await appointmentService.createAppointment(payload);
         onSuccess?.({ created: true });
       }
@@ -768,6 +839,23 @@ export default function AppointmentForm({
     </div>
   ) : null;
 
+  // Solo se ofrece al agendar (no al editar), y solo si el cliente resuelto
+  // tiene algún premio ganado sin elegir — opcional: se puede agendar sin
+  // elegir nada y decidir después (Fidelización, o el mostrador).
+  const loyaltyChoiceField =
+    !isEdit && pendingChoiceRewards.length > 0 ? (
+      <div className="group space-y-2">
+        {pendingChoiceRewards.map((reward) => (
+          <LoyaltyRewardChoicePicker
+            key={reward.id}
+            reward={reward}
+            selectedOptionId={loyaltyChoice?.rewardId === reward.id ? loyaltyChoice.optionId : null}
+            onSelect={(rewardId, optionId) => setLoyaltyChoice({ rewardId, optionId })}
+          />
+        ))}
+      </div>
+    ) : null;
+
   const servicesPickerField = (
     <div className="group">
       <label className={labelClass} htmlFor="appointment-service-filter">
@@ -797,29 +885,40 @@ export default function AppointmentForm({
                     : 'No hay servicios para agregar.'}
             </li>
           ) : (
-            filteredPickerServices.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => addServiceById(s.id)}
-                  disabled={atMaxServices}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  <span className="min-w-0">
-                    <span className="font-medium text-stone-900 block truncate">{s.name}</span>
-                    {(s.category_name || s.categoryName) && (
-                      <span className="text-xs text-stone-400 truncate block">
-                        {s.category_name || s.categoryName}
+            filteredPickerServices.map((s) => {
+              const blocked = isServiceBlockedByLoyalty(s);
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => addServiceById(s.id)}
+                    disabled={atMaxServices || blocked}
+                    title={blocked ? 'Ya la vas a recibir gratis con el premio elegido' : undefined}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    <span className="min-w-0">
+                      <span className="font-medium text-stone-900 block truncate">
+                        {s.name}
+                        {blocked ? (
+                          <span className="ml-1.5 text-[10px] font-semibold text-gold-dark">
+                            (incluida en tu premio)
+                          </span>
+                        ) : null}
                       </span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
-                    {formatMoneyOrDash(s.price)}
-                    <span className="block">{s.duration_minutes || s.durationMinutes} min</span>
-                  </span>
-                </button>
-              </li>
-            ))
+                      {(s.category_name || s.categoryName) && (
+                        <span className="text-xs text-stone-400 truncate block">
+                          {s.category_name || s.categoryName}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-stone-500 tabular-nums text-right">
+                      {formatMoneyOrDash(s.price)}
+                      <span className="block">{s.duration_minutes || s.durationMinutes} min</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })
           )}
         </ul>
       )}
@@ -907,6 +1006,7 @@ export default function AppointmentForm({
               )}
 
               {clientSelect}
+              {loyaltyChoiceField}
 
               <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-1">
                 {barberSelect}
@@ -1007,6 +1107,8 @@ export default function AppointmentForm({
                   No hay barberos disponibles en este momento.
                 </AppInlineAlert>
               )}
+
+              {loyaltyChoiceField}
 
               <div className="grid gap-4">
                 {barberSelect}

@@ -18,6 +18,10 @@ const createValidation = [
   body('price').isFloat({ gt: 0 }).withMessage('El precio debe ser mayor a 0.'),
   body('durationMinutes').isInt({ min: 1 }).withMessage('La duración debe ser de al menos 1 minuto.'),
   body('isActive').optional().isBoolean(),
+  // Solo tiene efecto real para servicios de la categoría "Combos" — qué
+  // servicios individuales incluye de verdad este combo.
+  body('comboComponentIds').optional().isArray().withMessage('Lista de servicios no válida.'),
+  body('comboComponentIds.*').optional().isInt({ min: 1 }),
 ];
 
 const updateValidation = [
@@ -27,6 +31,8 @@ const updateValidation = [
   body('price').optional().isFloat({ gt: 0 }).withMessage('El precio debe ser mayor a 0.'),
   body('durationMinutes').optional().isInt({ min: 1 }),
   body('isActive').optional().isBoolean(),
+  body('comboComponentIds').optional().isArray().withMessage('Lista de servicios no válida.'),
+  body('comboComponentIds.*').optional().isInt({ min: 1 }),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de servicio no válido.');

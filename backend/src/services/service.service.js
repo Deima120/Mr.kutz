@@ -5,6 +5,17 @@
 import prisma from '../lib/prisma.js';
 import { assertServicePrice } from './service.rules.js';
 
+/**
+ * IDs de servicio válidos para `Service.comboComponents` — `undefined` si el
+ * campo no vino en absoluto (no tocar la relación existente), `[]` si vino
+ * vacío (vaciar la composición del combo).
+ */
+function parseComboComponentIds(raw) {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0))];
+}
+
 /** Sin categorías legacy General/Barbas; por defecto Cortes. */
 function resolveCategoryLabel(raw) {
   const s = String(raw ?? '').trim();
@@ -27,6 +38,11 @@ const toServiceDto = (s) =>
         category_name: s.category?.name ?? 'Cortes',
         created_at: s.createdAt,
         updated_at: s.updatedAt,
+        // Solo tiene contenido real para servicios de la categoría "Combos" —
+        // qué servicios individuales incluye de verdad. Lo usa el formulario
+        // de citas para bloquear un combo redundante con un premio de
+        // fidelización elegido (ver `appointmentLoyaltyRules.js`).
+        combo_components: (s.comboComponents ?? []).map((c) => ({ id: c.id, name: c.name })),
       }
     : null;
 
@@ -58,7 +74,7 @@ export const getAll = async ({ activeFilter = 'active' } = {}) => {
   const services = await prisma.service.findMany({
     where,
     orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
-    include: { category: true },
+    include: { category: true, comboComponents: { select: { id: true, name: true } } },
   });
   return services.map(toServiceDto);
 };
@@ -66,7 +82,7 @@ export const getAll = async ({ activeFilter = 'active' } = {}) => {
 export const getById = async (id) => {
   const service = await prisma.service.findUnique({
     where: { id: parseInt(id, 10) },
-    include: { category: true },
+    include: { category: true, comboComponents: { select: { id: true, name: true } } },
   });
   return toServiceDto(service);
 };
@@ -102,6 +118,7 @@ export const create = async (data) => {
   }
 
   const price = assertServicePrice(data.price);
+  const comboComponentIds = parseComboComponentIds(data.comboComponentIds);
 
   const service = await prisma.service.create({
     data: {
@@ -111,8 +128,11 @@ export const create = async (data) => {
       durationMinutes: parseInt(data.durationMinutes, 10),
       categoryId: category?.id ?? null,
       isActive: data.isActive === undefined ? true : data.isActive !== false && data.isActive !== 'false',
+      ...(comboComponentIds
+        ? { comboComponents: { connect: comboComponentIds.map((cid) => ({ id: cid })) } }
+        : {}),
     },
-    include: { category: true },
+    include: { category: true, comboComponents: { select: { id: true, name: true } } },
   });
   return toServiceDto(service);
 };
@@ -177,10 +197,18 @@ export const update = async (id, data) => {
     patch.isActive = data.isActive !== false && data.isActive !== 'false';
   }
 
+  // `set` en vez de `connect`: reemplaza la composición completa del combo
+  // (igual que los premios de fidelización, se reescribe entera en vez de
+  // hacer diff) — si no vino el campo, no se toca la relación existente.
+  const comboComponentIds = parseComboComponentIds(data.comboComponentIds);
+  if (comboComponentIds !== undefined) {
+    patch.comboComponents = { set: comboComponentIds.map((cid) => ({ id: cid })) };
+  }
+
   const service = await prisma.service.update({
     where: { id: serviceId },
     data: patch,
-    include: { category: true },
+    include: { category: true, comboComponents: { select: { id: true, name: true } } },
   });
   return toServiceDto(service);
 };

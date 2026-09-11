@@ -1,6 +1,8 @@
 /**
  * Crear/editar un hito de fidelización: cada cuántos servicios completados se
- * otorga, y qué premios (uno o varios: servicio y/o producto) se entregan.
+ * otorga, y entre qué OPCIONES de premio puede elegir el cliente. Cada opción
+ * agrupa uno o varios ítems (servicio y/o producto) que se entregan juntos —
+ * un hito con una sola opción no le pide nada al cliente, se otorga sola.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -19,13 +21,19 @@ function emptyItem() {
   return { itemType: 'service', serviceId: '', productId: '', quantity: 1 };
 }
 
-function itemsFromRule(rule) {
-  if (!rule?.rewardItems?.length) return [emptyItem()];
-  return rule.rewardItems.map((item) => ({
-    itemType: item.item_type ?? item.itemType,
-    serviceId: item.service_id ?? item.serviceId ?? '',
-    productId: item.product_id ?? item.productId ?? '',
-    quantity: item.quantity ?? 1,
+function emptyOption() {
+  return { items: [emptyItem()] };
+}
+
+function optionsFromRule(rule) {
+  if (!rule?.options?.length) return [emptyOption()];
+  return rule.options.map((option) => ({
+    items: (option.items ?? []).map((item) => ({
+      itemType: item.item_type ?? item.itemType,
+      serviceId: item.service_id ?? item.serviceId ?? '',
+      productId: item.product_id ?? item.productId ?? '',
+      quantity: item.quantity ?? 1,
+    })),
   }));
 }
 
@@ -35,7 +43,7 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
 
   const [everyCount, setEveryCount] = useState('');
   const [label, setLabel] = useState('');
-  const [items, setItems] = useState([emptyItem()]);
+  const [options, setOptions] = useState([emptyOption()]);
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
   const [error, setError] = useState('');
@@ -45,7 +53,7 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
     if (!open) return;
     setEveryCount(rule ? String(rule.every_count ?? rule.everyCount) : '');
     setLabel(rule ? rule.label : '');
-    setItems(itemsFromRule(rule));
+    setOptions(optionsFromRule(rule));
     setError('');
   }, [open, rule]);
 
@@ -82,12 +90,28 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
     [products]
   );
 
-  const updateItem = (index, patch) => {
-    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)));
-  };
+  const addOption = () => setOptions((prev) => [...prev, emptyOption()]);
+  const removeOption = (optionIndex) =>
+    setOptions((prev) => prev.filter((_, i) => i !== optionIndex));
 
-  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
-  const removeItem = (index) => setItems((prev) => prev.filter((_, i) => i !== index));
+  const addItem = (optionIndex) =>
+    setOptions((prev) =>
+      prev.map((opt, i) => (i === optionIndex ? { ...opt, items: [...opt.items, emptyItem()] } : opt))
+    );
+  const removeItem = (optionIndex, itemIndex) =>
+    setOptions((prev) =>
+      prev.map((opt, i) =>
+        i === optionIndex ? { ...opt, items: opt.items.filter((_, j) => j !== itemIndex) } : opt
+      )
+    );
+  const updateItem = (optionIndex, itemIndex, patch) =>
+    setOptions((prev) =>
+      prev.map((opt, i) =>
+        i === optionIndex
+          ? { ...opt, items: opt.items.map((it, j) => (j === itemIndex ? { ...it, ...patch } : it)) }
+          : opt
+      )
+    );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,13 +124,14 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
       setError('Indica un nombre para el hito.');
       return;
     }
-    const invalidItem = items.some(
-      (it) =>
-        (it.itemType === 'service' && !it.serviceId) ||
-        (it.itemType === 'product' && !it.productId)
+    const invalidItem = options.some((opt) =>
+      opt.items.some(
+        (it) =>
+          (it.itemType === 'service' && !it.serviceId) || (it.itemType === 'product' && !it.productId)
+      )
     );
     if (invalidItem) {
-      setError('Elige un servicio o producto para cada premio.');
+      setError('Elige un servicio o producto para cada premio de cada opción.');
       return;
     }
 
@@ -116,11 +141,13 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
       const payload = {
         everyCount: parsedEvery,
         label: label.trim(),
-        rewardItems: items.map((it) => ({
-          itemType: it.itemType,
-          serviceId: it.itemType === 'service' ? parseInt(it.serviceId, 10) : undefined,
-          productId: it.itemType === 'product' ? parseInt(it.productId, 10) : undefined,
-          quantity: it.quantity,
+        options: options.map((opt) => ({
+          items: opt.items.map((it) => ({
+            itemType: it.itemType,
+            serviceId: it.itemType === 'service' ? parseInt(it.serviceId, 10) : undefined,
+            productId: it.itemType === 'product' ? parseInt(it.productId, 10) : undefined,
+            quantity: it.quantity,
+          })),
         })),
       };
       if (isEdit) {
@@ -147,7 +174,7 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
       onClose={saving ? undefined : onClose}
       size="lg"
       title={isEdit ? 'Editar hito de fidelización' : 'Nuevo hito de fidelización'}
-      subtitle="Elige cada cuántos servicios completados se otorga, y qué premio(s) se entregan"
+      subtitle="Elige cada cuántos servicios completados se otorga, y entre qué opciones de premio elige el cliente"
       labelledBy="loyalty-milestone-form-title"
     >
       <h2 id="loyalty-milestone-form-title" className="sr-only">
@@ -186,63 +213,101 @@ export default function LoyaltyMilestoneFormModal({ open, rule = null, onClose, 
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-stone-600">Premios de este hito</span>
+            <span className="text-xs font-semibold text-stone-600">
+              Opciones de premio{' '}
+              <span className="font-normal text-stone-400">
+                — con más de una, el cliente elige cuál quiere
+              </span>
+            </span>
             <button
               type="button"
-              onClick={addItem}
+              onClick={addOption}
               className="inline-flex items-center gap-1 text-xs font-semibold text-gold-dark hover:underline"
             >
-              <Plus className="h-3.5 w-3.5" /> Agregar premio
+              <Plus className="h-3.5 w-3.5" /> Agregar opción
             </button>
           </div>
-          <div className="space-y-2">
-            {items.map((item, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-[6.5rem_1fr_4rem_auto] items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 p-2"
-              >
-                <CustomSelect
-                  value={item.itemType}
-                  onChange={(v) => updateItem(index, { itemType: v, serviceId: '', productId: '' })}
-                  options={[
-                    { id: 'service', label: 'Servicio' },
-                    { id: 'product', label: 'Producto' },
-                  ]}
-                  ariaLabel="Tipo de premio"
-                />
-                {item.itemType === 'service' ? (
-                  <CustomSelect
-                    value={item.serviceId}
-                    onChange={onCustomSelectValue((v) => updateItem(index, { serviceId: v }))}
-                    options={serviceOptions}
-                    placeholder="Elige un servicio…"
-                    ariaLabel="Servicio"
-                  />
-                ) : (
-                  <CustomSelect
-                    value={item.productId}
-                    onChange={onCustomSelectValue((v) => updateItem(index, { productId: v }))}
-                    options={productOptions}
-                    placeholder="Elige un producto…"
-                    ariaLabel="Producto"
-                  />
-                )}
-                <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) => updateItem(index, { quantity: Number(e.target.value) || 1 })}
-                  className="input-premium w-full py-1.5 text-xs"
-                  aria-label="Cantidad"
-                />
+
+          <div className="space-y-3">
+            {options.map((option, optionIndex) => (
+              <div key={optionIndex} className="rounded-lg border border-stone-200 bg-white p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gold-dark">
+                    Opción {optionIndex + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeOption(optionIndex)}
+                    disabled={options.length <= 1}
+                    className="rounded-lg p-1 text-stone-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                    aria-label="Quitar opción"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {option.items.map((item, itemIndex) => (
+                    <div
+                      key={itemIndex}
+                      className="grid grid-cols-[6.5rem_1fr_4rem_auto] items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 p-2"
+                    >
+                      <CustomSelect
+                        value={item.itemType}
+                        onChange={(v) =>
+                          updateItem(optionIndex, itemIndex, { itemType: v, serviceId: '', productId: '' })
+                        }
+                        options={[
+                          { id: 'service', label: 'Servicio' },
+                          { id: 'product', label: 'Producto' },
+                        ]}
+                        ariaLabel="Tipo de premio"
+                      />
+                      {item.itemType === 'service' ? (
+                        <CustomSelect
+                          value={item.serviceId}
+                          onChange={onCustomSelectValue((v) => updateItem(optionIndex, itemIndex, { serviceId: v }))}
+                          options={serviceOptions}
+                          placeholder="Elige un servicio…"
+                          ariaLabel="Servicio"
+                        />
+                      ) : (
+                        <CustomSelect
+                          value={item.productId}
+                          onChange={onCustomSelectValue((v) => updateItem(optionIndex, itemIndex, { productId: v }))}
+                          options={productOptions}
+                          placeholder="Elige un producto…"
+                          ariaLabel="Producto"
+                        />
+                      )}
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.quantity}
+                        onChange={(e) =>
+                          updateItem(optionIndex, itemIndex, { quantity: Number(e.target.value) || 1 })
+                        }
+                        className="input-premium w-full py-1.5 text-xs"
+                        aria-label="Cantidad"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeItem(optionIndex, itemIndex)}
+                        disabled={option.items.length <= 1}
+                        className="rounded-lg p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                        aria-label="Quitar premio"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 <button
                   type="button"
-                  onClick={() => removeItem(index)}
-                  disabled={items.length <= 1}
-                  className="rounded-lg p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
-                  aria-label="Quitar premio"
+                  onClick={() => addItem(optionIndex)}
+                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-gold-dark hover:underline"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Plus className="h-3 w-3" /> Agregar premio a esta opción
                 </button>
               </div>
             ))}
