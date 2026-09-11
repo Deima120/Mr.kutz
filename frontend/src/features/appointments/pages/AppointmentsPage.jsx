@@ -125,13 +125,13 @@ function ClientAppointmentsToolbar({
         options={CLIENT_STATUS_FILTER_OPTIONS.map(({ id, label }) => ({ id, label }))}
       />
 
-      <p className="text-xs sm:text-sm text-stone-500 font-semibold lg:flex-1 lg:text-center lg:pb-2.5 order-last lg:order-none">
+      <p className="text-sm font-semibold text-stone-500 lg:flex-1 lg:text-center lg:pb-2.5 order-last lg:order-none">
         Página {safePage} de {totalPages} · {total} citas
       </p>
 
       <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full lg:w-auto lg:ml-auto shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <label htmlFor="client-appointments-page-size" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+          <label htmlFor="client-appointments-page-size" className="text-sm font-semibold text-stone-500 whitespace-nowrap">
             Por página
           </label>
           <CustomSelect
@@ -234,7 +234,7 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
     >
       <div className="space-y-4 -mt-1">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1">Servicio</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-stone-500 mb-1">Servicio</p>
           <p className="font-serif text-lg sm:text-xl font-semibold text-stone-900 leading-snug text-center sm:text-left">
             {serviceName}
           </p>
@@ -242,7 +242,7 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
 
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 flex items-center gap-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-stone-500 mb-1.5 flex items-center gap-1">
               <CalendarDays className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
               Fecha
             </p>
@@ -251,7 +251,7 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
             </p>
           </div>
           <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 flex items-center gap-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-stone-500 mb-1.5 flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
               Hora
             </p>
@@ -262,7 +262,7 @@ function CancelAppointmentModal({ appointment, open, onClose, onConfirm, confirm
         </div>
 
         <div>
-          <label className="block text-[11px] font-semibold text-stone-600 mb-1">Motivo *</label>
+          <label className="block text-xs font-semibold text-stone-600 mb-1.5">Motivo *</label>
           <textarea
             value={reason}
             data-autofocus
@@ -952,7 +952,7 @@ export default function AppointmentsPage() {
                                 ) : null}
                               </div>
                               {statusAllowsCancel && !canCancel ? (
-                                <p className="text-[11px] sm:text-xs text-stone-500 text-right max-w-[14rem] leading-snug">
+                                <p className="text-xs text-stone-500 text-right max-w-[14rem] leading-snug">
                                   Ya no puedes cancelar (menos de 30 min antes del inicio).
                                 </p>
                               ) : null}
@@ -1279,8 +1279,12 @@ export default function AppointmentsPage() {
                 const locked = isAppointmentActionsLocked(a, clock);
                 return (
                 <TableRow key={a.id}>
-                  <TableCell className="font-medium">{formatTime(a.start_time)}</TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap font-medium tabular-nums">
+                    {formatTime(a.start_time)}
+                  </TableCell>
+                  {/* El cliente es el dato que se busca al recorrer la lista, así
+                      que va destacado; barbero y servicio quedan en peso normal. */}
+                  <TableCell className="font-semibold text-stone-900">
                     {a.client_first_name} {a.client_last_name}
                   </TableCell>
                   <TableCell>
