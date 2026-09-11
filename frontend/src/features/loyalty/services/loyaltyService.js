@@ -32,6 +32,12 @@ export const deactivateMilestoneRule = async (id) => {
   return extract(response);
 };
 
+/** El staff elige, en nombre del cliente, el premio de una recompensa pendiente. */
+export const chooseRewardOption = async (rewardId, optionId) => {
+  const response = await api.patch(`${LOYALTY_BASE}/rewards/${rewardId}/choose`, { optionId });
+  return extract(response);
+};
+
 export const getRewardsHistory = async ({ limit = 10, offset = 0, clientId, status } = {}) => {
   const response = await api.get(`${LOYALTY_BASE}/rewards`, {
     params: { limit, offset, clientId: clientId || undefined, status: status || undefined },

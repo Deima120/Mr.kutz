@@ -108,6 +108,15 @@ export const PERMISSIONS = [
   // --- Fidelización --------------------------------------------------------
   { code: 'loyalty.view', module: 'loyalty', description: 'Ver el historial y avance de fidelización de clientes' },
   { code: 'loyalty.manage', module: 'loyalty', description: 'Configurar los hitos y premios de fidelización' },
+  // Mismo patrón que `appointments.view.all` / `.view.own`: el cliente ve
+  // únicamente sus propias recompensas, nunca las de otro (GET /clients/me/loyalty
+  // resuelve el cliente por `req.user.client_id`, no acepta un id ajeno).
+  { code: 'loyalty.view.own', module: 'loyalty', description: 'Ver sus propias recompensas de fidelización ganadas' },
+  // Acción de escritura específica sobre lo propio, igual que `appointments.rate`
+  // — no es "gestionar" fidelización (eso sigue siendo `loyalty.manage`: crear
+  // hitos y sus opciones), es solo elegir entre las opciones que el admin ya
+  // configuró para un premio que el cliente ya se ganó.
+  { code: 'loyalty.redeem.own', module: 'loyalty', description: 'Elegir el premio entre las opciones de un hito propio ya otorgado' },
 
   // --- Panel y contenido -------------------------------------------------
   { code: 'dashboard.view.all', module: 'dashboard', description: 'Ver el panel general del negocio' },
@@ -184,6 +193,8 @@ export const ROLE_PRESETS = {
     'appointments.update',
     'appointments.rate',
     'barbers.view',
+    'loyalty.view.own',
+    'loyalty.redeem.own',
   ],
 };
 

@@ -173,6 +173,12 @@ export default function MainLayout() {
                   >
                     Mis citas
                   </Link>
+                  <Link
+                    to="/loyalty"
+                    className="px-4 py-2 text-stone-400 hover:text-white text-sm font-medium transition-colors"
+                  >
+                    Fidelización
+                  </Link>
                   <div className="relative ml-1" ref={profileMenuRef}>
                     <button
                       type="button"
@@ -284,6 +290,13 @@ export default function MainLayout() {
                     className="px-4 py-3 text-stone-300 hover:text-white rounded-lg text-sm"
                   >
                     Mis citas
+                  </Link>
+                  <Link
+                    to="/loyalty"
+                    onClick={closeMobile}
+                    className="px-4 py-3 text-stone-300 hover:text-white rounded-lg text-sm"
+                  >
+                    Fidelización
                   </Link>
                   <button type="button" onClick={handleLogout} className="text-left px-4 py-3 text-stone-500 hover:text-white rounded-lg text-sm">
                     Salir

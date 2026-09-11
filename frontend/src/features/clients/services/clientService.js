@@ -30,15 +30,43 @@ export const getClientHistory = async (id, { limit = 10, offset = 0 } = {}) => {
   };
 };
 
+/** Vista del mostrador: premios de este cliente listos para canjear y pendientes de elegir. */
 export const getClientLoyaltyRewards = async (id) => {
   const response = await api.get(`${CLIENTS_BASE}/${id}/loyalty-rewards`);
   const res = response?.data ?? response;
   const data = res?.data ?? res;
-  return Array.isArray(data) ? data : [];
+  return {
+    pendingRedeem: Array.isArray(data?.pendingRedeem) ? data.pendingRedeem : [],
+    pendingChoice: Array.isArray(data?.pendingChoice) ? data.pendingChoice : [],
+  };
 };
 
 export const getClientLoyaltyProgress = async (id) => {
   const response = await api.get(`${CLIENTS_BASE}/${id}/loyalty-progress`);
+  const res = response?.data ?? response;
+  return res?.data ?? res;
+};
+
+/**
+ * Autoservicio: todo lo que el cliente autenticado necesita de su propia
+ * fidelización — premios listos para canjear, premios otorgados pero sin
+ * elegir opción todavía (con sus opciones resueltas), y su avance hacia el
+ * próximo hito.
+ */
+export const getMyLoyalty = async () => {
+  const response = await api.get(`${CLIENTS_BASE}/me/loyalty`);
+  const res = response?.data ?? response;
+  const data = res?.data ?? res;
+  return {
+    pendingRedeem: Array.isArray(data?.pendingRedeem) ? data.pendingRedeem : [],
+    pendingChoice: Array.isArray(data?.pendingChoice) ? data.pendingChoice : [],
+    progress: data?.progress ?? null,
+  };
+};
+
+/** El cliente elige, para uno de sus premios pendientes, cuál opción quiere. */
+export const chooseMyLoyaltyOption = async (rewardId, optionId) => {
+  const response = await api.post(`${CLIENTS_BASE}/me/loyalty/${rewardId}/choose`, { optionId });
   const res = response?.data ?? response;
   return res?.data ?? res;
 };

@@ -8,7 +8,9 @@ import {
   updateMilestoneRule,
   deactivateMilestoneRule,
   listLoyaltyRewardsHistory,
+  chooseLoyaltyRewardOption,
 } from '../services/clientLoyaltyRewards.service.js';
+import prisma from '../lib/prisma.js';
 
 export const getMilestoneRules = async (req, res, next) => {
   try {
@@ -47,6 +49,30 @@ export const deactivateMilestone = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Hito no encontrado.' });
     }
     res.json({ success: true, message: 'Hito desactivado correctamente.', data: rule });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/loyalty/rewards/:id/choose
+ * El staff elige, en nombre del cliente, cuál opción de premio le corresponde
+ * a una recompensa otorgada y aún sin elegir — para el mostrador, cuando el
+ * cliente no usa la app. El `clientId` de confianza sale de la propia
+ * recompensa (nunca del body): evita que alguien mande un id ajeno.
+ */
+export const chooseRewardOption = async (req, res, next) => {
+  try {
+    const rewardId = parseInt(req.params.id, 10);
+    const existing = await prisma.clientLoyaltyReward.findUnique({
+      where: { id: rewardId },
+      select: { clientId: true },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Recompensa no encontrada.' });
+    }
+    const reward = await chooseLoyaltyRewardOption(rewardId, req.body.optionId, existing.clientId);
+    res.json({ success: true, message: 'Premio elegido correctamente.', data: reward });
   } catch (error) {
     next(error);
   }

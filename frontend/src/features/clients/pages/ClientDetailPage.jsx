@@ -49,6 +49,7 @@ export default function ClientDetailPage() {
   const [historyCompletedTotal, setHistoryCompletedTotal] = useState(0);
   const [historyNoShowTotal, setHistoryNoShowTotal] = useState(0);
   const [pendingLoyaltyRewards, setPendingLoyaltyRewards] = useState([]);
+  const [pendingChoiceRewards, setPendingChoiceRewards] = useState([]);
   const [loyaltyProgress, setLoyaltyProgress] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(HISTORY_DEFAULT_PAGE_SIZE);
@@ -77,11 +78,17 @@ export default function ClientDetailPage() {
     let cancelled = false;
     clientService
       .getClientLoyaltyRewards(id)
-      .then((rewards) => {
-        if (!cancelled) setPendingLoyaltyRewards(rewards);
+      .then(({ pendingRedeem, pendingChoice }) => {
+        if (!cancelled) {
+          setPendingLoyaltyRewards(pendingRedeem);
+          setPendingChoiceRewards(pendingChoice);
+        }
       })
       .catch(() => {
-        if (!cancelled) setPendingLoyaltyRewards([]);
+        if (!cancelled) {
+          setPendingLoyaltyRewards([]);
+          setPendingChoiceRewards([]);
+        }
       });
     clientService
       .getClientLoyaltyProgress(id)
@@ -239,6 +246,15 @@ export default function ClientDetailPage() {
                     >
                       <Award className="w-3 h-3 shrink-0" />
                       Recompensa pendiente de canjear
+                    </span>
+                  )}
+                  {pendingChoiceRewards.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gold/10 text-gold-dark border border-gold/30"
+                      title="Ganó un hito con varias opciones de premio y todavía no eligió — puede elegir al agendarle una cita."
+                    >
+                      <Award className="w-3 h-3 shrink-0" />
+                      Premio por elegir
                     </span>
                   )}
                 </div>

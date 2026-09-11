@@ -1,6 +1,8 @@
 /**
- * Fidelización: reglas configurables (`LoyaltyMilestoneRule`), otorgamiento
- * automático de premios, canje y consulta (historial + progreso por cliente).
+ * Fidelización: reglas configurables (`LoyaltyMilestoneRule`), sus opciones de
+ * premio (`LoyaltyMilestoneRewardOption`, el cliente elige una cuando el hito
+ * tiene varias), otorgamiento automático, elección, canje y consulta
+ * (historial + progreso por cliente).
  *
  * Separado de `clientLoyaltyRules.js` (cálculo puro, sin Prisma) porque este
  * archivo sí toca la base de datos.
@@ -13,6 +15,7 @@ import { milestonesReachedAt, nextMilestone } from './clientLoyaltyRules.js';
 const PRISMA_UNIQUE_VIOLATION = 'P2002';
 
 const REWARD_ITEM_INCLUDE = { service: true, product: true };
+const RULE_WITH_OPTIONS_INCLUDE = { options: { include: { items: { include: REWARD_ITEM_INCLUDE } } } };
 
 function describeRewardItem(rewardItem) {
   if (rewardItem.itemType === 'product') {
@@ -21,8 +24,15 @@ function describeRewardItem(rewardItem) {
   return rewardItem.service?.name || 'Servicio';
 }
 
+function httpError(message, statusCode = 400, reason) {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  if (reason) err.reason = reason;
+  return err;
+}
+
 // ---------------------------------------------------------------------------
-// Reglas (configuración del admin)
+// Reglas y sus opciones (configuración del admin)
 // ---------------------------------------------------------------------------
 
 /**
@@ -31,7 +41,7 @@ function describeRewardItem(rewardItem) {
 export async function listMilestoneRules({ activeOnly = false } = {}) {
   const rules = await prisma.loyaltyMilestoneRule.findMany({
     where: activeOnly ? { isActive: true } : undefined,
-    include: { rewardItems: { include: REWARD_ITEM_INCLUDE } },
+    include: RULE_WITH_OPTIONS_INCLUDE,
     orderBy: { everyCount: 'asc' },
   });
   return rules;
@@ -39,7 +49,7 @@ export async function listMilestoneRules({ activeOnly = false } = {}) {
 
 function validateRewardItemsInput(items) {
   if (!Array.isArray(items) || !items.length) {
-    const err = new Error('Indica al menos un premio (servicio o producto) para este hito.');
+    const err = new Error('Indica al menos un premio (servicio o producto) para esta opción.');
     err.statusCode = 400;
     throw err;
   }
@@ -63,7 +73,21 @@ function validateRewardItemsInput(items) {
 }
 
 /**
- * @param {{ everyCount: number, label: string, rewardItems: Array<object> }} data
+ * Un hito necesita al menos una opción de premio; cada opción, al menos un
+ * ítem. Una opción puede agrupar varios ítems (ej. "Barba + Cejas y una
+ * cerveza" es UNA opción con dos ítems, no dos opciones).
+ */
+function validateRewardOptionsInput(options) {
+  if (!Array.isArray(options) || !options.length) {
+    const err = new Error('Indica al menos una opción de premio para este hito.');
+    err.statusCode = 400;
+    throw err;
+  }
+  return options.map((option) => ({ items: validateRewardItemsInput(option?.items) }));
+}
+
+/**
+ * @param {{ everyCount: number, label: string, options: Array<{ items: Array<object> }> }} data
  */
 export async function createMilestoneRule(data) {
   const everyCount = parseInt(data.everyCount, 10);
@@ -78,16 +102,18 @@ export async function createMilestoneRule(data) {
     err.statusCode = 400;
     throw err;
   }
-  const rewardItems = validateRewardItemsInput(data.rewardItems);
+  const options = validateRewardOptionsInput(data.options);
 
   try {
     return await prisma.loyaltyMilestoneRule.create({
       data: {
         everyCount,
         label,
-        rewardItems: { create: rewardItems },
+        options: {
+          create: options.map((option) => ({ items: { create: option.items } })),
+        },
       },
-      include: { rewardItems: { include: REWARD_ITEM_INCLUDE } },
+      include: RULE_WITH_OPTIONS_INCLUDE,
     });
   } catch (err) {
     if (err?.code === PRISMA_UNIQUE_VIOLATION) {
@@ -100,10 +126,14 @@ export async function createMilestoneRule(data) {
 }
 
 /**
- * Reemplaza label/everyCount/premios de una regla existente. Los premios se
- * reescriben completos (borrar + recrear) porque no tienen identidad propia
- * fuera de su regla — las recompensas YA otorgadas no se tocan: guardan su
- * propio snapshot en `ClientLoyaltyRewardItem`, independiente de esto.
+ * Reemplaza label/everyCount/opciones de una regla existente. Las opciones se
+ * reescriben completas (borrar + recrear, cascada hasta sus ítems) porque no
+ * tienen identidad propia fuera de su regla — las recompensas YA otorgadas no
+ * se tocan: guardan su propio snapshot en `ClientLoyaltyRewardItem`,
+ * independiente de esto, y `ClientLoyaltyReward.chosenOptionId` de una
+ * recompensa ya elegida queda apuntando a una opción que puede desaparecer
+ * (`onDelete: SetNull` — se vuelve `null`, pero el snapshot ya hecho no se
+ * pierde).
  */
 export async function updateMilestoneRule(id, data) {
   const ruleId = parseInt(id, 10);
@@ -122,13 +152,13 @@ export async function updateMilestoneRule(id, data) {
     err.statusCode = 400;
     throw err;
   }
-  const rewardItems = data.rewardItems != null ? validateRewardItemsInput(data.rewardItems) : null;
+  const options = data.options != null ? validateRewardOptionsInput(data.options) : null;
   const isActive = data.isActive != null ? Boolean(data.isActive) : existing.isActive;
 
   try {
     return await prisma.$transaction(async (tx) => {
-      if (rewardItems) {
-        await tx.loyaltyMilestoneRewardItem.deleteMany({ where: { ruleId } });
+      if (options) {
+        await tx.loyaltyMilestoneRewardOption.deleteMany({ where: { ruleId } });
       }
       return tx.loyaltyMilestoneRule.update({
         where: { id: ruleId },
@@ -136,9 +166,11 @@ export async function updateMilestoneRule(id, data) {
           everyCount,
           label,
           isActive,
-          ...(rewardItems ? { rewardItems: { create: rewardItems } } : {}),
+          ...(options
+            ? { options: { create: options.map((option) => ({ items: { create: option.items } })) } }
+            : {}),
         },
-        include: { rewardItems: { include: REWARD_ITEM_INCLUDE } },
+        include: RULE_WITH_OPTIONS_INCLUDE,
       });
     });
   } catch (err) {
@@ -164,12 +196,27 @@ export async function deactivateMilestoneRule(id) {
 }
 
 // ---------------------------------------------------------------------------
-// Otorgamiento automático
+// Otorgamiento automático y elección de opción
 // ---------------------------------------------------------------------------
+
+/** Crea los `ClientLoyaltyRewardItem` (snapshot) de una opción para un premio. */
+function rewardItemSnapshotData(optionItems) {
+  return optionItems.map((item) => ({
+    itemType: item.itemType,
+    serviceId: item.serviceId,
+    productId: item.productId,
+    quantity: item.quantity,
+    description: describeRewardItem(item).slice(0, 200),
+  }));
+}
 
 /**
  * Cuenta las citas completadas del cliente y otorga cualquier hito activo que
- * se cumpla exactamente en ese conteo.
+ * se cumpla exactamente en ese conteo. Si la regla tiene una sola opción de
+ * premio, se auto-elige y se snapshotea de inmediato — igual que antes de que
+ * existiera la elección. Si tiene varias, el premio queda otorgado pero
+ * "pendiente de elegir" (`chosenOptionId: null`, sin ítems todavía) hasta que
+ * el cliente —o el staff en su nombre— elige con `chooseLoyaltyRewardOption`.
  *
  * Se llama justo después de que una cita pasa a `completed` (hay dos puntos de
  * llamada en `appointment.service.js`). La restricción `@@unique([clientId,
@@ -190,7 +237,10 @@ export async function grantLoyaltyRewardsIfEligible(clientId) {
 
   for (const rule of reached) {
     const full = rules.find((r) => r.id === rule.id);
-    if (!full) continue;
+    if (!full || !full.options.length) continue; // sin opciones configuradas, nada que otorgar
+
+    const autoOption = full.options.length === 1 ? full.options[0] : null;
+
     try {
       await prisma.clientLoyaltyReward.create({
         data: {
@@ -198,15 +248,12 @@ export async function grantLoyaltyRewardsIfEligible(clientId) {
           ruleId: rule.id,
           occurrence: rule.occurrence,
           grantedAtCount: completedCount,
-          items: {
-            create: full.rewardItems.map((item) => ({
-              itemType: item.itemType,
-              serviceId: item.serviceId,
-              productId: item.productId,
-              quantity: item.quantity,
-              description: describeRewardItem(item).slice(0, 200),
-            })),
-          },
+          ...(autoOption
+            ? {
+                chosenOptionId: autoOption.id,
+                items: { create: rewardItemSnapshotData(autoOption.items) },
+              }
+            : {}),
         },
       });
     } catch (err) {
@@ -216,21 +263,113 @@ export async function grantLoyaltyRewardsIfEligible(clientId) {
   }
 }
 
+/**
+ * El cliente (o el staff en su nombre) elige entre las opciones de un premio
+ * ya otorgado pero aún sin elegir. Crea el snapshot de esa opción y fija
+ * `chosenOptionId` — a partir de ahí se canjea solo, igual que un premio de
+ * una sola opción.
+ *
+ * @param {number} rewardId
+ * @param {number} optionId
+ * @param {number} clientId Dueño esperado del premio — quien llama ya resolvió
+ *   esto (el propio cliente vía `req.user.client_id`, o el admin vía la ficha
+ *   del cliente que está atendiendo). Sirve de comprobación, no de fuente.
+ */
+/**
+ * Validación pura (sin Prisma) de una elección de opción — separada para
+ * poder probarla con objetos simples, igual que `assertNoPrivilegeEscalation`
+ * en `role.service.js`. Devuelve la opción elegida si todo está en regla.
+ *
+ * @param {object} reward Premio con `rule.options` ya incluidos.
+ * @param {number} optionId
+ * @param {number} clientId Dueño esperado.
+ */
+export function assertCanChooseRewardOption(reward, optionId, clientId) {
+  if (!reward) throw httpError('Recompensa no encontrada.', 404);
+  if (reward.clientId !== Number(clientId)) {
+    throw httpError('Esta recompensa no pertenece a ese cliente.', 403);
+  }
+  if (reward.chosenOptionId != null) {
+    throw httpError('Ya se eligió el premio de este hito.', 409, 'ALREADY_CHOSEN');
+  }
+  const option = reward.rule.options.find((o) => o.id === Number(optionId));
+  if (!option) {
+    throw httpError('Esa opción no pertenece a este hito.', 400);
+  }
+  return option;
+}
+
+export async function chooseLoyaltyRewardOption(rewardId, optionId, clientId) {
+  const id = parseInt(rewardId, 10);
+  const chosenOptionId = parseInt(optionId, 10);
+
+  const reward = await prisma.clientLoyaltyReward.findUnique({
+    where: { id },
+    include: { rule: { include: { options: { include: { items: { include: REWARD_ITEM_INCLUDE } } } } } },
+  });
+  const option = assertCanChooseRewardOption(reward, chosenOptionId, clientId);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.clientLoyaltyRewardItem.createMany({ data: rewardItemSnapshotData(option.items).map((it) => ({ ...it, rewardId: id })) });
+    return tx.clientLoyaltyReward.update({
+      where: { id },
+      data: { chosenOptionId },
+      include: { items: true },
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Canje (usado por payment.service.js)
 // ---------------------------------------------------------------------------
 
 /**
- * Recompensas del cliente aún sin canjear, con sus ítems ya resueltos.
+ * Recompensas del cliente listas para canjear (ya elegidas, sin canjear
+ * todavía), con sus ítems ya resueltos. Una recompensa otorgada pero aún sin
+ * elegir opción no aparece aquí — no hay nada que aplicar todavía.
  *
  * @param {number} clientId
  * @param {{ prisma?: object }} [options] Cliente Prisma o `tx` de una transacción.
  */
 export async function getPendingLoyaltyRewards(clientId, { prisma: db = prisma } = {}) {
   return db.clientLoyaltyReward.findMany({
-    where: { clientId, redeemedAt: null },
+    where: { clientId, redeemedAt: null, chosenOptionId: { not: null } },
     include: { items: true },
   });
+}
+
+/**
+ * Recompensas del cliente otorgadas pero **sin elegir opción todavía**, con
+ * las opciones disponibles de su hito ya resueltas (descripciones incluidas)
+ * para que el formulario de agendar (o la pantalla de fidelización del
+ * cliente) pueda ofrecerlas.
+ *
+ * @param {number} clientId
+ */
+export async function getPendingRewardChoices(clientId) {
+  const rewards = await prisma.clientLoyaltyReward.findMany({
+    where: { clientId, chosenOptionId: null },
+    include: {
+      rule: { include: { options: { include: { items: { include: REWARD_ITEM_INCLUDE } } } } },
+    },
+    orderBy: { grantedAt: 'asc' },
+  });
+  return rewards.map((r) => ({
+    id: r.id,
+    ruleId: r.ruleId,
+    ruleLabel: r.rule.label,
+    grantedAt: r.grantedAt,
+    options: r.rule.options.map((option) => ({
+      id: option.id,
+      items: option.items.map((item) => ({
+        itemType: item.itemType,
+        serviceId: item.serviceId,
+        productId: item.productId,
+        quantity: item.quantity,
+        description: describeRewardItem(item),
+      })),
+    })),
+  }));
 }
 
 /**

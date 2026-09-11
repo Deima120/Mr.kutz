@@ -1,8 +1,9 @@
 /**
- * Fidelización (`/loyalty`, solo administrador).
- *
- * Dos pestañas para no sumar dos entradas al menú:
- * - "Hitos": configuración de las reglas (cada cuántos servicios, qué premio).
+ * Fidelización (`/loyalty`) — ramificada por rol, mismo patrón que
+ * `AppointmentsPage.jsx`: el cliente ve `ClientLoyaltyPage` (su avance y sus
+ * premios); admin/staff con `loyalty.view`/`loyalty.manage` ven esta pantalla
+ * completa, con dos pestañas para no sumar dos entradas al menú:
+ * - "Hitos": configuración de las reglas (cada cuántos servicios, opciones de premio).
  * - "Historial": listado paginado de recompensas otorgadas a todos los clientes.
  */
 
@@ -23,10 +24,12 @@ import AdminStatusToggle from '@/shared/components/admin/AdminStatusToggle';
 import { AdminPagination, FilterSelect } from '@/shared/components/admin/AdminListControls';
 import ClientPicker from '@/features/clients/components/ClientPicker';
 import { useAppToast } from '@/shared/feedback/ToastContext';
+import { useAuth } from '@/shared/contexts/AuthContext';
 import { getApiErrorMessage } from '@/shared/utils/formValidation';
 import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
 import * as loyaltyService from '@/features/loyalty/services/loyaltyService';
 import LoyaltyMilestoneFormModal from '@/features/loyalty/components/LoyaltyMilestoneFormModal';
+import ClientLoyaltyPage from '@/features/loyalty/pages/ClientLoyaltyPage';
 
 const TAB_MILESTONES = 'milestones';
 const TAB_HISTORY = 'history';
@@ -42,7 +45,19 @@ function itemsSummary(items) {
   return items.map((it) => it.description).join(' · ');
 }
 
+/**
+ * Enrutador por rol — un cliente nunca debe montar `AdminLoyaltyPage` (sus
+ * hooks piden `GET /loyalty/milestones`/`GET /loyalty/rewards`, que un
+ * cliente no tiene permiso para llamar y le mostrarían un toast de error de
+ * entrada). Se decide el componente ANTES de montar nada, no con un `return`
+ * a mitad de un componente con hooks condicionales.
+ */
 export default function LoyaltyPage() {
+  const { user } = useAuth();
+  return user?.role === 'client' ? <ClientLoyaltyPage /> : <AdminLoyaltyPage />;
+}
+
+function AdminLoyaltyPage() {
   const toast = useAppToast();
   const [tab, setTab] = useState(TAB_MILESTONES);
 
@@ -202,8 +217,13 @@ export default function LoyaltyPage() {
                       </TableCell>
                       <TableCell compact className="max-w-[18rem] text-xs text-stone-600">
                         <span className="line-clamp-2">
-                          {(r.rewardItems || [])
-                            .map((it) => it.service?.name || it.product?.name || '—')
+                          {(r.options || [])
+                            .map((option, i) => {
+                              const desc = (option.items || [])
+                                .map((it) => it.service?.name || it.product?.name || '—')
+                                .join(' + ');
+                              return r.options.length > 1 ? `Opción ${i + 1}: ${desc}` : desc;
+                            })
                             .join(' · ')}
                         </span>
                       </TableCell>

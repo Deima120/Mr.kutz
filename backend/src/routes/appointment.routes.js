@@ -51,6 +51,10 @@ const createValidation = [
     .matches(/^\d{1,2}:\d{2}$/)
     .withMessage('La hora debe tener formato HH:MM.'),
   optionalNotesField('notes', 500),
+  // Elegir, al agendar, el premio de una recompensa de fidelización ya
+  // otorgada — opcional, sin relación con los servicios de la cita en sí.
+  body('loyaltyChoice.rewardId').optional().isInt({ min: 1 }).withMessage('Recompensa no válida.'),
+  body('loyaltyChoice.optionId').optional().isInt({ min: 1 }).withMessage('Opción de premio no válida.'),
 ];
 
 const updateValidation = [

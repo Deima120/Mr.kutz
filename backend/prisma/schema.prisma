@@ -148,65 +148,91 @@ enum LoyaltyRewardItemType {
 }
 
 /// Regla de fidelización configurable por el administrador: cada cuántos
-/// servicios completados se otorga un premio, y qué premio (uno o varios
-/// ítems, ver `LoyaltyMilestoneRewardItem`). Reemplaza la lista hardcodeada
-/// `LOYALTY_MILESTONES` que existía en código — agregar un hito nuevo ahora es
-/// una fila nueva desde el panel, sin deploy.
+/// servicios completados se otorga un premio, y entre qué opciones puede
+/// elegir el cliente (ver `LoyaltyMilestoneRewardOption`). Reemplaza la lista
+/// hardcodeada `LOYALTY_MILESTONES` que existía en código — agregar un hito
+/// nuevo ahora es una fila nueva desde el panel, sin deploy.
 model LoyaltyMilestoneRule {
-  id          Int                          @id @default(autoincrement())
+  id         Int                            @id @default(autoincrement())
   /// 5, 10, 15... El admin puede agregar los que quiera; no hay tope fijo en código.
-  everyCount  Int                          @unique @map("every_count")
-  label       String                       @db.VarChar(120)
+  everyCount Int                            @unique @map("every_count")
+  label      String                         @db.VarChar(120)
   /// Un hito desactivado deja de otorgarse a partir de ahí, pero no borra el
   /// historial de lo ya otorgado — mismo criterio que servicios/productos inactivos.
-  isActive    Boolean                      @default(true) @map("is_active")
-  createdAt   DateTime                     @default(now()) @map("created_at")
-  updatedAt   DateTime                     @updatedAt @map("updated_at")
-  rewardItems LoyaltyMilestoneRewardItem[]
-  grants      ClientLoyaltyReward[]
+  isActive   Boolean                        @default(true) @map("is_active")
+  createdAt  DateTime                       @default(now()) @map("created_at")
+  updatedAt  DateTime                       @updatedAt @map("updated_at")
+  options    LoyaltyMilestoneRewardOption[]
+  grants     ClientLoyaltyReward[]
 
   @@map("loyalty_milestone_rules")
 }
 
-/// Qué se regala en una regla — uno o varios ítems (ej. a los 10 servicios: un
-/// producto + un servicio a la vez). Exactamente uno de `serviceId`/`productId`
-/// debe estar presente según `itemType` (se valida en el servicio, no aquí).
-model LoyaltyMilestoneRewardItem {
-  id        Int                   @id @default(autoincrement())
-  ruleId    Int                   @map("rule_id")
-  itemType  LoyaltyRewardItemType @map("item_type")
-  serviceId Int?                  @map("service_id")
-  productId Int?                  @map("product_id")
-  quantity  Int                   @default(1)
-  rule      LoyaltyMilestoneRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  service   Service?              @relation(fields: [serviceId], references: [id])
-  product   Product?              @relation(fields: [productId], references: [id])
+/// Una alternativa de premio dentro de un hito — el admin puede configurar
+/// varias (ej. "Barba gratis" O "un producto de la categoría X"), y el
+/// cliente elige una sola al agendar su siguiente cita (o el staff, en su
+/// nombre). Una opción puede agrupar varios ítems a la vez (ej. "Barba +
+/// Cejas y una cerveza" sigue siendo UNA opción con dos ítems). Si un hito
+/// tiene una sola opción, se auto-elige sin pedirle nada al cliente —
+/// preserva el comportamiento de antes de que existiera la elección.
+model LoyaltyMilestoneRewardOption {
+  id     Int                          @id @default(autoincrement())
+  ruleId Int                          @map("rule_id")
+  rule   LoyaltyMilestoneRule         @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  items  LoyaltyMilestoneRewardItem[]
+  grants ClientLoyaltyReward[]
 
   @@index([ruleId])
+  @@map("loyalty_milestone_reward_options")
+}
+
+/// Qué se regala dentro de una opción — uno o varios ítems. Exactamente uno de
+/// `serviceId`/`productId` debe estar presente según `itemType` (se valida en
+/// el servicio, no aquí).
+model LoyaltyMilestoneRewardItem {
+  id        Int                          @id @default(autoincrement())
+  optionId  Int                          @map("option_id")
+  itemType  LoyaltyRewardItemType        @map("item_type")
+  serviceId Int?                         @map("service_id")
+  productId Int?                         @map("product_id")
+  quantity  Int                          @default(1)
+  option    LoyaltyMilestoneRewardOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  service   Service?                     @relation(fields: [serviceId], references: [id])
+  product   Product?                     @relation(fields: [productId], references: [id])
+
+  @@index([optionId])
   @@map("loyalty_milestone_reward_items")
 }
 
 /// Hito de fidelización YA otorgado a un cliente. Se otorga automáticamente al
-/// completar una cita (ver `grantLoyaltyRewardsIfEligible`) y sus ítems
-/// (`ClientLoyaltyRewardItem`) se canjean solos, sin intervención del staff, en
-/// el siguiente cobro con línea de servicio del cliente.
+/// completar una cita (ver `grantLoyaltyRewardsIfEligible`). Si su regla tenía
+/// una sola opción, `chosenOptionId` y los `ClientLoyaltyRewardItem` quedan
+/// listos de inmediato; si tenía varias, queda `chosenOptionId: null`
+/// ("otorgado, pendiente de elegir") hasta que el cliente (o el staff en su
+/// nombre) elige — ver `chooseLoyaltyRewardOption`. Una vez con ítems, se
+/// canjean solos, sin intervención del staff, en el siguiente cobro con línea
+/// de servicio del cliente.
 model ClientLoyaltyReward {
-  id             Int                       @id @default(autoincrement())
-  clientId       Int                       @map("client_id")
-  ruleId         Int                       @map("rule_id")
+  id             Int                           @id @default(autoincrement())
+  clientId       Int                           @map("client_id")
+  ruleId         Int                           @map("rule_id")
   /// 1ª vez que se cumple ese ciclo para este cliente, 2ª, 3ª... Junto con
   /// `ruleId` forma la clave de idempotencia: si la función que otorga hitos se
   /// invoca dos veces para la misma cita completada, el segundo intento de
   /// crear la misma fila choca con `@@unique` en vez de duplicar el premio.
   occurrence     Int
-  grantedAt      DateTime                  @default(now()) @map("granted_at")
+  grantedAt      DateTime                      @default(now()) @map("granted_at")
   /// Nº de servicios completados del cliente que disparó el hito, para auditoría.
-  grantedAtCount Int                       @map("granted_at_count")
-  redeemedAt     DateTime?                 @map("redeemed_at")
-  paymentId      Int?                      @map("payment_id")
-  client         Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  rule           LoyaltyMilestoneRule      @relation(fields: [ruleId], references: [id], onDelete: Restrict)
-  payment        Payment?                  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  grantedAtCount Int                           @map("granted_at_count")
+  /// `null` = todavía sin elegir qué opción del hito quiere (solo posible si
+  /// la regla tiene 2+ opciones). Se fija al elegir, junto con los items.
+  chosenOptionId Int?                          @map("chosen_option_id")
+  redeemedAt     DateTime?                     @map("redeemed_at")
+  paymentId      Int?                          @map("payment_id")
+  client         Client                        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rule           LoyaltyMilestoneRule          @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  chosenOption   LoyaltyMilestoneRewardOption? @relation(fields: [chosenOptionId], references: [id], onDelete: SetNull)
+  payment        Payment?                      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   items          ClientLoyaltyRewardItem[]
 
   @@unique([clientId, ruleId, occurrence])
@@ -279,6 +305,13 @@ model Service {
   updatedAt          DateTime                     @updatedAt @map("updated_at")
   appointments       Appointment[]
   loyaltyRewardItems LoyaltyMilestoneRewardItem[]
+  /// Servicios individuales que este combo incluye de verdad (solo tiene
+  /// sentido para servicios de la categoría "Combos") — es lo que permite
+  /// bloquear "Corte + Barba" en una cita si el cliente ya va a recibir
+  /// "Barba" gratis por fidelización, sin adivinar por el nombre.
+  comboComponents    Service[]                    @relation("ComboComponents")
+  /// El lado inverso: en qué combos aparece este servicio como componente.
+  partOfCombos       Service[]                    @relation("ComboComponents")
 }
 
 model ServiceCategory {
