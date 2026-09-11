@@ -6,7 +6,14 @@ import * as clientService from '@/features/clients/services/clientService';
 import { ClientForm } from '@/features/clients/pages/ClientFormPage';
 import PageHeader from '@/shared/components/admin/PageHeader';
 import DataCard from '@/shared/components/admin/DataCard';
-import Table, { TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/shared/components/admin/Table';
+import Table, {
+  TableHead,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TablePrimaryCell,
+} from '@/shared/components/admin/Table';
 import AdminIconButton from '@/shared/components/admin/AdminIconButton';
 import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
@@ -252,19 +259,46 @@ export default function ClientsPage() {
                         className="block p-4 rounded-xl border border-stone-200 hover:border-gold/30 hover:shadow-card-hover transition-all bg-stone-50/50 hover:bg-white"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="font-serif font-semibold text-stone-900 group-hover:text-gold-dark transition-colors duration-200">
+                          <div className="min-w-0">
+                            <p className="font-serif text-base font-semibold text-stone-900 transition-colors duration-200 group-hover:text-gold-dark">
                               {client.first_name} {client.last_name}
                             </p>
-                            <p className="text-stone-500 text-xs mt-0.5 font-medium">{client.email || 'Sin email'}</p>
-                            {client.phone && (
-                              <p className="text-stone-500 text-xs font-medium">{client.phone}</p>
-                            )}
-                            <p className="text-stone-400 text-[11px] mt-1 font-bold">
+
+                            {/* Mismo criterio que la tabla: estado real del cliente
+                                antes que el resto de sus datos de contacto. */}
+                            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span
+                                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                    client.is_active === false ? 'bg-stone-400' : 'bg-emerald-500'
+                                  }`}
+                                  aria-hidden
+                                />
+                                <span
+                                  className={`font-semibold ${
+                                    client.is_active === false ? 'text-stone-500' : 'text-emerald-700'
+                                  }`}
+                                >
+                                  {client.is_active === false ? 'Inactivo' : 'Activo'}
+                                </span>
+                              </span>
+                              {(client.no_show_count ?? 0) >= 2 && (
+                                <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+                                  <CalendarX className="h-3.5 w-3.5" aria-hidden />
+                                  {client.no_show_count} inasistencias
+                                </span>
+                              )}
+                            </p>
+
+                            <p className="mt-1.5 truncate text-sm text-stone-500">
+                              {client.email || 'Sin correo'}
+                            </p>
+                            {client.phone && <p className="text-sm text-stone-500">{client.phone}</p>}
+                            <p className="mt-1 text-xs text-stone-400">
                               Doc: {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
                             </p>
                           </div>
-                          <span className="text-stone-800 text-xs font-bold inline-flex items-center gap-1 bg-stone-100 group-hover:bg-gold-muted group-hover:text-gold-dark border border-stone-200/50 rounded-lg px-2.5 py-1.5 transition-all">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-stone-200/50 bg-stone-100 px-2.5 py-1.5 text-sm font-semibold text-stone-800 transition-all group-hover:bg-gold-muted group-hover:text-gold-dark">
                             Ver detalle
                             <ChevronRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
                           </span>
@@ -385,35 +419,56 @@ export default function ClientsPage() {
                         {[client.document_type, client.document_number].filter(Boolean).join(' ') || '—'}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        {/* La segunda línea lleva el estado real del cliente, no
+                            texto decorativo: si está activo y cuántas citas ha
+                            faltado, que es lo que decide si conviene inactivarlo. */}
+                        <TablePrimaryCell
+                          muted={client.is_active === false}
+                          secondary={
+                            <>
+                              <span className="inline-flex items-center gap-1.5">
+                                <span
+                                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                    client.is_active === false ? 'bg-stone-400' : 'bg-emerald-500'
+                                  }`}
+                                  aria-hidden
+                                />
+                                <span
+                                  className={
+                                    client.is_active === false
+                                      ? 'font-semibold text-stone-500'
+                                      : 'font-semibold text-emerald-700'
+                                  }
+                                >
+                                  {client.is_active === false ? 'Inactivo' : 'Activo'}
+                                </span>
+                              </span>
+
+                              {/* Aviso solo a partir de 2: una falta puntual le pasa a
+                                  cualquiera; la reincidencia es la que justifica
+                                  inactivar al cliente. */}
+                              {(client.no_show_count ?? 0) >= 2 && (
+                                <span
+                                  className="inline-flex items-center gap-1 font-semibold text-red-700"
+                                  title={`No asistió a ${client.no_show_count} citas`}
+                                >
+                                  <CalendarX className="h-3.5 w-3.5" aria-hidden />
+                                  {client.no_show_count} inasistencias
+                                </span>
+                              )}
+                            </>
+                          }
+                        >
                           <Link
                             to={`/clients/${client.id}`}
-                            className={`font-semibold transition-colors duration-200 hover:text-gold-dark ${
-                              client.is_active === false ? 'text-stone-400' : 'text-stone-900'
-                            }`}
+                            className="transition-colors duration-200 hover:text-gold-dark"
                           >
                             {client.first_name} {client.last_name}
                           </Link>
-                          {client.is_active === false && (
-                            <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-600">
-                              Inactivo
-                            </span>
-                          )}
-                          {/* Aviso solo a partir de 2: una falta puntual le pasa a cualquiera;
-                              la reincidencia es la que justifica inactivar al cliente. */}
-                          {(client.no_show_count ?? 0) >= 2 && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700"
-                              title={`No asistió a ${client.no_show_count} citas`}
-                            >
-                              <CalendarX className="w-3 h-3" aria-hidden />
-                              {client.no_show_count} inasistencias
-                            </span>
-                          )}
-                        </div>
+                        </TablePrimaryCell>
                       </TableCell>
-                      <TableCell className="text-xs font-semibold text-stone-700">{client.phone || '-'}</TableCell>
-                      <TableCell className="text-xs font-semibold text-stone-700">{client.email || '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap text-stone-700">{client.phone || '—'}</TableCell>
+                      <TableCell className="text-stone-700">{client.email || '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1.5">
                           <AdminIconButton

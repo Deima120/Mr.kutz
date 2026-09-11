@@ -10,8 +10,10 @@ const STYLES = {
 export default function PaymentTypeBadge({ payment }) {
   const type = getPaymentType(payment);
   return (
+    // Misma cápsula que el badge de estado de la fila: los dos van en la misma
+    // tabla y tenían formas y tamaños distintos.
     <span
-      className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${STYLES[type] || STYLES.cash}`}
+      className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STYLES[type] || STYLES.cash}`}
     >
       {getPaymentTypeLabel(type)}
     </span>

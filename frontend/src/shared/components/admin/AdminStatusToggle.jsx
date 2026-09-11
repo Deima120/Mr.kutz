@@ -17,7 +17,7 @@ export default function AdminStatusToggle({
   inactiveTitle = 'Clic para activar',
 }) {
   const base =
-    'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+    'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
   const activeClass =
     'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300';
   const inactiveClass =

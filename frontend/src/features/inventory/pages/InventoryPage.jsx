@@ -106,7 +106,6 @@ export default function InventoryPage() {
     <div className="page-shell">
       {!list.isFormOpen && (
         <PageHeader
-          title="Inventario"
           subtitle="Productos, stock, movimientos y venta en caja"
           actions={
             <div className="flex flex-wrap gap-2 items-center">
@@ -148,14 +147,39 @@ export default function InventoryPage() {
       {!list.isFormOpen && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatsCard label="Total productos" value={list.listTotal} emphasizeValue />
+            <StatsCard
+              label="Total productos"
+              value={list.listTotal}
+              sublabel="Catálogo registrado"
+              emphasizeValue
+            />
             <StatsCard
               label="Stock bajo"
               value={list.summary.lowStockCount ?? 0}
-              sublabel={(list.summary.lowStockCount ?? 0) > 0 ? 'Revisar alertas' : undefined}
+              tone={(list.summary.lowStockCount ?? 0) > 0 ? 'danger' : 'default'}
+              sublabel={
+                (list.summary.lowStockCount ?? 0) > 0 ? (
+                  // Accionable en vez de informativo: lleva directo al listado
+                  // filtrado, que es lo que se quiere hacer al leer la cifra.
+                  <button
+                    type="button"
+                    onClick={() => list.setShowLowStockOnly(true)}
+                    className="font-semibold text-rose-600 underline-offset-2 hover:underline"
+                  >
+                    Revisar alertas
+                  </button>
+                ) : (
+                  'Todo por encima del mínimo'
+                )
+              }
               emphasizeValue
             />
-            <StatsCard label="Unidades en stock" value={list.summary.totalUnits ?? 0} emphasizeValue />
+            <StatsCard
+              label="Unidades en stock"
+              value={list.summary.totalUnits ?? 0}
+              sublabel="Existencias totales"
+              emphasizeValue
+            />
             <StatsCard
               label="Valor inventario"
               value={formatInventoryValue(list.summary.inventoryValue ?? 0)}
@@ -186,7 +210,7 @@ export default function InventoryPage() {
                 value={list.search}
                 onChange={(e) => list.setSearch(e.target.value)}
                 placeholder="Buscar por nombre o SKU…"
-                className="input-premium py-2 text-sm w-full"
+                className="input-premium min-h-[2.5rem] w-full py-2 text-sm"
               />
               <AdminFilterRow className="w-full">
                 <FilterSelect

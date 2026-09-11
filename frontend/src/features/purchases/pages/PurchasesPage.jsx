@@ -23,6 +23,7 @@ import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/u
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import AdminPeriodTotal from '@/shared/components/admin/AdminPeriodTotal';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -319,16 +320,26 @@ export default function PurchasesPage() {
 
   return (
     <div className="page-shell">
+        {/* Las pestañas van en el lado izquierdo (slot `filters`), pegadas al
+            inicio del contenido y por tanto alineadas con el título del módulo.
+            Son navegación dentro de Gastos, no una acción: colgarlas a la
+            derecha, junto a botones como "Nuevo gasto", las hacía parecer una
+            más de ellas. */}
       {!isFormOpen ? (
         <PageHeader
-          title="Gastos"
           subtitle="Gastos de insumos y directorio de proveedores"
-          actions={
-            <div className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5">
+          filters={
+            <div
+              className="inline-flex rounded-lg border border-stone-200 bg-stone-50 p-0.5"
+              role="tablist"
+              aria-label="Secciones de Gastos"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === TAB_ORDERS}
                 onClick={() => setTab(TAB_ORDERS)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                   activeTab === TAB_ORDERS
                     ? 'bg-white text-barber-dark shadow-sm'
                     : 'text-stone-500 hover:text-stone-800'
@@ -338,8 +349,10 @@ export default function PurchasesPage() {
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === TAB_SUPPLIERS}
                 onClick={() => setTab(TAB_SUPPLIERS)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                   activeTab === TAB_SUPPLIERS
                     ? 'bg-white text-barber-dark shadow-sm'
                     : 'text-stone-500 hover:text-stone-800'
@@ -370,42 +383,36 @@ export default function PurchasesPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <form onSubmit={handleSearchSubmit} className="flex gap-2 min-w-0 flex-1 max-w-xl">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Buscar proveedor, factura, notas…"
-                  className="w-full pl-9 pr-3 py-1.5 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
+                  className="min-h-[2.5rem] w-full rounded-lg border border-stone-200 py-2 pl-10 pr-3 text-sm text-stone-900 placeholder-stone-400 outline-none focus:border-gold focus:ring-2 focus:ring-gold/40"
                 />
               </div>
-              <button type="submit" className="btn-admin shrink-0 px-3 text-xs">
+              <button type="submit" className="btn-admin shrink-0 px-4 py-2 text-sm">
                 Buscar
               </button>
             </form>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo activo</p>
-                  <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
-                    {formatPurchaseAmount(periodTotal.total)}
-                  </p>
-                </div>
-                <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
-                  {periodTotal.count} compra{periodTotal.count === 1 ? '' : 's'}
-                </span>
-              </div>
+              <AdminPeriodTotal
+                label="Periodo activo"
+                amount={formatPurchaseAmount(periodTotal.total)}
+                count={periodTotal.count}
+                countLabel={`gasto${periodTotal.count === 1 ? '' : 's'}`}
+              />
               <AdminExportButtons
                 onExcel={handleExportExcel}
                 onPdf={handleExportPDF}
                 excelDisabled={exportRows.length === 0}
                 pdfDisabled={exportRows.length === 0}
-                size="xs"
               />
-              <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
+              <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 py-2 px-3.5 text-sm">
                 <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                Nueva orden
+                Nuevo gasto
               </button>
             </div>
           </div>
@@ -483,7 +490,7 @@ export default function PurchasesPage() {
                             </TableCell>
                             <TableCell compact>
                               <span
-                                className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
+                                className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                                   isCancelled
                                     ? 'border-stone-200 bg-stone-100 text-stone-600'
                                     : 'border-emerald-200 bg-emerald-50 text-emerald-800'

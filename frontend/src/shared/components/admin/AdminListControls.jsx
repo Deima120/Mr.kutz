@@ -21,11 +21,14 @@ export const ADMIN_FILTER_GRID_CLASS =
 export const ADMIN_FILTER_FIELD_CLASS =
   'flex flex-col gap-0.5 min-w-0 w-full sm:w-auto sm:min-w-[9rem] sm:max-w-[18rem] shrink-0';
 
+// Escala estándar de filtros: 14px en el control y 12px en versalitas para la
+// etiqueta. Antes eran 12px y 10px, que es lo que hacía que la barra de filtros
+// se leyera apretada frente al resto de la pantalla.
 export const ADMIN_FILTER_DATE_CLASS =
-  'select-premium w-full py-1.5 pl-2.5 pr-2 text-xs min-h-[2rem] text-stone-900 rounded-lg';
+  'select-premium w-full py-2 pl-3 pr-2.5 text-sm min-h-[2.5rem] text-stone-900 rounded-lg';
 
 export const ADMIN_FILTER_LABEL_CLASS =
-  'text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 leading-none';
+  'text-xs font-semibold uppercase tracking-[0.1em] text-stone-500 leading-none';
 
 export function chipClassName(active, size = 'md') {
   const sizeClass = CHIP_SIZES[size] || CHIP_SIZES.md;
@@ -35,12 +38,12 @@ export function chipClassName(active, size = 'md') {
   return `${CHIP_BASE} ${sizeClass} border-stone-200 bg-white text-stone-700 hover:border-gold/45 hover:text-barber-dark`;
 }
 
-export const PAGE_SIZE_SELECT_CLASS = 'select-premium py-1.5 pl-3 pr-9 text-xs sm:text-sm min-h-[2.125rem]';
+export const PAGE_SIZE_SELECT_CLASS = 'select-premium py-2 pl-3 pr-9 text-sm min-h-[2.5rem]';
 
 export const FILTER_SELECT_CLASS = 'select-premium py-2 pl-3.5 pr-10 text-sm min-h-[2.5rem]';
 
 export const PAGINATION_BTN_CLASS =
-  'inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none';
+  'inline-flex items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:border-stone-300 disabled:opacity-40 disabled:pointer-events-none';
 
 export function AdminFilterRow({ children, className = '' }) {
   return <div className={`${ADMIN_FILTER_GRID_CLASS} ${className}`.trim()}>{children}</div>;
@@ -82,7 +85,7 @@ export function FilterChip({ active, onClick, children, size = 'md', className =
 export function FilterChipGroup({ label, summary, ariaLabel, children, className = '' }) {
   return (
     <div className={`min-w-0 flex-1 max-w-full space-y-2 ${className}`.trim()}>
-      {summary ? <p className="text-xs text-stone-500 leading-snug">{summary}</p> : null}
+      {summary ? <p className="text-sm text-stone-500 leading-snug">{summary}</p> : null}
       <div className="min-w-0 w-full">
         {label ? <span className={`${ADMIN_FILTER_LABEL_CLASS} normal-case tracking-wider text-stone-500 block mb-1.5`}>{label}</span> : null}
         <div className="min-w-0 w-full" role="group" aria-label={ariaLabel || label || 'Filtros'}>
@@ -154,7 +157,7 @@ export function AdminPagination({
   const controls = (
     <>
       <div className="flex items-center gap-2 min-w-0">
-        <label htmlFor={`${idPrefix}-page-size`} className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+        <label htmlFor={`${idPrefix}-page-size`} className="text-sm font-semibold text-stone-500 whitespace-nowrap">
           Por página
         </label>
         <CustomSelect
@@ -177,7 +180,7 @@ export function AdminPagination({
         >
           Anterior
         </button>
-        <span className="text-xs sm:text-sm font-semibold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
+        <span className="text-sm font-semibold text-stone-800 tabular-nums min-w-[2.75rem] text-center px-0.5">
           {safePage}/{totalPages}
         </span>
         <button
@@ -199,7 +202,7 @@ export function AdminPagination({
         className={`mb-3 pb-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${className}`.trim()}
       >
         {showSummary && (
-          <p className="text-xs sm:text-sm text-stone-500 font-semibold">
+          <p className="text-sm font-semibold text-stone-500">
             Página {safePage} de {totalPages} · {total} {itemLabel}
           </p>
         )}
@@ -237,7 +240,7 @@ export function AdminListToolbar({
   return (
     <DataCard className={`max-w-full min-w-0 !overflow-visible ${cardClassName}`.trim()} compact>
       <div className={`w-full min-w-0 max-w-full flex flex-col gap-3 ${className}`.trim()}>
-        {summary ? <p className="text-xs text-stone-500 leading-snug">{summary}</p> : null}
+        {summary ? <p className="text-sm text-stone-500 leading-snug">{summary}</p> : null}
 
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 lg:gap-5 w-full">
           {filters ? (

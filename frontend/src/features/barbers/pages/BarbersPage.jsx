@@ -259,22 +259,27 @@ export default function BarbersPage() {
                           />
                         ) : (
                           !b.is_active && (
-                            <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-100 px-2.5 py-0.5 text-[11px] font-semibold text-stone-600">
+                            <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-100 px-2.5 py-0.5 text-xs font-semibold text-stone-600">
                               Inactivo
                             </span>
                           )
                         )}
                       </div>
-                      <h3 className="font-serif font-medium text-stone-900">
+                      <h3 className="font-serif text-base font-semibold text-stone-900">
                         {b.first_name} {b.last_name}
                       </h3>
-                      <p className="text-stone-500 text-sm mt-0.5">{b.email}</p>
-                      {b.phone && (
-                        <p className="text-stone-600 text-sm mt-1">{b.phone}</p>
-                      )}
-                      <p className="text-stone-500 text-xs mt-1">
-                        Doc.: {[b.document_type, b.document_number].filter(Boolean).join(' ') || '—'}
+                      {/* El correo en dorado es el acento de la tarjeta, como en
+                          la referencia aprobada: distingue el dato de contacto
+                          principal del resto sin recargar la tarjeta. */}
+                      <p className="mt-0.5 truncate text-sm font-medium text-gold-dark" title={b.email}>
+                        {b.email}
                       </p>
+                      <div className="mt-2.5 space-y-0.5 border-t border-stone-100 pt-2.5">
+                        {b.phone && <p className="text-sm text-stone-700">{b.phone}</p>}
+                        <p className="text-xs text-stone-500">
+                          Doc.: {[b.document_type, b.document_number].filter(Boolean).join(' ') || '—'}
+                        </p>
+                      </div>
                       {b.specialties?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {b.specialties.map((s, i) => (
