@@ -174,6 +174,10 @@ export default function AppointmentForm({
   // pendientes, se manda uno por cita (el backend valida que sea de este
   // cliente y siga sin elegir).
   const [pendingChoiceRewards, setPendingChoiceRewards] = useState([]);
+  // Premios ya elegidos (pendientes de canjear, no de elegir) — también deben
+  // bloquear su servicio en el selector, para no dejar pagar de nuevo algo
+  // que el cliente ya tiene garantizado gratis del próximo cobro.
+  const [pendingRedeemRewards, setPendingRedeemRewards] = useState([]);
   const [loyaltyChoice, setLoyaltyChoice] = useState(null); // { rewardId, optionId } | null
 
   const selectedServices = useMemo(
@@ -275,35 +279,54 @@ export default function AppointmentForm({
     if (isEdit) return undefined;
     if (!formData.clientId) {
       setPendingChoiceRewards([]);
+      setPendingRedeemRewards([]);
       setLoyaltyChoice(null);
       return undefined;
     }
     let cancelled = false;
     const request = isClient
-      ? clientService.getMyLoyalty().then((d) => d.pendingChoice)
-      : clientService.getClientLoyaltyRewards(formData.clientId).then((d) => d.pendingChoice);
+      ? clientService.getMyLoyalty()
+      : clientService.getClientLoyaltyRewards(formData.clientId);
     request
-      .then((choices) => {
-        if (!cancelled) setPendingChoiceRewards(choices);
+      .then((d) => {
+        if (cancelled) return;
+        setPendingChoiceRewards(d.pendingChoice ?? []);
+        setPendingRedeemRewards(d.pendingRedeem ?? []);
       })
       .catch(() => {
-        if (!cancelled) setPendingChoiceRewards([]);
+        if (!cancelled) {
+          setPendingChoiceRewards([]);
+          setPendingRedeemRewards([]);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [formData.clientId, isClient, isEdit]);
 
-  // Servicios que el premio elegido otorgaría gratis — para bloquearlos en el
-  // selector de abajo (directo, o dentro de un combo real que los incluya).
+  // Servicios que ya van a salir gratis para este cliente — para bloquearlos
+  // en el selector de abajo (directo, o dentro de un combo real que los
+  // incluya). Combina dos fuentes: el premio que se está eligiendo AHORA en
+  // este mismo formulario (`loyaltyChoice`) y los premios que el cliente ya
+  // eligió antes y sigue sin canjear (`pendingRedeemRewards`) — sin la
+  // segunda fuente, un servicio ya garantizado gratis se podía volver a
+  // agendar y pagar sin ningún aviso.
   const rewardServiceIds = useMemo(() => {
-    if (!loyaltyChoice) return new Set();
-    const reward = pendingChoiceRewards.find((r) => r.id === loyaltyChoice.rewardId);
-    const option = reward?.options.find((o) => o.id === loyaltyChoice.optionId);
-    return new Set(
-      (option?.items ?? []).filter((it) => it.itemType === 'service' && it.serviceId).map((it) => it.serviceId)
-    );
-  }, [loyaltyChoice, pendingChoiceRewards]);
+    const ids = new Set();
+    for (const reward of pendingRedeemRewards) {
+      for (const it of reward.items ?? []) {
+        if (it.itemType === 'service' && it.serviceId) ids.add(it.serviceId);
+      }
+    }
+    if (loyaltyChoice) {
+      const reward = pendingChoiceRewards.find((r) => r.id === loyaltyChoice.rewardId);
+      const option = reward?.options.find((o) => o.id === loyaltyChoice.optionId);
+      for (const it of option?.items ?? []) {
+        if (it.itemType === 'service' && it.serviceId) ids.add(it.serviceId);
+      }
+    }
+    return ids;
+  }, [loyaltyChoice, pendingChoiceRewards, pendingRedeemRewards]);
 
   const isServiceBlockedByLoyalty = (service) =>
     rewardServiceIds.size > 0 &&
