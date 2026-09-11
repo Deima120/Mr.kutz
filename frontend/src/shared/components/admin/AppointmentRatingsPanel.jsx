@@ -10,14 +10,14 @@ function StarRow({ label, count, max }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
   return (
     <div className="flex items-center gap-3 text-sm">
-      <span className="w-24 text-stone-600 shrink-0">{label}</span>
-      <div className="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden min-w-0">
+      <span className="w-24 shrink-0 text-stone-600">{label}</span>
+      <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-stone-100">
         <div
-          className="h-full bg-gold/80 rounded-full transition-all duration-300"
+          className="h-full rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light transition-all duration-300"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="w-8 text-right text-stone-700 font-medium tabular-nums shrink-0">{count}</span>
+      <span className="w-8 shrink-0 text-right font-semibold tabular-nums text-stone-700">{count}</span>
     </div>
   );
 }
@@ -40,17 +40,20 @@ function RecentCommentsList({ recent, compact, commentsOnly }) {
             key={`${r.appointmentId}-${r.date}`}
             className="p-4 rounded-xl bg-stone-50/90 border border-stone-100 text-sm"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-              <span className="font-semibold text-stone-900">{r.clientName}</span>
-              <span className="text-amber-600 font-medium tabular-nums inline-flex items-center" aria-label={`${r.rating} de 5 estrellas`}>
-                <RatingStars value={r.rating} sizeClass="w-3.5 h-3.5" />
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-stone-900">{r.clientName}</span>
+              <span
+                className="inline-flex items-center tabular-nums text-amber-600"
+                aria-label={`${r.rating} de 5 estrellas`}
+              >
+                <RatingStars value={r.rating} sizeClass="w-4 h-4" />
               </span>
             </div>
-            {meta ? <p className="text-stone-500 text-xs mb-1">{meta}</p> : null}
+            {meta ? <p className="mb-1.5 text-xs text-stone-500">{meta}</p> : null}
             {r.comment ? (
-              <p className="text-stone-700 italic">"{r.comment}"</p>
+              <p className="italic text-stone-700">"{r.comment}"</p>
             ) : (
-              !commentsOnly && <p className="text-stone-400 text-xs">Sin comentario</p>
+              !commentsOnly && <p className="text-xs text-stone-400">Sin comentario</p>
             )}
           </li>
         );
@@ -117,28 +120,44 @@ export default function AppointmentRatingsPanel({
       );
     }
 
+    const totalRecent = summary.recent?.length ?? 0;
+    const shownRecent = recent?.length ?? 0;
+
     return (
       <div className="space-y-6">
-        <div className={`flex flex-wrap items-end gap-6 ${compact ? '' : 'sm:gap-10'}`}>
+        {/* Promedio y total de valoraciones. Deliberadamente NO se muestra un
+            porcentaje de "recomendación": sería un número inventado a partir de
+            las estrellas, y el propietario lo descartó por innecesario. */}
+        <div className={`flex flex-wrap items-end gap-8 ${compact ? '' : 'sm:gap-12'}`}>
           <div>
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Promedio</p>
-            <p className={`font-serif text-stone-900 font-medium ${compact ? 'text-2xl' : 'text-3xl'}`}>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-stone-500">
+              Promedio
+            </p>
+            <p className={`font-serif font-medium text-stone-900 ${compact ? 'text-3xl' : 'text-4xl'}`}>
               {summary.average != null ? summary.average.toFixed(1) : '—'}
               <Star
-                className="inline-block w-5 h-5 ml-1 align-[-0.15em] fill-gold text-gold"
+                className="ml-1.5 inline-block h-6 w-6 align-[-0.15em] fill-gold text-gold"
                 strokeWidth={1.5}
                 aria-hidden
               />
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Valoraciones</p>
-            <p className="text-2xl font-semibold text-stone-800 tabular-nums">{summary.count}</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-stone-500">
+              Valoraciones
+            </p>
+            <p
+              className={`font-serif font-medium tabular-nums text-stone-900 ${compact ? 'text-3xl' : 'text-4xl'}`}
+            >
+              {summary.count}
+            </p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Distribución</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-stone-500">
+            Distribución
+          </p>
           {[5, 4, 3, 2, 1].map((n) => (
             <StarRow key={n} label={`${n} estrellas`} count={dist[n] || 0} max={maxBar} />
           ))}
@@ -146,7 +165,16 @@ export default function AppointmentRatingsPanel({
 
         {recent?.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Últimos comentarios</p>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-stone-500">
+                Últimos comentarios
+              </p>
+              {shownRecent < totalRecent && (
+                <span className="text-xs text-stone-400">
+                  Mostrando {shownRecent} de {totalRecent}
+                </span>
+              )}
+            </div>
             <RecentCommentsList recent={recent} compact={compact} commentsOnly={false} />
           </div>
         )}

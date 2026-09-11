@@ -32,6 +32,7 @@ import { getApiErrorMessage } from '@/shared/utils/formValidation';
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import AdminPeriodTotal from '@/shared/components/admin/AdminPeriodTotal';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 import { useCashRegisterOptional } from '@/features/cash-registers/CashRegisterContext';
 
@@ -332,25 +333,19 @@ export default function PaymentsPage() {
         <div className="space-y-3 pb-3 border-b border-stone-100 mb-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
             <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-stretch sm:justify-end">
-              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo vigente</p>
-                  <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
-                    {formatPaymentAmount(periodTotal.total)}
-                  </p>
-                </div>
-                <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
-                  {periodTotal.count} venta{periodTotal.count === 1 ? '' : 's'}
-                </span>
-              </div>
+              <AdminPeriodTotal
+                label="Periodo vigente"
+                amount={formatPaymentAmount(periodTotal.total)}
+                count={periodTotal.count}
+                countLabel={`venta${periodTotal.count === 1 ? '' : 's'}`}
+              />
               <AdminExportButtons
                 onExcel={handleExportExcel}
                 onPdf={handleExportPDF}
                 excelDisabled={exportRows.length === 0}
                 pdfDisabled={exportRows.length === 0}
-                size="xs"
               />
-              <button type="button" onClick={openCreateForm} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
+              <button type="button" onClick={openCreateForm} className="btn-admin inline-flex items-center gap-2 py-2 px-3.5 text-sm">
                 <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
                 Registrar venta
               </button>
@@ -442,7 +437,7 @@ export default function PaymentsPage() {
                             </TableCell>
                             <TableCell compact>
                               <span
-                                className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
+                                className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                                   isVoided
                                     ? 'border-stone-200 bg-stone-100 text-stone-600'
                                     : 'border-emerald-200 bg-emerald-50 text-emerald-800'

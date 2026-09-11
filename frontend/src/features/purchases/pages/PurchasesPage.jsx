@@ -23,6 +23,7 @@ import { formatPurchaseAmount, formatPurchaseDate } from '@/features/purchases/u
 import { downloadExcelTable } from '@/shared/utils/exportExcel';
 import { downloadTablePDF, pdfFileDateSuffix } from '@/shared/utils/exportPdf';
 import AdminExportButtons from '@/shared/components/admin/AdminExportButtons';
+import AdminPeriodTotal from '@/shared/components/admin/AdminPeriodTotal';
 import { getLocalDateToday, getLocalFirstDayOfMonth } from '@/shared/utils/appointmentTime';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -385,27 +386,21 @@ export default function PurchasesPage() {
             </form>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/80 px-3 py-1.5">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Periodo activo</p>
-                  <p className="font-serif text-base font-medium text-gold tabular-nums leading-tight">
-                    {formatPurchaseAmount(periodTotal.total)}
-                  </p>
-                </div>
-                <span className="text-[10px] text-stone-500 border-l border-stone-200 pl-2">
-                  {periodTotal.count} compra{periodTotal.count === 1 ? '' : 's'}
-                </span>
-              </div>
+              <AdminPeriodTotal
+                label="Periodo activo"
+                amount={formatPurchaseAmount(periodTotal.total)}
+                count={periodTotal.count}
+                countLabel={`gasto${periodTotal.count === 1 ? '' : 's'}`}
+              />
               <AdminExportButtons
                 onExcel={handleExportExcel}
                 onPdf={handleExportPDF}
                 excelDisabled={exportRows.length === 0}
                 pdfDisabled={exportRows.length === 0}
-                size="xs"
               />
-              <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 text-xs py-2 px-3">
+              <button type="button" onClick={() => setIsFormOpen(true)} className="btn-admin inline-flex items-center gap-2 py-2 px-3.5 text-sm">
                 <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-                Nueva orden
+                Nuevo gasto
               </button>
             </div>
           </div>
@@ -483,7 +478,7 @@ export default function PurchasesPage() {
                             </TableCell>
                             <TableCell compact>
                               <span
-                                className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
+                                className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                                   isCancelled
                                     ? 'border-stone-200 bg-stone-100 text-stone-600'
                                     : 'border-emerald-200 bg-emerald-50 text-emerald-800'
