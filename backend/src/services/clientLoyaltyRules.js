@@ -31,6 +31,52 @@ export function milestonesReachedAt(completedCount, rules) {
 }
 
 /**
+ * Resumen de la audiencia del programa de fidelización a partir de una fila
+ * por cliente con servicios completados.
+ *
+ * Se define aquí, en el módulo puro, para que las tres cifras que muestra la
+ * pantalla tengan una definición escrita y probada en vez de quedar
+ * escondidas dentro de una consulta:
+ *
+ * - **En programa**: clientes con al menos un servicio completado. Todo el
+ *   que completa un servicio ya está acumulando para el próximo hito, así que
+ *   ese es el universo real del programa.
+ * - **Nuevos del mes**: clientes cuyo PRIMER servicio completado cae dentro
+ *   del mes de referencia.
+ * - **Tasa de retorno**: proporción de los clientes en programa que volvieron
+ *   al menos una segunda vez (2+ servicios completados). No es una métrica
+ *   inventada: es recurrencia observada, que es lo que el programa busca.
+ *
+ * @param {Array<{ completedCount: number, firstCompletedAt?: Date|string|null }>} rows
+ * @param {{ monthStart: Date, monthEnd: Date }} period Rango [inicio, fin) del mes de referencia.
+ */
+export function summarizeLoyaltyAudience(rows, { monthStart, monthEnd } = {}) {
+  const list = Array.isArray(rows) ? rows : [];
+  const clientsInProgram = list.length;
+  const recurringClients = list.filter((row) => Number(row?.completedCount) >= 2).length;
+
+  let newThisMonth = 0;
+  if (monthStart && monthEnd) {
+    const from = new Date(monthStart).getTime();
+    const to = new Date(monthEnd).getTime();
+    newThisMonth = list.filter((row) => {
+      if (!row?.firstCompletedAt) return false;
+      const at = new Date(row.firstCompletedAt).getTime();
+      return Number.isFinite(at) && at >= from && at < to;
+    }).length;
+  }
+
+  return {
+    clientsInProgram,
+    recurringClients,
+    newThisMonth,
+    // Redondeada a un decimal, como se muestra; sin clientes no hay tasa (null,
+    // no 0: "0%" afirmaría que nadie vuelve, y lo cierto es que no hay dato).
+    returnRate: clientsInProgram ? Math.round((recurringClients / clientsInProgram) * 1000) / 10 : null,
+  };
+}
+
+/**
  * La próxima regla que el cliente alcanzará y cuántos servicios le faltan.
  *
  * @param {number} completedCount

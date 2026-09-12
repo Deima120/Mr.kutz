@@ -48,10 +48,14 @@ router.use((req, res, next) =>
   req.method === 'GET' ? next() : requirePermission('loyalty.manage')(req, res, next)
 );
 
+router.get('/stats', loyaltyController.getStats);
 router.get('/milestones', validate, loyaltyController.getMilestoneRules);
 router.post('/milestones', milestoneCreateValidation, validate, loyaltyController.createMilestone);
 router.put('/milestones/:id', [idParam, ...milestoneUpdateValidation], validate, loyaltyController.updateMilestone);
 router.patch('/milestones/:id/deactivate', idParam, validate, loyaltyController.deactivateMilestone);
+// Borrado solo para hitos que nunca otorgaron nada (el servicio responde 409 si
+// los tiene). La baja habitual sigue siendo desactivar, igual que en Barberos.
+router.delete('/milestones/:id', idParam, validate, loyaltyController.deleteMilestone);
 
 router.get('/rewards', historyQueryValidation, validate, loyaltyController.getRewardsHistory);
 router.patch('/rewards/:id/choose', chooseOptionValidation, validate, loyaltyController.chooseRewardOption);
