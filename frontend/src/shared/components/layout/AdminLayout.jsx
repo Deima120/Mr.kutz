@@ -229,7 +229,6 @@ const SIDEBAR_THEMES = {
       'border-r border-white/10 bg-[linear-gradient(180deg,#080706_0%,#11100f_45%,#080706_100%)] text-white',
     divider: 'border-white/[0.04]',
     glow: 'bg-gold/12',
-    brandBox: 'border-gold/35 bg-gold/10 text-gold shadow-gold-glow',
     brandText: 'text-white',
     brandSubtitle: 'text-stone-500',
     brandRule: 'bg-gold/80',
@@ -245,8 +244,6 @@ const SIDEBAR_THEMES = {
     navIconIdle: 'bg-white/[0.04] text-stone-400 group-hover:bg-gold/15 group-hover:text-gold',
     navDescActive: 'text-stone-500',
     navDescIdle: 'text-stone-600 group-hover:text-stone-400',
-    fadeTop: 'from-[#080706]/25',
-    fadeBottom: 'from-[#080706]/20',
     userCard: 'border-white/[0.04] bg-white/[0.03]',
     userAvatar: 'bg-gold/15 text-gold',
     userName: 'text-white',
@@ -258,13 +255,12 @@ const SIDEBAR_THEMES = {
       'border-r border-stone-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfaf9_45%,#ffffff_100%)] text-stone-900',
     divider: 'border-stone-200/80',
     glow: 'bg-gold/20',
-    brandBox: 'border-gold/45 bg-gold/15 text-gold-dark',
     brandText: 'text-stone-900',
     brandSubtitle: 'text-stone-500',
     brandRule: 'bg-gold',
     iconButton: 'text-stone-500 hover:bg-stone-100 hover:text-gold-dark',
     switchTrack: 'border-stone-200 bg-stone-100',
-    switchKnob: 'translate-x-[1.375rem] bg-barber-dark text-gold',
+    switchKnob: 'translate-x-[1.75rem] bg-barber-dark text-gold',
     switchIconIdle: 'text-stone-400',
     sectionActive: 'text-gold-dark',
     sectionIdle: 'text-stone-400 hover:text-stone-600',
@@ -274,8 +270,6 @@ const SIDEBAR_THEMES = {
     navIconIdle: 'bg-stone-100 text-stone-500 group-hover:bg-gold/20 group-hover:text-gold-dark',
     navDescActive: 'text-stone-300',
     navDescIdle: 'text-stone-500 group-hover:text-stone-600',
-    fadeTop: 'from-white/80',
-    fadeBottom: 'from-white/70',
     userCard: 'border-stone-200 bg-stone-50',
     userAvatar: 'bg-gold/20 text-gold-dark',
     userName: 'text-stone-900',
@@ -294,20 +288,20 @@ function SidebarThemeSwitch({ light, onToggle, theme, collapsed }) {
       onClick={onToggle}
       title={light ? 'Usar menú oscuro' : 'Usar menú claro'}
       aria-label={light ? 'Usar menú oscuro' : 'Usar menú claro'}
-      className={`relative inline-flex h-7 w-[3.25rem] shrink-0 items-center rounded-full border transition-colors duration-300 ${theme.switchTrack} ${
-        collapsed ? 'lg:h-6 lg:w-11' : ''
+      className={`relative inline-flex h-9 w-[4rem] shrink-0 items-center rounded-full border transition-colors duration-300 ${theme.switchTrack} ${
+        collapsed ? 'lg:h-8 lg:w-14' : ''
       }`}
     >
-      <span className="pointer-events-none absolute inset-0 flex items-center justify-between px-1.5">
-        <Moon size={12} className={light ? theme.switchIconIdle : 'text-gold'} aria-hidden />
-        <Sun size={12} className={light ? 'text-gold-dark' : theme.switchIconIdle} aria-hidden />
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
+        <Moon size={14} className={light ? theme.switchIconIdle : 'text-gold'} aria-hidden />
+        <Sun size={14} className={light ? 'text-gold-dark' : theme.switchIconIdle} aria-hidden />
       </span>
       <span
-        className={`relative ml-0.5 flex h-6 w-6 items-center justify-center rounded-full shadow-sm transition-transform duration-300 ${theme.switchKnob} ${
-          collapsed ? 'lg:h-5 lg:w-5' : ''
+        className={`relative ml-1 flex h-7 w-7 items-center justify-center rounded-full shadow-sm transition-transform duration-300 ${theme.switchKnob} ${
+          collapsed ? 'lg:h-6 lg:w-6' : ''
         }`}
       >
-        {light ? <Sun size={12} aria-hidden /> : <Moon size={12} aria-hidden />}
+        {light ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}
       </span>
     </button>
   );
@@ -497,15 +491,15 @@ export default function AdminLayout({ children }) {
             <button
               type="button"
               onClick={() => setSidebarCollapsed((current) => !current)}
-              className={`hidden rounded-xl border p-2 transition lg:inline-flex ${theme.divider} ${theme.iconButton}`}
+              className={`hidden rounded-xl border p-2.5 transition lg:inline-flex ${theme.divider} ${theme.iconButton}`}
               title={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
               aria-label={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
               aria-expanded={!sidebarCollapsed}
             >
               {sidebarCollapsed ? (
-                <PanelLeftOpen size={18} strokeWidth={1.8} />
+                <PanelLeftOpen size={22} strokeWidth={1.8} />
               ) : (
-                <PanelLeftClose size={18} strokeWidth={1.8} />
+                <PanelLeftClose size={22} strokeWidth={1.8} />
               )}
             </button>
 
@@ -519,40 +513,33 @@ export default function AdminLayout({ children }) {
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(false)}
-                className={`rounded-xl p-2 transition lg:hidden ${theme.iconButton}`}
+                className={`rounded-xl p-2.5 transition lg:hidden ${theme.iconButton}`}
                 aria-label="Cerrar menu"
               >
-                <X size={20} />
+                <X size={22} />
               </button>
             </div>
           </div>
 
-          <div className={`relative ${sidebarCollapsed ? 'lg:flex lg:justify-center' : ''}`}>
+          {/* Sin distintivo de marca: el nombre ya se lee solo, y el cuadro con
+              la inicial ("M") solo quitaba espacio sin aportar información que
+              el texto de debajo no diera ya. Se oculta entero al contraer el
+              menú (en vez de dejar un espacio vacío donde antes iba el
+              cuadro). */}
+          <div className={`relative ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+            <span className={`block h-px w-8 ${theme.brandRule}`} />
             <span
-              className={`flex h-11 w-11 items-center justify-center rounded-xl border font-serif text-lg font-bold ${theme.brandBox}`}
-              aria-hidden
+              className={`mt-2 block truncate font-serif text-xl font-medium tracking-tight ${theme.brandText}`}
             >
-              {(businessName || 'M').trim().charAt(0).toUpperCase()}
+              {businessName}
             </span>
-            <span className={`${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-              <span className={`mt-3 block h-px w-8 ${theme.brandRule}`} />
-              <span
-                className={`mt-2 block truncate font-serif text-xl font-medium tracking-tight ${theme.brandText}`}
-              >
-                {businessName}
-              </span>
-              <span className={`mt-1 block text-xs ${theme.brandSubtitle}`}>
-                {isAdmin ? 'Panel de administracion' : isBarber ? 'Panel del barbero' : 'Panel de personal'}
-              </span>
+            <span className={`mt-1 block text-xs ${theme.brandSubtitle}`}>
+              {isAdmin ? 'Panel de administracion' : isBarber ? 'Panel del barbero' : 'Panel de personal'}
             </span>
           </div>
         </div>
 
         <nav className="admin-sidebar-scroll relative flex-1 overflow-y-auto px-3 py-4">
-          <div
-            className={`pointer-events-none sticky top-0 z-10 -mb-2 h-2 bg-gradient-to-b to-transparent ${theme.fadeTop}`}
-          />
-
           {dashboardItem ? (
             <div className="mb-4">
               <NavItem
@@ -606,10 +593,6 @@ export default function AdminLayout({ children }) {
               </div>
             );
           })}
-
-          <div
-            className={`pointer-events-none sticky bottom-0 -mt-2 h-2 bg-gradient-to-t to-transparent ${theme.fadeBottom}`}
-          />
         </nav>
 
         <div className={`border-t p-3 ${theme.divider}`}>
