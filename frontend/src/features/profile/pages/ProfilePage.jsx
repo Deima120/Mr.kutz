@@ -52,6 +52,7 @@ import {
 import { FieldErrorMessage, FieldHint } from '@/shared/components/FormValidationFields';
 import { AdminPagination } from '@/shared/components/admin/AdminListControls';
 import AppointmentHistoryTimeline from '@/shared/components/admin/AppointmentHistoryTimeline';
+import ProfileCard from '@/shared/components/admin/ProfileCard';
 import LoyaltyProgressTracker from '@/features/loyalty/components/LoyaltyProgressTracker';
 
 function safeDate(value) {
@@ -67,23 +68,6 @@ const HISTORY_PAGE_SIZE_OPTIONS = [5, 10, 20];
 const HISTORY_DEFAULT_PAGE_SIZE = 5;
 /** Cuántas citas próximas se listan en la tarjeta; el resto está en «Mis citas». */
 const UPCOMING_VISIBLE = 3;
-
-/** Tarjeta de la columna izquierda/derecha — mismo envoltorio que la ficha del admin. */
-function ProfileCard({ title, hint, children, className = '' }) {
-  return (
-    <div
-      className={`rounded-2xl border border-stone-100 bg-white p-5 shadow-card transition-all duration-300 hover:shadow-card-hover ${className}`}
-    >
-      <div className="mb-4 flex items-center justify-between border-b border-stone-100 pb-3">
-        <h3 className="text-base font-bold text-stone-850">{title}</h3>
-        {hint && (
-          <span className="text-xs font-bold uppercase tracking-wider text-stone-400">{hint}</span>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 /** Fila de dato de contacto, con el mismo tratamiento que en la ficha del admin. */
 function ContactRow({ icon: Icon, label, children }) {

@@ -103,12 +103,6 @@ const adminNavSections = [
         Icon: Star,
         permission: 'testimonials.manage',
       },
-      // [PENDIENTE-FIDELIZACION] Hueco reservado para el módulo de Fidelización de
-      // clientes, que pertenece a este proceso. Hoy la lógica existe solo en backend
-      // (services/clientLoyaltyRules.js y clientLoyaltyRewards.service.js) y se ve
-      // dentro de la ficha del cliente, sin pantalla propia. Al implementarla, añadir
-      // aquí su entrada con la ruta definitiva.
-      // { path: '/loyalty', label: 'Fidelizacion', description: 'Beneficios por recurrencia', Icon: Gift },
     ],
   },
   {
