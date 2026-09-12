@@ -164,6 +164,11 @@ export default function ProfilePage() {
     setHistoryLoading(true);
     appointmentService
       .getAppointments({
+        // Solo lo ya sucedido: sin este filtro, una cita agendada a futuro
+        // aparecía dos veces en la pantalla — aquí y en "Citas agendadas" — bajo
+        // el título "Historial de servicios / Servicios recibidos", que no la
+        // describe.
+        status: 'completed,cancelled,no_show',
         limit: historyPageSize,
         offset: (historyPage - 1) * historyPageSize,
       })
