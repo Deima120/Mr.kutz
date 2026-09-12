@@ -9,7 +9,7 @@
  */
 
 import prisma from '../lib/prisma.js';
-import { milestonesReachedAt, nextMilestone } from './clientLoyaltyRules.js';
+import { milestonesReachedAt, nextMilestone, summarizeLoyaltyAudience } from './clientLoyaltyRules.js';
 
 /** Código de error de Postgres para violación de restricción única. */
 const PRISMA_UNIQUE_VIOLATION = 'P2002';
@@ -193,6 +193,93 @@ export async function deactivateMilestoneRule(id) {
   const existing = await prisma.loyaltyMilestoneRule.findUnique({ where: { id: ruleId } });
   if (!existing) return null;
   return prisma.loyaltyMilestoneRule.update({ where: { id: ruleId }, data: { isActive: false } });
+}
+
+/**
+ * Borra un hito **solo si nunca otorgó nada**.
+ *
+ * La baja habitual de un hito es desactivarlo (`deactivateMilestoneRule`),
+ * igual que en Barberos y Servicios: si ya hay recompensas otorgadas, borrarlo
+ * rompería el historial —y de hecho la FK es `onDelete: Restrict`, así que
+ * Prisma lo impediría con un 500 en vez de un mensaje útil. Este borrado es la
+ * operación de limpieza para un hito creado por error o de prueba, y por eso
+ * responde 409 explicando la alternativa en lugar de dejar reventar la FK.
+ *
+ * @param {number|string} id
+ * @returns {Promise<object|null>} `null` si no existe.
+ */
+export async function deleteMilestoneRule(id) {
+  const ruleId = parseInt(id, 10);
+  const existing = await prisma.loyaltyMilestoneRule.findUnique({ where: { id: ruleId } });
+  if (!existing) return null;
+
+  const grants = await prisma.clientLoyaltyReward.count({ where: { ruleId } });
+  if (grants > 0) {
+    throw httpError(
+      `Este hito ya otorgó ${grants} recompensa(s) y no se puede borrar sin perder ese historial. Desactívalo para que deje de otorgarse.`,
+      409,
+      'RULE_HAS_GRANTS'
+    );
+  }
+
+  // Las opciones y sus ítems caen por cascada (`onDelete: Cascade`).
+  return prisma.loyaltyMilestoneRule.delete({ where: { id: ruleId } });
+}
+
+/**
+ * Indicadores del programa para la cabecera de la pantalla de Fidelización.
+ *
+ * Todas las cifras salen de la base de datos; ninguna es estimada. Las
+ * definiciones de audiencia (en programa / nuevos del mes / tasa de retorno)
+ * viven en `summarizeLoyaltyAudience`, que es puro y está probado.
+ *
+ * @param {{ now?: Date }} [options]
+ */
+export async function getLoyaltyStats({ now = new Date() } = {}) {
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+
+  const [activeRules, totalRules, rewardsGranted, rewardsRedeemed, byClient, byRule] = await Promise.all([
+    prisma.loyaltyMilestoneRule.count({ where: { isActive: true } }),
+    prisma.loyaltyMilestoneRule.count(),
+    prisma.clientLoyaltyReward.count(),
+    prisma.clientLoyaltyReward.count({ where: { redeemedAt: { not: null } } }),
+    // Una fila por cliente con servicios completados. El agrupado se hace en la
+    // base, no trayendo las citas: es una fila por cliente, no por cita.
+    prisma.appointment.groupBy({
+      by: ['clientId'],
+      where: { status: 'completed' },
+      _count: { _all: true },
+      _min: { appointmentDate: true },
+    }),
+    // Alcance por hito: a cuántos clientes distintos les tocó ya cada uno.
+    prisma.clientLoyaltyReward.groupBy({
+      by: ['ruleId', 'clientId'],
+    }),
+  ]);
+
+  const audience = summarizeLoyaltyAudience(
+    byClient.map((row) => ({
+      completedCount: row._count?._all ?? 0,
+      firstCompletedAt: row._min?.appointmentDate ?? null,
+    })),
+    { monthStart, monthEnd }
+  );
+
+  const reachByRule = {};
+  for (const row of byRule) {
+    reachByRule[row.ruleId] = (reachByRule[row.ruleId] || 0) + 1;
+  }
+
+  return {
+    ...audience,
+    activeRules,
+    totalRules,
+    rewardsGranted,
+    rewardsRedeemed,
+    rewardsPending: rewardsGranted - rewardsRedeemed,
+    reachByRule,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -8,12 +8,14 @@
 import { Check } from 'lucide-react';
 
 /**
- * @param {{ everyCount: number, remaining: number, label: string }} nextMilestone
+ * @param {{ everyCount: number, remaining: number, label: string, personal?: boolean }} nextMilestone
  *   Misma forma que devuelve `getClientLoyaltyProgress` — `remaining` es lo que
  *   falta para el próximo hito, así que `everyCount - remaining` es lo ya
- *   avanzado del ciclo actual.
+ *   avanzado del ciclo actual. `personal` cambia la redacción a segunda persona
+ *   («te faltan») para las pantallas donde quien mira es el propio cliente; en
+ *   la ficha que ve el mostrador se habla del cliente en tercera persona.
  */
-export default function LoyaltyProgressTracker({ everyCount, remaining, label }) {
+export default function LoyaltyProgressTracker({ everyCount, remaining, label, personal = false }) {
   const done = Math.max(0, Math.min(everyCount, everyCount - remaining));
   const cells = Array.from({ length: everyCount }, (_, i) => i < done);
 
@@ -22,8 +24,8 @@ export default function LoyaltyProgressTracker({ everyCount, remaining, label })
       <p className="text-sm font-semibold text-stone-800">
         {remaining > 0 ? (
           <>
-            Le faltan <span className="text-gold-dark">{remaining}</span> servicio{remaining === 1 ? '' : 's'}{' '}
-            para su próxima recompensa ({label})
+            {personal ? 'Te faltan' : 'Le faltan'} <span className="text-gold-dark">{remaining}</span>{' '}
+            servicio{remaining === 1 ? '' : 's'} para {personal ? 'tu' : 'su'} próxima recompensa ({label})
           </>
         ) : (
           <>¡Ya completaste este ciclo! Tu premio está en camino.</>

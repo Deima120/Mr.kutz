@@ -19,7 +19,6 @@ import {
   Lock,
   BarChart3,
   UsersRound,
-  Sparkles,
   ChevronDown,
   LogOut,
   X,
@@ -32,6 +31,10 @@ import {
   ShoppingCart,
   Package,
   Gift,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+  Moon,
   // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Icono usado solo por el item de Reportes.
   // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
   // FileBarChart,
@@ -195,11 +198,120 @@ const barberNavSections = [
   },
 ];
 
+/**
+ * Color del sidebar — preferencia del administrador, no del sistema.
+ *
+ * Se guarda en `localStorage` (no en la cuenta) porque es una preferencia de
+ * este equipo/navegador, igual de personal que el zoom: no hay campo en el
+ * backend que la respalde y no tendría sentido arrastrarla a otra máquina sin
+ * que nadie lo haya pedido. Si el almacenamiento está bloqueado (modo privado)
+ * se cae al tema oscuro, que es el histórico del panel.
+ */
+const SIDEBAR_THEME_KEY = 'mrkutz.sidebarTheme';
+
+function readStoredSidebarTheme() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_THEME_KEY) === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+/**
+ * Las dos paletas del sidebar. Ambas se mueven dentro de los colores de la
+ * marca (negro, blanco y dorado): la clara cambia el fondo y el texto, pero
+ * el dorado sigue siendo el acento y el estado activo sigue siendo el
+ * contraste máximo contra el fondo (blanco sobre negro / negro sobre blanco).
+ */
+const SIDEBAR_THEMES = {
+  dark: {
+    aside:
+      'border-r border-white/10 bg-[linear-gradient(180deg,#080706_0%,#11100f_45%,#080706_100%)] text-white',
+    divider: 'border-white/[0.04]',
+    glow: 'bg-gold/12',
+    brandText: 'text-white',
+    brandSubtitle: 'text-stone-500',
+    brandRule: 'bg-gold/80',
+    iconButton: 'text-stone-400 hover:bg-white/10 hover:text-gold',
+    switchTrack: 'border-white/10 bg-white/[0.06]',
+    switchKnob: 'translate-x-0 bg-gold text-barber-dark',
+    switchIconIdle: 'text-stone-500',
+    sectionActive: 'text-gold',
+    sectionIdle: 'text-stone-600 hover:text-stone-400',
+    navActive: 'bg-white text-barber-dark shadow-[0_18px_44px_rgba(255,255,255,0.12)]',
+    navIdle: 'text-stone-400 hover:bg-white/[0.07] hover:text-white',
+    navIconActive: 'bg-barber-dark text-gold',
+    navIconIdle: 'bg-white/[0.04] text-stone-400 group-hover:bg-gold/15 group-hover:text-gold',
+    navDescActive: 'text-stone-500',
+    navDescIdle: 'text-stone-600 group-hover:text-stone-400',
+    userCard: 'border-white/[0.04] bg-white/[0.03]',
+    userAvatar: 'bg-gold/15 text-gold',
+    userName: 'text-white',
+    userRole: 'text-stone-500',
+    logout: 'text-stone-400 hover:bg-red-500/10 hover:text-red-200',
+  },
+  light: {
+    aside:
+      'border-r border-stone-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfaf9_45%,#ffffff_100%)] text-stone-900',
+    divider: 'border-stone-200/80',
+    glow: 'bg-gold/20',
+    brandText: 'text-stone-900',
+    brandSubtitle: 'text-stone-500',
+    brandRule: 'bg-gold',
+    iconButton: 'text-stone-500 hover:bg-stone-100 hover:text-gold-dark',
+    switchTrack: 'border-stone-200 bg-stone-100',
+    switchKnob: 'translate-x-[1.75rem] bg-barber-dark text-gold',
+    switchIconIdle: 'text-stone-400',
+    sectionActive: 'text-gold-dark',
+    sectionIdle: 'text-stone-400 hover:text-stone-600',
+    navActive: 'bg-barber-dark text-white shadow-[0_18px_44px_rgba(12,10,9,0.18)]',
+    navIdle: 'text-stone-600 hover:bg-stone-100 hover:text-stone-900',
+    navIconActive: 'bg-white/10 text-gold',
+    navIconIdle: 'bg-stone-100 text-stone-500 group-hover:bg-gold/20 group-hover:text-gold-dark',
+    navDescActive: 'text-stone-300',
+    navDescIdle: 'text-stone-500 group-hover:text-stone-600',
+    userCard: 'border-stone-200 bg-stone-50',
+    userAvatar: 'bg-gold/20 text-gold-dark',
+    userName: 'text-stone-900',
+    userRole: 'text-stone-500',
+    logout: 'text-stone-500 hover:bg-red-50 hover:text-red-600',
+  },
+};
+
+/** Interruptor de color del sidebar (claro/oscuro). */
+function SidebarThemeSwitch({ light, onToggle, theme, collapsed }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={light}
+      onClick={onToggle}
+      title={light ? 'Usar menú oscuro' : 'Usar menú claro'}
+      aria-label={light ? 'Usar menú oscuro' : 'Usar menú claro'}
+      className={`relative inline-flex h-9 w-[4rem] shrink-0 items-center rounded-full border transition-colors duration-300 ${theme.switchTrack} ${
+        collapsed ? 'lg:h-8 lg:w-14' : ''
+      }`}
+    >
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
+        <Moon size={14} className={light ? theme.switchIconIdle : 'text-gold'} aria-hidden />
+        <Sun size={14} className={light ? 'text-gold-dark' : theme.switchIconIdle} aria-hidden />
+      </span>
+      <span
+        className={`relative ml-1 flex h-7 w-7 items-center justify-center rounded-full shadow-sm transition-transform duration-300 ${theme.switchKnob} ${
+          collapsed ? 'lg:h-6 lg:w-6' : ''
+        }`}
+      >
+        {light ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}
+      </span>
+    </button>
+  );
+}
+
 function isActiveRoute(pathname, path) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-function NavItem({ item, pathname, sidebarCollapsed }) {
+function NavItem({ item, pathname, sidebarCollapsed, theme }) {
   const active = isActiveRoute(pathname, item.path);
   const Icon = item.Icon;
 
@@ -208,9 +320,7 @@ function NavItem({ item, pathname, sidebarCollapsed }) {
       to={item.path}
       title={sidebarCollapsed ? item.label : undefined}
       className={`group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-300 ${
-        active
-          ? 'bg-white text-barber-dark shadow-[0_18px_44px_rgba(255,255,255,0.12)]'
-          : 'text-stone-400 hover:bg-white/[0.07] hover:text-white'
+        active ? theme.navActive : theme.navIdle
       } ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
     >
       {active && (
@@ -218,9 +328,7 @@ function NavItem({ item, pathname, sidebarCollapsed }) {
       )}
       <span
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
-          active
-            ? 'bg-barber-dark text-gold'
-            : 'bg-white/[0.04] text-stone-400 group-hover:bg-gold/15 group-hover:text-gold'
+          active ? theme.navIconActive : theme.navIconIdle
         }`}
       >
         <Icon size={20} strokeWidth={1.8} />
@@ -229,7 +337,7 @@ function NavItem({ item, pathname, sidebarCollapsed }) {
         <span className="block truncate">{item.label}</span>
         <span
           className={`block truncate text-xs font-medium ${
-            active ? 'text-stone-500' : 'text-stone-600 group-hover:text-stone-400'
+            active ? theme.navDescActive : theme.navDescIdle
           }`}
         >
           {item.description}
@@ -277,6 +385,11 @@ export default function AdminLayout({ children }) {
   const dashboardItem = isAdmin ? adminDashboardItem : isBarber ? barberDashboardItem : null;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Se lee una sola vez al montar (initializer perezoso): leer localStorage en
+  // cada render sería un acceso síncrono innecesario en cada navegación.
+  const [sidebarTheme, setSidebarTheme] = useState(readStoredSidebarTheme);
+  const isLightSidebar = sidebarTheme === 'light';
+  const theme = SIDEBAR_THEMES[isLightSidebar ? 'light' : 'dark'];
   // Un id que falte aquí quedaría como `undefined` y la sección arrancaría plegada,
   // así que esta lista debe cubrir todos los ids de adminNavSections/barberNavSections.
   const [openSections, setOpenSections] = useState(() => ({
@@ -306,6 +419,23 @@ export default function AdminLayout({ children }) {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  /**
+   * Cambia el color del sidebar y lo recuerda. El estado se actualiza aunque
+   * falle el guardado (modo privado): que no se pueda persistir no es motivo
+   * para que el botón no haga nada en esta sesión.
+   */
+  const toggleSidebarTheme = () => {
+    setSidebarTheme((current) => {
+      const next = current === 'light' ? 'dark' : 'light';
+      try {
+        window.localStorage.setItem(SIDEBAR_THEME_KEY, next);
+      } catch {
+        /* almacenamiento no disponible: la preferencia dura solo esta sesión */
+      }
+      return next;
+    });
   };
 
   const toggleSection = (sectionId) => {
@@ -340,56 +470,83 @@ export default function AdminLayout({ children }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#080706_0%,#11100f_45%,#080706_100%)] text-white shadow-2xl transition-all duration-500 ease-out ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden shadow-2xl transition-all duration-500 ease-out ${theme.aside} ${
           sidebarCollapsed ? 'lg:w-[5.75rem]' : 'lg:w-72'
         } ${mobileSidebarOpen ? 'w-[19rem] translate-x-0' : 'w-[19rem] -translate-x-full lg:translate-x-0'}`}
       >
         <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-gold to-transparent" aria-hidden />
 
-        <div className="relative border-b border-white/[0.04] px-4 py-5">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-gold/12 blur-3xl" />
-          <div className={`relative flex items-start gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
+        <div className={`relative border-b px-4 py-5 ${theme.divider}`}>
+          <div className={`pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full blur-3xl ${theme.glow}`} />
+
+          {/* Barra de controles del propio menú, por encima del nombre de la
+              empresa: contraer/expandir y el color del sidebar. Antes el
+              contraer estaba escondido en el logotipo, que no se lee como un
+              botón y además mostraba un icono decorativo. */}
+          <div
+            className={`relative mb-4 flex items-center gap-2 ${
+              sidebarCollapsed ? 'lg:flex-col lg:gap-3' : 'justify-between'
+            }`}
+          >
             <button
               type="button"
               onClick={() => setSidebarCollapsed((current) => !current)}
-              className={`group min-w-0 flex-1 text-left ${sidebarCollapsed ? 'lg:flex lg:justify-center' : ''}`}
+              className={`hidden rounded-xl border p-2.5 transition lg:inline-flex ${theme.divider} ${theme.iconButton}`}
               title={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
               aria-label={sidebarCollapsed ? 'Expandir menu' : 'Contraer menu'}
+              aria-expanded={!sidebarCollapsed}
             >
-              <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-gold/35 bg-gold/10 text-gold shadow-gold-glow transition-transform duration-300 group-hover:-translate-y-0.5">
-                <Sparkles size={20} strokeWidth={1.8} />
-              </span>
-              <span className={`${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-                <span className="block h-px w-8 bg-gold/80 transition-all duration-300 group-hover:w-14" />
-                <span className="mt-2 block truncate font-serif text-xl font-medium tracking-tight text-white">
-                  {businessName}
-                </span>
-                <span className="mt-1 block text-xs text-stone-500">
-                  {isAdmin ? 'Panel de administracion' : isBarber ? 'Panel del barbero' : 'Panel de personal'}
-                </span>
-              </span>
+              {sidebarCollapsed ? (
+                <PanelLeftOpen size={22} strokeWidth={1.8} />
+              ) : (
+                <PanelLeftClose size={22} strokeWidth={1.8} />
+              )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setMobileSidebarOpen(false)}
-              className="rounded-xl p-2 text-stone-400 transition hover:bg-white/10 hover:text-white lg:hidden"
-              aria-label="Cerrar menu"
+            <div className={`flex items-center gap-2 ${sidebarCollapsed ? 'lg:flex-col' : ''}`}>
+              <SidebarThemeSwitch
+                light={isLightSidebar}
+                onToggle={toggleSidebarTheme}
+                theme={theme}
+                collapsed={sidebarCollapsed}
+              />
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(false)}
+                className={`rounded-xl p-2.5 transition lg:hidden ${theme.iconButton}`}
+                aria-label="Cerrar menu"
+              >
+                <X size={22} />
+              </button>
+            </div>
+          </div>
+
+          {/* Sin distintivo de marca: el nombre ya se lee solo, y el cuadro con
+              la inicial ("M") solo quitaba espacio sin aportar información que
+              el texto de debajo no diera ya. Se oculta entero al contraer el
+              menú (en vez de dejar un espacio vacío donde antes iba el
+              cuadro). */}
+          <div className={`relative ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+            <span className={`block h-px w-8 ${theme.brandRule}`} />
+            <span
+              className={`mt-2 block truncate font-serif text-xl font-medium tracking-tight ${theme.brandText}`}
             >
-              <X size={20} />
-            </button>
+              {businessName}
+            </span>
+            <span className={`mt-1 block text-xs ${theme.brandSubtitle}`}>
+              {isAdmin ? 'Panel de administracion' : isBarber ? 'Panel del barbero' : 'Panel de personal'}
+            </span>
           </div>
         </div>
 
         <nav className="admin-sidebar-scroll relative flex-1 overflow-y-auto px-3 py-4">
-          <div className="pointer-events-none sticky top-0 z-10 -mb-2 h-2 bg-gradient-to-b from-[#080706]/25 to-transparent" />
-
           {dashboardItem ? (
             <div className="mb-4">
               <NavItem
                 item={dashboardItem}
                 pathname={location.pathname}
                 sidebarCollapsed={sidebarCollapsed}
+                theme={theme}
               />
             </div>
           ) : null}
@@ -403,8 +560,8 @@ export default function AdminLayout({ children }) {
                 <button
                   type="button"
                   onClick={() => toggleSection(section.id)}
-                  className={`mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
-                    sectionActive ? 'text-gold' : 'text-stone-600 hover:text-stone-400'
+                  className={`mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                    sectionActive ? theme.sectionActive : theme.sectionIdle
                   } ${sidebarCollapsed ? 'lg:hidden' : ''}`}
                   aria-expanded={isOpen}
                 >
@@ -427,6 +584,7 @@ export default function AdminLayout({ children }) {
                           item={item}
                           pathname={location.pathname}
                           sidebarCollapsed={sidebarCollapsed}
+                          theme={theme}
                         />
                       </li>
                     ))}
@@ -435,21 +593,21 @@ export default function AdminLayout({ children }) {
               </div>
             );
           })}
-
-          <div className="pointer-events-none sticky bottom-0 -mt-2 h-2 bg-gradient-to-t from-[#080706]/20 to-transparent" />
         </nav>
 
-        <div className="border-t border-white/[0.04] p-3">
-          <div className={`mb-2 rounded-xl border border-white/[0.04] bg-white/[0.03] p-3 ${sidebarCollapsed ? 'lg:p-2' : ''}`}>
+        <div className={`border-t p-3 ${theme.divider}`}>
+          <div className={`mb-2 rounded-xl border p-3 ${theme.userCard} ${sidebarCollapsed ? 'lg:p-2' : ''}`}>
             <div className={`flex items-center gap-3 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-sm font-bold text-gold">
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${theme.userAvatar}`}
+              >
                 {userInitial}
               </span>
               <div className={`min-w-0 ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-                <p className="truncate text-sm font-semibold text-white" title={user?.email}>
+                <p className={`truncate text-sm font-semibold ${theme.userName}`} title={user?.email}>
                   {user?.firstName || user?.email}
                 </p>
-                <p className="truncate text-xs text-stone-500">
+                <p className={`truncate text-xs ${theme.userRole}`}>
                   {isAdmin ? 'Administrador' : isBarber ? 'Barbero' : user?.role}
                 </p>
               </div>
@@ -460,7 +618,7 @@ export default function AdminLayout({ children }) {
             <button
               type="button"
               onClick={handleLogout}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-stone-400 transition hover:bg-red-500/10 hover:text-red-200 ${
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${theme.logout} ${
                 sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''
               }`}
               title={sidebarCollapsed ? 'Cerrar sesion' : undefined}

@@ -12,7 +12,6 @@ import {
   Calendar,
   Award,
   Scissors,
-  Clock,
   User,
   MessageSquare,
   Edit,
@@ -21,21 +20,8 @@ import {
 import * as clientService from '@/features/clients/services/clientService';
 import { AdminBackNav } from '@/shared/components/admin/AdminFormShell';
 import { AdminPagination } from '@/shared/components/admin/AdminListControls';
-import {
-  formatAppointmentCalendarDate,
-  formatAppointmentClockTime,
-  appointmentNotesOf,
-} from '@/shared/utils/appointmentTime';
+import AppointmentHistoryTimeline from '@/shared/components/admin/AppointmentHistoryTimeline';
 import { formatDisplayDate } from '@/shared/utils/formatDisplayDate';
-
-const STATUS_LABELS = {
-  scheduled: 'Agendada',
-  confirmed: 'Confirmada',
-  in_progress: 'En progreso',
-  completed: 'Completada',
-  cancelled: 'Cancelada',
-  no_show: 'No asistió',
-};
 
 const HISTORY_PAGE_SIZE_OPTIONS = [5, 10, 20];
 const HISTORY_DEFAULT_PAGE_SIZE = 5;
@@ -441,92 +427,14 @@ export default function ClientDetailPage() {
             />
 
             <div className="flex-1 min-h-[240px]">
-              {historyLoading && history.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                  <p className="text-stone-500 text-sm font-medium">Cargando historial...</p>
-                </div>
-              ) : historyTotal === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                  <Scissors className="w-12 h-12 text-stone-200 mb-2" />
-                  <p className="text-stone-500 text-sm font-medium">Sin citas registradas aún.</p>
-                </div>
-              ) : (
-                <div
-                  className={`relative border-l-2 border-stone-100 ml-3.5 pl-5 pr-2 space-y-4 transition-opacity duration-200 ${
-                    historyLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'
-                  }`}
-                >
-                  {history.map((item) => {
-                    const noteText = appointmentNotesOf(item);
-                    
-                    // Elegir clase de color según el estatus
-                    let statusDotColors = 'bg-stone-300';
-                    let statusBadgeColors = 'bg-stone-50 text-stone-700 border-stone-200/60';
-                    
-                    if (item.status === 'completed') {
-                      statusDotColors = 'bg-emerald-500';
-                      statusBadgeColors = 'bg-emerald-50/70 text-emerald-700 border-emerald-100';
-                    } else if (item.status === 'cancelled' || item.status === 'no_show') {
-                      statusDotColors = 'bg-rose-500';
-                      statusBadgeColors = 'bg-rose-50/70 text-rose-700 border-rose-100';
-                    } else if (item.status === 'scheduled' || item.status === 'confirmed') {
-                      statusDotColors = 'bg-amber-400';
-                      statusBadgeColors = 'bg-amber-50/70 text-amber-800 border-amber-200/50';
-                    }
-
-                    return (
-                      <div key={item.id} className="relative group">
-                        {/* Nodo de la línea de tiempo */}
-                        <span className={`absolute -left-[27px] top-1.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${statusDotColors} z-10 transition-transform group-hover:scale-125 duration-350`}></span>
-
-                        {/* Contenedor de la Cita */}
-                        <div className="p-4 rounded-xl border border-stone-50 hover:border-stone-100 hover:bg-stone-50/30 transition-all duration-200">
-                          <div className="flex justify-between items-start gap-4">
-                            <div className="space-y-1 min-w-0 flex-1">
-                              <h4 className="font-bold text-stone-850 text-sm group-hover:text-gold-dark transition-colors duration-200 break-words">
-                                {item.service_name}
-                              </h4>
-                              
-                              {/* Subdetalles */}
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-stone-500 text-xs font-medium">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                                  {formatAppointmentCalendarDate(item.appointment_date, 'es-CO', {
-                                    year: 'numeric',
-                                  })}
-                                </span>
-                                <span className="text-stone-300">•</span>
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5 text-stone-400" />
-                                  {formatAppointmentClockTime(item.start_time)}
-                                </span>
-                                <span className="text-stone-300">•</span>
-                                <span className="flex items-center gap-1">
-                                  <User className="w-3.5 h-3.5 text-stone-400" />
-                                  {item.barber_first_name} {item.barber_last_name}
-                                </span>
-                              </div>
-
-                              {/* Nota de la cita */}
-                              {noteText && (
-                                <div className="mt-2.5 pl-3 border-l-2 border-amber-300 text-stone-600 text-xs bg-amber-50/20 py-1.5 pr-2.5 rounded-r-lg break-words">
-                                  <span className="font-bold text-[10px] text-amber-800 uppercase tracking-wider block mb-0.5">Nota de cita:</span>
-                                  {noteText}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Badge de Estatus */}
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadgeColors} shrink-0`}>
-                              {STATUS_LABELS[item.status] || item.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {/* La línea de tiempo vive en `shared/` desde que el perfil del
+                  propio cliente muestra este mismo historial: un solo estilo
+                  para las dos pantallas. */}
+              <AppointmentHistoryTimeline
+                appointments={history}
+                loading={historyLoading}
+                total={historyTotal}
+              />
             </div>
           </div>
         </div>

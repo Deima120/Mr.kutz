@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { milestonesReachedAt, nextMilestone } from './clientLoyaltyRules.js';
+import { milestonesReachedAt, nextMilestone, summarizeLoyaltyAudience } from './clientLoyaltyRules.js';
 
 const RULES = [
   { id: 1, everyCount: 5 },
@@ -80,5 +80,52 @@ describe('nextMilestone', () => {
   it('devuelve null sin reglas', () => {
     assert.equal(nextMilestone(3, []), null);
     assert.equal(nextMilestone(3, null), null);
+  });
+});
+
+describe('summarizeLoyaltyAudience', () => {
+  const PERIODO = {
+    monthStart: new Date('2026-09-01T00:00:00.000Z'),
+    monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+  };
+
+  it('sin clientes no inventa una tasa de retorno', () => {
+    const resumen = summarizeLoyaltyAudience([], PERIODO);
+    assert.equal(resumen.clientsInProgram, 0);
+    assert.equal(resumen.recurringClients, 0);
+    assert.equal(resumen.newThisMonth, 0);
+    assert.equal(resumen.returnRate, null);
+  });
+
+  it('cuenta como recurrente solo a quien completó 2 o mas servicios', () => {
+    const resumen = summarizeLoyaltyAudience(
+      [{ completedCount: 1 }, { completedCount: 2 }, { completedCount: 9 }],
+      PERIODO
+    );
+    assert.equal(resumen.clientsInProgram, 3);
+    assert.equal(resumen.recurringClients, 2);
+    assert.equal(resumen.returnRate, 66.7);
+  });
+
+  it('cuenta nuevos del mes por su PRIMER servicio completado, no por el ultimo', () => {
+    const resumen = summarizeLoyaltyAudience(
+      [
+        { completedCount: 4, firstCompletedAt: '2026-08-31T00:00:00.000Z' },
+        { completedCount: 1, firstCompletedAt: '2026-09-01T00:00:00.000Z' },
+        { completedCount: 2, firstCompletedAt: '2026-09-30T00:00:00.000Z' },
+        { completedCount: 1, firstCompletedAt: '2026-10-01T00:00:00.000Z' },
+        { completedCount: 1, firstCompletedAt: null },
+      ],
+      PERIODO
+    );
+    assert.equal(resumen.newThisMonth, 2);
+  });
+
+  it('tolera filas no validas y la falta de periodo', () => {
+    const resumen = summarizeLoyaltyAudience(null, PERIODO);
+    assert.equal(resumen.clientsInProgram, 0);
+    const sinPeriodo = summarizeLoyaltyAudience([{ completedCount: 3, firstCompletedAt: '2026-09-02' }], {});
+    assert.equal(sinPeriodo.newThisMonth, 0);
+    assert.equal(sinPeriodo.returnRate, 100);
   });
 });

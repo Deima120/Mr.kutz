@@ -27,6 +27,22 @@ export const updateMilestoneRule = async (id, data) => {
   return extract(response);
 };
 
+/**
+ * Solo para hitos que nunca otorgaron nada: el backend responde 409 si ya
+ * tienen recompensas y hay que desactivarlos en su lugar.
+ */
+export const deleteMilestoneRule = async (id) => {
+  const response = await api.delete(`${LOYALTY_BASE}/milestones/${id}`);
+  return extract(response);
+};
+
+/** Indicadores del programa para la cabecera (todas las cifras vienen del backend). */
+export const getLoyaltyStats = async () => {
+  const response = await api.get(`${LOYALTY_BASE}/stats`);
+  const data = extract(response);
+  return data && typeof data === 'object' ? data : null;
+};
+
 export const deactivateMilestoneRule = async (id) => {
   const response = await api.patch(`${LOYALTY_BASE}/milestones/${id}/deactivate`);
   return extract(response);

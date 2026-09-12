@@ -9,6 +9,8 @@ import {
   deactivateMilestoneRule,
   listLoyaltyRewardsHistory,
   chooseLoyaltyRewardOption,
+  deleteMilestoneRule,
+  getLoyaltyStats,
 } from '../services/clientLoyaltyRewards.service.js';
 import prisma from '../lib/prisma.js';
 
@@ -49,6 +51,36 @@ export const deactivateMilestone = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Hito no encontrado.' });
     }
     res.json({ success: true, message: 'Hito desactivado correctamente.', data: rule });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/loyalty/milestones/:id
+ * Limpieza de un hito que nunca otorgó nada. Si ya tiene recompensas el
+ * servicio responde 409 y el mensaje indica desactivarlo en su lugar.
+ */
+export const deleteMilestone = async (req, res, next) => {
+  try {
+    const rule = await deleteMilestoneRule(req.params.id);
+    if (!rule) {
+      return res.status(404).json({ success: false, message: 'Hito no encontrado.' });
+    }
+    res.json({ success: true, message: 'Hito eliminado correctamente.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/loyalty/stats
+ * Indicadores del programa para la cabecera de la pantalla de Fidelización.
+ */
+export const getStats = async (req, res, next) => {
+  try {
+    const stats = await getLoyaltyStats();
+    res.json({ success: true, data: stats });
   } catch (error) {
     next(error);
   }

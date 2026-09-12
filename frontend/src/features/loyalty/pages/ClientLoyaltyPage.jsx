@@ -76,6 +76,7 @@ export default function ClientLoyaltyPage() {
                 everyCount={progress.nextMilestone.everyCount}
                 remaining={progress.nextMilestone.remaining}
                 label={progress.nextMilestone.label}
+                personal
               />
             </DataCard>
           ) : (
