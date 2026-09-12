@@ -26,7 +26,11 @@ import {
   APPOINTMENT_TERMINAL_STATUSES,
 } from './appointmentStatusAutomation.js';
 import { assertUnderPendingLimit, assertUnderDailyLimit } from './appointmentLimitRules.js';
-import { grantLoyaltyRewardsIfEligible, chooseLoyaltyRewardOption } from './clientLoyaltyRewards.service.js';
+import {
+  grantLoyaltyRewardsIfEligible,
+  chooseLoyaltyRewardOption,
+  getPendingLoyaltyRewards,
+} from './clientLoyaltyRewards.service.js';
 import { findRedundantLoyaltyService, rewardServiceIdsFromOption } from './appointmentLoyaltyRules.js';
 import { assertCanMarkNoShow } from './appointmentNoShowRules.js';
 import { assertAppointmentIsEditable } from './appointmentEditRules.js';
@@ -762,6 +766,30 @@ export const create = async (data, { enforceClientLimit = true } = {}) => {
   const orderedServices = ids.map((id) => serviceById.get(id));
   const primaryService = orderedServices[0];
   const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
+
+  // Si el cliente ya tiene un premio de fidelización ELEGIDO en una cita u
+  // ocasión anterior (pendiente de canjear, no de elegir), ninguno de los
+  // servicios de ESTA cita puede ser el mismo que ya va a recibir gratis —
+  // directo, o dentro de un combo que lo incluya de verdad. Es el mismo
+  // chequeo de redundancia que corre más abajo cuando la elección ocurre en
+  // esta misma cita (`data.loyaltyChoice`), pero aplicado también a lo que el
+  // cliente ya eligió antes: sin esto, elegir el premio una vez y agendar una
+  // cita aparte con ese mismo servicio no se bloqueaba ni avisaba.
+  const alreadyChosenRewards = await getPendingLoyaltyRewards(parsedClientId);
+  for (const reward of alreadyChosenRewards) {
+    const redundantAlreadyChosen = findRedundantLoyaltyService(
+      orderedServices,
+      rewardServiceIdsFromOption(reward.items),
+    );
+    if (redundantAlreadyChosen) {
+      const err = new Error(
+        `No puedes agendar «${redundantAlreadyChosen.name}» en esta cita: ya la tienes pendiente de canjear gratis por fidelización. Quítala de los servicios.`,
+      );
+      err.statusCode = 409;
+      err.reason = 'LOYALTY_REDUNDANT_SERVICE';
+      throw err;
+    }
+  }
 
   // Si esta cita también trae la elección del premio de fidelización que el
   // cliente ya se ganó, se valida ANTES de crear nada — incluido que ninguno
