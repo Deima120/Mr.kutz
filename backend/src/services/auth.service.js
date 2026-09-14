@@ -10,25 +10,21 @@ import { sendPasswordResetCode, isMailDeliveryConfigured } from '../lib/mailer.j
 import { canonicalEmail } from '../utils/emailCanonical.js';
 import { hashResetCode, verifyResetCodeHash } from '../utils/resetCodeHash.js';
 import { getJwtSecret, JWT_ALGORITHM } from '../config/jwtSecret.js';
+import {
+  RESET_CODE_TTL_MS,
+  RESET_MAX_VERIFY_ATTEMPTS,
+  canRequestPasswordReset,
+  isResetInCooldown,
+  isResetCodeEligible,
+} from './auth.rules.js';
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
-const RESET_CODE_TTL_MS = 30 * 60 * 1000;
-const RESET_RESEND_COOLDOWN_MS = 2 * 60 * 1000;
-const RESET_MAX_VERIFY_ATTEMPTS = 5;
 const GENERIC_RESET_MESSAGE =
   'Si el correo está registrado en Mr. Kutz, recibirás un código de verificación en breve. Revisa también la carpeta de spam.';
 
 function generateResetCode() {
   return String(randomInt(100000, 1000000));
-}
-
-function isResetInCooldown(user) {
-  if (!user?.resetCodeExpires || !user?.resetCode) return false;
-  const expiresAt = new Date(user.resetCodeExpires);
-  if (Number.isNaN(expiresAt.getTime()) || expiresAt <= new Date()) return false;
-  const issuedAt = new Date(expiresAt.getTime() - RESET_CODE_TTL_MS);
-  return Date.now() - issuedAt.getTime() < RESET_RESEND_COOLDOWN_MS;
 }
 
 async function resolveBusinessName() {
@@ -47,13 +43,6 @@ async function resolveBusinessName() {
     );
   }
   return 'Mr. Kutz';
-}
-
-function canRequestPasswordReset(user) {
-  if (!user) return false;
-  if (!user.isActive) return false;
-  if (!user.passwordHash) return false;
-  return true;
 }
 
 export const checkEmailAvailability = async (email) => {
@@ -354,27 +343,22 @@ export const verifyResetCode = async (email, code) => {
     where: { email: emailNorm },
   });
 
-  if (!canRequestPasswordReset(dbUser) || !dbUser.resetCode || !dbUser.resetCodeExpires) {
+  if (!canRequestPasswordReset(dbUser)) {
     const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
     error.statusCode = 400;
     throw error;
   }
 
-  if (new Date() > dbUser.resetCodeExpires) {
-    await prisma.user.update({
-      where: { id: dbUser.id },
-      data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
-    });
-    const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if ((dbUser.resetCodeAttempts ?? 0) >= RESET_MAX_VERIFY_ATTEMPTS) {
-    await prisma.user.update({
-      where: { id: dbUser.id },
-      data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
-    });
+  const eligibility = isResetCodeEligible(dbUser);
+  if (!eligibility.eligible) {
+    // "missing" no deja nada que limpiar (no hay código guardado); "expired" y
+    // "max_attempts" sí invalidan el código guardado para que no quede vivo.
+    if (eligibility.reason !== 'missing') {
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
+      });
+    }
     const error = new Error(GENERIC_INVALID_CODE_MESSAGE);
     error.statusCode = 400;
     throw error;
