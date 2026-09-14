@@ -316,19 +316,26 @@ function normalizeServiceLabel(name) {
  * Resuelve la lista ordenada de servicios de una cita (IDs en notes, nombres legacy o serviceId).
  * @param {object} a appointment con notes, serviceId, service
  * @param {{ service: { findMany: Function } }} [db] cliente Prisma o tx
+ * @param {Array|null} [allServices] catálogo completo ya cargado — si se pasa,
+ *   resuelve todo en memoria sin ninguna consulta adicional. Pensado para
+ *   listados: sin esto, cada fila disparaba su propia consulta a `Service`
+ *   (N+1 real, confirmado en el diagnóstico de rendimiento — `getAll` abajo
+ *   la usaba dentro de un `.map(async ...)` sobre cada cita de la página).
+ *   `Service` es una tabla chica (~90 filas), así que traerla entera una vez
+ *   por página es más barato que una query por fila.
  */
-export async function resolveOrderedServicesForAppointment(a, db = prisma) {
+export async function resolveOrderedServicesForAppointment(a, db = prisma, allServices = null) {
   let ids = parseServiceIdsFromNotes(a.notes);
   if (!ids.length) {
     const names = parseServiceNamesFromNotes(a.notes);
     if (names.length > 1) {
-      const found = await db.service.findMany({
+      const found = allServices ?? (await db.service.findMany({
         where: {
           OR: names.map((n) => ({
             name: { equals: n, mode: 'insensitive' },
           })),
         },
-      });
+      }));
       const byName = new Map(found.map((s) => [normalizeServiceLabel(s.name), s]));
       const ordered = names.map((n) => byName.get(normalizeServiceLabel(n))).filter(Boolean);
       // Preferir coincidencia parcial (≥2) sobre quedarse solo con el serviceId primario
@@ -338,7 +345,9 @@ export async function resolveOrderedServicesForAppointment(a, db = prisma) {
   }
   if (!ids.length) return a.service ? [a.service] : [];
 
-  const records = await db.service.findMany({ where: { id: { in: ids } } });
+  const records = allServices
+    ? allServices.filter((s) => ids.includes(s.id))
+    : await db.service.findMany({ where: { id: { in: ids } } });
   const byId = new Map(records.map((s) => [s.id, s]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
   if (!ordered.length && a.service) return [a.service];
@@ -414,9 +423,13 @@ export const getAll = async ({ date, dateFrom, dateTo, barberId, clientId, statu
 
   await applyAutomaticStatusUpdates(appointments);
 
+  // Una sola consulta para toda la página, en vez de una por cada cita — ver
+  // el comentario de `resolveOrderedServicesForAppointment`.
+  const allServicesForPage = appointments.length ? await prisma.service.findMany() : [];
+
   const enriched = await Promise.all(
     appointments.map(async (a) => {
-      const ordered = await resolveOrderedServicesForAppointment(a);
+      const ordered = await resolveOrderedServicesForAppointment(a, prisma, allServicesForPage);
       const svc = mapAppointmentServicesFields(ordered, a.service, a.notes);
       return {
         id: a.id,
