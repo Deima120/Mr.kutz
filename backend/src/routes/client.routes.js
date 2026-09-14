@@ -65,7 +65,10 @@ const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no vál
 const listValidation = [
   query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
   query('document').optional({ checkFalsy: true }).trim().isLength({ max: 30 }),
-  ...paginationQuery({ maxLimit: 100 }),
+  // 500, no 100: mismo criterio que el listado principal de productos
+  // (product.routes.js) — este endpoint también alimenta la exportación a
+  // Excel, que necesita poder traer todos los clientes en una sola petición.
+  ...paginationQuery({ maxLimit: 500 }),
 ];
 
 router.use(auth);

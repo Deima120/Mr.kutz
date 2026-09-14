@@ -170,9 +170,13 @@ export default function ClientsPage() {
   const handleExportExcel = async () => {
     setExporting(true);
     try {
+      // 500, no un número enorme: es el tope real que acepta el backend para
+      // este listado (client.routes.js, mismo criterio que el catálogo de
+      // productos) — pedir más de eso lo rechaza con 400 antes de intentar
+      // exportar nada.
       const data = await clientService.getClients({
         search: debouncedSearch || undefined,
-        limit: 10000,
+        limit: 500,
         offset: 0,
       });
       const allClients = data.clients || [];
