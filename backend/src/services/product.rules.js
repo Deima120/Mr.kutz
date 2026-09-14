@@ -4,13 +4,23 @@ function domainError(message, statusCode = 400) {
   return error;
 }
 
+/**
+ * Precio de venta de producto: entero > 0, o `null` si no se manda (opcional).
+ * Igual que `assertServicePrice`: la moneda de este negocio no usa decimales
+ * en ningún otro monto del sistema, y el formulario de venta solo admite
+ * pesos enteros — un precio con centavos aquí dejaría ese producto imposible
+ * de cobrar sin ningún aviso claro de por qué.
+ */
 export function parsePositiveOptionalMoney(value, label) {
   if (value == null || value === '') return null;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw domainError(`${label} debe ser mayor que cero.`);
   }
-  return Number(parsed.toFixed(2));
+  if (!Number.isInteger(parsed)) {
+    throw domainError(`${label} debe ser un número entero, sin centavos.`);
+  }
+  return parsed;
 }
 
 export function assertNoManualCost(data) {

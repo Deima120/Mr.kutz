@@ -34,10 +34,11 @@ const createValidation = [
       if (!Number.isFinite(n) || n < 1) throw new Error('Categoría no válida.');
       return true;
     }),
+  // Entero (sin centavos): la moneda de este negocio no usa decimales.
   body('retailPrice')
     .optional({ nullable: true })
-    .isFloat({ gt: 0 })
-    .withMessage('El precio de venta debe ser mayor que cero.'),
+    .isInt({ gt: 0 })
+    .withMessage('El precio de venta debe ser un entero mayor que cero, sin centavos.'),
   rejectManualCost(),
 ];
 
@@ -57,8 +58,8 @@ const updateValidation = [
   body('isActive').optional().isBoolean(),
   body('retailPrice')
     .optional({ nullable: true })
-    .isFloat({ gt: 0 })
-    .withMessage('El precio de venta debe ser mayor que cero.'),
+    .isInt({ gt: 0 })
+    .withMessage('El precio de venta debe ser un entero mayor que cero, sin centavos.'),
   rejectManualCost(),
 ];
 

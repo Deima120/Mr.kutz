@@ -2,6 +2,10 @@
  * Payload y mapeo de formulario de producto (sin validación ni React).
  */
 
+// Ruta relativa (no alias @/): este archivo debe seguir siendo testeable con
+// `node --test`, que no resuelve el alias — solo Vite lo hace.
+import { formatMoneyInputDigits, parseMoneyInput } from '../../../shared/utils/money.js';
+
 export function createEmptyProductForm(overrides = {}) {
   return {
     name: '',
@@ -32,7 +36,12 @@ export function mapProductToForm(product) {
     minStock,
     categoryId: categoryId != null && categoryId !== '' ? String(categoryId) : '',
     isActive: isActive !== false,
-    retailPrice: retailPrice != null && retailPrice !== '' ? String(retailPrice) : '',
+    // Precio de venta siempre en pesos enteros (sin decimales) — mismo formato con
+    // separador de miles que ya usa el campo mientras se escribe.
+    retailPrice:
+      retailPrice != null && retailPrice !== ''
+        ? formatMoneyInputDigits(String(Math.round(Number(retailPrice))))
+        : '',
     costPrice: costPrice != null && costPrice !== '' ? String(costPrice) : '',
   });
 }
@@ -51,12 +60,11 @@ export function buildProductPayload(formData, { isEdit = false } = {}) {
   if (formData.categoryId) {
     payload.categoryId = Number(formData.categoryId);
   }
-  if (
-    formData.retailPrice !== '' &&
-    formData.retailPrice != null &&
-    !Number.isNaN(Number(formData.retailPrice))
-  ) {
-    payload.retailPrice = Number(formData.retailPrice);
+  if (formData.retailPrice !== '' && formData.retailPrice != null) {
+    const parsed = parseMoneyInput(formData.retailPrice);
+    if (Number.isFinite(parsed)) {
+      payload.retailPrice = parsed;
+    }
   }
   if (isEdit) {
     payload.isActive = formData.isActive !== false;
