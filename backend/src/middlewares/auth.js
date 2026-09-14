@@ -4,10 +4,13 @@
  * - authorize: verifica roles permitidos (forma antigua, sigue en uso)
  * - requirePermission: verifica permisos concretos (forma nueva)
  *
- * El JWT lleva únicamente `{ userId }`: todo lo demás se consulta aquí en cada
+ * El JWT lleva `{ userId, tokenVersion }`: todo lo demás se consulta aquí en cada
  * petición. Es más caro que meter el rol en el token, pero hace que cambiar el rol
  * o los permisos de alguien surta efecto de inmediato, y que `isActive: false` lo
- * expulse sin esperar a que caduque nada.
+ * expulse sin esperar a que caduque nada. `tokenVersion` cumple el mismo papel
+ * para la propia contraseña: si cambia (recuperación, o el admin la restablece),
+ * el número sube y cualquier token emitido antes deja de servir de inmediato,
+ * en vez de seguir siendo válido hasta sus 7 días de vida.
  */
 
 import jwt from 'jsonwebtoken';
@@ -52,6 +55,19 @@ export const auth = async (req, res, next) => {
 
     if (!user || !user.isActive) {
       return res.status(401).json({ success: false, message: 'Usuario no encontrado o inactivo.' });
+    }
+
+    // Un token emitido antes de esta funcionalidad no trae `tokenVersion` en su
+    // payload: se trata como 0, igual que arranca la columna, para no invalidar
+    // de golpe todas las sesiones activas al desplegar esta migración. Solo deja
+    // de servir cuando de verdad cambia la contraseña después de este punto.
+    const tokenVersion = decoded.tokenVersion ?? 0;
+    if (tokenVersion !== user.tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: 'Tu sesión ya no es válida. Inicia sesión de nuevo.',
+        reason: 'TOKEN_REVOKED',
+      });
     }
 
     req.user = {

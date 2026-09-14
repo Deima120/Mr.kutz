@@ -184,7 +184,7 @@ export const register = async (userData) => {
     return userWithRole;
   });
 
-  const token = generateToken(result.id);
+  const token = generateToken(result.id, result.tokenVersion);
   const user = await getProfile(result.id);
   return {
     user: user || formatUserResponse(result, { firstName, lastName, role }),
@@ -255,7 +255,7 @@ export const login = async (email, password) => {
     }
   }
 
-  const token = generateToken(dbUser.id);
+  const token = generateToken(dbUser.id, dbUser.tokenVersion);
   const user = await getProfile(dbUser.id);
   return { user: user || formatUserResponse(dbUser), token };
 };
@@ -416,6 +416,10 @@ export const resetPassword = async (email, code, newPassword) => {
       resetCode: null,
       resetCodeExpires: null,
       resetCodeAttempts: 0,
+      // Invalida cualquier token emitido antes de este cambio — si alguien
+      // más tenía una sesión abierta (o un token robado), deja de servirle
+      // de inmediato en vez de esperar a que expire por su cuenta.
+      tokenVersion: { increment: 1 },
     },
   });
 
@@ -553,8 +557,8 @@ export const updateProfile = async (userId, data = {}) => {
   return getProfile(userId);
 };
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, getJwtSecret(), {
+const generateToken = (userId, tokenVersion = 0) => {
+  return jwt.sign({ userId, tokenVersion }, getJwtSecret(), {
     expiresIn: TOKEN_EXPIRES,
     algorithm: JWT_ALGORITHM,
   });

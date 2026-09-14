@@ -409,7 +409,16 @@ export const resetPassword = async (id, password) => {
     where: { id: userId },
     // Se limpia cualquier código de recuperación pendiente: si había uno en
     // marcha, dejarlo vivo permitiría cambiar la contraseña recién puesta.
-    data: { passwordHash, resetCode: null, resetCodeExpires: null, resetCodeAttempts: 0 },
+    // tokenVersion sube para invalidar cualquier sesión ya abierta con la
+    // contraseña anterior — el caso típico es justo este: el admin resetea
+    // porque sospecha que la cuenta está comprometida.
+    data: {
+      passwordHash,
+      resetCode: null,
+      resetCodeExpires: null,
+      resetCodeAttempts: 0,
+      tokenVersion: { increment: 1 },
+    },
   });
   return true;
 };
