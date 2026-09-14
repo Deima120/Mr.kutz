@@ -110,6 +110,13 @@ model User {
   resetCode                String?             @map("reset_code") @db.VarChar(255)
   resetCodeExpires         DateTime?           @map("reset_code_expires")
   resetCodeAttempts        Int                 @default(0) @map("reset_code_attempts")
+  /// Se incrementa cada vez que la contraseña cambia por fuera de una sesión
+  /// activa (recuperación por código, o el admin restableciéndola desde el
+  /// panel). El JWT lleva este número en su payload; si no coincide con el
+  /// valor actual, el token se trata como revocado aunque no haya expirado
+  /// — sin esto, un token robado seguía siendo válido hasta sus 7 días de
+  /// vida aunque la contraseña ya se hubiera cambiado.
+  tokenVersion             Int                 @default(0) @map("token_version")
   createdAt                DateTime            @default(now()) @map("created_at")
   updatedAt                DateTime            @updatedAt @map("updated_at")
   barber                   Barber?
