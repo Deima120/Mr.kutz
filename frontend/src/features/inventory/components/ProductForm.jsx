@@ -26,7 +26,7 @@ import { useFormValidation } from '@/shared/hooks/useFormValidation';
 import { AdminFormField } from '@/shared/components/FormValidationFields';
 import CustomSelect, { formSelectEvent } from '@/shared/components/CustomSelect';
 import { formatDisplayDateTime } from '@/shared/utils/formatDisplayDate';
-import { formatMoney } from '@/shared/utils/money';
+import { formatMoney, formatMoneyInputDigits, blockNonDigitKeys } from '@/shared/utils/money';
 import AdminFormShell, {
   AdminFormCard,
   AdminFormCardHeader,
@@ -111,7 +111,7 @@ export function ProductForm({
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (name === 'retailPrice') {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: formatMoneyInputDigits(value) }));
       setError('');
       clearFieldError(name);
       return;
@@ -270,10 +270,11 @@ export function ProductForm({
             <input
               id={`product-retail-${variant}`}
               name="retailPrice"
-              type="number"
-              step="0.01"
-              min="0.01"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
               value={formData.retailPrice}
+              onKeyDown={blockNonDigitKeys}
               onChange={handleChange}
               onBlur={() => markTouched('retailPrice')}
               placeholder="Opcional"

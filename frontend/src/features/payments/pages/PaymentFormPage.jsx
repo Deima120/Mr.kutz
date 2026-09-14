@@ -962,7 +962,19 @@ export function PaymentForm({
       aside={paymentAside}
       asideFloating
     >
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      {/*
+        Sin <form> propio envolviendo todo: AdminFormCard ya renderiza su
+        propio <form> por debajo. Envolver aquí con otro <form> anidaba un
+        <form> dentro de otro (HTML inválido — React lo advertía en consola)
+        y, más grave, pulsar Enter en cualquier campo de "Paso 1" o "Notas"
+        disparaba el envío nativo del <form> interno SIN onSubmit: sin nada
+        que llamara a preventDefault(), el navegador recargaba la página a
+        /payments y borraba todo el carrito. Cada AdminFormCard recibe ahora
+        el mismo `onSubmit={handleSubmit}` real, así que Enter en cualquiera
+        de las tres tarjetas valida y envía igual que el botón "Confirmar
+        venta" (que ya no vive dentro de ningún <form>, ver más abajo).
+      */}
+      <div className="space-y-4">
         {error ? (
           <div className="alert-error text-sm" role="alert">
             {error}
@@ -991,7 +1003,7 @@ export function PaymentForm({
         ) : null}
 
         {/* 1) Carrito — qué se cobra */}
-        <AdminFormCard>
+        <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader eyebrow="Paso 1" title="Qué se cobra" />
           <div className="space-y-4 mt-1">
             <div className="space-y-3">
@@ -1181,7 +1193,7 @@ export function PaymentForm({
         </AdminFormCard>
 
         {/* 2) Forma de pago — cómo se cobra */}
-        <AdminFormCard>
+        <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader eyebrow="Paso 2" title="Cómo se paga" />
           <div className="space-y-3 mt-1">
             {fieldError('methodSplits') ? (
@@ -1384,7 +1396,7 @@ export function PaymentForm({
           </div>
         </AdminFormCard>
 
-        <AdminFormCard>
+        <AdminFormCard onSubmit={handleSubmit}>
           <AdminFormCardHeader title="Notas" />
           <p className="mt-1 text-right text-[10px] text-stone-400 tabular-nums">
             {notes.length}/{TEXT_NOTES_MAX}
@@ -1409,6 +1421,8 @@ export function PaymentForm({
             Cancelar
           </AdminFormSecondaryButton>
           <AdminFormPrimaryButton
+            type="button"
+            onClick={handleSubmit}
             disabled={
               loading ||
               lines.length === 0 ||
@@ -1422,7 +1436,7 @@ export function PaymentForm({
             </AdminFormLoadingButton>
           </AdminFormPrimaryButton>
         </AdminFormFooterActions>
-      </form>
+      </div>
     </AdminFormShell>
   );
 }

@@ -23,7 +23,7 @@ import AdminFormShell, {
   AdminFormPreviewPanel,
   AdminFormLoadingButton,
 } from '@/shared/components/admin/AdminFormShell';
-import { formatMoney } from '@/shared/utils/money';
+import { formatMoney, formatMoneyInputDigits, blockNonDigitKeys, parseMoneyInput } from '@/shared/utils/money';
 
 export function ServiceForm({
   embedded = false,
@@ -90,7 +90,9 @@ export function ServiceForm({
               if (n === 'general' || n === 'barbas') return n === 'barbas' ? 'Barba' : 'Cortes';
               return c;
             })(),
-            price: s.price?.toString() || '',
+            // Precio siempre en pesos enteros (sin decimales) — mismo formato con
+            // separador de miles que ya usa el campo mientras se escribe.
+            price: s.price != null ? formatMoneyInputDigits(String(Math.round(Number(s.price)))) : '',
             durationMinutes: s.duration_minutes?.toString() || '',
             isActive: s.is_active !== false,
             comboComponentIds: (s.combo_components || []).map((c) => c.id),
@@ -167,7 +169,7 @@ export function ServiceForm({
         name: formData.name,
         categoryName: formData.categoryName,
         description: formData.description || undefined,
-        price: parseFloat(formData.price),
+        price: parseMoneyInput(formData.price),
         durationMinutes: parseInt(formData.durationMinutes, 10),
         isActive: formData.isActive,
         // Solo se manda (y solo tiene efecto en el backend) cuando la
@@ -306,11 +308,16 @@ export function ServiceForm({
                 <input
                   id="service-price"
                   name="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
                   value={formData.price}
-                  onChange={handleChange}
+                  onKeyDown={blockNonDigitKeys}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ ...prev, price: formatMoneyInputDigits(e.target.value) }));
+                    setError('');
+                    clearFieldError('price');
+                  }}
                   onBlur={() => markTouched('price')}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
                   aria-invalid={invalid || undefined}

@@ -7,12 +7,17 @@ import {
 } from './product.rules.js';
 
 describe('reglas de escritura de producto', () => {
-  it('acepta importes vacíos o positivos y rechaza cero y negativos', () => {
+  it('acepta importes vacíos o enteros positivos y rechaza cero y negativos', () => {
     assert.equal(parsePositiveOptionalMoney('', 'El precio'), null);
     assert.equal(parsePositiveOptionalMoney(null, 'El precio'), null);
-    assert.equal(parsePositiveOptionalMoney('12.345', 'El precio'), 12.35);
+    assert.equal(parsePositiveOptionalMoney('12345', 'El precio'), 12345);
     assert.throws(() => parsePositiveOptionalMoney(0, 'El precio'), /mayor que cero/);
     assert.throws(() => parsePositiveOptionalMoney(-1, 'El precio'), /mayor que cero/);
+  });
+
+  it('rechaza precios con decimales (la moneda del negocio no usa centavos)', () => {
+    assert.throws(() => parsePositiveOptionalMoney('12.345', 'El precio'), /entero/);
+    assert.throws(() => parsePositiveOptionalMoney(12.5, 'El precio'), /entero/);
   });
 
   it('impide definir o limpiar manualmente el costo promedio', () => {
