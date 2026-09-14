@@ -946,6 +946,35 @@ export const update = async (id, data, existingAppointment = null) => {
     throw err;
   }
 
+  // Mismo bloqueo de redundancia que `create()`: ningún servicio de la cita
+  // puede ser el mismo que el cliente ya tiene pendiente de canjear gratis por
+  // fidelización — directo, o dentro de un combo que lo incluya de verdad.
+  // Antes esta comprobación solo corría al CREAR la cita: un cliente podía
+  // crearla con un servicio inofensivo y luego editarla (mismo endpoint que usa
+  // "Editar" en su propio panel, con `serviceIds`) para meter el servicio ya
+  // premiado, sin ningún aviso. Solo se evalúa cuando el resultado puede
+  // cambiar de verdad — servicios nuevos, o la cita pasa a ser de otro cliente
+  // — no en cada cambio de estado (confirmar, cancelar, marcar no-asistió).
+  const servicesMayBeRedundant =
+    hasServiceIds || hasServiceId || (data.clientId != null && nextClientId !== existing.clientId);
+  if (servicesMayBeRedundant && orderedServices.length) {
+    const pendingRewards = await getPendingLoyaltyRewards(nextClientId);
+    for (const reward of pendingRewards) {
+      const redundant = findRedundantLoyaltyService(
+        orderedServices,
+        rewardServiceIdsFromOption(reward.items),
+      );
+      if (redundant) {
+        const err = new Error(
+          `No puedes agendar «${redundant.name}» en esta cita: ya la tienes pendiente de canjear gratis por fidelización. Quítala de los servicios.`,
+        );
+        err.statusCode = 409;
+        err.reason = 'LOYALTY_REDUNDANT_SERVICE';
+        throw err;
+      }
+    }
+  }
+
   const primaryService = orderedServices[0] || null;
   const duration = orderedServices.reduce((sum, s) => sum + Number(s.durationMinutes), 0);
 
