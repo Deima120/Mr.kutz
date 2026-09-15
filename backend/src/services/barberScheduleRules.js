@@ -140,3 +140,83 @@ export function normalizeScheduleInput(schedules) {
     return { dayOfWeek, startTime, endTime, isAvailable };
   });
 }
+
+/**
+ * Ausencias puntuales de un barbero (vacaciones, incapacidad, permiso, festivo),
+ * independientes de la plantilla semanal — mismos valores que el enum
+ * `BarberAbsenceType` de Prisma.
+ */
+export const BARBER_ABSENCE_TYPES = ['vacation', 'sick_leave', 'permission', 'holiday', 'other'];
+
+/** YYYY-MM-DD válido y bien formado (no acepta "2026-02-30" con desbordamiento silencioso). */
+export function isValidYmd(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+/**
+ * Valida el rango de fechas de una ausencia. Días completos únicamente (sin
+ * franjas horarias): basta comparar los strings YYYY-MM-DD, que ordenan igual
+ * que las fechas que representan.
+ *
+ * @param {string} dateFrom
+ * @param {string} dateTo
+ */
+export function assertValidExceptionRange(dateFrom, dateTo) {
+  if (!isValidYmd(dateFrom) || !isValidYmd(dateTo)) {
+    const err = new Error('Indica un rango de fechas válido (AAAA-MM-DD).');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (dateFrom > dateTo) {
+    const err = new Error('La fecha final no puede ser anterior a la fecha inicial.');
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+/**
+ * ¿Se solapan dos rangos de fechas [from, to] (ambos extremos incluidos)?
+ * Comparación de strings YYYY-MM-DD, que ordenan igual que las fechas.
+ */
+export function dateRangesOverlap(aFrom, aTo, bFrom, bTo) {
+  return aFrom <= bTo && bFrom <= aTo;
+}
+
+/**
+ * ¿El nuevo rango choca con alguna ausencia vigente (no cancelada) ya
+ * registrada para el mismo barbero? Devuelve la primera que choque, o `null`.
+ *
+ * @param {Array<{dateFrom:string, dateTo:string, cancelledAt: unknown}>} existing
+ * @param {{dateFrom:string, dateTo:string}} candidate
+ * @param {number|string} [excludeId] al editar/reemplazar, se excluye a sí misma
+ */
+export function findOverlappingException(existing, candidate, excludeId = null) {
+  if (!Array.isArray(existing)) return null;
+  return (
+    existing.find(
+      (ex) =>
+        !ex.cancelledAt &&
+        (excludeId == null || String(ex.id) !== String(excludeId)) &&
+        dateRangesOverlap(ex.dateFrom, ex.dateTo, candidate.dateFrom, candidate.dateTo)
+    ) ?? null
+  );
+}
+
+/**
+ * ¿Hay una ausencia vigente (no cancelada) que cubra esta fecha? Es el punto
+ * que consulta `resolveBarberDayWindow` antes de mirar la plantilla semanal —
+ * una ausencia manda siempre, sin importar qué diga el horario recurrente ese
+ * día de la semana.
+ *
+ * @param {Array<{dateFrom:string, dateTo:string, cancelledAt: unknown}>} exceptions
+ * @param {string} ymd
+ */
+export function findActiveExceptionForDate(exceptions, ymd) {
+  if (!Array.isArray(exceptions)) return null;
+  return (
+    exceptions.find((ex) => !ex.cancelledAt && ex.dateFrom <= ymd && ymd <= ex.dateTo) ?? null
+  );
+}

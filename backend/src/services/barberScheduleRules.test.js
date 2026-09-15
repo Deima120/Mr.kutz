@@ -7,6 +7,11 @@ import {
   resolveDayWindow,
   weekdayOfYmd,
   normalizeScheduleInput,
+  isValidYmd,
+  assertValidExceptionRange,
+  dateRangesOverlap,
+  findOverlappingException,
+  findActiveExceptionForDate,
 } from './barberScheduleRules.js';
 import { parseClockTime, clockTimeToDate } from './appointment.time.helpers.js';
 import { timeStrFromRecord } from '../utils/colombiaTime.js';
@@ -165,5 +170,106 @@ describe('weekdayOfYmd', () => {
     const dayOfWeek = weekdayOfYmd('2026-01-12');
     const v = resolveDayWindow({ dayOfWeek, barberRows: semana('10:00', '20:00') });
     assert.deepEqual(v, { open: true, start: '10:00', end: '20:00', reason: 'barber_schedule' });
+  });
+});
+
+describe('isValidYmd', () => {
+  it('acepta fechas reales', () => {
+    assert.equal(isValidYmd('2026-01-01'), true);
+    assert.equal(isValidYmd('2026-12-31'), true);
+    assert.equal(isValidYmd('2028-02-29'), true); // bisiesto real
+  });
+
+  it('rechaza fechas con desbordamiento silencioso o formato inválido', () => {
+    assert.equal(isValidYmd('2026-02-30'), false); // febrero no tiene 30
+    assert.equal(isValidYmd('2027-02-29'), false); // 2027 no es bisiesto
+    assert.equal(isValidYmd('2026-13-01'), false);
+    assert.equal(isValidYmd('2026-1-1'), false); // sin ceros a la izquierda
+    assert.equal(isValidYmd('no-es-fecha'), false);
+    assert.equal(isValidYmd(''), false);
+    assert.equal(isValidYmd(null), false);
+  });
+});
+
+describe('assertValidExceptionRange', () => {
+  it('acepta un rango válido, incluido un solo día (from === to)', () => {
+    assert.doesNotThrow(() => assertValidExceptionRange('2026-12-24', '2026-12-24'));
+    assert.doesNotThrow(() => assertValidExceptionRange('2026-12-20', '2026-12-27'));
+  });
+
+  it('rechaza fechas inválidas', () => {
+    assert.throws(() => assertValidExceptionRange('2026-02-30', '2026-03-01'), { statusCode: 400 });
+    assert.throws(() => assertValidExceptionRange('2026-03-01', 'x'), { statusCode: 400 });
+  });
+
+  it('rechaza el rango invertido', () => {
+    assert.throws(() => assertValidExceptionRange('2026-12-27', '2026-12-20'), { statusCode: 400 });
+  });
+});
+
+describe('dateRangesOverlap', () => {
+  it('detecta solape real', () => {
+    assert.equal(dateRangesOverlap('2026-12-20', '2026-12-27', '2026-12-25', '2026-12-30'), true);
+  });
+
+  it('los extremos que se tocan cuentan como solape (ambos inclusive)', () => {
+    assert.equal(dateRangesOverlap('2026-12-20', '2026-12-24', '2026-12-24', '2026-12-27'), true);
+  });
+
+  it('rangos separados no se solapan', () => {
+    assert.equal(dateRangesOverlap('2026-12-01', '2026-12-05', '2026-12-10', '2026-12-15'), false);
+  });
+});
+
+describe('findOverlappingException', () => {
+  const existentes = [
+    { id: 1, dateFrom: '2026-12-20', dateTo: '2026-12-27', cancelledAt: null },
+    { id: 2, dateFrom: '2026-06-01', dateTo: '2026-06-05', cancelledAt: '2026-05-01T00:00:00Z' },
+  ];
+
+  it('encuentra el choque con una ausencia vigente', () => {
+    const choque = findOverlappingException(existentes, { dateFrom: '2026-12-24', dateTo: '2026-12-30' });
+    assert.equal(choque?.id, 1);
+  });
+
+  it('ignora las ausencias ya canceladas', () => {
+    const choque = findOverlappingException(existentes, { dateFrom: '2026-06-02', dateTo: '2026-06-03' });
+    assert.equal(choque, null);
+  });
+
+  it('se excluye a sí misma al pasar excludeId (para editar/reemplazar)', () => {
+    const choque = findOverlappingException(existentes, { dateFrom: '2026-12-24', dateTo: '2026-12-30' }, 1);
+    assert.equal(choque, null);
+  });
+
+  it('sin solape, no hay choque', () => {
+    const choque = findOverlappingException(existentes, { dateFrom: '2027-01-01', dateTo: '2027-01-02' });
+    assert.equal(choque, null);
+  });
+});
+
+describe('findActiveExceptionForDate', () => {
+  const ausencias = [
+    { id: 1, dateFrom: '2026-12-20', dateTo: '2026-12-27', cancelledAt: null },
+    { id: 2, dateFrom: '2026-06-01', dateTo: '2026-06-01', cancelledAt: '2026-05-01T00:00:00Z' },
+  ];
+
+  it('encuentra la ausencia que cubre la fecha, incluidos los extremos', () => {
+    assert.equal(findActiveExceptionForDate(ausencias, '2026-12-20')?.id, 1);
+    assert.equal(findActiveExceptionForDate(ausencias, '2026-12-24')?.id, 1);
+    assert.equal(findActiveExceptionForDate(ausencias, '2026-12-27')?.id, 1);
+  });
+
+  it('un día fuera del rango no encuentra nada', () => {
+    assert.equal(findActiveExceptionForDate(ausencias, '2026-12-28'), null);
+    assert.equal(findActiveExceptionForDate(ausencias, '2026-12-19'), null);
+  });
+
+  it('una ausencia cancelada no bloquea la fecha', () => {
+    assert.equal(findActiveExceptionForDate(ausencias, '2026-06-01'), null);
+  });
+
+  it('sin ausencias, no hay nada que bloquee', () => {
+    assert.equal(findActiveExceptionForDate([], '2026-12-24'), null);
   });
 });

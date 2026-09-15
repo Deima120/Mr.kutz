@@ -4,8 +4,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Pencil, CalendarDays, Trash2 } from 'lucide-react';
+import { Plus, Pencil, CalendarDays, CalendarOff, Trash2 } from 'lucide-react';
 import * as barberService from '@/features/barbers/services/barberService';
+import * as exceptionService from '@/features/barbers/services/barberScheduleExceptionService';
 import { BarberForm } from '@/features/barbers/pages/BarberFormPage';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import PageHeader from '@/shared/components/admin/PageHeader';
@@ -19,7 +20,13 @@ import {
 } from '@/shared/components/admin/AdminListControls';
 import { useAppToast } from '@/shared/feedback/ToastContext';
 import AdminConfirmModal from '@/shared/feedback/AdminConfirmModal';
+import AdminModalShell from '@/shared/components/admin/AdminModalShell';
 import AdminStatusToggle from '@/shared/components/admin/AdminStatusToggle';
+import { getApiErrorMessage } from '@/shared/utils/formValidation';
+import { formatAppointmentCalendarDate } from '@/shared/utils/appointmentTime';
+
+/** Mismo criterio que BarberSchedulesPage.jsx: nunca `new Date(ymd)` directo. */
+const showYmd = (ymd) => formatAppointmentCalendarDate(ymd, 'es-CO', { weekday: undefined, year: 'numeric' });
 
 const BARBER_STATUS_FILTERS = [
   { id: 'active', label: 'Activos' },
@@ -39,6 +46,14 @@ export default function BarbersPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
+
+  // Festivo para todos los barberos a la vez — acción global, no por barbero
+  // (ver /barbers/:id/schedules para las ausencias individuales).
+  const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+  const [holidayForm, setHolidayForm] = useState({ dateFrom: '', dateTo: '', reason: '' });
+  const [holidayError, setHolidayError] = useState('');
+  const [holidaySaving, setHolidaySaving] = useState(false);
+  const [holidayConfirmation, setHolidayConfirmation] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -182,6 +197,57 @@ export default function BarbersPage() {
 
   const openEditForm = (id) => setFormView(id);
 
+  const openHolidayModal = () => {
+    setHolidayForm({ dateFrom: '', dateTo: '', reason: '' });
+    setHolidayError('');
+    setHolidayConfirmation(null);
+    setHolidayModalOpen(true);
+  };
+
+  const submitHoliday = async (payload) => {
+    setHolidaySaving(true);
+    setHolidayError('');
+    try {
+      const result = await exceptionService.createScheduleException(payload);
+      if (result?.needsConfirmation) {
+        setHolidayConfirmation({ payload, affectedAppointments: result.affectedAppointments || [] });
+        return;
+      }
+      toast.success(`Festivo registrado para ${result.exceptions.length} barbero(s).`);
+      setHolidayModalOpen(false);
+      setHolidayConfirmation(null);
+    } catch (err) {
+      setHolidayError(getApiErrorMessage(err, 'Error al registrar el festivo'));
+    } finally {
+      setHolidaySaving(false);
+    }
+  };
+
+  const handleHolidaySubmit = (e) => {
+    e.preventDefault();
+    setHolidayError('');
+    if (!holidayForm.dateFrom || !holidayForm.dateTo) {
+      setHolidayError('Indica la fecha de inicio y de fin.');
+      return;
+    }
+    if (holidayForm.dateFrom > holidayForm.dateTo) {
+      setHolidayError('La fecha final no puede ser anterior a la inicial.');
+      return;
+    }
+    submitHoliday({
+      applyToAllBarbers: true,
+      type: 'holiday',
+      dateFrom: holidayForm.dateFrom,
+      dateTo: holidayForm.dateTo,
+      reason: holidayForm.reason.trim() || undefined,
+    });
+  };
+
+  const handleHolidayConfirmAnyway = () => {
+    if (!holidayConfirmation) return;
+    submitHoliday({ ...holidayConfirmation.payload, confirmed: true });
+  };
+
   const inlineForm = isFormOpen ? (
     <BarberForm
       embedded
@@ -196,14 +262,24 @@ export default function BarbersPage() {
       {!isFormOpen && isAdmin && (
         <PageHeader
           actions={
-            <button
-              type="button"
-              onClick={() => setFormView('create')}
-              className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
-            >
-              <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
-              Nuevo barbero
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={openHolidayModal}
+                className="btn-admin-outline inline-flex items-center gap-2 text-sm py-2 px-4"
+              >
+                <CalendarOff className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Marcar festivo
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormView('create')}
+                className="btn-admin inline-flex items-center gap-2 text-sm py-2 px-4"
+              >
+                <Plus className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden />
+                Nuevo barbero
+              </button>
+            </div>
           }
         />
       )}
@@ -348,6 +424,89 @@ export default function BarbersPage() {
         }}
         onConfirm={confirmDelete}
       />
+
+      <AdminModalShell
+        open={holidayModalOpen}
+        onClose={() => !holidaySaving && setHolidayModalOpen(false)}
+        title="Marcar festivo"
+        subtitle="Cierra el negocio ese rango de fechas para TODOS los barberos activos"
+        size="sm"
+        preventClose={holidaySaving}
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setHolidayModalOpen(false)}
+              disabled={holidaySaving}
+              className="btn-admin-outline text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="holiday-form"
+              disabled={holidaySaving}
+              className="btn-admin text-sm disabled:opacity-50"
+            >
+              {holidaySaving ? 'Guardando…' : 'Registrar festivo'}
+            </button>
+          </div>
+        }
+      >
+        <form id="holiday-form" onSubmit={handleHolidaySubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label>
+              <span className="block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5">Desde</span>
+              <input
+                type="date"
+                value={holidayForm.dateFrom}
+                onChange={(e) => setHolidayForm((p) => ({ ...p, dateFrom: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm border border-stone-200/90 bg-stone-50/80"
+              />
+            </label>
+            <label>
+              <span className="block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5">Hasta</span>
+              <input
+                type="date"
+                value={holidayForm.dateTo}
+                onChange={(e) => setHolidayForm((p) => ({ ...p, dateTo: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm border border-stone-200/90 bg-stone-50/80"
+              />
+            </label>
+          </div>
+          <label>
+            <span className="block text-[11px] font-bold tracking-wider text-stone-500 mb-1.5">Motivo (opcional)</span>
+            <input
+              type="text"
+              value={holidayForm.reason}
+              onChange={(e) => setHolidayForm((p) => ({ ...p, reason: e.target.value.slice(0, 300) }))}
+              placeholder="Ej.: 25 de diciembre"
+              className="w-full px-3.5 py-2.5 rounded-xl text-sm border border-stone-200/90 bg-stone-50/80"
+            />
+          </label>
+          {holidayError ? <p className="text-sm text-rose-700">{holidayError}</p> : null}
+        </form>
+      </AdminModalShell>
+
+      <AdminConfirmModal
+        open={Boolean(holidayConfirmation)}
+        variant="warning"
+        title="Hay citas agendadas en ese rango"
+        description="Estas citas quedarán con el negocio cerrado ese día. Puedes confirmar igual y reagendarlas después, o cancelar y resolverlas primero."
+        confirmLabel="Registrar de todas formas"
+        isSubmitting={holidaySaving}
+        onConfirm={handleHolidayConfirmAnyway}
+        onCancel={() => setHolidayConfirmation(null)}
+      >
+        <ul className="space-y-1.5 text-sm text-stone-700">
+          {(holidayConfirmation?.affectedAppointments || []).map((a) => (
+            <li key={a.id} className="rounded-lg border border-stone-200 px-3 py-2">
+              <span className="font-medium">{a.clientName || 'Cliente'}</span> — {showYmd(a.appointmentDate)}
+              {a.barberName ? ` · ${a.barberName}` : ''}
+            </li>
+          ))}
+        </ul>
+      </AdminConfirmModal>
     </div>
   );
 }

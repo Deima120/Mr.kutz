@@ -102,41 +102,43 @@ model RolePermission {
 }
 
 model User {
-  id                       Int                 @id @default(autoincrement())
-  email                    String              @unique @db.VarChar(255)
-  passwordHash             String              @map("password_hash") @db.VarChar(255)
-  roleId                   Int                 @map("role_id")
-  isActive                 Boolean             @default(true) @map("is_active")
-  resetCode                String?             @map("reset_code") @db.VarChar(255)
-  resetCodeExpires         DateTime?           @map("reset_code_expires")
-  resetCodeAttempts        Int                 @default(0) @map("reset_code_attempts")
+  id                        Int                       @id @default(autoincrement())
+  email                     String                    @unique @db.VarChar(255)
+  passwordHash              String                    @map("password_hash") @db.VarChar(255)
+  roleId                    Int                       @map("role_id")
+  isActive                  Boolean                   @default(true) @map("is_active")
+  resetCode                 String?                   @map("reset_code") @db.VarChar(255)
+  resetCodeExpires          DateTime?                 @map("reset_code_expires")
+  resetCodeAttempts         Int                       @default(0) @map("reset_code_attempts")
   /// Se incrementa cada vez que la contraseña cambia por fuera de una sesión
   /// activa (recuperación por código, o el admin restableciéndola desde el
   /// panel). El JWT lleva este número en su payload; si no coincide con el
   /// valor actual, el token se trata como revocado aunque no haya expirado
   /// — sin esto, un token robado seguía siendo válido hasta sus 7 días de
   /// vida aunque la contraseña ya se hubiera cambiado.
-  tokenVersion             Int                 @default(0) @map("token_version")
-  createdAt                DateTime            @default(now()) @map("created_at")
-  updatedAt                DateTime            @updatedAt @map("updated_at")
-  barber                   Barber?
-  client                   Client?
-  inventoryMovements       InventoryMovement[] @relation("MovementsCreated")
-  inventoryMovementsVoided InventoryMovement[] @relation("MovementsVoided")
-  paymentsCreated          Payment[]           @relation("PaymentsCreated")
-  paymentsVoided           Payment[]           @relation("PaymentsVoided")
-  paymentLinesVoided       PaymentLine[]       @relation("PaymentLinesVoided")
-  cashRegistersOpened      CashRegister[]      @relation("CashRegisterOpenedBy")
-  cashRegistersClosed      CashRegister[]      @relation("CashRegisterClosedBy")
-  expensesCreated          Expense[]           @relation("ExpensesCreated")
-  expensesVoided           Expense[]           @relation("ExpensesVoided")
-  otherIncomesCreated      OtherIncome[]       @relation("OtherIncomesCreated")
-  otherIncomesVoided       OtherIncome[]       @relation("OtherIncomesVoided")
-  purchasesCreated         Purchase[]          @relation("PurchasesCreated")
-  purchasesCancelled       Purchase[]          @relation("PurchasesCancelled")
-  suppliersCreated         Supplier[]          @relation("SuppliersCreated")
-  goodsReceiptsCreated     GoodsReceipt[]      @relation("GoodsReceiptsCreated")
-  role                     Role                @relation(fields: [roleId], references: [id])
+  tokenVersion              Int                       @default(0) @map("token_version")
+  createdAt                 DateTime                  @default(now()) @map("created_at")
+  updatedAt                 DateTime                  @updatedAt @map("updated_at")
+  barber                    Barber?
+  client                    Client?
+  inventoryMovements        InventoryMovement[]       @relation("MovementsCreated")
+  inventoryMovementsVoided  InventoryMovement[]       @relation("MovementsVoided")
+  paymentsCreated           Payment[]                 @relation("PaymentsCreated")
+  paymentsVoided            Payment[]                 @relation("PaymentsVoided")
+  paymentLinesVoided        PaymentLine[]             @relation("PaymentLinesVoided")
+  cashRegistersOpened       CashRegister[]            @relation("CashRegisterOpenedBy")
+  cashRegistersClosed       CashRegister[]            @relation("CashRegisterClosedBy")
+  expensesCreated           Expense[]                 @relation("ExpensesCreated")
+  expensesVoided            Expense[]                 @relation("ExpensesVoided")
+  otherIncomesCreated       OtherIncome[]             @relation("OtherIncomesCreated")
+  otherIncomesVoided        OtherIncome[]             @relation("OtherIncomesVoided")
+  purchasesCreated          Purchase[]                @relation("PurchasesCreated")
+  purchasesCancelled        Purchase[]                @relation("PurchasesCancelled")
+  suppliersCreated          Supplier[]                @relation("SuppliersCreated")
+  goodsReceiptsCreated      GoodsReceipt[]            @relation("GoodsReceiptsCreated")
+  barberExceptionsCreated   BarberScheduleException[] @relation("BarberExceptionsCreated")
+  barberExceptionsCancelled BarberScheduleException[] @relation("BarberExceptionsCancelled")
+  role                      Role                      @relation(fields: [roleId], references: [id])
 }
 
 model Client {
@@ -290,22 +292,23 @@ model ClientLoyaltyRewardItem {
 }
 
 model Barber {
-  id                Int               @id @default(autoincrement())
-  userId            Int               @unique @map("user_id")
-  firstName         String            @map("first_name") @db.VarChar(100)
-  lastName          String            @map("last_name") @db.VarChar(100)
-  phone             String?           @db.VarChar(20)
-  documentType      String?           @map("document_type") @db.VarChar(40)
-  documentNumber    String?           @map("document_number") @db.VarChar(80)
-  specialties       String[]          @default([])
-  isActive          Boolean           @default(true) @map("is_active")
-  commissionPercent Decimal?          @map("commission_percent") @db.Decimal(5, 2)
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
-  appointments      Appointment[]
-  commissionEntries CommissionEntry[]
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  schedules         BarberSchedule[]
+  id                 Int                       @id @default(autoincrement())
+  userId             Int                       @unique @map("user_id")
+  firstName          String                    @map("first_name") @db.VarChar(100)
+  lastName           String                    @map("last_name") @db.VarChar(100)
+  phone              String?                   @db.VarChar(20)
+  documentType       String?                   @map("document_type") @db.VarChar(40)
+  documentNumber     String?                   @map("document_number") @db.VarChar(80)
+  specialties        String[]                  @default([])
+  isActive           Boolean                   @default(true) @map("is_active")
+  commissionPercent  Decimal?                  @map("commission_percent") @db.Decimal(5, 2)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  appointments       Appointment[]
+  commissionEntries  CommissionEntry[]
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules          BarberSchedule[]
+  scheduleExceptions BarberScheduleException[]
 }
 
 model BarberSchedule {
@@ -320,6 +323,46 @@ model BarberSchedule {
 
   @@unique([barberId, dayOfWeek])
   @@map("barber_schedules")
+}
+
+enum BarberAbsenceType {
+  vacation
+  sick_leave
+  permission
+  holiday
+  other
+}
+
+/// Ausencia puntual de un barbero (vacaciones, incapacidad, permiso, festivo) sobre
+/// fechas concretas — independiente de `BarberSchedule`, que es la plantilla
+/// semanal recurrente. Mientras una excepción esté vigente (no cancelada) y cubra
+/// la fecha, ese barbero no atiende ese día, sin tocar su plantilla de siempre.
+///
+/// Un "festivo para todos los barberos" no es una fila especial: se crea una fila
+/// por barbero con el mismo `batchId`, así que cancelarlo de una vez es cancelar
+/// por `batchId` en lugar de necesitar un caso `barberId = null` que complicaría
+/// la resolución de disponibilidad en todos los puntos que la consultan.
+model BarberScheduleException {
+  id          Int               @id @default(autoincrement())
+  barberId    Int               @map("barber_id")
+  barber      Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  dateFrom    DateTime          @map("date_from") @db.Date
+  dateTo      DateTime          @map("date_to") @db.Date
+  type        BarberAbsenceType
+  reason      String?           @db.VarChar(300)
+  /// Agrupa las filas creadas de una sola vez para todos los barberos (un festivo),
+  /// para poder cancelarlas todas juntas. `null` en una ausencia individual normal.
+  batchId     String?           @map("batch_id")
+  createdBy   Int?              @map("created_by")
+  creator     User?             @relation("BarberExceptionsCreated", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  cancelledAt DateTime?         @map("cancelled_at")
+  cancelledBy Int?              @map("cancelled_by")
+  canceller   User?             @relation("BarberExceptionsCancelled", fields: [cancelledBy], references: [id], onDelete: SetNull)
+
+  @@index([barberId, dateFrom, dateTo])
+  @@index([batchId])
+  @@map("barber_schedule_exceptions")
 }
 
 model Service {

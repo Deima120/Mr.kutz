@@ -15,6 +15,8 @@ export default function AdminStatusToggle({
   className = '',
   activeTitle = 'Clic para desactivar',
   inactiveTitle = 'Clic para activar',
+  activeLabel = 'Activo',
+  inactiveLabel = 'Inactivo',
 }) {
   const base =
     'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
@@ -31,7 +33,7 @@ export default function AdminStatusToggle({
       title={active ? activeTitle : inactiveTitle}
       className={`${base} ${active ? activeClass : inactiveClass} ${className}`.trim()}
     >
-      {active ? 'Activo' : 'Inactivo'}
+      {active ? activeLabel : inactiveLabel}
     </button>
   );
 }

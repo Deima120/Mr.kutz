@@ -87,6 +87,21 @@ async function assertNoOverlap({ barberId, appointmentDate, startMin, endMin, ex
  * @returns {Promise<{ open: boolean, start?: string, end?: string, reason: string }>}
  */
 async function resolveBarberDayWindow(barberId, ymd) {
+  // Una ausencia puntual vigente (vacaciones, incapacidad, permiso, festivo)
+  // manda siempre, sin importar qué diga la plantilla semanal ese día — se
+  // consulta ANTES de mirar el horario recurrente.
+  const activeException = await prisma.barberScheduleException.findFirst({
+    where: {
+      barberId: Number(barberId),
+      cancelledAt: null,
+      dateFrom: { lte: ymdToUtcDate(ymd) },
+      dateTo: { gte: ymdToUtcDate(ymd) },
+    },
+  });
+  if (activeException) {
+    return { open: false, reason: 'barber_absence', absenceType: activeException.type };
+  }
+
   const dayOfWeek = weekdayOfYmd(ymd);
 
   const barberRows = await prisma.barberSchedule.findMany({
@@ -112,6 +127,12 @@ async function assertWithinBarberSchedule({ barberId, appointmentDate, startMinu
   const window = await resolveBarberDayWindow(barberId, ymd);
 
   if (!window.open) {
+    if (window.reason === 'barber_absence') {
+      const err = new Error('El barbero tiene una ausencia registrada ese día.');
+      err.statusCode = 409;
+      err.reason = 'BARBER_ABSENCE';
+      throw err;
+    }
     const err = new Error('El barbero no atiende ese día.');
     err.statusCode = 409;
     err.reason = 'BARBER_DAY_CLOSED';
