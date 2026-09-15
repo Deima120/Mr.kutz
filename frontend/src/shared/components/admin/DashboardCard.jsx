@@ -22,7 +22,7 @@ const EYEBROW_TONES = {
 export function DashboardChartPanel({ children, className = '' }) {
   return (
     <div
-      className={`rounded-xl border border-stone-100 bg-stone-50/75 p-4 sm:p-5 ${className}`.trim()}
+      className={`rounded-xl border border-stone-100 bg-stone-50/75 p-5 sm:p-6 ${className}`.trim()}
     >
       {children}
     </div>
