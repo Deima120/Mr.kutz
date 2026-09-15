@@ -202,14 +202,14 @@ function KpiRow({ label, value, pct, tone = 'stone', hint, share }) {
       </div>
 
       <p
-        className={`mt-0.5 whitespace-nowrap font-serif text-xl font-medium leading-tight tabular-nums ${FIGURE_TONES[tone] || FIGURE_TONES.stone}`}
+        className={`mt-1 whitespace-nowrap font-serif text-2xl font-medium leading-tight tabular-nums ${FIGURE_TONES[tone] || FIGURE_TONES.stone}`}
         title={typeof value === 'string' ? value : undefined}
       >
         {value}
       </p>
 
       {share != null && (
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-100">
           <div
             className={`h-full rounded-full bg-gradient-to-r ${FIGURE_BARS[tone] || FIGURE_BARS.stone} transition-all duration-500`}
             style={{ width: `${Math.max(0, Math.min(100, Number(share)))}%` }}

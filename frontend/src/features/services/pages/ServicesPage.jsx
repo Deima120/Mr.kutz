@@ -361,8 +361,20 @@ export default function ServicesPage() {
                     {s.description && (
                       <p className="mt-1 line-clamp-2 text-sm text-stone-500">{s.description}</p>
                     )}
+                    {s.combo_components?.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {s.combo_components.map((c) => (
+                          <span
+                            key={c.id}
+                            className="rounded-lg bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-dark"
+                          >
+                            {c.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                    <p className="mt-3 flex flex-wrap items-baseline gap-x-2 border-t border-stone-100 pt-3 text-stone-900">
+                    <p className="mt-auto flex flex-wrap items-baseline gap-x-2 border-t border-stone-100 pt-3 text-stone-900">
                       <span className="font-serif text-xl font-semibold tabular-nums">
                         {formatMoney(s.price)}
                       </span>

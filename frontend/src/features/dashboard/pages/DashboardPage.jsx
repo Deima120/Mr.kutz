@@ -408,7 +408,7 @@ function AdminDashboard() {
       {!statsLoading && stats && (
         <>
           {/* Fila 1 — Los cuatro indicadores de negocio del periodo. */}
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-5 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
             <DashboardCard
               eyebrow="Resultado"
               eyebrowTone="gold"
