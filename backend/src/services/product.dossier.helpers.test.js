@@ -16,23 +16,22 @@ describe('clampMovementsPage', () => {
 });
 
 describe('buildCostSummaryFromReceipts', () => {
-  it('calcula promedio ponderado solo desde recepciones', () => {
+  it('resume recepciones y expone el costo de catálogo como única cifra de costo promedio', () => {
     const receipts = [
       { quantity: 2, unitCost: 10, receivedAt: '2026-01-02' },
       { quantity: 2, unitCost: 20, receivedAt: '2026-01-01' },
     ];
     const summary = buildCostSummaryFromReceipts(receipts, 99);
-    assert.equal(summary.averageCostFromReceipts, 15);
     assert.equal(summary.catalogAverageCost, 99);
     assert.equal(summary.totalReceivedQuantity, 4);
     assert.equal(summary.receiptCount, 2);
     assert.equal(summary.lastUnitCost, 10);
     assert.equal(summary.lastReceivedAt, '2026-01-02');
+    assert.equal('averageCostFromReceipts' in summary, false);
   });
 
-  it('devuelve null de promedio cuando no hay recepciones', () => {
+  it('devuelve null de costo de catálogo cuando no hay recepciones ni costo', () => {
     const summary = buildCostSummaryFromReceipts([], null);
-    assert.equal(summary.averageCostFromReceipts, null);
     assert.equal(summary.catalogAverageCost, null);
     assert.equal(summary.totalReceivedQuantity, 0);
     assert.equal(summary.receiptCount, 0);
