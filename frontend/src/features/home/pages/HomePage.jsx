@@ -349,7 +349,7 @@ export default function HomePage() {
             {filteredServices.slice(0, 12).map((s, i) => (
               <div
                 key={s.id ?? i}
-                className="group relative bg-stone-900/80 border border-stone-800 rounded-xl p-6 hover:border-gold/40 hover:bg-stone-900 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,0,0,0.38)] transition-all duration-300 animate-fade-in-up"
+                className="group relative flex h-full flex-col bg-stone-900/80 border border-stone-800 rounded-xl p-6 hover:border-gold/40 hover:bg-stone-900 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,0,0,0.38)] transition-all duration-300 animate-fade-in-up"
                 style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
               >
                 <div
@@ -366,7 +366,7 @@ export default function HomePage() {
                 {s.description && (
                   <p className="text-stone-500 text-sm leading-snug mb-4 line-clamp-2">{s.description}</p>
                 )}
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
                   <span className="text-gold font-semibold tabular-nums">{formatMoneyOrDash(s.price)}</span>
                   {s.durationMinutes > 0 && (
                     <span className="text-stone-500 text-xs uppercase tracking-wider">
