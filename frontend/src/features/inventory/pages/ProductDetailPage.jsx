@@ -240,8 +240,8 @@ export default function ProductDetailPage() {
         <StatsCard label="Stock mínimo" value={String(minStock)} />
         <StatsCard
           label="Costo promedio"
-          value={formatMoneyOrDash(cost.catalogAverageCost ?? cost.averageCostFromReceipts)}
-          sublabel="Desde recepciones"
+          value={formatMoneyOrDash(cost.catalogAverageCost)}
+          sublabel="Valuación actual del inventario"
         />
         <StatsCard
           label="Precio venta"
@@ -264,10 +264,6 @@ export default function ProductDetailPage() {
 
         <DataCard title="Costo e inventario" compact>
           <MetaRow label="Costo en catálogo" value={formatProductCostPrice(product)} />
-          <MetaRow
-            label="Promedio de recepciones"
-            value={formatMoneyOrDash(cost.averageCostFromReceipts)}
-          />
           <MetaRow label="Último costo recibido" value={formatMoneyOrDash(cost.lastUnitCost)} />
           <MetaRow
             label="Última recepción"

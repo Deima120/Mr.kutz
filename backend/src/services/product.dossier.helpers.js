@@ -40,20 +40,26 @@ export function buildSuppliersFromReceipts(receipts = []) {
 }
 
 /**
- * Costo promedio ponderado desde recepciones (no desde edición manual de catálogo).
+ * Resumen de costo/recepciones para la ficha del producto.
+ *
+ * `catalogAverageCost` (Product.costPrice) es la única cifra de "costo promedio": un promedio
+ * móvil que se recalcula en cada recepción y se resetea al costo nuevo cuando el stock llega a 0
+ * (`weightedAverageCost` en `inventory.helpers.js`) — es lo que usan márgenes y reportes.
+ *
+ * Antes esta función también devolvía `averageCostFromReceipts`, un promedio ponderado de TODAS
+ * las recepciones históricas sin importar cuánto stock queda. Tras vender el stock y recomprar a
+ * otro precio, `Product.costPrice` se reseteaba (correcto: valúa el inventario actual) pero ese
+ * segundo promedio seguía arrastrando compras ya agotadas, así que las dos cifras dejaban de
+ * coincidir y confundían en la ficha del producto. Se quitó: no tenía un dueño claro distinto del
+ * costo de catálogo.
+ *
  * @param {Array<{ quantity: number, unitCost: number, receivedAt?: Date|string|null }>} receipts
  * @param {number|null|undefined} catalogCostPrice
  */
 export function buildCostSummaryFromReceipts(receipts = [], catalogCostPrice = null) {
   const totalReceivedQuantity = receipts.reduce((sum, r) => sum + r.quantity, 0);
-  const weightedCostSum = receipts.reduce((sum, r) => sum + r.quantity * r.unitCost, 0);
-  const averageCostFromReceipts =
-    totalReceivedQuantity > 0
-      ? Number((weightedCostSum / totalReceivedQuantity).toFixed(2))
-      : null;
 
   return {
-    averageCostFromReceipts,
     catalogAverageCost: catalogCostPrice != null ? Number(catalogCostPrice) : null,
     totalReceivedQuantity,
     receiptCount: receipts.length,
