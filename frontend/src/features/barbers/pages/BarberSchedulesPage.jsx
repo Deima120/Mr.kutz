@@ -319,7 +319,7 @@ export default function BarberSchedulesPage() {
       <div className="space-y-6">
       <form
         onSubmit={handleSubmit}
-        className="relative flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
+        className="relative flex flex-col rounded-[1.28rem] bg-white border border-stone-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden"
       >
         <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
         <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4">
@@ -387,7 +387,7 @@ export default function BarberSchedulesPage() {
         </div>
       </form>
 
-      <div className="relative flex flex-col rounded-[1.28rem] bg-white/88 backdrop-blur-xl border border-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden">
+      <div className="relative flex flex-col rounded-[1.28rem] bg-white border border-stone-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] overflow-hidden">
         <div className="h-[3px] w-full shrink-0 bg-gradient-to-r from-gold-dark/80 via-gold to-gold-light/80" aria-hidden />
         <div className="px-5 py-4 sm:px-7 sm:py-5 flex flex-col gap-4">
           <AdminFormCardHeader
