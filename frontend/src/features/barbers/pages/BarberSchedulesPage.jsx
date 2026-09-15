@@ -47,6 +47,27 @@ const ABSENCE_TYPE_OPTIONS = Object.entries(ABSENCE_TYPE_META).map(([id, meta]) 
 
 const emptyExceptionForm = () => ({ type: 'vacation', dateFrom: '', dateTo: '', reason: '' });
 
+/** Minutos desde medianoche de un "HH:MM", para sumar duraciones de jornada. */
+const toMinutes = (hhmm) => {
+  const [h, m] = String(hhmm || '0:0').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+/** Resumen de la semana para las cajitas del panel lateral: horas totales y días abiertos. */
+function weekSummary(schedules) {
+  const openDays = schedules.filter((s) => s.isAvailable);
+  const totalMinutes = openDays.reduce(
+    (sum, s) => sum + Math.max(0, toMinutes(s.endTime) - toMinutes(s.startTime)),
+    0
+  );
+  const totalHours = totalMinutes / 60;
+  const hoursLabel = Number.isInteger(totalHours) ? `${totalHours}` : totalHours.toFixed(1);
+  return {
+    hoursLabel: `${hoursLabel} Horas`,
+    daysLabel: `${openDays.length} / 7 Días`,
+  };
+}
+
 const DAYS = [
   { value: 0, label: 'Domingo' },
   { value: 1, label: 'Lunes' },
@@ -273,6 +294,8 @@ export default function BarberSchedulesPage() {
     );
   }
 
+  const { hoursLabel, daysLabel } = weekSummary(schedules);
+
   return (
     <AdminFormShell
       backTo="/barbers"
@@ -287,6 +310,10 @@ export default function BarberSchedulesPage() {
         ],
         statusLabel: 'Barbero',
         statusValue: `${barber.first_name} ${barber.last_name}`,
+        stats: [
+          { label: 'JORNADA SEMANAL', value: hoursLabel },
+          { label: 'DÍAS HABILITADOS', value: daysLabel },
+        ],
       }}
     >
       <div className="space-y-6">

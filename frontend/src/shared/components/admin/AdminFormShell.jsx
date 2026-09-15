@@ -218,6 +218,16 @@ function AdminFormAsideCard({ aside, compact, contained }) {
             {aside.statusValue && <p className="font-medium text-white text-sm sm:text-[15px]">{aside.statusValue}</p>}
           </div>
         )}
+        {aside.stats && aside.stats.length > 0 && (
+          <div className={`grid grid-cols-2 gap-2.5 ${compact ? 'mt-4' : 'mt-5'}`}>
+            {aside.stats.map((stat, i) => (
+              <div key={i} className="rounded-xl border border-stone-700/70 bg-white/[0.04] px-3 py-2.5">
+                <p className="text-[9px] font-semibold tracking-widest text-stone-500">{stat.label}</p>
+                <p className="mt-0.5 font-serif text-lg font-medium text-gold">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -274,7 +284,7 @@ function AdminFormAsideFloatingBar({ aside }) {
  * @param {string} props.backLabel
  * @param {string} props.modeBadge — ej. "Alta", "Edición"
  * @param {boolean} [props.showAside=true]
- * @param {{ title: string, subtitle: string, bullets: string[], statusLabel?: string, statusValue?: string }} [props.aside]
+ * @param {{ title: string, subtitle: string, bullets: string[], statusLabel?: string, statusValue?: string, stats?: {label: string, value: string}[] }} [props.aside]
  * @param {boolean} [props.fullBleed=true] — Si es false (p. ej. vista cliente), sin márgenes negativos; el contenedor padre aporta el ancho.
  * @param {boolean} [props.asideFloating=false] — El panel de resumen acompaña al scroll:
  *   sticky en la columna derecha desde `lg`, y barra flotante inferior desplegable por debajo.
