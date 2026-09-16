@@ -42,6 +42,12 @@ import {
   validateUserForm,
   validateBarberForm,
   DOCUMENT_TYPE_OPTIONS,
+  CLIENT_NAME_MAX,
+  CLIENT_DOCUMENT_MAX_DIGITS,
+  CLIENT_PHONE_MAX_DIGITS,
+  sanitizePersonName,
+  sanitizeDocumentNumber,
+  sanitizePhone,
 } from '@/shared/utils/formValidation';
 import { formatRoleLabel } from '@/shared/utils/roleLabels';
 import * as userService from '@/features/users/services/userService';
@@ -90,8 +96,9 @@ function CamposDeFicha({ idPrefix, value, onChange, errors }) {
           id={`${idPrefix}-firstName`}
           type="text"
           value={value.firstName}
-          onChange={(e) => set('firstName')(e.target.value)}
+          onChange={(e) => set('firstName')(sanitizePersonName(e.target.value))}
           className={`input-premium w-full py-2 text-sm ${errors.firstName ? '!border-red-400' : ''}`}
+          maxLength={CLIENT_NAME_MAX}
         />
         <FieldErrorMessage message={errors.firstName} />
       </div>
@@ -103,8 +110,9 @@ function CamposDeFicha({ idPrefix, value, onChange, errors }) {
           id={`${idPrefix}-lastName`}
           type="text"
           value={value.lastName}
-          onChange={(e) => set('lastName')(e.target.value)}
+          onChange={(e) => set('lastName')(sanitizePersonName(e.target.value))}
           className={`input-premium w-full py-2 text-sm ${errors.lastName ? '!border-red-400' : ''}`}
+          maxLength={CLIENT_NAME_MAX}
         />
         <FieldErrorMessage message={errors.lastName} />
       </div>
@@ -130,9 +138,11 @@ function CamposDeFicha({ idPrefix, value, onChange, errors }) {
         <input
           id={`${idPrefix}-documentNumber`}
           type="text"
+          inputMode="numeric"
           value={value.documentNumber}
-          onChange={(e) => set('documentNumber')(e.target.value)}
+          onChange={(e) => set('documentNumber')(sanitizeDocumentNumber(e.target.value))}
           className={`input-premium w-full py-2 text-sm ${errors.documentNumber ? '!border-red-400' : ''}`}
+          maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
         />
         <FieldErrorMessage message={errors.documentNumber} />
       </div>
@@ -143,9 +153,11 @@ function CamposDeFicha({ idPrefix, value, onChange, errors }) {
         <input
           id={`${idPrefix}-phone`}
           type="text"
+          inputMode="numeric"
           value={value.phone}
-          onChange={(e) => set('phone')(e.target.value)}
+          onChange={(e) => set('phone')(sanitizePhone(e.target.value))}
           className={`input-premium w-full py-2 text-sm ${errors.phone ? '!border-red-400' : ''}`}
+          maxLength={CLIENT_PHONE_MAX_DIGITS}
         />
         <FieldErrorMessage message={errors.phone} />
       </div>
