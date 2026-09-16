@@ -85,7 +85,7 @@ async function resolveClient({ firstName, lastName, email, phone }) {
       firstName: String(firstName).trim(),
       lastName: String(lastName).trim(),
       email: normalizedEmail,
-      phone: phone || null,
+      phone: String(phone).trim(),
     },
   });
 }

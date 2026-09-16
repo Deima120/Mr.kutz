@@ -9,7 +9,7 @@ import { validate } from '../middlewares/validation.js';
 import { publicThrottle } from '../middlewares/publicThrottle.js';
 import {
   personNameField,
-  optionalPhoneField,
+  phoneField,
   optionalNotesField,
   optionalDateQuery,
   paginationQuery,
@@ -150,7 +150,7 @@ const publicBookingValidation = [
     .isEmail()
     .withMessage('Indica un correo electrónico válido.')
     .normalizeEmail(),
-  optionalPhoneField('phone'),
+  phoneField('phone'),
   body('barberId').isInt({ min: 1 }).withMessage('Indica un barbero válido.'),
   body('serviceIds')
     .optional({ values: 'falsy' })

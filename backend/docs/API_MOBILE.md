@@ -78,6 +78,26 @@ Todas las respuestas siguen el formato:
 }
 ```
 
+#### 2.3 Actualizar perfil
+
+- **Método**: `PUT`
+- **Endpoint**: `/auth/me`
+- **Headers**: `Authorization: Bearer <token>`
+- **Body (JSON)**:
+
+```json
+{
+  "firstName": "Juan",
+  "lastName": "Pérez",
+  "email": "cliente@ejemplo.com",
+  "phone": "3001234567"
+}
+```
+
+> **Cambio de contrato:** `phone` pasó a ser **obligatorio** (antes era opcional). `firstName`/
+> `lastName` tienen un máximo real de 50 caracteres cada uno (antes 100). Enviar sin `phone`, o
+> con un `firstName`/`lastName` de más de 50 caracteres, devuelve `400`.
+
 ---
 
 ### 3. Cliente móvil (rol `client`)

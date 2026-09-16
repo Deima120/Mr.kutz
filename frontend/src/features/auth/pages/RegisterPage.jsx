@@ -130,7 +130,7 @@ export default function RegisterPage() {
     [formData.email]
   );
   const phoneValidation = useMemo(
-    () => validatePhone(formData.phone, { required: false }),
+    () => validatePhone(formData.phone, { required: true }),
     [formData.phone]
   );
   const passwordValid = useMemo(() => isPasswordStrong(formData.password), [formData.password]);
@@ -400,7 +400,7 @@ export default function RegisterPage() {
         password: formData.password,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        phone: formData.phone || undefined,
+        phone: formData.phone.trim(),
         documentType: formData.documentType.trim(),
         documentNumber: formData.documentNumber.trim(),
         role: 'client',
@@ -591,7 +591,7 @@ export default function RegisterPage() {
 
                     <div>
                       <label htmlFor="phone" className={labelClass}>
-                        Teléfono (opcional)
+                        Teléfono <span className="text-red-600">*</span>
                       </label>
                       <input
                         id="phone"
@@ -602,13 +602,14 @@ export default function RegisterPage() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         onFocus={scrollFieldIntoView}
-                        className={`${inputClass} ${inputStateClass(phoneValidation.valid, phoneShow && Boolean(formData.phone))}`}
+                        className={`${inputClass} ${inputStateClass(phoneValidation.valid, phoneShow)}`}
                         maxLength={CLIENT_PHONE_MAX_DIGITS}
                         autoComplete="tel"
+                        required
                       />
                       <FieldHint
                         valid={phoneValidation.valid}
-                        touched={phoneShow && Boolean(formData.phone)}
+                        touched={phoneShow}
                         message={phoneValidation.message}
                       />
                     </div>

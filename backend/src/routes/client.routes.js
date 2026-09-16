@@ -9,7 +9,7 @@ import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
 import {
   personNameField,
-  optionalPhoneField,
+  phoneField,
   documentTypeField,
   documentNumberField,
   optionalDocumentTypeField,
@@ -24,7 +24,7 @@ const router = express.Router();
 const clientValidation = [
   personNameField('firstName', 'El nombre'),
   personNameField('lastName', 'El apellido'),
-  optionalPhoneField('phone'),
+  phoneField('phone'),
   body('email')
     .trim()
     .notEmpty()
@@ -33,7 +33,7 @@ const clientValidation = [
     .withMessage('Correo electrónico no válido.'),
   documentTypeField('documentType'),
   documentNumberField('documentNumber'),
-  optionalNotesField('notes', 500),
+  optionalNotesField('notes', 5000),
 ];
 
 /**
@@ -48,7 +48,7 @@ const clientValidation = [
 const clientUpdateValidation = [
   personNameField('firstName', 'El nombre'),
   personNameField('lastName', 'El apellido'),
-  optionalPhoneField('phone'),
+  phoneField('phone'),
   body('email')
     .trim()
     .notEmpty()
@@ -57,7 +57,7 @@ const clientUpdateValidation = [
     .withMessage('Correo electrónico no válido.'),
   optionalDocumentTypeField('documentType'),
   optionalDocumentNumberField('documentNumber'),
-  optionalNotesField('notes', 500),
+  optionalNotesField('notes', 5000),
 ];
 
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID de cliente no válido.');

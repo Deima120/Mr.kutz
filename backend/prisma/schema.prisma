@@ -144,16 +144,25 @@ model User {
 model Client {
   id             Int                   @id @default(autoincrement())
   userId         Int?                  @unique @map("user_id")
-  firstName      String                @map("first_name") @db.VarChar(100)
-  lastName       String                @map("last_name") @db.VarChar(100)
+  /// 50, no 100: ningún nombre real usa más (ver personNameField en validation.js).
+  firstName      String                @map("first_name") @db.VarChar(50)
+  lastName       String                @map("last_name") @db.VarChar(50)
+  /// Pendiente de subir a NOT NULL: hay clientes reales sin teléfono (creados desde
+  /// la reserva pública antes de este cambio) que hay que completar primero. Backend
+  /// y frontend ya lo exigen siempre; falta aplicar el NOT NULL aquí cuando esos
+  /// registros existentes queden corregidos (ver plan de la sesión que introdujo esto).
   phone          String?               @db.VarChar(20)
   /// `client.service.js` ya exige que no se repita (normalizado a minúsculas
   /// antes de guardar) — este `@unique` lo hace exigible también a nivel de
-  /// base de datos, no solo del servicio. NULL no cuenta como duplicado.
-  email          String?               @unique @db.VarChar(255)
+  /// base de datos, no solo del servicio.
+  email          String                @unique @db.VarChar(255)
   documentType   String?               @map("document_type") @db.VarChar(40)
+  /// Pendiente de bajar a VarChar(10): backend y frontend ya exigen máximo 10 dígitos
+  /// (ningún documento real supera esa longitud), pero hay 3 clientes existentes con
+  /// documentos mal capturados (12-20 caracteres) que hay que corregir antes de poder
+  /// achicar la columna sin truncar datos. Ver plan de la sesión que introdujo esto.
   documentNumber String?               @map("document_number") @db.VarChar(80)
-  notes          String?               @db.VarChar(500)
+  notes          String?               @db.Text
   /// "Puede agendar". Distinto de `User.isActive` ("puede iniciar sesión"): los
   /// clientes creados desde la reserva pública no tienen `User`, así que sin este
   /// campo no habría forma de frenar a quien abusa del formulario sin cuenta.
@@ -294,10 +303,15 @@ model ClientLoyaltyRewardItem {
 model Barber {
   id                 Int                       @id @default(autoincrement())
   userId             Int                       @unique @map("user_id")
-  firstName          String                    @map("first_name") @db.VarChar(100)
-  lastName           String                    @map("last_name") @db.VarChar(100)
+  /// 50, no 100: mismo criterio que Client (ver personNameField en validation.js).
+  firstName          String                    @map("first_name") @db.VarChar(50)
+  lastName           String                    @map("last_name") @db.VarChar(50)
+  /// Pendiente de subir a NOT NULL: 2 barberos existentes quedaron sin teléfono al
+  /// crearse desde la ficha rápida de Usuarios (antes de que ese flujo lo exigiera).
+  /// Backend y frontend ya lo exigen siempre; falta completarlos y aplicar el NOT NULL.
   phone              String?                   @db.VarChar(20)
   documentType       String?                   @map("document_type") @db.VarChar(40)
+  /// Pendiente de bajar a VarChar(10), mismo criterio y mismo motivo que Client.documentNumber.
   documentNumber     String?                   @map("document_number") @db.VarChar(80)
   specialties        String[]                  @default([])
   isActive           Boolean                   @default(true) @map("is_active")
@@ -390,7 +404,7 @@ model Service {
 model ServiceCategory {
   id          Int       @id @default(autoincrement())
   name        String    @unique @db.VarChar(100)
-  description String?   @db.VarChar(255)
+  description String?   @db.Text
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -410,10 +424,10 @@ model Appointment {
   status              AppointmentStatus @default(scheduled)
   notes               String?
   /// Motivo obligatorio al cancelar (cliente o admin)
-  cancelReason        String?           @map("cancel_reason") @db.VarChar(500)
+  cancelReason        String?           @map("cancel_reason") @db.Text
   /// Valoración del cliente tras cita completada (1–5); una vez por cita
   clientRating        Int?              @map("client_rating")
-  clientRatingComment String?           @map("client_rating_comment") @db.VarChar(2000)
+  clientRatingComment String?           @map("client_rating_comment") @db.Text
   clientRatedAt       DateTime?         @map("client_rated_at")
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
@@ -456,7 +470,7 @@ model Payment {
   createdBy          Int?                  @map("created_by")
   createdAt          DateTime              @default(now()) @map("created_at")
   voidedAt           DateTime?             @map("voided_at")
-  voidReason         String?               @map("void_reason") @db.VarChar(500)
+  voidReason         String?               @map("void_reason") @db.Text
   voidedBy           Int?                  @map("voided_by")
   client             Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
   creator            User?                 @relation("PaymentsCreated", fields: [createdBy], references: [id])
@@ -516,13 +530,13 @@ model Expense {
   categoryId    Int             @map("category_id")
   amount        Decimal         @db.Decimal(10, 2)
   expenseDate   DateTime        @map("expense_date") @db.Date
-  notes         String?         @db.VarChar(500)
+  notes         String?         @db.Text
   attachmentUrl String?         @map("attachment_url") @db.VarChar(500)
   reference     String?         @db.VarChar(40)
   createdById   Int             @map("created_by")
   createdAt     DateTime        @default(now()) @map("created_at")
   voidedAt      DateTime?       @map("voided_at")
-  voidReason    String?         @map("void_reason") @db.VarChar(500)
+  voidReason    String?         @map("void_reason") @db.Text
   voidedById    Int?            @map("voided_by")
   category      ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   createdBy     User            @relation("ExpensesCreated", fields: [createdById], references: [id])
@@ -543,11 +557,11 @@ model OtherIncome {
   paymentMethodId Int           @map("payment_method_id")
   cashRegisterId  Int           @map("cash_register_id")
   reference       String?       @db.VarChar(40)
-  notes           String?       @db.VarChar(500)
+  notes           String?       @db.Text
   createdById     Int           @map("created_by")
   createdAt       DateTime      @default(now()) @map("created_at")
   voidedAt        DateTime?     @map("voided_at")
-  voidReason      String?       @map("void_reason") @db.VarChar(500)
+  voidReason      String?       @map("void_reason") @db.Text
   voidedById      Int?          @map("voided_by")
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   cashRegister    CashRegister  @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
@@ -610,7 +624,7 @@ model PaymentLine {
   lineAmount         Decimal             @map("line_amount") @db.Decimal(10, 2)
   description        String?             @db.VarChar(200)
   voidedAt           DateTime?           @map("voided_at")
-  voidReason         String?             @map("void_reason") @db.VarChar(500)
+  voidReason         String?             @map("void_reason") @db.Text
   voidedBy           Int?                @map("voided_by")
   createdAt          DateTime            @default(now()) @map("created_at")
   payment            Payment             @relation(fields: [paymentId], references: [id], onDelete: Restrict)
@@ -705,9 +719,12 @@ model Supplier {
   taxId          String?    @unique @map("tax_id") @db.VarChar(50)
   contactName    String?    @map("contact_name") @db.VarChar(150)
   email          String?    @db.VarChar(255)
+  /// Pendiente de subir a NOT NULL: 3 proveedores existentes (datos de prueba QA)
+  /// quedaron sin teléfono. Backend y frontend ya lo exigen siempre; falta decidir
+  /// qué hacer con esos registros de prueba y aplicar el NOT NULL aquí.
   phone          String?    @db.VarChar(30)
-  address        String?    @db.VarChar(500)
-  notes          String?    @db.VarChar(1000)
+  address        String?    @db.Text
+  notes          String?    @db.Text
   isActive       Boolean    @default(true) @map("is_active")
   createdBy      Int?       @map("created_by")
   createdAt      DateTime   @default(now()) @map("created_at")
@@ -732,7 +749,7 @@ model Purchase {
   totalAmount   Decimal        @default(0) @map("total_amount") @db.Decimal(10, 2)
   createdBy     Int?           @map("created_by")
   voidedAt      DateTime?      @map("voided_at")
-  voidReason    String?        @map("void_reason") @db.VarChar(500)
+  voidReason    String?        @map("void_reason") @db.Text
   voidedBy      Int?           @map("voided_by")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
@@ -772,7 +789,7 @@ model GoodsReceipt {
   purchaseId    Int                @map("purchase_id")
   receiptNumber String             @unique @map("receipt_number") @db.VarChar(80)
   receivedAt    DateTime           @default(now()) @map("received_at")
-  notes         String?            @db.VarChar(1000)
+  notes         String?            @db.Text
   createdBy     Int?               @map("created_by")
   createdAt     DateTime           @default(now()) @map("created_at")
   purchase      Purchase           @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
@@ -830,9 +847,10 @@ model DocumentSequence {
 /// Textos curados para la landing pública; no sustituyen la valoración operativa en Appointment.
 model Testimonial {
   id         Int      @id @default(autoincrement())
-  authorName String   @map("author_name") @db.VarChar(100)
+  /// 50, no 100: mismo criterio que Client/Barber (es el nombre de una persona).
+  authorName String   @map("author_name") @db.VarChar(50)
   authorRole String?  @map("author_role") @db.VarChar(50)
-  content    String   @db.VarChar(1000)
+  content    String   @db.Text
   isActive   Boolean  @default(true) @map("is_active")
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")

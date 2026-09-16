@@ -7,13 +7,15 @@ const EMAIL_RE =
 
 /** Alineado con auth.routes / formularios de cliente. */
 export const CLIENT_DOCUMENT_MIN_DIGITS = 5;
-export const CLIENT_DOCUMENT_MAX_DIGITS = 20;
+export const CLIENT_DOCUMENT_MAX_DIGITS = 10;
 export const CLIENT_DOC_TYPE_MAX = 40;
 export const CLIENT_FIRST_NAME_MIN = 2;
 export const CLIENT_LAST_NAME_MIN = 2;
-export const CLIENT_NAME_MAX = 100;
+// Ningún nombre real llega a 100 caracteres: ese tope dejaba pasar basura como
+// "Emanuelgggggggggggggggggggggggggggggggggggggggg" porque solo tenía letras.
+export const CLIENT_NAME_MAX = 50;
 export const CLIENT_PHONE_MAX_DIGITS = 15;
-export const CLIENT_NOTES_MAX = 500;
+export const CLIENT_NOTES_MAX = 5000;
 
 /** Tipos de documento permitidos (selector cerrado). */
 export const DOCUMENT_TYPE_OPTIONS = ['CC', 'CE', 'TI', 'Pasaporte', 'NIT'];
@@ -220,9 +222,7 @@ export function isRegisterFormValid(formData) {
     minLength: CLIENT_LAST_NAME_MIN,
   }).valid;
   const phoneDigits = sanitizePhone(formData.phone);
-  const phoneOk =
-    !phoneDigits ||
-    (phoneDigits.length >= 7 && phoneDigits.length <= CLIENT_PHONE_MAX_DIGITS);
+  const phoneOk = phoneDigits.length >= 7 && phoneDigits.length <= CLIENT_PHONE_MAX_DIGITS;
 
   return (
     emailOk &&

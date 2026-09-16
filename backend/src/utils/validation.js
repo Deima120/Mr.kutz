@@ -39,14 +39,14 @@ export const allowedProviderEmailField = (field = 'email') =>
     .withMessage(ALLOWED_EMAIL_DOMAINS_MESSAGE)
     .normalizeEmail();
 
-/** Nombre o apellido de persona (letras, 2–100). */
+/** Nombre o apellido de persona (letras, 2–50: ningún nombre real supera esa longitud). */
 export const personNameField = (field, label) =>
   body(field)
     .trim()
     .notEmpty()
     .withMessage(`${label} es obligatorio.`)
-    .isLength({ min: 2, max: 100 })
-    .withMessage(`${label} debe tener entre 2 y 100 caracteres.`)
+    .isLength({ min: 2, max: 50 })
+    .withMessage(`${label} debe tener entre 2 y 50 caracteres.`)
     .matches(PERSON_NAME_RE)
     .withMessage(`${label} solo puede contener letras.`);
 
@@ -54,10 +54,22 @@ export const optionalPersonNameField = (field, label) =>
   body(field)
     .optional({ checkFalsy: true })
     .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage(`${label} debe tener entre 2 y 100 caracteres.`)
+    .isLength({ min: 2, max: 50 })
+    .withMessage(`${label} debe tener entre 2 y 50 caracteres.`)
     .matches(PERSON_NAME_RE)
     .withMessage(`${label} solo puede contener letras.`);
+
+/** Teléfono obligatorio: solo dígitos, 7–15. */
+export const phoneField = (field = 'phone') =>
+  body(field)
+    .trim()
+    .notEmpty()
+    .withMessage('El teléfono es obligatorio.')
+    .bail()
+    .matches(/^\d+$/)
+    .withMessage('El teléfono solo puede contener dígitos.')
+    .isLength({ min: 7, max: 15 })
+    .withMessage('El teléfono debe tener entre 7 y 15 dígitos.');
 
 /** Teléfono opcional: solo dígitos, 7–15. */
 export const optionalPhoneField = (field = 'phone') =>
@@ -84,8 +96,8 @@ export const documentNumberField = (field = 'documentNumber') =>
     .withMessage('El número de documento es obligatorio.')
     .matches(/^\d+$/)
     .withMessage('El número de documento solo puede contener dígitos.')
-    .isLength({ min: 5, max: 20 })
-    .withMessage('El número de documento debe tener entre 5 y 20 dígitos.');
+    .isLength({ min: 5, max: 10 })
+    .withMessage('El número de documento debe tener entre 5 y 10 dígitos.');
 
 /**
  * Variantes opcionales para actualizaciones parciales (PATCH/PUT que solo tocan
@@ -105,8 +117,8 @@ export const optionalDocumentNumberField = (field = 'documentNumber') =>
     .trim()
     .matches(/^\d+$/)
     .withMessage('El número de documento solo puede contener dígitos.')
-    .isLength({ min: 5, max: 20 })
-    .withMessage('El número de documento debe tener entre 5 y 20 dígitos.');
+    .isLength({ min: 5, max: 10 })
+    .withMessage('El número de documento debe tener entre 5 y 10 dígitos.');
 
 export const optionalNotesField = (field = 'notes', max = 500) =>
   body(field)

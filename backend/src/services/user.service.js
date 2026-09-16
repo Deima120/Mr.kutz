@@ -222,7 +222,7 @@ function normDocType(v) {
 
 function normDocNumber(v) {
   if (v == null || String(v).trim() === '') return null;
-  return String(v).trim().slice(0, 80);
+  return String(v).trim().slice(0, 10);
 }
 
 function requiredProfileField(profile, field, label) {
@@ -245,7 +245,8 @@ function requireFichaBasics(profile, ficha) {
       400,
     );
   }
-  return { firstName, lastName, documentType, documentNumber, phone: profile?.phone || null };
+  const phone = requiredProfileField(profile, 'phone', 'El teléfono');
+  return { firstName, lastName, documentType, documentNumber, phone };
 }
 
 /** Crea el `Barber` (+ horarios por defecto) de `userId` dentro de la transacción `tx`. */

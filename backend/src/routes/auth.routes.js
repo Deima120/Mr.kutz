@@ -17,7 +17,7 @@ import { publicThrottle } from '../middlewares/publicThrottle.js';
 import {
   strongPassword,
   personNameField,
-  optionalPhoneField,
+  phoneField,
   documentTypeField,
   documentNumberField,
   allowedProviderEmailField,
@@ -32,7 +32,7 @@ const registerValidation = [
   ...strongPassword('password'),
   personNameField('firstName', 'El nombre'),
   personNameField('lastName', 'El apellido'),
-  optionalPhoneField('phone'),
+  phoneField('phone'),
   documentTypeField('documentType'),
   documentNumberField('documentNumber'),
   body('role')
@@ -107,7 +107,7 @@ const updateProfileValidation = [
     .isEmail()
     .withMessage('Indica un correo electrónico válido.')
     .normalizeEmail(),
-  optionalPhoneField('phone'),
+  phoneField('phone'),
 ];
 
 router.post('/check-email', checkEmailThrottle, checkEmailValidation, validate, authController.checkEmail);

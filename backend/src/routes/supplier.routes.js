@@ -2,7 +2,7 @@ import express from 'express';
 import { body, param, query } from 'express-validator';
 import { auth, requirePermission } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validation.js';
-import { optionalPhoneField, optionalTaxIdField } from '../utils/validation.js';
+import { phoneField, optionalPhoneField, optionalTaxIdField } from '../utils/validation.js';
 import * as supplierController from '../controllers/supplier.controller.js';
 
 const router = express.Router();
@@ -23,7 +23,7 @@ const fields = [
     .isEmail()
     .withMessage('Ingresa un correo válido.')
     .normalizeEmail(),
-  optionalPhoneField('phone'),
+  phoneField('phone'),
   body('address').optional({ nullable: true }).trim().isLength({ max: 500 }),
   body('notes').optional({ nullable: true }).trim().isLength({ max: 1000 }),
 ];

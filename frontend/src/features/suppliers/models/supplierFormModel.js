@@ -42,12 +42,12 @@ export function mapSupplierToForm(supplier) {
 
 export function buildSupplierPayload(form, { includeActive = false } = {}) {
   const taxId = validateTaxId(form.taxId);
-  const phone = validatePhone(form.phone, { required: false });
+  const phone = validatePhone(form.phone, { required: true });
   const payload = {
     name: String(form.name || '').trim(),
     taxId: taxId.valid ? taxId.value : String(form.taxId || '').trim() || null,
     contactName: String(form.contactName || '').trim() || null,
-    phone: phone.valid && phone.value ? phone.value : sanitizePhone(form.phone) || null,
+    phone: phone.valid && phone.value ? phone.value : sanitizePhone(form.phone),
     email: String(form.email || '').trim() || null,
     address: String(form.address || '').trim() || null,
     notes: String(form.notes || '').trim() || null,
@@ -75,7 +75,7 @@ export function validateSupplierForm(form) {
     errors.contactName = `Máximo ${TEXT_NAME_MAX} caracteres.`;
   }
 
-  const phone = validatePhone(form?.phone, { required: false });
+  const phone = validatePhone(form?.phone, { required: true });
   if (!phone.valid) errors.phone = phone.message;
 
   const emailRaw = String(form?.email ?? '').trim();

@@ -269,7 +269,7 @@ export default function ProfilePage() {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
+        phone: form.phone.trim(),
       });
       applyUser(updated);
       setEditing(false);
@@ -490,7 +490,7 @@ export default function ProfilePage() {
                           onBlur={() => markTouched('phone')}
                           className={`${FIELD_CLASS} ${fieldBorderClass('phone', !fieldError('phone'), form.phone)}`}
                           autoComplete="tel"
-                          placeholder="Opcional"
+                          required
                         />
                         {hintOrError('phone', form.phone, 'Teléfono listo.')}
                       </div>

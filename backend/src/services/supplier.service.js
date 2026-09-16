@@ -19,6 +19,12 @@ function cleanOptional(value) {
   return cleaned || null;
 }
 
+function cleanRequiredPhone(value) {
+  const cleaned = String(value ?? '').trim();
+  if (!cleaned) throw httpError('El teléfono del proveedor es obligatorio.');
+  return cleaned;
+}
+
 function supplierData(data, { partial = false } = {}) {
   const result = {};
   if (!partial || data.name !== undefined) {
@@ -27,7 +33,10 @@ function supplierData(data, { partial = false } = {}) {
     result.name = name;
     result.normalizedName = normalizeSupplierName(name);
   }
-  for (const field of ['taxId', 'contactName', 'email', 'phone', 'address', 'notes']) {
+  if (!partial || data.phone !== undefined) {
+    result.phone = cleanRequiredPhone(data.phone);
+  }
+  for (const field of ['taxId', 'contactName', 'email', 'address', 'notes']) {
     if (!partial || data[field] !== undefined) result[field] = cleanOptional(data[field]);
   }
   if (partial && data.isActive !== undefined) {
