@@ -67,7 +67,7 @@ export const checkEmailAvailability = async (email) => {
  */
 export const checkDocumentAvailability = async (documentType, documentNumber) => {
   const docType = documentType != null ? String(documentType).trim().slice(0, 40) : '';
-  const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 80) : '';
+  const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 10) : '';
 
   if (!docType || !docNum) {
     const error = new Error('El tipo y número de documento son obligatorios.');
@@ -107,9 +107,16 @@ export const register = async (userData) => {
   }
 
   const docType = documentType != null ? String(documentType).trim().slice(0, 40) : '';
-  const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 80) : '';
+  const docNum = documentNumber != null ? String(documentNumber).trim().slice(0, 10) : '';
   if (!docType || !docNum) {
     const error = new Error('El tipo y número de documento son obligatorios.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const phoneNorm = phone != null ? String(phone).trim() : '';
+  if (!phoneNorm) {
+    const error = new Error('El teléfono es obligatorio.');
     error.statusCode = 400;
     throw error;
   }
@@ -159,7 +166,7 @@ export const register = async (userData) => {
         userId: user.id,
         firstName: firstName || '',
         lastName: lastName || '',
-        phone: phone || null,
+        phone: phoneNorm,
         email: emailNorm,
         documentType: docType,
         documentNumber: docNum,
@@ -496,8 +503,13 @@ export const updateProfile = async (userId, data = {}) => {
     throw err;
   }
 
-  const phoneRaw = data.phone != null ? String(data.phone).trim() : '';
-  const phone = phoneRaw || null;
+  const phone = data.phone != null ? String(data.phone).trim() : '';
+  if (!phone) {
+    const err = new Error('El teléfono es obligatorio.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const emailNorm = canonicalEmail(data.email);
   if (!emailNorm) {
     const err = new Error('Indica un correo electrónico válido.');

@@ -138,7 +138,7 @@ function CamposDeFicha({ idPrefix, value, onChange, errors }) {
       </div>
       <div className="sm:col-span-2">
         <label htmlFor={`${idPrefix}-phone`} className="mb-1 block text-[11px] text-stone-500">
-          Teléfono <span className="font-normal text-stone-400">(opcional)</span>
+          Teléfono <span className="text-red-600">*</span>
         </label>
         <input
           id={`${idPrefix}-phone`}

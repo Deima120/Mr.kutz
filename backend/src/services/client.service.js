@@ -120,12 +120,12 @@ function normDocType(v) {
 
 function normDocNumber(v) {
   if (v == null || String(v).trim() === '') return null;
-  return String(v).trim().slice(0, 80);
+  return String(v).trim().slice(0, 10);
 }
 
 function normNotes(v) {
   if (v == null || String(v).trim() === '') return null;
-  return String(v).trim().slice(0, 500);
+  return String(v).trim();
 }
 
 export const create = async (data) => {
@@ -139,6 +139,12 @@ export const create = async (data) => {
 
   if (!data.email || !String(data.email).trim()) {
     const err = new Error('El correo es obligatorio.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!data.phone || !String(data.phone).trim()) {
+    const err = new Error('El teléfono es obligatorio.');
     err.statusCode = 400;
     throw err;
   }
@@ -172,7 +178,7 @@ export const create = async (data) => {
     data: {
       firstName: data.firstName,
       lastName: data.lastName,
-      phone: data.phone || null,
+      phone: String(data.phone).trim(),
       email: String(data.email).trim().toLowerCase(),
       documentType: docType,
       documentNumber: docNum,
@@ -188,7 +194,14 @@ export const update = async (id, data) => {
   const patch = {};
   if (data.firstName !== undefined) patch.firstName = data.firstName;
   if (data.lastName !== undefined) patch.lastName = data.lastName;
-  if (data.phone !== undefined) patch.phone = data.phone || null;
+  if (data.phone !== undefined) {
+    if (!data.phone || !String(data.phone).trim()) {
+      const err = new Error('El teléfono es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.phone = String(data.phone).trim();
+  }
   if (data.email !== undefined) {
     if (!data.email || !String(data.email).trim()) {
       const err = new Error('El correo es obligatorio.');

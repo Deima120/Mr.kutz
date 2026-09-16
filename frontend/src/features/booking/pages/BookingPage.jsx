@@ -249,7 +249,7 @@ export default function BookingPage() {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
+        phone: form.phone.trim(),
         barberId: Number(form.barberId),
         serviceIds: form.serviceIds.map((id) => Number(id)),
         serviceId: Number(form.serviceIds[0]),
@@ -584,7 +584,7 @@ export default function BookingPage() {
                   />
                 )}
               </PublicFormField>
-              <PublicFormField label="Teléfono" htmlFor="phone" error={fieldError('phone')}>
+              <PublicFormField label="Teléfono" htmlFor="phone" required error={fieldError('phone')}>
                 {({ invalid, errorId }) => (
                   <input
                     id="phone"
@@ -596,6 +596,7 @@ export default function BookingPage() {
                     className={`input-premium ${invalid ? inputInvalidClass : ''}`}
                     placeholder="Solo números"
                     maxLength={CLIENT_PHONE_MAX_DIGITS}
+                    required
                     aria-invalid={invalid || undefined}
                     aria-describedby={errorId}
                   />

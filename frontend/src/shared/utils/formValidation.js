@@ -308,10 +308,8 @@ export function validateBarberForm(data, isEdit = false) {
     if (!password.valid) errors.password = password.message;
   }
 
-  if (data.phone?.trim()) {
-    const phone = validatePhone(data.phone, { required: false });
-    if (!phone.valid) errors.phone = phone.message;
-  }
+  const phone = validatePhone(data.phone, { required: true });
+  if (!phone.valid) errors.phone = phone.message;
 
   const specialties = String(data.specialties ?? '');
   if (specialties.length > TEXT_SPECIALTIES_JOINED_MAX) {
@@ -623,10 +621,8 @@ export function validateClientProfileForm(form) {
   const email = validateEmail(form.email);
   if (!email.valid) errors.email = email.message;
 
-  if (form.phone?.trim()) {
-    const phone = validatePhone(form.phone, { required: false });
-    if (!phone.valid) errors.phone = phone.message;
-  }
+  const phone = validatePhone(form.phone, { required: true });
+  if (!phone.valid) errors.phone = phone.message;
 
   return validationResult(errors);
 }
@@ -665,10 +661,8 @@ export function validateBookingForm(form) {
   const email = validateEmail(form.email);
   if (!email.valid) errors.email = email.message;
 
-  if (form.phone?.trim()) {
-    const phone = validatePhone(form.phone, { required: false });
-    if (!phone.valid) errors.phone = phone.message;
-  }
+  const phone = validatePhone(form.phone, { required: true });
+  if (!phone.valid) errors.phone = phone.message;
 
   const notes = validateNotes(form.notes);
   if (!notes.valid) errors.notes = notes.message;

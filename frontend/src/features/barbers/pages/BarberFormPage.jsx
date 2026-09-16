@@ -22,6 +22,8 @@ import {
   CLIENT_FIRST_NAME_MIN,
   CLIENT_LAST_NAME_MIN,
   CLIENT_NAME_MAX,
+  CLIENT_DOCUMENT_MAX_DIGITS,
+  CLIENT_PHONE_MAX_DIGITS,
   TEXT_SPECIALTIES_JOINED_MAX,
 } from '@/shared/utils/formValidation';
 import { useFormValidation } from '@/shared/hooks/useFormValidation';
@@ -92,7 +94,7 @@ export function BarberForm({
     [formData.password, isEdit]
   );
   const phoneValidation = useMemo(
-    () => validatePhone(formData.phone, { required: false }),
+    () => validatePhone(formData.phone, { required: true }),
     [formData.phone]
   );
 
@@ -151,7 +153,7 @@ export function BarberForm({
         await barberService.updateBarber(editId, {
           firstName: formData.firstName,
           lastName: formData.lastName,
-          phone: formData.phone || undefined,
+          phone: formData.phone.trim(),
           documentType: formData.documentType.trim(),
           documentNumber: formData.documentNumber.trim(),
           specialties,
@@ -163,7 +165,7 @@ export function BarberForm({
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          phone: formData.phone || undefined,
+          phone: formData.phone.trim(),
           documentType: formData.documentType.trim(),
           documentNumber: formData.documentNumber.trim(),
           specialties,
@@ -286,7 +288,7 @@ export function BarberForm({
                   onBlur={() => markTouched('documentNumber')}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
                   placeholder="Solo números"
-                  maxLength={20}
+                  maxLength={CLIENT_DOCUMENT_MAX_DIGITS}
                   autoComplete="off"
                   aria-invalid={invalid || undefined}
                   aria-describedby={errorId}
@@ -395,6 +397,7 @@ export function BarberForm({
             <AdminFormField
               label="Teléfono"
               htmlFor="barber-phone"
+              required
               error={fieldError('phone')}
               live={buildLiveHint('phone', formData.phone, phoneValidation, 'Teléfono válido.')}
             >
@@ -409,7 +412,7 @@ export function BarberForm({
                   onBlur={() => markTouched('phone')}
                   className={`${ADMIN_FORM_FIELD_COMPACT} ${submitBorderClass || liveBorderClass}`}
                   placeholder="Solo números"
-                  maxLength={15}
+                  maxLength={CLIENT_PHONE_MAX_DIGITS}
                   aria-invalid={invalid || undefined}
                   aria-describedby={errorId}
                 />

@@ -18,7 +18,7 @@ function normDocType(v) {
 
 function normDocNumber(v) {
   if (v == null || String(v).trim() === '') return null;
-  return String(v).trim().slice(0, 80);
+  return String(v).trim().slice(0, 10);
 }
 
 export const getAll = async ({ activeFilter = 'active', document, includePrivate = false } = {}) => {
@@ -143,6 +143,12 @@ export const create = async (data) => {
     throw err;
   }
 
+  if (!phone || !String(phone).trim()) {
+    const err = new Error('El teléfono es obligatorio.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -156,7 +162,7 @@ export const create = async (data) => {
         userId: user.id,
         firstName,
         lastName,
-        phone: phone || null,
+        phone: String(phone).trim(),
         documentType: docType,
         documentNumber: docNum,
         specialties: specialties || [],
@@ -177,7 +183,15 @@ export const update = async (id, data) => {
   const patch = {};
   if (data.firstName !== undefined) patch.firstName = data.firstName;
   if (data.lastName !== undefined) patch.lastName = data.lastName;
-  if (data.phone !== undefined) patch.phone = data.phone || null;
+  if (data.phone !== undefined) {
+    const v = String(data.phone || '').trim();
+    if (!v) {
+      const err = new Error('El teléfono es obligatorio.');
+      err.statusCode = 400;
+      throw err;
+    }
+    patch.phone = v;
+  }
   if (data.specialties !== undefined) patch.specialties = data.specialties;
   if (data.isActive !== undefined) patch.isActive = data.isActive;
   if (data.documentType !== undefined) {

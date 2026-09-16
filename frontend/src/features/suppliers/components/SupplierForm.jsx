@@ -77,7 +77,7 @@ export default function SupplierForm({
   );
   const taxIdValidation = useMemo(() => validateTaxId(form.taxId), [form.taxId]);
   const phoneValidation = useMemo(
-    () => validatePhone(form.phone, { required: false }),
+    () => validatePhone(form.phone, { required: true }),
     [form.phone]
   );
   const emailValidation = useMemo(
@@ -188,6 +188,7 @@ export default function SupplierForm({
         <AdminFormField
           label="Teléfono"
           htmlFor={`supplier-phone-${variant}`}
+          required
           error={fieldError('phone')}
           live={buildLiveHint('phone', form.phone, phoneValidation, 'Teléfono válido.')}
         >

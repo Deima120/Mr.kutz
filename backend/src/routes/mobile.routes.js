@@ -17,7 +17,7 @@ import {
   appointmentDateBody,
   appointmentSlotDateQuery,
 } from '../utils/dateRange.js';
-import { personNameField, optionalPhoneField } from '../utils/validation.js';
+import { personNameField, phoneField } from '../utils/validation.js';
 import * as authController from '../controllers/auth.controller.js';
 import * as appointmentController from '../controllers/appointment.controller.js';
 
@@ -50,7 +50,7 @@ router.put(
     personNameField('firstName', 'El nombre'),
     personNameField('lastName', 'El apellido'),
     body('email').isEmail().withMessage('Indica un correo electrónico válido.').normalizeEmail(),
-    optionalPhoneField('phone'),
+    phoneField('phone'),
   ],
   validate,
   authController.updateProfile,

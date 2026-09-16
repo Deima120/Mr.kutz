@@ -136,7 +136,7 @@ export function ClientForm({
   );
   const emailValidation = useMemo(() => validateEmail(formData.email), [formData.email]);
   const phoneValidation = useMemo(
-    () => validatePhone(formData.phone, { required: false }),
+    () => validatePhone(formData.phone, { required: true }),
     [formData.phone]
   );
   const notesValidation = useMemo(() => {
@@ -333,7 +333,7 @@ export function ClientForm({
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       email: formData.email.trim() || undefined,
-      phone: formData.phone || undefined,
+      phone: formData.phone.trim(),
       // Omitidos (undefined) en vez de cadena vacía: client.service.update solo
       // toca el documento si el campo viene, y con '' lanzaría 400.
       documentType: documentOmitted ? undefined : formData.documentType.trim(),
@@ -580,7 +580,7 @@ export function ClientForm({
           </div>
           <div className="group">
             <label htmlFor="phone" className={ADMIN_FORM_LABEL_CLASS}>
-              Teléfono
+              Teléfono <span className="text-red-600 normal-case">*</span>
             </label>
             <input
               id="phone"
@@ -590,14 +590,15 @@ export function ClientForm({
               value={formData.phone}
               onChange={handleChange}
               onBlur={handleBlur}
-              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(phoneValidation.valid, phoneShow && Boolean(formData.phone))}`}
-              placeholder="Solo números (opcional)"
+              className={`${ADMIN_FORM_FIELD_COMPACT} ${adminFieldStateClass(phoneValidation.valid, phoneShow)}`}
+              placeholder="Solo números"
               maxLength={CLIENT_PHONE_MAX_DIGITS}
+              required
               autoComplete="tel"
             />
             <FieldHint
               valid={phoneValidation.valid}
-              touched={phoneShow && Boolean(formData.phone)}
+              touched={phoneShow}
               message={phoneValidation.message}
             />
           </div>
