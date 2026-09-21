@@ -1,0 +1,26 @@
+# Lo que NUNCA debe entrar en la imagen del backend.
+
+# Dependencias: se instalan dentro del contenedor con `npm ci` para que los
+# binarios nativos (motor de consultas de Prisma) sean los de Linux, no los de
+# Windows que hay en el equipo de desarrollo.
+node_modules
+
+# Secretos. Crítico: el .env local apunta a la base de datos REAL (Neon). Si se
+# copiara a la imagen, el contenedor escribiría en producción creyendo que
+# trabaja contra la base local de docker-compose.
+.env
+.env.*
+!.env.example
+
+# Artefactos y ruido local
+npm-debug.log*
+*.log
+*-audit.json
+*-outdated.json
+.git
+.gitignore
+Dockerfile
+.dockerignore
+docs
+LICENSE
+render.yaml

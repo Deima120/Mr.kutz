@@ -1183,6 +1183,47 @@ de «caja abierta para cobrar» se levantó a propósito).
 * Los `.env` reales **no se leen ni se commitean**. Para conocer los nombres de las variables usa
   los `.env.example` de cada paquete.
 
+## 39.6 Docker (alternativa de ejecución local)
+
+Desde 2026-09-17 el repositorio se puede levantar entero en contenedores. **No sustituye a Render
+ni a Vercel**: `backend/render.yaml` y `frontend/vercel.json` siguen siendo el despliegue real y no
+se tocaron. Docker es para desarrollo local, demostraciones y para poder levantar el sistema sin
+configurar PostgreSQL ni Node a mano.
+
+| Archivo | Qué es |
+| --- | --- |
+| `docker-compose.yml` (raíz) | Orquesta los tres servicios: `db` (postgres:16-alpine), `backend`, `frontend`. |
+| `.env.docker.example` (raíz) | Plantilla de variables. Se copia a `.env` en la raíz, que ya está en `.gitignore`. |
+| `backend/Dockerfile` | Multi-etapa, `node:22-alpine`, usuario `node` (no root). |
+| `backend/docker-entrypoint.sh` | Aplica `prisma migrate deploy` y arranca la API. |
+| `frontend/Dockerfile` | Multi-etapa: compila con Node, sirve con `nginx:1.29-alpine`. |
+| `frontend/nginx.conf` | Fallback de SPA + reenvío de `/api` al backend (mismo papel que `vercel.json`). |
+| `docs/DOCKER.md` | Guía de uso, decisiones y problemas frecuentes. |
+
+Comandos:
+
+```bash
+cp .env.docker.example .env      # una sola vez; editar contraseña y JWT_SECRET
+docker compose up -d --build     # http://localhost:8080
+docker compose exec backend npm run db:seed
+docker compose down              # apaga; con -v BORRA la base del contenedor
+```
+
+Tres puntos que hay que tener presentes al tocar estos archivos:
+
+* **Node 22, no 18.** El `engines` de los dos `package.json` dice `>=18` pero está desactualizado:
+  Vite 8 exige `^20.19.0 || >=22.12.0` y con Node 18 el frontend no compila. Las imágenes usan la
+  misma línea de Node en backend y frontend a propósito.
+* **Las migraciones corren al arrancar el contenedor, no al construirlo** (en el `build` todavía no
+  existe base de datos). En Render sí van en el build porque allí la base ya existe.
+* **Los `.env` están excluidos en los `.dockerignore` y debe seguir así.** `backend/.env` apunta a
+  la base de datos **real** en Neon: si entrara en la imagen, el contenedor escribiría en
+  producción creyendo que trabaja contra la base local de Compose.
+
+Además hay un `.gitattributes` en la raíz que fuerza LF en `*.sh` y en los `Dockerfile`. No lo
+quites: este repositorio se trabaja con `core.autocrlf=true`, y un `docker-entrypoint.sh` con CRLF
+falla dentro del contenedor con `bad interpreter`.
+
 ---
 
 # 40. REGLAS PERMANENTES YA VIGENTES EN ESTE PROYECTO

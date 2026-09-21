@@ -1,0 +1,23 @@
+# Lo que NUNCA debe entrar en la imagen del frontend.
+
+node_modules
+
+# El build de producción se genera dentro del contenedor; copiar el dist local
+# mezclaría un compilado viejo del equipo de desarrollo con el nuevo.
+dist
+
+# Secretos y configuración local. Ojo: en Vite TODO lo que empieza por VITE_ se
+# incrusta en el bundle y llega al navegador, así que un .env copiado por error
+# se publica con la aplicación.
+.env
+.env.*
+!.env.example
+
+npm-debug.log*
+*.log
+.git
+.gitignore
+Dockerfile
+.dockerignore
+docs
+vercel.json

@@ -119,6 +119,25 @@ Detalle interno de cada carpeta: `backend/docs/`, `backend/prisma/`, `backend/sr
 | Galería de cortes | [`frontend/CORTES-README.md`](frontend/CORTES-README.md) |
 | Modelos 3D (GLTF) | [`frontend/GLTF-README.md`](frontend/GLTF-README.md) |
 | Sistema de avisos (toast / confirm / banners) | [`frontend/docs/FEEDBACK.md`](frontend/docs/FEEDBACK.md) |
+| Ejecución con Docker | [`docs/DOCKER.md`](docs/DOCKER.md) |
+
+---
+
+## Inicio rápido con Docker (recomendado)
+
+Levanta la base de datos, la API y la web con un solo comando. No necesitas
+instalar PostgreSQL ni Node: solo **Docker Desktop**.
+
+```bash
+cp .env.docker.example .env      # una vez: edita la contraseña y el JWT_SECRET
+docker compose up -d --build
+
+docker compose exec backend npm run db:seed   # catálogo base (roles, servicios…)
+```
+
+Aplicación en <http://localhost:8080> y API en <http://localhost:5000/api>.
+
+Guía completa, comandos y solución de problemas: [`docs/DOCKER.md`](docs/DOCKER.md).
 
 ---
 

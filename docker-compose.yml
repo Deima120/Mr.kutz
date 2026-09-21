@@ -1,0 +1,119 @@
+# =============================================================================
+# Mr.Kutz — orquestación completa para desarrollo y demostración
+# =============================================================================
+# Levanta el sistema entero con un solo comando:
+#
+#   cp .env.docker.example .env
+#   docker compose up -d --build
+#
+# Aplicación:  http://localhost:8080
+# API directa: http://localhost:5000/api
+#
+# Los tres servicios se comunican por la red interna que crea Compose, donde
+# cada uno es alcanzable por el nombre del servicio (`db`, `backend`).
+# -----------------------------------------------------------------------------
+
+name: mr-kutz
+
+services:
+  # ---------------------------------------------------------------------------
+  # Base de datos PostgreSQL
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: mrkutz-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mrkutz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el archivo .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mrkutz}
+    volumes:
+      # Volumen con nombre: los datos sobreviven a `docker compose down` y a la
+      # reconstrucción de las imágenes. Solo se borran con `down -v`.
+      - mrkutz_db_data:/var/lib/postgresql/data
+    ports:
+      # 5433 en el equipo por defecto, no 5432: así no choca con un PostgreSQL
+      # ya instalado localmente. Dentro de la red de Compose sigue siendo 5432.
+      - "${DB_HOST_PORT:-5433}:5432"
+    healthcheck:
+      # `pg_isready` no basta por sí solo en el primer arranque: el contenedor
+      # levanta un servidor temporal para inicializar los datos y respondería
+      # "listo" antes de tiempo. Con el usuario y la base concretos, solo pasa
+      # cuando la base definitiva existe de verdad.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mrkutz} -d ${POSTGRES_DB:-mrkutz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # API REST (Node.js + Express + Prisma)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+    container_name: mrkutz-backend
+    restart: unless-stopped
+    # Reaper de procesos huérfanos. Node es PID 1 y no adopta los hijos que
+    # dejen los scripts de Prisma; `init` evita que queden zombis.
+    init: true
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 5000
+
+      # `db` es el nombre del servicio, no localhost: dentro de la red de Docker
+      # cada contenedor tiene su propia interfaz de red.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mrkutz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-mrkutz}?schema=public
+
+      # Obligatorio: src/index.js termina el proceso si falta.
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el archivo .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+
+      # Con NODE_ENV=production la lista de orígenes de desarrollo queda vacía a
+      # propósito (src/index.js), así que el origen del navegador debe declararse
+      # aquí o el backend rechazará las peticiones por CORS.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+
+      # Sincronización automática de estados de cita, ya incluida en el proceso
+      # de la API (src/jobs/appointmentStatusJob.js). 0 la desactiva.
+      APPOINTMENT_STATUS_CRON_MS: ${APPOINTMENT_STATUS_CRON_MS:-60000}
+
+      # Correo transaccional: opcional. Sin credenciales el sistema funciona y
+      # solo deja de enviar avisos por correo.
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_FROM_EMAIL: ${BREVO_FROM_EMAIL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+    ports:
+      - "${BACKEND_HOST_PORT:-5000}:5000"
+    depends_on:
+      db:
+        # No basta con que el contenedor de PostgreSQL exista: debe aceptar
+        # conexiones, o las migraciones del arranque fallarían.
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # SPA servida por Nginx
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Ruta relativa a propósito: el navegador pide /api al mismo origen y
+        # Nginx lo reenvía al backend. Así no hay CORS ni una URL de API
+        # quemada en el bundle.
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: mrkutz-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HOST_PORT:-8080}:80"
+    depends_on:
+      backend:
+        # Nginx resuelve el nombre `backend` al arrancar; si el backend no
+        # estuviera listo, fallaría al iniciar.
+        condition: service_healthy
+
+volumes:
+  mrkutz_db_data:
+    name: mrkutz_db_data

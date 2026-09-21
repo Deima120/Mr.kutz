@@ -1,0 +1,10 @@
+# Normalización de finales de línea.
+#
+# Este repositorio se trabaja en Windows con `core.autocrlf=true`, que convierte
+# a CRLF al hacer checkout. Para un script que se ejecuta DENTRO de un contenedor
+# Linux eso es fatal: el kernel lee la primera línea como "#!/bin/sh\r" y falla
+# con "bad interpreter". Estos archivos se fuerzan a LF siempre.
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
