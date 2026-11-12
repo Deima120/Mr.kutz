@@ -135,18 +135,14 @@ export const PERMISSIONS = [
 export const PERMISSION_CODES = PERMISSIONS.map((p) => p.code);
 
 /**
- * Permisos que el backend sigue protegiendo (las rutas existen y
- * `requirePermission` las exige) pero para los que hoy no hay ninguna
- * pantalla en el panel — pertenecen a módulos desactivados
- * (`DESACTIVADO-REPORTES-CAJA`, ver `private/adr/0001-...md`) o a un
- * sub-informe que solo consumía ese mismo módulo (`dashboard.report`).
+ * Permisos que el catálogo de Roles todavía no ofrece a roles personalizados.
+ * Caja y Reportes están disponibles solo para `admin`; sus interfaces no se
+ * habilitan por estos permisos. Los demás códigos corresponden a módulos sin
+ * acceso activo en el panel o a `dashboard.report`, un sub-informe legado.
  *
- * Se listan aquí, en vez de borrarlos de `PERMISSIONS`, siguiendo la misma
- * convención que el resto del proyecto: comentar/desactivar, no borrar. Así
- * `admin` los conserva (útil el día que Reportes/Caja se reactive, sin
- * necesidad de una migración) y las rutas que ya los exigen no cambian de
- * comportamiento — lo único que cambia es que la pantalla de Roles no los
- * ofrece como opción, porque otorgarlos hoy no habilita nada.
+ * Se conservan en `PERMISSIONS` para no cambiar autorizaciones existentes.
+ * Mostrar un permiso aquí sin habilitar la interfaz correspondiente para roles
+ * personalizados daría una opción que no produce el acceso esperado.
  */
 export const INACTIVE_PERMISSION_CODES = [
   'cash_register.view',

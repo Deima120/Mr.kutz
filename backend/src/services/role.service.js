@@ -58,9 +58,10 @@ export const getById = async (id) => {
 /**
  * Catálogo completo, agrupado por módulo para pintarlo en la pantalla de
  * roles — sin los permisos de `INACTIVE_PERMISSION_CODES`: otorgarlos hoy no
- * habilitaría nada, porque su pantalla está desactivada. Un módulo que se
- * queda sin ningún permiso visible (Caja, Comisiones, Otros ingresos, Gastos
- * operativos, Portafolio) directamente no aparece.
+ * habilitaría la interfaz para roles personalizados. Caja y Reportes siguen
+ * limitados al rol `admin`; los demás módulos listados aún no tienen acceso
+ * activo en el panel. Un módulo que se queda sin ningún permiso visible no
+ * aparece.
  */
 export const getPermissionCatalog = async () => {
   const filas = (

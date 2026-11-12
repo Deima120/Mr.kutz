@@ -1,17 +1,11 @@
 /**
- * Carrito de venta: servicio + producto(s) en un solo registro.
- *
- * [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] La fila «Caja (manual)» (cobro libre, sin
- * cita ni producto) se retiró de la vista del usuario y quedó comentada en este archivo
- * para colocarla más adelante. El backend sigue aceptando líneas `manual` sin cambios.
- * Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md
+ * Carrito de venta: servicio, producto(s) y cobros manuales en un solo registro.
  */
 
 import { useState, useEffect, useMemo, useId, useCallback, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-// [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] `Wallet` era el icono de la fila «Caja (manual)».
-import { CalendarCheck, Check, ChevronDown, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, Package, Plus, Search, Trash2, Wallet } from 'lucide-react';
 import { getMenuPositionFromRect } from '@/shared/components/customSelectLayout';
 import * as paymentService from '@/features/payments/services/paymentService';
 import * as appointmentService from '@/features/appointments/services/appointmentService';
@@ -363,9 +357,7 @@ export function PaymentForm({
   const cashLoading = Boolean(cashRegister?.loading);
   const prefillProductId = prefillProductIdProp ?? searchParams.get('productId');
   const prefillAppointmentId = prefillAppointmentIdProp ?? searchParams.get('appointmentId');
-  // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] id del input de descripción de la fila
-  // «Caja (manual)». Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md
-  // const draftManualId = useId();
+  const draftManualId = useId();
   const tenderedErrorId = useId();
 
   const [methodsLocal, setMethodsLocal] = useState([]);
@@ -380,10 +372,8 @@ export function PaymentForm({
   const [appointmentPick, setAppointmentPick] = useState('');
   const [productPick, setProductPick] = useState(null);
   const [productQty, setProductQty] = useState('1');
-  // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] Estado de la fila «Caja (manual)».
-  // Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md
-  // const [manualDescription, setManualDescription] = useState('');
-  // const [manualAmount, setManualAmount] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualAmount, setManualAmount] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -766,34 +756,25 @@ export function PaymentForm({
     setProductQty('1');
   };
 
-  // [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] La fila «Caja (manual)» se retiró de la
-  // vista del usuario; se conserva comentada para colocarla más adelante.
-  // Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md
-  //
-  // La línea de caja se validaba en vivo y el botón «Agregar» quedaba deshabilitado
-  // hasta que fuese válida. El campo Monto solo admite dígitos (ver
-  // `blockNonDigitKeys` + `formatMoneyInputDigits`), así que no hay avisos de
-  // "símbolo no permitido" ni de monto inválido: simplemente no se puede escribir.
-  //
-  // const manualAmountNum = parseMoneyInput(manualAmount);
-  // const canAddManual =
-  //   String(manualDescription).trim() !== '' &&
-  //   Number.isFinite(manualAmountNum) &&
-  //   manualAmountNum > 0;
-  //
-  // const handleAddManual = () => {
-  //   if (!canAddManual) return;
-  //   const description = String(manualDescription).trim();
-  //   addLine({
-  //     type: 'manual',
-  //     description,
-  //     label: description,
-  //     unitPrice: parseMoneyInput(manualAmount),
-  //     quantity: 1,
-  //   });
-  //   setManualDescription('');
-  //   setManualAmount('');
-  // };
+  const manualAmountNum = parseMoneyInput(manualAmount);
+  const canAddManual =
+    String(manualDescription).trim() !== '' &&
+    Number.isFinite(manualAmountNum) &&
+    manualAmountNum > 0;
+
+  const handleAddManual = () => {
+    if (!canAddManual) return;
+    const description = String(manualDescription).trim();
+    addLine({
+      type: 'manual',
+      description,
+      label: description,
+      unitPrice: manualAmountNum,
+      quantity: 1,
+    });
+    setManualDescription('');
+    setManualAmount('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1081,13 +1062,6 @@ export function PaymentForm({
                 ) : null}
               </div>
 
-              {/* [DESACTIVADO-LINEA-CAJA-MANUAL 2026-08-24] Fila «Caja (manual)»: cobro libre
-                  que no viene de una cita ni de un producto del inventario. Se retiró de la vista
-                  del usuario y se conserva comentada para colocarla más adelante.
-                  Ver ADR: private/adr/0002-desactivacion-linea-caja-manual.md — para reactivar,
-                  descomentar este bloque, el estado y `handleAddManual`, y devolver `Wallet` y
-                  `useId` a los imports.
-
               <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
                 <label>
                   <span className={ADMIN_FORM_LABEL_CLASS}>
@@ -1129,7 +1103,6 @@ export function PaymentForm({
                   servicio no catalogado). Requiere descripción y un monto mayor que cero.
                 </p>
               </div>
-              */}
             </div>
 
             <div className="border-t border-stone-100 pt-3 space-y-2">

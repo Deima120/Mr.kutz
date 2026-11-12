@@ -28,9 +28,7 @@ const ProductCategoriesPage = lazy(() => import('@/features/inventory/pages/Prod
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'));
 const AgendaPage = lazy(() => import('@/features/agenda/pages/AgendaPage'));
 const HistoryPage = lazy(() => import('@/features/history/pages/HistoryPage'));
-// [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Reportes/Caja oculto de la vista del usuario.
-// Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
-// const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
+const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
 const TestimonialsPage = lazy(() => import('@/features/testimonials/pages/TestimonialsPage'));
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
@@ -163,9 +161,7 @@ export default function AppRoutes() {
         { path: 'dashboard', element: protectedPage(DashboardPage, ['admin', 'barber']) },
         { path: 'agenda', element: protectedPage(AgendaPage, ['barber']) },
         { path: 'history', element: protectedPage(HistoryPage, ['barber']) },
-        // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Reportes/Caja oculto de la vista del usuario.
-        // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
-        // { path: 'reports', element: protectedPage(ReportsPage, ['admin']) },
+        { path: 'reports', element: protectedPage(ReportsPage, ['admin']) },
         { path: 'testimonials', element: protectedPage(TestimonialsPage, ['admin'], ['testimonials.manage']) },
         { path: '*', element: page(NotFoundPage) },
       ],
