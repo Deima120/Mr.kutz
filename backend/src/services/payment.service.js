@@ -37,9 +37,7 @@ import {
 import { allocateDocumentFolio, DOC_TYPES } from '../utils/documentSequence.js';
 import { isActiveAppointmentCollision, isFolioCollision } from './payment.errors.js';
 import { applyColombiaCreatedAtFilter } from '../utils/colombiaTime.js';
-// [DESACTIVADO-REPORTES-CAJA 2026-08-12] Módulo de Caja oculto de la vista del usuario.
-// Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — reactivar descomentando este bloque.
-// import { requireOpenCashRegister } from './cashRegister.service.js';
+import { requireOpenCashRegister } from './cashRegister.service.js';
 import {
   computeCommissionAmount,
   DEFAULT_COMMISSION_PERCENT,
@@ -503,11 +501,7 @@ export const getById = async (id) => loadPaymentDto(prisma, id);
 export async function createWithTx(tx, data) {
   const lineInputs = normalizeCreateLineInputs(data);
   const createdBy = data.createdBy ? parseInt(data.createdBy, 10) : null;
-  // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Sin UI de Caja el usuario no puede abrirla, así que
-  // exigir caja abierta dejaría los cobros bloqueados sin salida. Se levanta el requisito.
-  // Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md — al reimplementar Caja hay que
-  // restaurar esta línea Y volver a asociar el pago a openRegister.id más abajo.
-  // const openRegister = await requireOpenCashRegister(tx);
+  const openRegister = await requireOpenCashRegister(tx);
 
   const serviceInputs = lineInputs.filter((l) => l.type === 'service');
   const productInputs = lineInputs.filter((l) => l.type === 'product');
@@ -711,10 +705,7 @@ export async function createWithTx(tx, data) {
       clientId,
       amount: headerAmount,
       paymentMethodId: headerMethodId,
-      // [DESACTIVADO-REPORTES-CAJA 2026-08-12] Payment.cashRegisterId es Int? (nullable), así que
-      // no hace falta migración. Ver ADR: private/adr/0001-desactivacion-reportes-y-caja.md
-      // cashRegisterId: openRegister.id,
-      cashRegisterId: null,
+      cashRegisterId: openRegister.id,
       reference: await allocateDocumentFolio(tx, DOC_TYPES.payment),
       notes: String(data.notes || '').trim() || null,
       amountTendered: tendered.amountTendered,
